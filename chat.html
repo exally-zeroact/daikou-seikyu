@@ -1,0 +1,1719 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Exally（エクサリー）- デモ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;font-family:'Noto Sans JP','DM Sans',sans-serif;background:#F4F7F5;color:#2E4038;overflow:hidden;}
+.ob-overlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:16px;}
+.ob-overlay.hide{display:none;}
+.ob-card{background:#ffffff;border-radius:24px;width:100%;max-width:440px;overflow:hidden;display:flex;flex-direction:column;}
+.ob-body{flex:1;padding:20px 24px 12px;display:flex;flex-direction:column;align-items:center;text-align:center;}
+.ob-icon{font-size:44px;margin-bottom:10px;}
+.ob-badge{display:inline-block;background:#F0FAF4;border:1px solid #C8ECD8;color:#3D9E72;font-size:11px;font-weight:700;padding:3px 12px;border-radius:20px;margin-bottom:8px;}
+.ob-title{font-size:20px;font-weight:700;color:#1A2B22;line-height:1.4;margin-bottom:8px;}
+.ob-sub{font-size:12px;color:#7A9A87;line-height:1.7;margin-bottom:0;}
+.ob-price{margin-top:12px;background:#F0FAF4;border:1.5px solid #C8ECD8;border-radius:16px;padding:12px 16px;text-align:center;width:100%;}
+.ob-price-main{font-family:'DM Mono',monospace;font-size:32px;font-weight:500;color:#3D9E72;}
+.ob-price-sub{font-size:11px;color:#7A9A87;margin-top:4px;line-height:1.6;}
+.ob-free-note{margin-top:8px;font-size:11px;color:#3D9E72;font-weight:700;}
+.ob-steps{width:100%;margin-top:10px;}
+.ob-step{display:flex;align-items:flex-start;gap:10px;background:#F0FAF4;border-radius:10px;padding:9px 12px;margin-bottom:7px;text-align:left;border:1px solid #D4EDE1;}
+.ob-step-num{width:24px;height:24px;border-radius:50%;background:#52B788;color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;}
+.ob-step-text{font-size:12px;color:#2E4038;line-height:1.4;}
+.ob-step-text strong{color:#1A2B22;}
+.ob-cats{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;margin-top:14px;}
+.ob-cat{background:#ffffff;border:1.5px solid #D4EDE1;border-radius:14px;padding:16px 10px;text-align:center;cursor:pointer;transition:all 0.18s;}
+.ob-cat:hover{border-color:#52B788;background:#F0FAF4;}
+.ob-cat.selected{border-color:#52B788;background:#F0FAF4;}
+.ob-cat-icon{font-size:26px;margin-bottom:6px;}
+.ob-cat-label{font-size:12px;font-weight:700;color:#1A2B22;}
+.ob-footer{padding:12px 20px 16px;border-top:1px solid #D4EDE1;background:#ffffff;}
+.ob-dots{display:flex;justify-content:center;gap:6px;margin-bottom:12px;}
+.ob-dot{width:6px;height:6px;border-radius:3px;background:#D4EDE1;transition:all 0.3s;}
+.ob-dot.active{width:20px;background:#52B788;}
+.ob-next{width:100%;padding:14px;background:#52B788;color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all 0.2s;}
+.ob-next:hover{background:#3D9E72;}
+.ob-skip{display:block;text-align:center;margin-top:10px;font-size:12px;color:#7A9A87;cursor:pointer;}
+.ob-skip:hover{color:#3D9E72;}
+.layout{display:flex;height:100dvh;width:100%;}
+.sidebar{display:none;}
+@media(min-width:769px){
+.sidebar{display:flex;flex-direction:column;width:220px;min-width:220px;background:#ffffff;border-right:1px solid #D4EDE1;padding:24px 0;height:100dvh;flex-shrink:0;}
+.sidebar-logo{padding:0 20px 28px;display:flex;align-items:baseline;gap:5px;text-decoration:none;}
+.sidebar-logo-en{font-family:monospace;font-size:22px;font-weight:800;color:#52B788;letter-spacing:-0.5px;}
+.sidebar-logo-ja{font-size:10px;font-weight:600;color:#4A6B5A;}
+.sidebar-nav{flex:1;padding:0 12px;display:flex;flex-direction:column;gap:4px;}
+.sidebar-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;cursor:pointer;border:none;background:none;font-family:'Noto Sans JP',sans-serif;width:100%;text-align:left;color:#2E4038;font-size:13px;font-weight:500;transition:all 0.18s;}
+.sidebar-item:hover{background:#F0FAF4;color:#2E4038;}
+.sidebar-item.active{background:#F0FAF4;color:#2E4038;font-weight:700;}
+.sidebar-item-icon{font-size:18px;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;text-align:center;flex-shrink:0;}
+.sidebar-item-icon svg{width:20px;height:20px;display:block;}
+.sidebar-footer{padding:16px 20px;border-top:1px solid #D4EDE1;display:flex;flex-direction:column;gap:8px;}
+.sidebar-badge{font-size:11px;font-weight:700;padding:5px 10px;border-radius:20px;text-align:center;}
+.demo-badge-s{background:#FFF8EE;border:1px solid #F4A942;color:#9A6000;}
+.trial-badge-s{background:#F0FAF4;border:1px solid #C8ECD8;color:#3D9E72;}
+}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;height:100dvh;}
+.mobile-header{background:#ffffff;border-bottom:1px solid #D4EDE1;padding:0 16px;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.mobile-header-logo{display:flex;align-items:baseline;gap:4px;text-decoration:none;}
+.mobile-logo-en{font-family:monospace;font-size:20px;font-weight:800;color:#52B788;}
+.mobile-logo-ja{font-size:10px;font-weight:600;color:#4A6B5A;}
+.mobile-header-right{display:flex;gap:6px;align-items:center;}
+.hbadge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;}
+.hbadge-warn{background:#FFF8EE;border:1px solid #F4A942;color:#9A6000;}
+.hbadge-mint{background:#F0FAF4;border:1px solid #C8ECD8;color:#3D9E72;}
+@media(min-width:769px){.mobile-header{display:none;}}
+.screen-area{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;background:#F4F7F5;}
+.screen{display:none;}
+.screen.active{display:block;}
+#screen-chat.active{display:flex!important;flex-direction:column;height:100%!important;overflow:hidden;}
+#screen-template.active{display:flex!important;flex-direction:column;}
+.bottom-nav{background:#ffffff;border-top:1px solid #D4EDE1;display:flex;flex-shrink:0;padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -2px 10px rgba(30,60,40,0.06);}
+.nav-item{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 1px 5px;cursor:pointer;border:none;background:none;font-family:'Noto Sans JP',sans-serif;position:relative;}
+.nav-item .nav-icon{font-size:15px;line-height:1;display:inline-flex;align-items:center;justify-content:center;height:16px;}
+.nav-item .nav-icon svg{width:15px;height:15px;}
+.nav-item .nav-label{font-size:9px;font-weight:700;letter-spacing:-0.3px;color:#2E4038;margin-top:2px;white-space:nowrap;}
+.nav-item.active .nav-label{color:#2E4038;font-weight:700;}
+.nav-item.nav-disabled{cursor:not-allowed;opacity:0.45;pointer-events:none;}
+.nav-badge{position:absolute;top:4px;right:calc(50% - 12px);width:6px;height:6px;background:#E05555;border-radius:50%;border:1.5px solid #ffffff;display:none;}
+.nav-badge.show{display:block;}
+@media(min-width:769px){.bottom-nav{display:none;}}
+.chat-wrap{display:flex;flex-direction:column;height:100%;}
+.chat-area{flex:1;overflow-y:auto;padding:16px 16px 10px;display:flex;flex-direction:column;gap:12px;}
+@media(min-width:769px){.chat-area{padding:24px 40px 16px;max-width:860px;margin:0 auto;width:100%;}}
+.welcome-msg{text-align:center;padding:16px 14px 14px;background:#ffffff;border-radius:20px;box-shadow:0 2px 12px rgba(30,60,40,0.08);}
+.welcome-sub{display:none;}
+.cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;margin-bottom:8px;}
+.cat-card{background:#fff;border:2px solid #E8F0EC;border-radius:20px;padding:12px 10px 10px;cursor:pointer;transition:all 0.2s;text-align:center;position:relative;overflow:hidden;box-shadow:0 2px 8px rgba(30,60,40,0.08);}
+.cat-card:active{transform:scale(0.95);}
+.cat-card:hover{box-shadow:0 4px 16px rgba(30,60,40,0.13);transform:translateY(-2px);}
+.cat-card.active{border-color:#52B788;background:#F0FAF4;}
+.cat-card-icon{font-size:26px;margin-bottom:6px;display:block;line-height:1;}
+.cat-card-title{font-size:13px;font-weight:700;color:#1A2B22;margin-bottom:4px;line-height:1.35;}
+.cat-card-sub{font-size:10px;color:#7A9A87;line-height:1.5;}
+.cat-card.ops-card{background:#fff;border-color:#C8ECD8;}
+.cat-card.func-card{background:#fff;border-color:#C8ECD8;}
+.cat-card.err-card{background:#fff;border-color:#C8ECD8;}
+.cat-card.pay-card{background:#fff;border-color:#C8ECD8;}
+.cat-card.data-card{background:#fff;border-color:#C8ECD8;}
+.cat-card.tips-card{background:#fff;border-color:#C8ECD8;}
+.q-panel{background:#fff;border:1.5px solid #E8F0EC;border-radius:16px;overflow:hidden;margin-top:4px;display:none;width:100%;}
+.q-panel.show{display:block;}
+.q-panel-header{padding:10px 14px 8px;border-bottom:1px solid #F0FAF4;display:flex;align-items:center;justify-content:space-between;}
+.q-panel-label{font-size:11px;font-weight:700;color:#3D9E72;}
+.q-panel-close{font-size:18px;color:#B0C4BA;cursor:pointer;line-height:1;}
+.q-panel-back{background:none;border:none;font-size:16px;color:#3D9E72;cursor:pointer;padding:0 8px 0 0;font-weight:700;line-height:1;}
+.q-list{display:flex;flex-direction:column;}
+.q-btn{display:flex;align-items:center;gap:10px;padding:11px 14px;font-size:12px;font-weight:500;color:#2E4038;cursor:pointer;transition:background 0.12s;border-bottom:1px solid #F4F7F5;background:#fff;border-left:none;border-right:none;border-top:none;text-align:left;width:100%;font-family:'Noto Sans JP',sans-serif;}
+.q-btn:last-child{border-bottom:none;}
+.q-btn:hover{background:#F8FEFC;}
+.q-btn:active{background:#F0FAF4;}
+.q-btn-icon{font-size:15px;flex-shrink:0;}
+.q-btn-arrow{margin-left:auto;color:#C8ECD8;font-size:14px;flex-shrink:0;}
+.quick-btns{display:flex;flex-direction:column;gap:8px;max-width:480px;margin:0 auto;}
+.quick-btn{background:#F0FAF4;border:1.5px solid #E0EDE6;border-radius:10px;padding:8px 12px;font-size:12px;color:#1A2B22;cursor:pointer;font-family:'Noto Sans JP',sans-serif;text-align:left;width:100%;}
+.msg{display:flex;gap:9px;align-items:flex-end;max-width:85%;}
+.msg.user{flex-direction:row-reverse;align-self:flex-end;}
+.msg.ai{align-self:flex-start;}
+.msg-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
+.msg.ai .msg-avatar{background:#3D9E72;color:white;}
+.msg.user .msg-avatar{background:#52B788;color:white;}
+.msg-bubble{background:#ffffff;border:1px solid #D4EDE1;border-radius:16px 16px 16px 4px;padding:12px 14px;font-size:13px;line-height:1.75;color:#2E4038;box-shadow:0 1px 4px rgba(30,60,40,0.07);}
+.msg.user .msg-bubble{background:#52B788;border-color:#52B788;color:white;border-radius:16px 16px 4px 16px;}
+.msg.ai.memory-active .msg-bubble{background:#F0FAF4;border-color:#C8ECD8;}
+.formula-block{background:#C8ECD8;color:#1A4A2E;font-family:'DM Mono',monospace;font-size:12px;padding:10px 12px;border-radius:8px;margin:10px 0;white-space:pre-wrap;word-break:break-all;line-height:1.6;}
+.inline-code{font-family:'DM Mono',monospace;background:rgba(82,183,136,0.12);color:#3D9E72;padding:1px 5px;border-radius:4px;font-size:11px;}
+.msg-actions{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;}
+.copy-btn,.save-btn{background:#C8ECD8;border:none;color:#1A4A2E;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all 0.18s;}
+.copy-btn:hover,.save-btn:hover{background:#3D9E72;color:white;}
+.tsv-block{background:#F0FAF4;border:2px solid #52B788;border-radius:10px;padding:12px 14px;margin:10px 0;font-family:'DM Mono',monospace;font-size:11px;color:#1A4A2E;line-height:1.8;white-space:pre-wrap;word-break:break-all;}
+.tsv-block-label{font-size:11px;font-weight:700;color:#3D9E72;margin-bottom:6px;}
+.copy-tsv-btn{display:block;width:100%;margin-top:8px;padding:10px;background:#52B788;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;text-align:center;}
+.copy-tsv-btn:hover{background:#3D9E72;}
+.typing{display:flex;gap:4px;padding:4px 0;}
+.typing span{width:7px;height:7px;background:#C8ECD8;border-radius:50%;animation:typing 1.2s infinite;}
+.typing span:nth-child(2){animation-delay:0.2s;}
+.typing span:nth-child(3){animation-delay:0.4s;}
+@keyframes typing{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+.limit-banner{background:#FFF8EE;border:1.5px solid #F4A942;border-radius:12px;padding:12px 14px;margin:0 16px;display:none;align-items:center;gap:10px;}
+.limit-banner.show{display:flex;}
+@media(min-width:769px){.limit-banner{margin:0 40px;max-width:640px;}}
+.limit-banner p{font-size:12px;color:#7A5500;flex:1;line-height:1.6;}
+.limit-btn{background:#52B788;color:white;border:none;border-radius:8px;padding:7px 13px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;white-space:nowrap;}
+.ptab-wrap{flex-shrink:0;background:#fff;border-top:1px solid #E0EDE6;padding:3px 14px;}
+.ptab-toggle-btn{width:100%;background:none;border:none;color:#3D9E72;font-size:12px;font-weight:700;padding:5px 0;cursor:pointer;font-family:'Noto Sans JP',sans-serif;text-align:left;}
+.ptab-expanded{display:flex;flex-direction:row;overflow-x:auto;gap:8px;padding:4px 0;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.ptab-expanded::-webkit-scrollbar{display:none;}
+.ptab-expanded .quick-btn{white-space:nowrap;flex-shrink:0;padding:4px 12px;border-radius:20px;font-size:11px;width:auto;}
+.chat-input-wrap{padding:10px 16px max(14px,env(safe-area-inset-bottom));background:#ffffff;border-top:1px solid #D4EDE1;display:flex;gap:9px;align-items:flex-end;position:sticky;bottom:0;z-index:10;flex-shrink:0;}
+@media(min-width:769px){.chat-input-wrap{padding:14px 40px 20px;max-width:860px;margin:0 auto;width:100%;border-top:none;}}
+.chat-input{flex:1;background:#F0FAF4;border:1.5px solid #D4EDE1;border-radius:12px;padding:11px 14px;font-size:14px;font-family:'Noto Sans JP',sans-serif;color:#2E4038;outline:none;resize:none;min-height:44px;max-height:120px;transition:border-color 0.2s;line-height:1.5;}
+.chat-input:focus{border-color:#52B788;background:#ffffff;}
+.chat-input::placeholder{color:#7A9A87;}
+.send-btn{width:44px;height:44px;background:#52B788;color:white;border:none;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all 0.18s;}
+.send-btn:hover{background:#3D9E72;}
+.send-btn:disabled{background:#C8ECD8;cursor:not-allowed;}
+.send-btn svg{width:18px;height:18px;fill:white;}
+.book-scroll{padding:20px 16px 24px;max-width:680px;margin:0 auto;}
+@media(min-width:769px){.book-scroll{padding:32px 40px 40px;}}
+.save-bar{display:flex;align-items:center;justify-content:space-between;background:#F0FAF4;border:1px solid #C8ECD8;border-radius:10px;padding:8px 12px;margin-top:6px;font-size:12px;color:#3D9E72;font-weight:700;}
+.related-hints{margin-top:8px;padding-top:8px;border-top:1px solid #E8F5EE;}
+.related-hints-label{font-size:10px;color:#7A9A87;font-weight:700;margin-bottom:4px;}
+.related-hint-btn{display:block;width:100%;background:#F8FEFC;border:1px solid #C8ECD8;border-radius:8px;padding:6px 10px;font-size:11px;color:#2E4038;cursor:pointer;text-align:left;font-family:'Noto Sans JP',sans-serif;transition:all 0.15s;margin-top:4px;}
+.related-hint-btn:hover{background:#F0FAF4;border-color:#52B788;color:#3D9E72;}
+.save-bar.saved{background:#F4F7F5;border-color:#E0EDE6;color:#9CA3AF;}
+.save-bar-btn{background:#52B788;border:none;color:#fff;font-size:12px;font-weight:700;padding:5px 14px;border-radius:20px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;white-space:nowrap;}
+.fb-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.fb-title{font-size:18px;font-weight:700;color:#1A2B22;}
+.fb-count{font-size:12px;color:#7A9A87;}
+.fb-empty{text-align:center;padding:48px 20px;color:#7A9A87;}
+.fb-empty-icon{font-size:48px;margin-bottom:12px;}
+.fb-empty h3{font-size:16px;font-weight:700;color:#1A2B22;margin-bottom:8px;}
+.fb-empty p{font-size:13px;line-height:1.8;}
+.fb-list{display:flex;flex-direction:column;gap:10px;}
+.fb-item{background:#ffffff;border-radius:16px;padding:14px 16px;border:1px solid #D4EDE1;}
+.fb-item-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.fb-item-title{font-size:13px;font-weight:700;color:#1A2B22;}
+.fb-item-date{font-size:11px;color:#7A9A87;}
+.fb-item-formula{font-family:'DM Mono',monospace;font-size:12px;color:#3D9E72;background:#F0FAF4;padding:8px 12px;border-radius:8px;margin-bottom:10px;word-break:break-all;}
+.fb-item-actions{display:flex;gap:7px;}
+.fb-action-btn{background:#F4F7F5;border:1px solid #D4EDE1;color:#2E4038;border-radius:8px;padding:5px 12px;font-size:11px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all 0.18s;}
+.fb-action-btn:hover{background:#F0FAF4;}
+.fb-delete-btn{color:#E05555;}
+.quiz-scroll{padding:20px 16px 24px;max-width:680px;margin:0 auto;}
+@media(min-width:769px){.quiz-scroll{padding:32px 40px 40px;}}
+.quiz-title-area{margin-bottom:20px;}
+.quiz-main-title{font-size:20px;font-weight:700;color:#1A2B22;margin-bottom:5px;}
+.quiz-main-sub{font-size:13px;color:#7A9A87;line-height:1.7;}
+.level-cards{display:flex;flex-direction:column;gap:10px;}
+.level-card{background:#ffffff;border-radius:16px;padding:16px;cursor:pointer;border:1.5px solid #D4EDE1;transition:all 0.18s;display:flex;align-items:center;gap:14px;}
+.level-card:hover{border-color:#52B788;transform:translateY(-1px);box-shadow:0 4px 16px rgba(30,60,40,0.10);}
+.level-icon{font-size:28px;width:44px;text-align:center;flex-shrink:0;}
+.level-info{flex:1;}
+.level-name{font-size:14px;font-weight:700;color:#1A2B22;margin-bottom:3px;}
+.level-desc{font-size:11px;color:#7A9A87;line-height:1.6;}
+.level-badge{font-size:10px;padding:3px 9px;border-radius:20px;border:1px solid #D4EDE1;color:#7A9A87;white-space:nowrap;}
+.level-badge.easy{border-color:#A8DFBF;color:#2E7D54;background:#E8F8EF;}
+.level-badge.medium{border-color:#FFD980;color:#7A5500;background:#FFF8E0;}
+.level-badge.hard{border-color:#FFAB91;color:#B54000;background:#FFF3EE;}
+.level-badge.expert{border-color:#CE93D8;color:#6A1B9A;background:#F9F0FF;}
+.quiz-questions{display:none;}
+.quiz-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.quiz-num{font-size:12px;color:#7A9A87;}
+.quiz-level-tag{font-size:11px;font-weight:700;color:#3D9E72;background:#F0FAF4;padding:3px 10px;border-radius:20px;}
+.quiz-progress{background:#F0FAF4;border-radius:6px;height:5px;overflow:hidden;margin-bottom:18px;}
+.quiz-bar{background:#52B788;height:100%;border-radius:6px;transition:width 0.4s;}
+.quiz-question{background:#ffffff;border-radius:16px;padding:18px 16px;margin-bottom:14px;border:1px solid #D4EDE1;}
+.quiz-q-text{font-size:15px;font-weight:700;color:#1A2B22;line-height:1.55;margin-bottom:10px;}
+.quiz-hint{font-family:'DM Mono',monospace;font-size:11px;color:#3D9E72;background:#F0FAF4;padding:8px 11px;border-radius:8px;margin-top:8px;display:none;}
+.quiz-choices{display:flex;flex-direction:column;gap:9px;}
+.quiz-choice{background:#ffffff;border:1.5px solid #D4EDE1;border-radius:12px;padding:13px 15px;font-size:13px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;text-align:left;display:flex;align-items:center;gap:11px;transition:all 0.18s;color:#2E4038;}
+.quiz-choice:hover{border-color:#52B788;background:#F0FAF4;}
+.quiz-choice-label{width:22px;height:22px;border-radius:50%;border:1.5px solid #D4EDE1;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;color:#7A9A87;}
+.quiz-choice.correct{background:#F0FAF4;border-color:#52B788;color:#3D9E72;}
+.quiz-choice.correct .quiz-choice-label{background:#52B788;border-color:#52B788;color:white;}
+.quiz-choice.wrong{background:#FFF0F0;border-color:#E05555;color:#E05555;}
+.quiz-choice.wrong .quiz-choice-label{background:#E05555;border-color:#E05555;color:white;}
+.quiz-result{display:none;text-align:center;padding:32px 16px;}
+.quiz-result.show{display:block;}
+.qr-icon{font-size:56px;margin-bottom:12px;}
+.qr-title{font-size:20px;font-weight:700;color:#1A2B22;margin-bottom:7px;}
+.qr-score{font-family:'DM Mono',monospace;font-size:36px;font-weight:500;color:#3D9E72;margin-bottom:7px;}
+.qr-msg{font-size:13px;color:#7A9A87;line-height:1.7;margin-bottom:14px;}
+.qr-score-update{background:#F0FAF4;border:1px solid #C8ECD8;border-radius:12px;padding:12px;font-size:13px;font-weight:700;color:#3D9E72;margin-bottom:20px;}
+.qr-btns{display:flex;gap:9px;}
+.qr-btn{flex:1;padding:13px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;border:none;transition:all 0.18s;}
+.qr-btn.primary{background:#52B788;color:white;}
+.qr-btn.primary:hover{background:#3D9E72;}
+.qr-btn.secondary{background:#F4F7F5;color:#2E4038;border:1.5px solid #D4EDE1;}
+.settings-scroll{padding:20px 16px 24px;max-width:680px;margin:0 auto;}
+@media(min-width:769px){.settings-scroll{padding:32px 40px 40px;}}
+.settings-title{font-size:18px;font-weight:700;color:#1A2B22;margin-bottom:20px;}
+.settings-section{margin-bottom:22px;}
+.settings-section-title{font-size:11px;font-weight:700;color:#7A9A87;letter-spacing:1px;margin-bottom:10px;padding:0 4px;}
+.settings-card{background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #D4EDE1;}
+.settings-item{display:flex;align-items:center;justify-content:space-between;padding:15px 16px;border-bottom:1px solid #D4EDE1;cursor:pointer;transition:background 0.18s;}
+.settings-item:last-child{border-bottom:none;}
+.settings-item:hover{background:#F0FAF4;}
+.settings-item-left{display:flex;align-items:center;gap:12px;}
+.settings-item-icon{font-size:18px;width:26px;text-align:center;}
+.settings-item-label{font-size:14px;color:#1A2B22;font-weight:500;}
+.settings-item-sub{font-size:11px;color:#7A9A87;margin-top:1px;}
+.settings-item-right{display:flex;align-items:center;gap:8px;color:#7A9A87;font-size:12px;}
+.plan-badge{background:#F0FAF4;border:1px solid #C8ECD8;color:#3D9E72;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:200;display:none;align-items:flex-end;justify-content:center;}
+.modal-overlay.show{display:flex;}
+@media(min-width:769px){.modal-overlay{align-items:center;}}
+.modal{background:#ffffff;border-radius:24px 24px 0 0;padding:24px 20px max(24px,env(safe-area-inset-bottom));width:100%;max-width:480px;animation:slideUp 0.3s cubic-bezier(.4,0,.2,1);}
+@media(min-width:769px){.modal{border-radius:24px;animation:fadeIn 0.2s ease;}}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0;transform:scale(0.97)}to{opacity:1;transform:scale(1)}}
+.modal h3{font-size:16px;font-weight:700;color:#1A2B22;margin-bottom:16px;}
+.modal-label{font-size:12px;color:#7A9A87;margin-bottom:6px;font-weight:600;}
+.modal-input{width:100%;background:#F0FAF4;border:1.5px solid #D4EDE1;border-radius:10px;padding:12px 13px;font-size:14px;font-family:'Noto Sans JP',sans-serif;color:#2E4038;outline:none;margin-bottom:13px;transition:border-color 0.2s;}
+.modal-input:focus{border-color:#52B788;}
+.modal-btns{display:flex;gap:9px;}
+.modal-btn{flex:1;padding:14px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;border:none;transition:all 0.18s;}
+.modal-btn.primary{background:#52B788;color:white;}
+.modal-btn.primary:hover{background:#3D9E72;}
+.modal-btn.secondary{background:#F4F7F5;color:#2E4038;border:1.5px solid #D4EDE1;}
+.upgrade-modal{background:#ffffff;border-radius:24px 24px 0 0;padding:24px 20px max(28px,env(safe-area-inset-bottom));width:100%;max-width:480px;animation:slideUp 0.3s cubic-bezier(.4,0,.2,1);}
+@media(min-width:769px){.upgrade-modal{border-radius:24px;animation:fadeIn 0.2s ease;}}
+.upgrade-modal-header{text-align:center;margin-bottom:20px;}
+.upgrade-modal-icon{font-size:40px;margin-bottom:10px;}
+.upgrade-modal-title{font-size:20px;font-weight:700;color:#1A2B22;margin-bottom:5px;}
+.upgrade-modal-sub{font-size:13px;color:#7A9A87;}
+.upgrade-price-box{background:#F0FAF4;border:1.5px solid #C8ECD8;border-radius:16px;padding:16px;text-align:center;margin-bottom:18px;}
+.upgrade-price-main{font-family:'DM Mono',monospace;font-size:36px;font-weight:500;color:#3D9E72;}
+.upgrade-price-sub{font-size:12px;color:#7A9A87;margin-top:4px;}
+.upgrade-features{display:flex;flex-direction:column;gap:9px;margin-bottom:20px;}
+.upgrade-feature{display:flex;align-items:center;gap:10px;font-size:13px;color:#2E4038;}
+.upgrade-feature-check{color:#52B788;font-size:16px;flex-shrink:0;}
+.upgrade-cta-main{width:100%;padding:16px;background:#52B788;color:white;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all 0.2s;margin-bottom:10px;}
+.upgrade-cta-main:hover{background:#3D9E72;}
+.upgrade-cancel-note{text-align:center;font-size:12px;color:#7A9A87;}
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:#3D9E72;color:white;padding:11px 20px;border-radius:24px;font-size:13px;font-weight:500;white-space:nowrap;z-index:999;opacity:0;transition:all 0.3s;pointer-events:none;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+@media(min-width:769px){.toast{bottom:30px;}}
+.tmpl-iframe-screen{display:none;position:fixed;inset:0;z-index:300;flex-direction:column;background:#F4F7F5;}
+.tmpl-iframe-screen.show{display:flex;}
+.tmpl-iframe-bar{background:#fff;border-bottom:1px solid #E0EDE6;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0;}
+.tmpl-iframe-back{background:none;border:1.5px solid #E0EDE6;color:#3D9E72;font-size:12px;font-weight:700;padding:6px 14px;border-radius:20px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+.tmpl-iframe-title{font-size:13px;font-weight:700;color:#4A6B5A;}
+.tmpl-iframe-wrap{flex:1;overflow:clip;}
+.tmpl-iframe-wrap iframe{width:100%;height:100%;border:none;}
+.tmpl-gallery{padding:20px 16px 20px;max-width:860px;margin:0 auto;}
+@media(min-width:769px){.tmpl-gallery{padding:32px 40px 40px;}}
+.tmpl-gallery-title{font-size:18px;font-weight:700;color:#1A2B22;margin-bottom:4px;}
+.tmpl-gallery-sub{font-size:12px;color:#7A9A87;margin-bottom:20px;line-height:1.6;}
+.tmpl-cards-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media(min-width:600px){.tmpl-cards-grid{grid-template-columns:repeat(3,1fr);}}
+.tmpl-card-item{background:#fff;border-radius:16px;overflow:hidden;border:1.5px solid #E0EDE6;cursor:pointer;transition:all 0.18s;box-shadow:0 1px 4px rgba(30,60,40,0.07);}
+.tmpl-card-item:hover{border-color:#52B788;transform:translateY(-2px);box-shadow:0 6px 20px rgba(30,60,40,0.12);}
+.tmpl-card-preview{height:170px;background:#F8FEFA;overflow:hidden;position:relative;}
+.tmpl-card-preview::after{content:'';position:absolute;bottom:0;left:0;right:0;height:44px;background:linear-gradient(transparent,#F8FEFA);pointer-events:none;z-index:2;}
+.preview-inner{width:100%;position:relative;transform:scale(0.70);transform-origin:top center;pointer-events:none;z-index:1;overflow:hidden;}
+.preview-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#B0C4BA;gap:6px;}
+.preview-placeholder-icon{font-size:28px;}
+.preview-placeholder-text{font-size:10px;}
+.tmpl-card-preview-note{position:absolute;bottom:4px;right:6px;font-size:9px;color:#B0C4BA;z-index:3;}
+.tmpl-card-body{padding:4px 8px 4px;}
+.tmpl-card-name{font-size:12px;font-weight:700;color:#1A2B22;margin-bottom:0;}
+.tmpl-card-desc{display:none;}
+.formula-text,.formula-chip,.code-block,pre,code{font-family:'DM Mono',monospace;}
+.cat-card-wide{border:1.5px solid #52B788;border-radius:16px;padding:14px 16px;cursor:pointer;transition:all 0.18s;display:flex;align-items:center;justify-content:space-between;width:100%;background:linear-gradient(135deg,#3D9E72,#52B788);box-shadow:0 3px 12px rgba(61,158,114,0.25);}
+.cat-card-wide .cat-card-title{color:#fff;}
+.cat-card-wide .cat-card-sub{color:rgba(255,255,255,0.85);}
+.cat-card-wide-arrow{font-size:20px;color:rgba(255,255,255,0.8);font-weight:700;}
+.cat-card-wide:active{transform:scale(0.98);}
+.cat-card-wide-left{display:flex;align-items:center;gap:10px;}
+.arg-blue{color:#4A90D9;font-weight:700;}
+.arg-orange{color:#E8843A;font-weight:700;}
+.arg-purple{color:#9B5DE5;font-weight:700;}
+.arg-green{color:#2E9E6B;font-weight:700;}
+.memory-bar{font-size:11px;color:#3D9E72;padding:4px 4px 6px;display:flex;align-items:center;gap:4px;flex-shrink:0;width:100%;justify-content:space-between;}
+.memory-label{font-size:10px;color:#3D9E72;font-weight:700;padding:6px 0 2px 44px;display:flex;align-items:center;gap:6px;letter-spacing:0.3px;}
+.memory-label::after{content:'';flex:1;height:1px;background:#C8ECD8;}
+.new-chat-link{font-size:11px;color:#7A9A87;cursor:pointer;white-space:nowrap;padding:2px 6px;border-radius:6px;transition:all 0.18s;display:none;background:none;border:none;font-family:'Noto Sans JP',sans-serif;}
+.new-chat-link:hover{color:#3D9E72;background:#F0FAF4;}
+@media(min-width:769px){.ptab-wrap{max-width:860px;margin:0 auto;width:100%;border-top:none;padding:4px 40px;}}
+@media(min-width:769px){.memory-bar{padding:6px 0 8px;justify-content:flex-start;gap:20px;font-size:13px;}#memoryBarText{flex:none;}.chat-back-btn{font-size:13px;}.new-chat-link{font-size:12px;}.ptab-expanded .quick-btn{padding:7px 18px;font-size:13px;}}
+@media(min-width:769px){.chat-input{font-size:15px;padding:13px 16px;min-height:50px;}}
+@media(max-width:480px){.memory-bar{font-size:10px;gap:2px;}.chat-back-btn{font-size:11px;}.new-chat-link{font-size:10px;}#memoryBarText{flex:1;}}
+.chat-back-bar{padding:6px 16px;background:#F8FEFC;border-top:1px solid #E8F0EC;flex-shrink:0;}
+@media(min-width:769px){.chat-back-bar{max-width:860px;margin:0 auto;width:100%;padding:4px 40px 2px;}}
+.chat-back-btn{background:none;border:none;font-size:12px;color:#3D9E72;font-weight:700;cursor:pointer;padding:0;white-space:nowrap;flex-shrink:0;}
+.back-pc{display:none;}
+@media(min-width:481px){.back-mobile{display:none;}.back-pc{display:inline;}}
+.fb-item-memo{font-size:13px;color:#2E4038;line-height:1.75;margin-bottom:8px;padding:10px 12px;background:#F8FEFC;border-radius:8px;border:1px solid #E0EDE6;}
+.fb-delete-btn{background:#F4F7F5;border:1px solid #D4EDE1;color:#E05555;border-radius:8px;padding:5px 12px;font-size:11px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all 0.18s;}
+.fb-delete-btn:hover{background:#FFF0F0;}
+
+/* Excelバージョン選択モーダル（home.htmlと同じ） */
+.vm-ov{position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,0.55);display:none;align-items:center;justify-content:center;padding:16px;}
+.vm-ov.show{display:flex;}
+.vm-cd{background:#ffffff;border-radius:20px;width:100%;max-width:420px;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;}
+.vm-hd{padding:18px 20px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #D4EDE1;}
+.vm-tt{font-size:16px;font-weight:700;color:#1A4A2E;}
+.vm-cl{background:none;border:none;font-size:22px;color:#7A9A87;cursor:pointer;padding:0 4px;line-height:1;}
+.vm-bd{padding:14px 18px 18px;overflow-y:auto;min-height:0;}
+.vm-ht{background:#FFF8EE;border:1px solid #F4A942;color:#9A6000;font-size:11px;font-weight:600;padding:8px 12px;border-radius:10px;text-align:center;line-height:1.5;margin-bottom:12px;}
+.vm-gr{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.vm-op{background:#ffffff;border:1.5px solid #D4EDE1;border-radius:12px;padding:10px 8px;text-align:center;cursor:pointer;transition:all 0.15s;}
+.vm-op:hover{border-color:#52B788;background:#F0FAF4;}
+.vm-op.current{border-color:#52B788;background:#F0FAF4;}
+.vm-op-ic{font-size:20px;margin-bottom:3px;}
+.vm-op-lb{font-size:11px;font-weight:700;color:#1A4A2E;}
+.vm-op.current .vm-op-lb{color:#3D9E72;}
+</style>
+
+</head>
+<body>
+
+<!-- 共通SVGアイコン定義（home.htmlと統一） -->
+
+<svg width="0" height="0" style="position:absolute;">
+  <defs>
+    <!-- Excel風グリッド -->
+    <symbol id="grid-icon" viewBox="0 0 40 40">
+      <rect x="4" y="4" width="32" height="32" rx="4" fill="#ffffff" stroke="#52B788" stroke-width="1.5"/>
+      <rect x="4" y="4" width="32" height="9" rx="4" fill="#52B788"/>
+      <rect x="4" y="9" width="32" height="4" fill="#52B788"/>
+      <line x1="16" y1="13" x2="16" y2="36" stroke="#C8ECD8" stroke-width="1"/>
+      <line x1="26" y1="13" x2="26" y2="36" stroke="#C8ECD8" stroke-width="1"/>
+      <line x1="4" y1="22" x2="36" y2="22" stroke="#C8ECD8" stroke-width="1"/>
+      <line x1="4" y1="30" x2="36" y2="30" stroke="#C8ECD8" stroke-width="1"/>
+      <rect x="5" y="14" width="10" height="7" fill="#F0FAF4"/>
+      <rect x="4" y="13" width="12" height="9" fill="none" stroke="#3D9E72" stroke-width="1.5"/>
+    </symbol>
+
+<!-- 電子ハンコ（正方形） -->
+<symbol id="stamp-icon" viewBox="0 0 40 40">
+  <rect x="6" y="6" width="28" height="28" fill="#ffffff" stroke="#E53935" stroke-width="1.8"/>
+  <text x="20" y="24" text-anchor="middle" font-family="'Noto Sans JP',sans-serif" font-weight="900" font-size="9" font-style="italic" fill="#E53935" letter-spacing="-0.4">Exally</text>
+</symbol>
+
+<!-- 表を読み込む -->
+<symbol id="import-icon" viewBox="0 0 40 40">
+  <rect x="6" y="10" width="28" height="24" rx="3" fill="#ffffff" stroke="#52B788" stroke-width="1.5"/>
+  <line x1="6" y1="17" x2="34" y2="17" stroke="#C8ECD8" stroke-width="1"/>
+  <line x1="15" y1="17" x2="15" y2="34" stroke="#C8ECD8" stroke-width="1"/>
+  <line x1="25" y1="17" x2="25" y2="34" stroke="#C8ECD8" stroke-width="1"/>
+  <line x1="6" y1="25" x2="34" y2="25" stroke="#C8ECD8" stroke-width="1"/>
+  <circle cx="30" cy="10" r="7.5" fill="#3D9E72"/>
+  <path d="M30 6.5 L30 13.5 M26.5 10 L30 6.5 L33.5 10" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</symbol>
+
+<!-- テンプレ -->
+<symbol id="template-icon" viewBox="0 0 40 40">
+  <rect x="9" y="7" width="22" height="28" rx="3" fill="#ffffff" stroke="#52B788" stroke-width="1.5"/>
+  <rect x="14" y="5" width="12" height="6" rx="2" fill="#52B788"/>
+  <line x1="13" y1="17" x2="27" y2="17" stroke="#C8ECD8" stroke-width="1.3"/>
+  <line x1="13" y1="22" x2="27" y2="22" stroke="#C8ECD8" stroke-width="1.3"/>
+  <line x1="13" y1="27" x2="22" y2="27" stroke="#C8ECD8" stroke-width="1.3"/>
+</symbol>
+
+<!-- 数式帳 -->
+<symbol id="book-icon" viewBox="0 0 40 40">
+  <path d="M6 8 C6 7 7 6 8 6 L18 6 C19 6 20 7 20 8 L20 33 L8 33 C7 33 6 32 6 31 Z" fill="#52B788"/>
+  <path d="M20 8 C20 7 21 6 22 6 L32 6 C33 6 34 7 34 8 L34 31 C34 32 33 33 32 33 L20 33 Z" fill="#3D9E72"/>
+  <line x1="9" y1="11" x2="17" y2="11" stroke="#ffffff" stroke-width="1" opacity="0.7"/>
+  <line x1="9" y1="14" x2="17" y2="14" stroke="#ffffff" stroke-width="1" opacity="0.7"/>
+  <line x1="9" y1="17" x2="14" y2="17" stroke="#ffffff" stroke-width="1" opacity="0.7"/>
+  <line x1="23" y1="11" x2="31" y2="11" stroke="#ffffff" stroke-width="1" opacity="0.7"/>
+  <line x1="23" y1="14" x2="31" y2="14" stroke="#ffffff" stroke-width="1" opacity="0.7"/>
+  <line x1="23" y1="17" x2="28" y2="17" stroke="#ffffff" stroke-width="1" opacity="0.7"/>
+  <line x1="20" y1="6" x2="20" y2="33" stroke="#ffffff" stroke-width="0.5" opacity="0.5"/>
+</symbol>
+
+<!-- サイドバー小アイコン -->
+<symbol id="grid-sm" viewBox="0 0 20 20">
+  <rect x="2" y="2" width="16" height="16" rx="2" fill="#ffffff" stroke="#3D9E72" stroke-width="1.5"/>
+  <rect x="2" y="2" width="16" height="5" rx="2" fill="#52B788"/>
+  <rect x="2" y="5" width="16" height="2" fill="#52B788"/>
+  <line x1="8" y1="7" x2="8" y2="18" stroke="#C8ECD8" stroke-width="1"/>
+  <line x1="14" y1="7" x2="14" y2="18" stroke="#C8ECD8" stroke-width="1"/>
+  <line x1="2" y1="12" x2="18" y2="12" stroke="#C8ECD8" stroke-width="1"/>
+</symbol>
+<symbol id="stamp-sm" viewBox="0 0 20 20">
+  <rect x="3" y="3" width="14" height="14" fill="none" stroke="#E53935" stroke-width="1.5"/>
+  <text x="10" y="12" text-anchor="middle" font-family="'Noto Sans JP',sans-serif" font-weight="900" font-size="4.3" font-style="italic" fill="#E53935">Exally</text>
+</symbol>
+<symbol id="template-sm" viewBox="0 0 20 20">
+  <rect x="4" y="3" width="12" height="15" rx="1.5" fill="#ffffff" stroke="#3D9E72" stroke-width="1.5"/>
+  <rect x="7" y="2" width="6" height="3" rx="1" fill="#52B788"/>
+  <line x1="6" y1="9" x2="14" y2="9" stroke="#C8ECD8" stroke-width="1.2"/>
+  <line x1="6" y1="12" x2="14" y2="12" stroke="#C8ECD8" stroke-width="1.2"/>
+  <line x1="6" y1="15" x2="11" y2="15" stroke="#C8ECD8" stroke-width="1.2"/>
+</symbol>
+<symbol id="book-sm" viewBox="0 0 20 20">
+  <path d="M3 4 C3 3.5 3.5 3 4 3 L9 3 C9.5 3 10 3.5 10 4 L10 16.5 L4 16.5 C3.5 16.5 3 16 3 15.5 Z" fill="#52B788"/>
+  <path d="M10 4 C10 3.5 10.5 3 11 3 L16 3 C16.5 3 17 3.5 17 4 L17 15.5 C17 16 16.5 16.5 16 16.5 L10 16.5 Z" fill="#3D9E72"/>
+  <line x1="4.5" y1="5.5" x2="8.5" y2="5.5" stroke="#ffffff" stroke-width="0.7" opacity="0.8"/>
+  <line x1="4.5" y1="7.5" x2="8.5" y2="7.5" stroke="#ffffff" stroke-width="0.7" opacity="0.8"/>
+  <line x1="11.5" y1="5.5" x2="15.5" y2="5.5" stroke="#ffffff" stroke-width="0.7" opacity="0.8"/>
+  <line x1="11.5" y1="7.5" x2="15.5" y2="7.5" stroke="#ffffff" stroke-width="0.7" opacity="0.8"/>
+</symbol>
+
+  </defs>
+</svg>
+
+<div class="ob-overlay" id="onboarding">
+  <div class="ob-card">
+    <div class="ob-body" id="obBody">
+      <div id="ob0">
+        <div class="ob-icon">📊</div>
+        <div class="ob-badge">Excel専門AI</div>
+        <h2 class="ob-title">1日43円で、<br>Excel上級者と<br>同じ仕事ができる。</h2>
+        <p class="ob-sub">わからない瞬間に、すぐそこにいる。<br>日本語でそのまま質問するだけ。</p>
+        <div class="ob-price">
+          <div class="ob-price-main">¥43<span style="font-size:18px;opacity:0.7;">/日</span></div>
+          <div class="ob-price-sub">月額¥1,280（税込）<br>Excelの疑問が無制限に解決</div>
+          <div class="ob-free-note">✦ まず14日間、無料でお試しいただけます</div>
+        </div>
+      </div>
+      <div id="ob1" style="display:none;">
+        <div class="ob-icon">💬</div>
+        <div class="ob-badge">使い方</div>
+        <h2 class="ob-title">日本語で<br>話しかけるだけ。</h2>
+        <p class="ob-sub">専門用語はいりません。<br>「VLOOKUPが使いたい」「エラーが出る」<br>そのまま伝えるだけで解決します。</p>
+        <div class="ob-steps">
+          <div class="ob-step"><div class="ob-step-num">1</div><div class="ob-step-text"><strong>日本語で質問する</strong><br>困ったことをそのまま入力</div></div>
+          <div class="ob-step"><div class="ob-step-num">2</div><div class="ob-step-text"><strong>AIがすぐ答える</strong><br>数式・解説・コピペ用コードを生成</div></div>
+          <div class="ob-step"><div class="ob-step-num">3</div><div class="ob-step-text"><strong>マイ数式帳に保存</strong><br>使った数式をいつでも参照</div></div>
+        </div>
+      </div>
+      <div id="ob2" style="display:none;">
+        <div class="ob-icon">🎯</div>
+        <div class="ob-badge">カテゴリ選択</div>
+        <h2 class="ob-title">あなたの<br>目的を教えて。</h2>
+        <p class="ob-sub">あなたに合ったExcel学習を提案します。</p>
+        <div class="ob-cats">
+          <div class="ob-cat" onclick="selectCat(this,'データ分析')"><div class="ob-cat-icon">📊</div><div class="ob-cat-label">データ分析</div></div>
+          <div class="ob-cat" onclick="selectCat(this,'事務・書類作成')"><div class="ob-cat-icon">📋</div><div class="ob-cat-label">事務・書類作成</div></div>
+          <div class="ob-cat" onclick="selectCat(this,'財務・経理')"><div class="ob-cat-icon">💰</div><div class="ob-cat-label">財務・経理</div></div>
+          <div class="ob-cat" onclick="selectCat(this,'VBA・自動化')"><div class="ob-cat-icon">🚀</div><div class="ob-cat-label">VBA・自動化</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="ob-footer">
+      <div class="ob-dots">
+        <div class="ob-dot active" id="dot0"></div>
+        <div class="ob-dot" id="dot1"></div>
+        <div class="ob-dot" id="dot2"></div>
+      </div>
+      <button class="ob-next" id="obNextBtn" onclick="obNext()">次へ</button>
+      <span class="ob-skip" onclick="skipOnboarding()">スキップ</span>
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <a href="home.html" class="sidebar-logo">
+      <span class="sidebar-logo-en">Exally</span>
+      <span class="sidebar-logo-ja">エクサリー</span>
+    </a>
+    <nav class="sidebar-nav">
+      <button class="sidebar-item" id="snav-home" onclick="location.href='home.html'"><span class="sidebar-item-icon">🏠</span>ホーム</button>
+      <button class="sidebar-item active" id="snav-chat" onclick="switchTab('chat')"><span class="sidebar-item-icon">🤖</span>AIチャット</button>
+      <button class="sidebar-item" id="snav-booklink" onclick="location.href='book.html'"><span class="sidebar-item-icon"><svg><use href="#grid-sm"/></svg></span>ブック</button>
+      <button class="sidebar-item" id="snav-template" onclick="location.href='template.html'"><span class="sidebar-item-icon"><svg><use href="#template-sm"/></svg></span>テンプレ</button>
+      <button class="sidebar-item nav-disabled" id="snav-stamp"><span class="sidebar-item-icon"><svg><use href="#stamp-sm"/></svg></span>電子ハンコ</button>
+      <button class="sidebar-item" id="snav-book" onclick="switchTab('book')"><span class="sidebar-item-icon"><svg><use href="#book-sm"/></svg></span>数式帳</button>
+      <button class="sidebar-item" id="snav-quiz" onclick="switchTab('quiz')"><span class="sidebar-item-icon">🎯</span>クイズ</button>
+      <button class="sidebar-item" id="snav-verexcel" onclick="openVerModal()"><span class="sidebar-item-icon">📊</span>Excelバージョン</button>
+      <button class="sidebar-item" id="snav-settings" onclick="switchTab('settings')"><span class="sidebar-item-icon">⚙️</span>設定</button>
+    </nav>
+    <div class="sidebar-footer">
+      <span class="sidebar-badge demo-badge-s">デモ版</span>
+      <span class="sidebar-badge trial-badge-s">14日間無料トライアル中</span>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="mobile-header">
+      <a href="home.html" class="mobile-header-logo">
+        <span class="mobile-logo-en">Exally</span>
+        <span class="mobile-logo-ja">エクサリー</span>
+      </a>
+      <div class="mobile-header-right">
+        <span class="hbadge hbadge-warn">デモ版</span>
+        <span class="hbadge hbadge-mint">14日間無料</span>
+      </div>
+    </header>
+
+<div class="screen-area">
+  <!-- CHAT -->
+  <div class="screen active" id="screen-chat">
+    <div class="chat-wrap">
+      <div class="chat-area" id="chatArea">
+        <div class="welcome-msg" id="welcomeMsg">
+          <div class="welcome-sub">わからない操作・エラー・表作りまで何でも日本語で聞くだけでOK</div>
+          <div class="cat-grid">
+            <div class="cat-card err-card" id="card-err" onclick="togglePanel('err')">
+              <div class="cat-card-icon">⚠️</div>
+              <div class="cat-card-title">エラーが出て困っている</div>
+              <div class="cat-card-sub">#N/A・#VALUE!・<br>赤い文字が出た</div>
+            </div>
+            <div class="cat-card func-card" id="card-func" onclick="togglePanel('func')">
+              <div class="cat-card-icon">🔢</div>
+              <div class="cat-card-title">自動で計算させたい</div>
+              <div class="cat-card-sub">合計・検索・<br>条件分け</div>
+            </div>
+            <div class="cat-card data-card" id="card-data" onclick="togglePanel('data')">
+              <div class="cat-card-icon">📊</div>
+              <div class="cat-card-title">表を見せて質問する</div>
+              <div class="cat-card-sub">自分のセルに合った<br>数式をそのまま作れるよ</div>
+            </div>
+            <div class="cat-card pay-card" id="card-pay" onclick="location.href='template.html'">
+              <div class="cat-card-icon">📋</div>
+              <div class="cat-card-title">書類・表を作りたい</div>
+              <div class="cat-card-sub">給料明細・請求書・<br>集計表</div>
+            </div>
+            <div class="cat-card ops-card" id="card-ops" onclick="togglePanel('ops')">
+              <div class="cat-card-icon">💻</div>
+              <div class="cat-card-title">使い方がわからない</div>
+              <div class="cat-card-sub">印刷できない・固定・<br>置換・時短ワザ</div>
+            </div>
+            <div class="cat-card tips-card" id="card-tips" onclick="togglePanel('tips')">
+              <div class="cat-card-icon">⚡</div>
+              <div class="cat-card-title">知ると仕事が速くなる</div>
+              <div class="cat-card-sub">ショートカット・<br>条件付き書式</div>
+            </div>
+          </div>
+          <div class="q-panel" id="qPanel">
+            <div class="q-panel-header">
+              <button class="q-panel-back" onclick="closePanel()">←</button>
+              <div class="q-panel-label" id="qPanelLabel"></div>
+              <div class="q-panel-close" onclick="closePanel()">×</div>
+            </div>
+            <div class="q-list" id="qList"></div>
+          </div>
+        </div>
+      </div>
+      <div class="ptab-wrap" id="ptabWrap" style="display:none;">
+        <button class="ptab-toggle-btn" id="ptabToggleBtn" onclick="togglePtab()" style="display:none;">💡 よく使う質問を見る ▼</button>
+        <div class="ptab-expanded" id="ptabExpanded">
+          <button class="quick-btn" onclick="setQuestion('60時間超えたら残業代が1.5倍になるって本当？計算式が欲しい')">⏰ 60時間超えたら残業代1.5倍って本当？</button>
+          <button class="quick-btn" onclick="setQuestion('飲食店の深夜手当・皆勤手当も含む給料明細を作りたい')">🍳 飲食店の深夜手当・皆勤手当付き給料明細</button>
+          <button class="quick-btn" onclick="setQuestion('名前を入れたら住所と電話番号が自動で出てくる表を作りたい')">📇 名前を入れたら住所が自動で出てくる表</button>
+          <button class="quick-btn" onclick="setQuestion('建設業の現場手当・危険手当の計算式が入った給料明細を作りたい')">🏗️ 建設業の現場手当・危険手当付き給料明細</button>
+          <button class="quick-btn" onclick="setQuestion('請求書に登録番号（Tから始まる番号）を自動で入れたい')">🧾 請求書に登録番号を自動で入れたい</button>
+          <button class="quick-btn" onclick="setQuestion('1つのセルに入力したら別シートにも自動で反映させる方法')">⚡ 入力が別シートにも自動反映する方法</button>
+        </div>
+      </div>
+      <div class="limit-banner" id="limitBanner">
+        <p>無料プランの上限（30回）に近づいています。有料プランで無制限に使えます。</p>
+        <button class="limit-btn" onclick="showUpgrade()">詳細</button>
+      </div>
+      <div class="chat-input-wrap" style="flex-direction:column;align-items:stretch;">
+        <div id="new-chat-confirm-bar" style="display:none;align-items:center;justify-content:space-between;background:#FFF0F0;border-top:1px solid #FFCDD2;padding:8px 16px;gap:8px;flex-shrink:0;"><span style="font-size:12px;color:#E05555;font-weight:700;">会話を全部消しますか？</span><div style="display:flex;gap:6px;"><button onclick="clearChatHistory()" style="background:#E05555;border:none;color:#fff;font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">会話を消す</button><button onclick="hideNewChatConfirm()" style="background:#F4F7F5;border:1px solid #D4EDE1;color:#2E4038;font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;">キャンセル</button></div></div>
+
+<div class="memory-bar" id="memoryBar">
+              <button class="chat-back-btn" id="chatBackBar" onclick="backToCards()" style="display:none;"><span class="back-mobile">← 戻る</span><span class="back-pc">← カテゴリへ戻る</span></button>
+              <span id="memoryBarText" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">✨ 直近20回分覚えてるよ　💬 まだ話してないよ</span>
+              <button class="new-chat-link" id="newChatBtn" onclick="confirmNewChat()">🔄 新しい会話</button>
+            </div>
+
+        <div style="display:flex;gap:9px;align-items:flex-end;">
+          <textarea class="chat-input" id="msgInput" placeholder="例：印刷範囲の設定方法は？　給料明細を作りたい" rows="1" oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
+          <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FORMULA BOOK -->
+  <div class="screen" id="screen-book">
+    <div class="book-scroll">
+      <div class="fb-header">
+        <div class="fb-title">📚 マイ数式帳</div>
+        <div class="fb-count" id="fbCount">0件</div>
+      </div>
+      <div id="fbContent">
+        <div class="fb-empty">
+          <div class="fb-empty-icon">📭</div>
+          <h3>まだ保存されていません</h3>
+          <p>AIチャットで数式を受け取ったら<br>「📚 保存」ボタンで追加できます。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUIZ -->
+  <div class="screen" id="screen-quiz">
+    <div class="quiz-scroll">
+      <div id="quizLevelSelect">
+        <div class="quiz-title-area">
+          <div class="quiz-main-title">🎯 Excelクイズ</div>
+          <div class="quiz-main-sub">レベルを選んで腕試し。正解するたびに習熟度スコアが上がります。</div>
+        </div>
+        <div class="level-cards">
+          <div class="level-card" onclick="startQuiz('beginner')"><div class="level-icon">🌱</div><div class="level-info"><div class="level-name">入門</div><div class="level-desc">SUM・AVERAGE・IF など基本関数</div></div><span class="level-badge easy">かんたん</span></div>
+          <div class="level-card" onclick="startQuiz('basic')"><div class="level-icon">📊</div><div class="level-info"><div class="level-name">初級</div><div class="level-desc">VLOOKUP・SUMIF・IFERROR など</div></div><span class="level-badge medium">ふつう</span></div>
+          <div class="level-card" onclick="startQuiz('intermediate')"><div class="level-icon">⚡</div><div class="level-info"><div class="level-name">中級</div><div class="level-desc">INDEX/MATCH・配列・SUMPRODUCT</div></div><span class="level-badge hard">むずかしい</span></div>
+          <div class="level-card" onclick="startQuiz('advanced')"><div class="level-icon">🏆</div><div class="level-info"><div class="level-name">上級</div><div class="level-desc">動的配列・LAMBDA・Power Query</div></div><span class="level-badge expert">超むずかしい</span></div>
+        </div>
+      </div>
+      <div class="quiz-questions" id="quizQuestions">
+        <div class="quiz-top">
+          <span class="quiz-num" id="qNum">問題 1 / 3</span>
+          <span class="quiz-level-tag" id="qLevel">入門</span>
+        </div>
+        <div class="quiz-progress"><div class="quiz-bar" id="qProgress" style="width:33%"></div></div>
+        <div class="quiz-question">
+          <div class="quiz-q-text" id="qText"></div>
+          <div class="quiz-hint" id="qHint"></div>
+        </div>
+        <div class="quiz-choices" id="qChoices"></div>
+      </div>
+      <div class="quiz-result" id="quizResult">
+        <div class="qr-icon" id="qrIcon">🎉</div>
+        <div class="qr-title" id="qrTitle">全問正解！</div>
+        <div class="qr-score" id="qrScore">3/3</div>
+        <div class="qr-msg" id="qrMsg">すばらしい！</div>
+        <div class="qr-score-update" id="qrScoreUpdate">🎓 習熟度 +15pt</div>
+        <div class="qr-btns">
+          <button class="qr-btn secondary" onclick="resetQuiz()">もう一度</button>
+          <button class="qr-btn primary" onclick="switchTab('chat')">AIに質問する</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEMPLATE -->
+  <div class="screen" id="screen-template">
+    <div class="tmpl-gallery" id="tmplGallery">
+      <button onclick="switchTab('chat')" style="background:none;border:none;font-size:13px;color:#3D9E72;font-weight:700;cursor:pointer;padding:0 0 12px 0;display:flex;align-items:center;gap:4px;">← AIチャットに戻る</button>
+      <div class="tmpl-gallery-title">📋 テンプレート</div>
+      <div class="tmpl-gallery-sub">項目を選ぶだけで自動完成</div>
+      <div class="tmpl-cards-grid" id="tmplCardsGrid"></div>
+    </div>
+    <div class="tmpl-iframe-screen" id="tmplIframeScreen">
+      <div class="tmpl-iframe-bar">
+        <button class="tmpl-iframe-back" onclick="closeTmplIframe()">← テンプレ一覧</button>
+        <span class="tmpl-iframe-title" id="tmplIframeTitle"></span>
+      </div>
+      <div class="tmpl-iframe-wrap">
+        <iframe id="tmplIframe" src="" title="テンプレート"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="screen" id="screen-settings">
+    <div class="settings-scroll">
+      <div class="settings-title">⚙️ 設定</div>
+      <div class="settings-section">
+        <div class="settings-section-title">プラン</div>
+        <div class="settings-card">
+          <div class="settings-item" onclick="showUpgrade()">
+            <div class="settings-item-left"><div class="settings-item-icon">⭐</div><div class="settings-item-text"><div class="settings-item-label">現在のプラン</div><div class="settings-item-sub">無料トライアル（14日間）</div></div></div>
+            <div class="settings-item-right"><span class="plan-badge">無料</span>›</div>
+          </div>
+          <div class="settings-item" onclick="showUpgrade()">
+            <div class="settings-item-left"><div class="settings-item-icon">💳</div><div class="settings-item-text"><div class="settings-item-label">有料プランにアップグレード</div><div class="settings-item-sub">月額¥1,280 · 1日43円</div></div></div>
+            <div class="settings-item-right" style="color:#3D9E72;font-weight:700;">›</div>
+          </div>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-title">使用状況</div>
+        <div class="settings-card">
+          <div class="settings-item"><div class="settings-item-left"><div class="settings-item-icon">💬</div><div class="settings-item-text"><div class="settings-item-label">今月の使用回数</div></div></div><div class="settings-item-right" id="settingsUsage">0 / 30回</div></div>
+          <div class="settings-item"><div class="settings-item-left"><div class="settings-item-icon">✍️</div><div class="settings-item-text"><div class="settings-item-label">AI書き込み回数</div></div></div><div class="settings-item-right" id="settingsWrite">0 / 5回</div></div>
+          <div class="settings-item"><div class="settings-item-left"><div class="settings-item-icon">🎓</div><div class="settings-item-text"><div class="settings-item-label">習熟度スコア</div></div></div><div class="settings-item-right" id="settingsScore">35pt</div></div>
+          <div class="settings-item"><div class="settings-item-left"><div class="settings-item-icon">🔥</div><div class="settings-item-text"><div class="settings-item-label">連続ログイン</div></div></div><div class="settings-item-right">1日連続</div></div>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-title">サポート</div>
+        <div class="settings-card">
+          <a href="mailto:exally.support@gmail.com" style="text-decoration:none;display:block;"><div class="settings-item"><div class="settings-item-left"><div class="settings-item-icon">📧</div><div class="settings-item-text"><div class="settings-item-label">お問い合わせ</div><div class="settings-item-sub" style="color:#3D9E72;">exally.support@gmail.com</div></div></div><div class="settings-item-right">›</div></div></a>
+          <div class="settings-item"><div class="settings-item-left"><div class="settings-item-icon">📄</div><div class="settings-item-text"><div class="settings-item-label">利用規約・プライバシーポリシー</div></div></div><div class="settings-item-right">›</div></div>
+        </div>
+      </div>
+      <div style="text-align:center;padding:20px 0;font-size:11px;color:#7A9A87;line-height:1.8;">
+        Exally（エクサリー）デモ版<br>© 2026 合同会社ZEROact<br><br>
+        <span style="font-size:10px;color:#B8D4C0;">Powered by HyperFormula (GPL-v3)<br>© Handsoncode</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-item" id="nav-home" onclick="location.href='home.html'"><span class="nav-icon">🏠</span><span class="nav-label">ホーム</span></button>
+  <button class="nav-item active" id="nav-chat" onclick="switchTab('chat')"><span class="nav-icon">🤖</span><span class="nav-label">AI</span><div class="nav-badge" id="chatBadge"></div></button>
+  <button class="nav-item" id="nav-booklink" onclick="location.href='book.html'"><span class="nav-icon"><svg><use href="#grid-sm"/></svg></span><span class="nav-label">ブック</span></button>
+  <button class="nav-item" id="nav-template" onclick="location.href='template.html'"><span class="nav-icon"><svg><use href="#template-sm"/></svg></span><span class="nav-label">テンプレ</span></button>
+  <button class="nav-item nav-disabled" id="nav-stamp"><span class="nav-icon"><svg><use href="#stamp-sm"/></svg></span><span class="nav-label">ハンコ</span></button>
+  <button class="nav-item" id="nav-book" onclick="switchTab('book')"><span class="nav-icon"><svg><use href="#book-sm"/></svg></span><span class="nav-label">数式帳</span><div class="nav-badge" id="bookNavBadge"></div></button>
+  <button class="nav-item" id="nav-quiz" onclick="switchTab('quiz')"><span class="nav-icon">🎯</span><span class="nav-label">クイズ</span></button>
+  <button class="nav-item" id="nav-settings" onclick="switchTab('settings')"><span class="nav-icon">⚙️</span><span class="nav-label">設定</span></button>
+</nav>
+
+  </div>
+</div>
+
+<!-- SAVE MODAL -->
+
+<div class="modal-overlay" id="saveModal">
+  <div class="modal">
+    <h3>📚 数式帳に保存</h3>
+    <div class="modal-label">タイトル</div>
+    <input class="modal-input" id="saveTitle" placeholder="例：VLOOKUP完全一致">
+    <div class="modal-label">数式</div>
+    <input class="modal-input" id="saveFormula" placeholder="=VLOOKUP(...)">
+    <div class="modal-btns">
+      <button class="modal-btn secondary" onclick="hideSaveModal()">キャンセル</button>
+      <button class="modal-btn primary" onclick="saveToBook()">保存する</button>
+    </div>
+  </div>
+</div>
+
+<!-- UPGRADE MODAL -->
+
+<div class="modal-overlay" id="upgradeModal">
+  <div class="upgrade-modal">
+    <div class="upgrade-modal-header">
+      <div class="upgrade-modal-icon">⭐</div>
+      <div class="upgrade-modal-title">有料プランにアップグレード</div>
+      <div class="upgrade-modal-sub">Excelの疑問を無制限に解決しよう</div>
+    </div>
+    <div class="upgrade-price-box">
+      <div class="upgrade-price-main">¥1,280<span style="font-size:16px;opacity:0.7;">/月</span></div>
+      <div class="upgrade-price-sub">1日たった43円 · いつでも解約OK</div>
+    </div>
+    <div class="upgrade-features">
+      <div class="upgrade-feature"><span class="upgrade-feature-check">✓</span>AIチャット無制限（無料：月30回）</div>
+      <div class="upgrade-feature"><span class="upgrade-feature-check">✓</span>AI書き込み無制限（無料：月5回）</div>
+      <div class="upgrade-feature"><span class="upgrade-feature-check">✓</span>マイ数式帳 無制限保存</div>
+      <div class="upgrade-feature"><span class="upgrade-feature-check">✓</span>VBA・マクロ生成</div>
+      <div class="upgrade-feature"><span class="upgrade-feature-check">✓</span>全レベルクイズ解放</div>
+      <div class="upgrade-feature"><span class="upgrade-feature-check">✓</span>Excelテンプレート提供</div>
+    </div>
+    <button class="upgrade-cta-main">14日間無料で試す →</button>
+    <div class="upgrade-cancel-note">クレジットカード不要 · いつでも解約できます</div>
+    <div style="text-align:center;margin-top:14px;">
+      <span onclick="hideUpgrade()" style="font-size:13px;color:#7A9A87;cursor:pointer;padding:8px 16px;display:inline-block;">あとで</span>
+    </div>
+  </div>
+</div>
+
+<!-- Excelバージョン選択モーダル（home.htmlと共有） -->
+
+<div class="vm-ov" id="verModal">
+  <div class="vm-cd">
+    <div class="vm-hd">
+      <div class="vm-tt">Excelバージョンを選んでね</div>
+      <button class="vm-cl" onclick="closeVerModal()">×</button>
+    </div>
+    <div class="vm-bd">
+      <div class="vm-ht">💡 後で変えられる・Excelなくても使える</div>
+      <div class="vm-gr">
+        <div class="vm-op" data-ver="excel_365" onclick="selectVer('excel_365')"><div class="vm-op-ic">🟢</div><div class="vm-op-lb">Excel 365</div></div>
+        <div class="vm-op" data-ver="excel_2024" onclick="selectVer('excel_2024')"><div class="vm-op-ic">🟢</div><div class="vm-op-lb">Excel 2024</div></div>
+        <div class="vm-op" data-ver="excel_2021" onclick="selectVer('excel_2021')"><div class="vm-op-ic">🔵</div><div class="vm-op-lb">Excel 2021</div></div>
+        <div class="vm-op" data-ver="excel_2019" onclick="selectVer('excel_2019')"><div class="vm-op-ic">🔵</div><div class="vm-op-lb">Excel 2019</div></div>
+        <div class="vm-op" data-ver="excel_2016" onclick="selectVer('excel_2016')"><div class="vm-op-ic">🔵</div><div class="vm-op-lb">Excel 2016</div></div>
+        <div class="vm-op" data-ver="excel_mac" onclick="selectVer('excel_mac')"><div class="vm-op-ic">🍎</div><div class="vm-op-lb">Excel for Mac</div></div>
+        <div class="vm-op" data-ver="excel_online" onclick="selectVer('excel_online')"><div class="vm-op-ic">☁️</div><div class="vm-op-lb">Excel Online</div></div>
+        <div class="vm-op" data-ver="excel_none" onclick="selectVer('excel_none')"><div class="vm-op-ic">✨</div><div class="vm-op-lb">Excelなし</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== TEMPLATES =====
+var TEMPLATES = [
+{
+  id:'payslip', name:'給料明細', desc:'月給・時給に対応。控除の自動計算付き',
+  file:'kyuuryoumeisai.html', tags:['給与系','人気'], hot:true,
+  previewHTML:'<div style="background:#fff;border:1.5px solid #C8ECD8;border-radius:8px;overflow:hidden;font-family:sans-serif;"><div style="background:#3D9E72;padding:5px 10px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;"><span style="font-size:10px;font-weight:700;color:#fff;letter-spacing:1.5px;">給 料 明 細 書</span><span style="font-size:9px;color:rgba(255,255,255,0.85);">2026年4月分</span></div><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:10px;color:rgba(255,255,255,0.9);">○○株式会社</span><span style="font-size:10px;font-weight:700;color:#fff;">山田 太郎</span></div></div><div style="background:#F8FEFC;padding:5px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #C8ECD8;"><span style="font-size:9px;font-weight:700;color:#7A9A87;letter-spacing:1px;">差 引 支 給 額</span><span style="font-size:16px;font-weight:500;color:#3D9E72;">¥231,520</span></div><div style="display:grid;grid-template-columns:1fr 1fr;"><div style="padding:5px 8px;border-right:1px solid #E0EDE6;"><div style="font-size:8px;font-weight:700;color:#2E7D54;padding:2px 0 4px;margin-bottom:3px;border-bottom:1px solid #E0EDE6;">💰 支給</div><div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid #F4F7F5;"><span style="font-size:9px;color:#4A6B5A;">基本給</span><span style="font-size:9px;color:#1A2B22;">¥250,000</span></div><div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid #F4F7F5;"><span style="font-size:9px;color:#4A6B5A;">残業代</span><span style="font-size:9px;color:#1A2B22;">¥15,000</span></div><div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid #F4F7F5;"><span style="font-size:9px;color:#4A6B5A;">交通費</span><span style="font-size:9px;color:#1A2B22;">¥12,000</span></div><div style="display:flex;justify-content:space-between;padding:2px 0;"><span style="font-size:9px;color:#4A6B5A;">資格手当</span><span style="font-size:9px;color:#1A2B22;">¥5,000</span></div></div><div style="padding:5px 8px;"><div style="font-size:8px;font-weight:700;color:#C62828;padding:2px 0 4px;margin-bottom:3px;border-bottom:1px solid #E0EDE6;">🔻 控除</div><div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid #F4F7F5;"><span style="font-size:9px;color:#4A6B5A;">健康保険</span><span style="font-size:9px;color:#C62828;">¥13,700</span></div><div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid #F4F7F5;"><span style="font-size:9px;color:#4A6B5A;">厚生年金</span><span style="font-size:9px;color:#C62828;">¥25,620</span></div><div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid #F4F7F5;"><span style="font-size:9px;color:#4A6B5A;">所得税</span><span style="font-size:9px;color:#C62828;">¥6,160</span></div><div style="display:flex;justify-content:space-between;padding:2px 0;"><span style="font-size:9px;color:#4A6B5A;">住民税</span><span style="font-size:9px;color:#C62828;">¥10,000</span></div></div></div><div style="display:grid;grid-template-columns:1fr 1fr;background:#F8FEFC;border-top:1.5px solid #C8ECD8;"><div style="padding:4px 8px;text-align:center;border-right:1px solid #E0EDE6;"><div style="font-size:8px;color:#7A9A87;">総支給額</div><div style="font-size:10px;font-weight:700;color:#2E7D54;">¥282,000</div></div><div style="padding:4px 8px;text-align:center;"><div style="font-size:8px;color:#7A9A87;">控除合計</div><div style="font-size:10px;font-weight:700;color:#C62828;">¥55,480</div></div></div></div>'
+},
+{
+  id:'invoice', name:'請求書', desc:'インボイス対応。電子判子・控除明細付き',
+  file:'seikyusyo.html', tags:['請求系','人気'], hot:true,
+  previewHTML:'<div style="background:#fff;border:1.5px solid #C8ECD8;border-radius:8px;overflow:hidden;font-family:sans-serif;"><div style="background:#3D9E72;padding:5px 10px;text-align:center;"><span style="font-size:11px;font-weight:700;color:#fff;letter-spacing:3px;">請 求 書</span></div><div style="padding:5px 8px;border-bottom:1px solid #E8F5EE;"><table style="width:100%;"><tr><td style="vertical-align:top;"><div style="font-size:9px;font-weight:700;color:#1A2B22;">○○株式会社 御中</div><div style="font-size:7px;color:#4A6B5A;margin-top:2px;">下記の通りご請求申し上げます。</div><div style="margin-top:4px;background:#F8FEFC;border:1px solid #C8ECD8;border-radius:3px;padding:3px 6px;"><div style="font-size:7px;color:#4A6B5A;">ご請求金額（税込）</div><div style="font-size:13px;font-weight:700;color:#1A2B22;">¥110,000</div></div></td><td style="vertical-align:top;text-align:right;font-size:7px;color:#4A6B5A;line-height:1.7;padding:2px 0;width:80px;"><div>2026/04/01</div><div>No.INV-001</div><div style="font-weight:700;color:#1A2B22;">○○株式会社</div><div>東京都○○区</div><div>090-0000-0000</div></td></tr></table></div><table style="width:100%;border-collapse:collapse;font-size:8px;"><thead><tr style="background:#F0FAF4;"><th style="padding:3px 6px;border-bottom:1px solid #C8ECD8;color:#3D9E72;text-align:left;">品名</th><th style="padding:3px 4px;border-bottom:1px solid #C8ECD8;color:#3D9E72;text-align:center;width:22px;">数量</th><th style="padding:3px 4px;border-bottom:1px solid #C8ECD8;color:#3D9E72;text-align:right;width:52px;">金額</th></tr></thead><tbody><tr style="border-bottom:1px solid #E8F5EE;"><td style="padding:3px 6px;">Webデザイン制作</td><td style="padding:3px 4px;text-align:center;">1</td><td style="padding:3px 4px;text-align:right;">100,000</td></tr><tr style="border-bottom:1px solid #E8F5EE;"><td style="padding:3px 6px;">修正対応</td><td style="padding:3px 4px;text-align:center;">2</td><td style="padding:3px 4px;text-align:right;">0</td></tr></tbody></table><div style="padding:6px 10px;background:#F8FEFC;"><div style="display:flex;justify-content:flex-end;gap:16px;font-size:8px;color:#4A6B5A;margin-bottom:2px;"><span>小計</span><span style="min-width:55px;text-align:right;">100,000</span></div><div style="display:flex;justify-content:flex-end;gap:16px;font-size:8px;color:#4A6B5A;margin-bottom:2px;"><span>消費税（10%）</span><span style="min-width:55px;text-align:right;">10,000</span></div><div style="display:flex;justify-content:flex-end;gap:16px;font-size:9px;font-weight:700;color:#1A2B22;border-top:1.5px solid #1A2B22;padding-top:4px;"><span>合計（税込）</span><span style="min-width:55px;text-align:right;">110,000</span></div></div></div>'
+},
+{
+  id:'estimate', name:'見積書', desc:'有効期限・割引・納期設定対応',
+  file:'mitsumoriyo.html', tags:['請求系'], hot:false,
+  previewHTML:'<div style="background:#fff;border:1.5px solid #C8ECD8;border-radius:8px;overflow:hidden;font-family:sans-serif;"><div style="background:#3D9E72;padding:5px 10px;text-align:center;"><span style="font-size:11px;font-weight:700;color:#fff;letter-spacing:3px;">見 積 書</span></div><div style="padding:5px 8px;border-bottom:1px solid #E8F5EE;"><table style="width:100%;"><tr><td style="vertical-align:top;"><div style="font-size:9px;font-weight:700;color:#1A2B22;">○○株式会社 御中</div><div style="font-size:7px;color:#4A6B5A;margin-top:2px;">下記の通りお見積り申し上げます。</div><div style="margin-top:4px;background:#F8FEFC;border:1px solid #C8ECD8;border-radius:3px;padding:3px 6px;"><div style="font-size:7px;color:#4A6B5A;">お見積金額（税込）</div><div style="font-size:13px;font-weight:700;color:#1A2B22;">¥110,000</div></div></td><td style="vertical-align:top;text-align:right;font-size:7px;color:#4A6B5A;line-height:1.7;padding:2px 0;width:80px;"><div>2026/04/01</div><div>No.EST-001</div><div style="font-weight:700;color:#1A2B22;">○○株式会社</div><div>有効期限30日</div></td></tr></table></div><table style="width:100%;border-collapse:collapse;font-size:8px;"><thead><tr style="background:#F0FAF4;"><th style="padding:3px 6px;border-bottom:1px solid #C8ECD8;color:#3D9E72;text-align:left;">品名</th><th style="padding:3px 4px;border-bottom:1px solid #C8ECD8;color:#3D9E72;text-align:center;width:22px;">数量</th><th style="padding:3px 4px;border-bottom:1px solid #C8ECD8;color:#3D9E72;text-align:right;width:52px;">金額</th></tr></thead><tbody><tr style="border-bottom:1px solid #E8F5EE;"><td style="padding:3px 6px;">Webデザイン制作</td><td style="padding:3px 4px;text-align:center;">1</td><td style="padding:3px 4px;text-align:right;">100,000</td></tr><tr style="border-bottom:1px solid #E8F5EE;"><td style="padding:3px 6px;">修正対応</td><td style="padding:3px 4px;text-align:center;">2</td><td style="padding:3px 4px;text-align:right;">0</td></tr></tbody></table><div style="padding:6px 10px;background:#F8FEFC;"><div style="display:flex;justify-content:flex-end;gap:16px;font-size:8px;color:#4A6B5A;margin-bottom:2px;"><span>小計</span><span style="min-width:55px;text-align:right;">100,000</span></div><div style="display:flex;justify-content:flex-end;gap:16px;font-size:8px;color:#4A6B5A;margin-bottom:2px;"><span>消費税（10%）</span><span style="min-width:55px;text-align:right;">10,000</span></div><div style="display:flex;justify-content:flex-end;gap:16px;font-size:9px;font-weight:700;color:#1A2B22;border-top:1.5px solid #1A2B22;padding-top:4px;"><span>合計（税込）</span><span style="min-width:55px;text-align:right;">110,000</span></div></div></div>'
+},
+{id:'attendance',name:'勤怠管理表',desc:'出退勤・残業時間を自動集計',file:'',tags:['勤怠系'],hot:false},
+{id:'expense',name:'経費精算書',desc:'交通費・飲食費など一括管理',file:'',tags:['経費系'],hot:false}
+];
+window.TEMPLATES = TEMPLATES;
+
+// ===== STATE =====
+var score = 35;
+var usageCount = 0;
+var MAX_FREE = 30;
+var writeCount = 0;
+var MAX_WRITE_FREE = 5;
+var savedFormulas = [];
+var isAILoading = false;
+var obSlide = 0;
+var selectedCat = '';
+var chatHistory = [];
+var talkCount = 0;
+var currentCat = null;
+var lastCat = null;
+
+// ===== ONBOARDING SKIP FLAG =====
+try{ if(localStorage.getItem('exally_ob_done')==='1'){ document.getElementById('onboarding').classList.add('hide'); } }catch(e){}
+
+// ===== STORAGE KEYS =====
+var CHAT_STORAGE_KEY = 'exally_chat_v1';
+var CHAT_HISTORY_KEY = 'exally_chat_history_v1';
+var USAGE_MONTH_KEY  = 'exally_usage_month_v1';
+
+// ===== 月間カウントリセット =====
+function checkMonthlyReset(){
+  try{
+    var now = new Date();
+    var currentMonth = now.getFullYear()+'-'+(now.getMonth()+1);
+    var savedMonth = localStorage.getItem(USAGE_MONTH_KEY);
+    if(savedMonth !== currentMonth){
+      usageCount = 0;
+      writeCount = 0;
+      localStorage.setItem(USAGE_MONTH_KEY, currentMonth);
+      localStorage.setItem('exally_usage_count_v1', '0');
+      localStorage.setItem('exally_write_count_v1', '0');
+    } else {
+      var saved = parseInt(localStorage.getItem('exally_usage_count_v1')||'0', 10);
+      usageCount = isNaN(saved) ? 0 : saved;
+      var savedW = parseInt(localStorage.getItem('exally_write_count_v1')||'0', 10);
+      writeCount = isNaN(savedW) ? 0 : savedW;
+    }
+  }catch(e){}
+}
+
+// ===== CHAT PERSISTENCE =====
+function saveChatHistory(){
+  var area = document.getElementById('chatArea');
+  if(!area) return;
+  var msgs = [];
+  area.querySelectorAll('.msg').forEach(function(el){
+    msgs.push({html:el.outerHTML});
+  });
+  try{
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(msgs));
+    localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(chatHistory));
+  }catch(e){}
+}
+
+function loadChatHistory(){
+  checkMonthlyReset();
+  try{
+    var savedHistory = localStorage.getItem(CHAT_HISTORY_KEY);
+    if(savedHistory){ var h=JSON.parse(savedHistory); if(Array.isArray(h)) chatHistory=h; }
+    var savedMsgs = localStorage.getItem(CHAT_STORAGE_KEY);
+    if(!savedMsgs) return;
+    var msgs = JSON.parse(savedMsgs);
+    if(!msgs||msgs.length===0) return;
+    var area = document.getElementById('chatArea');
+    if(!area) return;
+    var welcome = document.getElementById('welcomeMsg');
+    if(welcome) welcome.style.display='none';
+    msgs.forEach(function(m){
+      var wrapper = document.createElement('div');
+      wrapper.innerHTML = m.html;
+      if(wrapper.firstChild) area.appendChild(wrapper.firstChild);
+    });
+    area.scrollTop = area.scrollHeight;
+    talkCount = area.querySelectorAll('.msg.ai').length;
+    usageCount = area.querySelectorAll('.msg.user').length;
+    updateMemoryBar();
+    updateUsage();
+    updateMemoryActive(area);
+    var newBtn = document.getElementById('newChatBtn');
+    if(newBtn) newBtn.style.display='flex';
+    var backBar = document.getElementById('chatBackBar');
+    if(backBar) backBar.style.display='block';
+    collapsePtab();
+  }catch(e){
+    try{ localStorage.removeItem(CHAT_STORAGE_KEY); localStorage.removeItem(CHAT_HISTORY_KEY); }catch(e2){}
+  }
+}
+
+function confirmNewChat(){
+  var bar = document.getElementById('new-chat-confirm-bar');
+  if(bar) bar.style.display='flex';
+}
+function hideNewChatConfirm(){
+  var bar = document.getElementById('new-chat-confirm-bar');
+  if(bar) bar.style.display='none';
+}
+function clearChatHistory(){
+  hideNewChatConfirm();
+  try{ localStorage.removeItem(CHAT_STORAGE_KEY); localStorage.removeItem(CHAT_HISTORY_KEY); }catch(e){}
+  chatHistory=[]; talkCount=0; usageCount=0;
+  updateUsage(); updateMemoryBar();
+  var area=document.getElementById('chatArea');
+  var welcome=document.getElementById('welcomeMsg');
+  if(area){ area.innerHTML=''; if(welcome){ welcome.style.display=''; area.appendChild(welcome); } }
+  var newBtn=document.getElementById('newChatBtn'); if(newBtn) newBtn.style.display='none';
+  var backBar=document.getElementById('chatBackBar'); if(backBar) backBar.style.display='none';
+  var ptab=document.getElementById('ptabWrap');
+  if(ptab){
+    var expanded=document.getElementById('ptabExpanded');
+    var btn=document.getElementById('ptabToggleBtn');
+    if(expanded) expanded.style.display='flex';
+    if(btn) btn.style.display='none';
+    ptab.style.display='none';
+  }
+  var limitBanner=document.getElementById('limitBanner');
+  if(limitBanner) limitBanner.classList.remove('show');
+}
+
+window.addEventListener('load', loadChatHistory);
+
+// home.htmlから ?q=質問文 で来た時、自動入力して送信
+window.addEventListener('load', function(){
+  try{
+    var p=new URLSearchParams(location.search);
+    var q=p.get('q');
+    var tab=p.get('tab');
+
+    // ?tab=xxx → 該当タブを自動でアクティブ化
+    if(tab){
+      var valid=['chat','template','book','quiz','settings'];
+      if(valid.indexOf(tab)>=0){
+        setTimeout(function(){
+          if(typeof switchTab==='function') switchTab(tab);
+        }, 100);
+      }
+    }
+
+    if(q && q.trim()){
+      var inp=document.getElementById('msgInput');
+      if(inp){
+        inp.value=q.trim();
+        // オンボーディングが無ければ即送信、あれば待つ
+        var ob=document.querySelector('.onboarding-overlay.show');
+        if(!ob){
+          setTimeout(function(){ if(typeof sendMessage==='function') sendMessage(); }, 300);
+        }
+      }
+    }
+
+    // URLからクエリを消す（リロード時の再送信防止）
+    if((q || tab) && history.replaceState){
+      history.replaceState(null, '', location.pathname);
+    }
+  }catch(e){ console.warn('URL param error', e); }
+});
+
+// ===== CAT Q DATA =====
+var CAT_Q = {
+  ops:{label:'💻 使い方がわからない',items:[
+    {icon:'🖨️',text:'印刷したら何ページにもなった。1枚に収める方法ある？'},
+    {icon:'🔒',text:'特定のセルだけ触れないようにロックできる？'},
+    {icon:'📌',text:'スクロールしても1行目の見出しが消えないようにしたい'},
+    {icon:'🔎',text:'入力ミスを一気に直したい。全部まとめて置換できる？'},
+    {icon:'📊',text:'棒グラフと折れ線グラフを1つのグラフに混ぜられる？'},
+    {icon:'⌨️',text:'Excelのショートカットで一番役立つのはどれ？'}
+  ]},
+  func:{label:'🔢 自動で計算させたい',items:[
+    {icon:'⏰',text:'60時間超えたら残業代が1.5倍になるって本当？計算式が欲しい'},
+    {icon:'👨‍👩‍👧',text:'扶養が1人と0人で所得税はいくら違う？自動計算したい'},
+    {icon:'📇',text:'名前を入れたら住所と電話番号が自動で出てくる表を作りたい'},
+    {icon:'🎂',text:'生年月日から今の年齢を自動で計算したい'},
+    {icon:'📅',text:'シートを月別に作って全シートの合計を1枚に出したい'},
+    {icon:'🏆',text:'勤続年数が長いほど自動で手当が増える計算式を作りたい'}
+  ]},
+  err:{label:'⚠️ エラーが出て困っている',items:[
+    {icon:'❌',text:'#VALUE!って出て計算できない。どうすれば直る？'},
+    {icon:'❌',text:'#N/Aが出て邪魔。空白か0に変えたい（IFERROR）'},
+    {icon:'❌',text:'#REF!が出た。セルを消したら出てきた'},
+    {icon:'⚠️',text:'数式は合ってるはずなのに答えがおかしい'},
+    {icon:'🔄',text:'循環参照のエラーが出た。意味がわからない'}
+  ]},
+  pay:{label:'📋 書類・表を作りたい',items:[
+    {icon:'🍳',text:'飲食店の深夜手当・皆勤手当も含む給料明細を作りたい'},
+    {icon:'🏗️',text:'建設業の現場手当・危険手当の計算式が入った給料明細を作りたい'},
+    {icon:'🧾',text:'請求書に登録番号（Tから始まる番号）を自動で入れたい'},
+    {icon:'⏰',text:'勤怠管理表と給料明細をまとめて一気に作りたい'},
+    {icon:'🕐',text:'パートの時給計算付き給料明細を作りたい'},
+    {icon:'💼',text:'介護・医療職の夜勤手当・資格手当も含む給料明細を作りたい'}
+  ]},
+  tips:{label:'⚡ 知ると仕事が速くなる',items:[
+    {icon:'⚡',text:'1つのセルに入力したら別シートにも自動で反映させる方法'},
+    {icon:'⌨️',text:'Ctrl+Dで上のセルを一瞬コピー（オートフィルの10倍速い）'},
+    {icon:'⌨️',text:'Alt+Shift+=で縦横の合計を一瞬で出す裏技'},
+    {icon:'🎨',text:'売上が目標を下回ったセルを自動で赤くする方法'},
+    {icon:'🔒',text:'数式がズレる原因と$マークの使い方（F4キー1発）'},
+    {icon:'📊',text:'1,000行のデータを秒で集計する方法（ピボットテーブル）'},
+    {icon:'🔢',text:'電話番号の先頭の0が消える問題を一発で直す方法'}
+  ]},
+  data:{label:'📊 表を見せて質問する',items:[
+    {icon:'📋',text:'この表でVLOOKUPを使いたい。数式を作って'},
+    {icon:'➕',text:'この表の特定の列だけ合計する数式を作って'},
+    {icon:'⚠️',text:'この表でエラーが出てる。直して'},
+    {icon:'📄',text:'この表を使って請求書の数式を作って'},
+    {icon:'🔢',text:'この表のデータを集計する方法を教えて'}
+  ]}
+};
+
+// ===== RELATED HINTS（AI返答後の関連ヒント） =====
+var RELATED_HINTS = {
+  ops:[
+    {icon:'⏰',text:'60時間超えたら残業代が1.5倍になるって本当？計算式が欲しい'},
+    {icon:'🍳',text:'飲食店の深夜手当・皆勤手当も含む給料明細を作りたい'}
+  ],
+  func:[
+    {icon:'👨‍👩‍👧',text:'扶養が1人と0人で所得税はいくら違う？自動計算したい'},
+    {icon:'📅',text:'シートを月別に作って全シートの合計を1枚に出したい'}
+  ],
+  err:[
+    {icon:'⏰',text:'60時間超えたら残業代が1.5倍になるって本当？計算式が欲しい'},
+    {icon:'📇',text:'名前を入れたら住所と電話番号が自動で出てくる表を作りたい'}
+  ],
+  pay:[
+    {icon:'⏰',text:'60時間超えたら残業代が1.5倍になるって本当？計算式が欲しい'},
+    {icon:'🧾',text:'請求書に登録番号（Tから始まる番号）を自動で入れたい'}
+  ],
+  tips:[
+    {icon:'⚡',text:'1つのセルに入力したら別シートにも自動で反映させる方法'},
+    {icon:'🏗️',text:'建設業の現場手当・危険手当の計算式が入った給料明細を作りたい'}
+  ],
+  data:[
+    {icon:'🍳',text:'飲食店の深夜手当・皆勤手当も含む給料明細を作りたい'},
+    {icon:'🧾',text:'請求書に登録番号（Tから始まる番号）を自動で入れたい'}
+  ]
+};
+
+// ===== MEMORY BAR =====
+function updateMemoryBar(){
+  var span = document.getElementById('memoryBarText');
+  if(!span) return;
+  var msg = talkCount === 0 ? 'まだ話してないよ' : talkCount+'回話したね';
+  span.textContent = '✨ 直近20回分覚えてるよ　💬 '+msg;
+}
+
+// ===== FORMULA COLORIZER =====
+function colorizeFormula(text){
+  var lp='[\\(（]', rp='[\\)）]', cm='[,，]';
+  var reVL=new RegExp('=VLOOKUP'+lp+'([^,，]+)'+cm+'([^,，]+)'+cm+'([^,，]+)'+cm+'\\s*(FALSE|TRUE)\\s*'+rp,'gi');
+  text=text.replace(reVL,function(m,a1,a2,a3,a4){return '=VLOOKUP(<span class="arg-blue">'+a1.trim()+'</span>, <span class="arg-orange">'+a2.trim()+'</span>, <span class="arg-purple">'+a3.trim()+'</span>, <span class="arg-green">'+a4.trim()+'</span>)';});
+  var reSI=new RegExp('=SUMIF'+lp+'([^,，]+)'+cm+'([^,，]+)'+cm+'([^)）]+)'+rp,'gi');
+  text=text.replace(reSI,function(m,a1,a2,a3){return '=SUMIF(<span class="arg-blue">'+a1.trim()+'</span>, <span class="arg-orange">'+a2.trim()+'</span>, <span class="arg-purple">'+a3.trim()+'</span>)';});
+  var reIF=new RegExp('=IF'+lp+'([^,，]+)'+cm+'([^,，]+)'+cm+'([^)）]+)'+rp,'gi');
+  text=text.replace(reIF,function(m,a1,a2,a3){return '=IF(<span class="arg-blue">'+a1.trim()+'</span>, <span class="arg-orange">'+a2.trim()+'</span>, <span class="arg-purple">'+a3.trim()+'</span>)';});
+  var reCI=new RegExp('=COUNTIF'+lp+'([^,，]+)'+cm+'([^)）]+)'+rp,'gi');
+  text=text.replace(reCI,function(m,a1,a2){return '=COUNTIF(<span class="arg-blue">'+a1.trim()+'</span>, <span class="arg-orange">'+a2.trim()+'</span>)';});
+  var b='\uD83D\uDD35',o='\uD83D\uDFE0',p='\uD83D\uDFE3',g='\uD83D\uDFE2';
+  text=text.replace(new RegExp(b+'\\s*\\*\\*([^*]+)\\*\\*','g'),b+' <span class="arg-blue">$1</span>');
+  text=text.replace(new RegExp(o+'\\s*\\*\\*([^*]+)\\*\\*','g'),o+' <span class="arg-orange">$1</span>');
+  text=text.replace(new RegExp(p+'\\s*\\*\\*([^*]+)\\*\\*','g'),p+' <span class="arg-purple">$1</span>');
+  text=text.replace(new RegExp(g+'\\s*\\*\\*([^*]+)\\*\\*','g'),g+' <span class="arg-green">$1</span>');
+  return text;
+}
+
+// ===== FORMULA BLOCK COLORIZER（formula-block内専用・ネスト対応） =====
+function colorizeFormulaBlock(f){
+  // 内側から処理（ネスト対応）
+  // VLOOKUP（=なしでもマッチ）
+  f=f.replace(/VLOOKUP\s*\(([^,()]+),\s*([^,()]+),\s*([^,()]+),\s*(FALSE|TRUE)\s*\)/gi,function(m,a1,a2,a3,a4){
+    return 'VLOOKUP(<span class="arg-blue">'+a1.trim()+'</span>, <span class="arg-orange">'+a2.trim()+'</span>, <span class="arg-purple">'+a3.trim()+'</span>, <span class="arg-green">'+a4.trim()+'</span>)';
+  });
+  // SUMIF
+  f=f.replace(/SUMIF\s*\(([^,()]+),\s*([^,()]+),\s*([^,()]+)\)/gi,function(m,a1,a2,a3){
+    return 'SUMIF(<span class="arg-blue">'+a1.trim()+'</span>, <span class="arg-orange">'+a2.trim()+'</span>, <span class="arg-purple">'+a3.trim()+'</span>)';
+  });
+  // SUMIFS（引数多いため最初の3つ）
+  f=f.replace(/SUMIFS\s*\(([^,()]+),\s*([^,()]+),\s*([^,()]+)/gi,function(m,a1,a2,a3){
+    return 'SUMIFS(<span class="arg-blue">'+a1.trim()+'</span>, <span class="arg-orange">'+a2.trim()+'</span>, <span class="arg-purple">'+a3.trim()+'</span>';
+  });
+  // COUNTIF
+  f=f.replace(/COUNTIF\s*\(([^,()]+),\s*([^,()]+)\)/gi,function(m,a1,a2){
+    return 'COUNTIF(<span class="arg-blue">'+a1.trim()+'</span>, <span class="arg-orange">'+a2.trim()+'</span>)';
+  });
+  // IF
+  f=f.replace(/(?<![A-Z])IF\s*\(([^,()]+),\s*([^,()]+),\s*([^,()]+)\)/gi,function(m,a1,a2,a3){
+    return 'IF(<span class="arg-blue">'+a1.trim()+'</span>, <span class="arg-orange">'+a2.trim()+'</span>, <span class="arg-purple">'+a3.trim()+'</span>)';
+  });
+  // ROUND
+  f=f.replace(/ROUND\s*\(([^,()]+),\s*([^,()]+)\)/gi,function(m,a1,a2){
+    return 'ROUND(<span class="arg-blue">'+a1.trim()+'</span>, <span class="arg-orange">'+a2.trim()+'</span>)';
+  });
+  return f;
+}
+
+// ===== PANEL =====
+function togglePanel(cat){
+  if(currentCat===cat){ closePanel(); return; }
+  currentCat=cat; lastCat=cat;
+  document.querySelectorAll('#welcomeMsg .cat-card').forEach(function(c){ c.classList.remove('active'); });
+  var cardEl=document.getElementById('card-'+cat);
+  if(cardEl) cardEl.classList.add('active');
+  var panel=document.getElementById('qPanel');
+  var label=document.getElementById('qPanelLabel');
+  var list=document.getElementById('qList');
+  label.textContent=CAT_Q[cat].label;
+  list.innerHTML=CAT_Q[cat].items.map(function(q){
+    var safe=q.text.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return '<button class="q-btn" onclick="setQ(\''+safe+'\')"><span class="q-btn-icon">'+q.icon+'</span>'+q.text+'<span class="q-btn-arrow">›</span></button>';
+  }).join('');
+  panel.classList.add('show');
+  var ptab=document.getElementById('ptabWrap');
+  if(ptab) ptab.style.display='none';
+  setTimeout(function(){ panel.scrollIntoView({behavior:'smooth',block:'nearest'}); },50);
+}
+
+function closePanel(){
+  currentCat=null;
+  document.querySelectorAll('#welcomeMsg .cat-card').forEach(function(c){ c.classList.remove('active'); });
+  var panel=document.getElementById('qPanel');
+  if(panel) panel.classList.remove('show');
+  var ptab=document.getElementById('ptabWrap');
+  if(ptab) ptab.style.display='';
+}
+
+function setQ(text){ sendQuick(text); }
+
+// ===== ONBOARDING =====
+function obNext(){
+  if(obSlide===2){ skipOnboarding(); return; }
+  document.getElementById('ob'+obSlide).style.display='none';
+  obSlide++;
+  document.getElementById('ob'+obSlide).style.display='block';
+  document.querySelectorAll('.ob-dot').forEach(function(d,i){ d.classList.toggle('active',i===obSlide); });
+  if(obSlide===2) document.getElementById('obNextBtn').textContent='はじめる';
+}
+function skipOnboarding(){
+  document.getElementById('onboarding').classList.add('hide');
+  try{ localStorage.setItem('exally_ob_done','1'); }catch(e){}
+}
+function selectCat(el,cat){
+  document.querySelectorAll('.ob-cat').forEach(function(c){ c.classList.remove('selected'); });
+  el.classList.add('selected'); selectedCat=cat;
+  setTimeout(function(){ skipOnboarding(); },400);
+}
+
+// ===== NAVIGATION =====
+function switchTab(tab){
+  document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+  document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.remove('active'); });
+  document.querySelectorAll('.sidebar-item').forEach(function(n){ n.classList.remove('active'); });
+  document.getElementById('screen-'+tab).classList.add('active');
+  var mobileNav=document.getElementById('nav-'+tab);
+  var sideNav=document.getElementById('snav-'+tab);
+  if(mobileNav) mobileNav.classList.add('active');
+  if(sideNav) sideNav.classList.add('active');
+  if(tab==='book') renderBook();
+  if(tab==='template'){
+    var ifs=document.getElementById('tmplIframeScreen');
+    if(ifs) ifs.classList.remove('show');
+    var tg=document.getElementById('tmplGallery');
+    if(tg) tg.style.display='block';
+    renderTmplGallery();
+  }
+}
+
+// ===== TEMPLATE =====
+function renderTmplGallery(){
+  var grid=document.getElementById('tmplCardsGrid');
+  if(!grid||!window.TEMPLATES) return;
+  grid.innerHTML=TEMPLATES.map(function(t){
+    var previewContent=t.previewHTML
+      ?'<div class="preview-inner">'+t.previewHTML+'</div>'
+      :'<div class="preview-placeholder"><div class="preview-placeholder-icon">📄</div><div class="preview-placeholder-text">準備中✨</div></div>';
+    return '<div class="tmpl-card-item" onclick="openTmplIframe(\''+t.id+'\')">'
+      +'<div class="tmpl-card-preview">'+previewContent+'<div class="tmpl-card-preview-note">※完成イメージ</div></div>'
+      +'<div class="tmpl-card-body"><div class="tmpl-card-name">'+(t.hot?'⭐ ':'')+t.name+'</div></div></div>';
+  }).join('');
+}
+
+var TMPL_KEYWORDS={
+  payslip:['給料明細','給与明細','給料計算','給与計算','明細書を作','明細書作成','給料を作','給与を作','給料作','給与作'],
+  invoice:['請求書','請求を作','請求作','インボイス対応'],
+  estimate:['見積書','見積もり','見積を作','見積作']
+};
+function detectTmplKeyword(text){
+  for(var id in TMPL_KEYWORDS){
+    var kws=TMPL_KEYWORDS[id];
+    for(var i=0;i<kws.length;i++){
+      if(text.indexOf(kws[i])!==-1) return id;
+    }
+  }
+  return null;
+}
+function addTmplGuideMsg(tmplId){
+  var info={payslip:{name:'給料明細',emoji:'📋'},invoice:{name:'請求書',emoji:'🧾'},estimate:{name:'見積書',emoji:'📄'}};
+  var t=info[tmplId]||{name:'テンプレ',emoji:'📋'};
+  var area=document.getElementById('chatArea');
+  var div=document.createElement('div');
+  div.className='msg ai';
+  div.innerHTML='<div class="msg-avatar">Ex</div><div class="msg-bubble">'
+    +t.emoji+' <strong>'+t.name+'</strong>ならテンプレで作れるよ！<br>'
+    +'数式・控除計算が全部入ってるから、値を入れるだけで完成だよ。'
+    +'<div style="margin-top:10px;">'
+    +'<button onclick="switchTab(\'template\');openTmplIframe(\''+tmplId+'\')" '
+    +'style="background:#3D9E72;color:#fff;border:none;border-radius:20px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;">'
+    +t.emoji+' テンプレで作る →'
+    +'</button></div>'
+    +'</div>';
+  area.appendChild(div);
+  area.scrollTop=area.scrollHeight;
+}
+function openTmplIframe(id){
+  var tmpl=TEMPLATES.find(function(t){ return t.id===id; });
+  if(!tmpl) return;
+  if(!tmpl.file){ showToast('準備中だよ✨'); return; }
+  // iframeではなく直接遷移（URLが変わる・他ページと一貫）
+  location.href=tmpl.file;
+}
+
+function closeTmplIframe(){
+  document.getElementById('tmplIframeScreen').classList.remove('show');
+  document.getElementById('tmplIframe').src='';
+  document.getElementById('tmplGallery').style.display='block';
+}
+
+// ===== CHAT =====
+function sendQuick(t){ document.getElementById('msgInput').value=t; sendMessage(); }
+function setQuestion(t){ document.getElementById('msgInput').value=t; sendMessage(); }
+function handleKey(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendMessage(); } }
+function autoResize(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
+
+async function sendMessage(){
+  if(isAILoading) return;
+  var input=document.getElementById('msgInput');
+  var text=input.value.trim();
+  if(!text) return;
+  if(usageCount>=MAX_FREE){ showUpgrade(); return; }
+  var welcome=document.getElementById('welcomeMsg');
+  if(welcome) welcome.style.display='none';
+  collapsePtab();
+  var bar=document.getElementById('chatBackBar');
+  if(bar) bar.style.display='block';
+  var newBtn=document.getElementById('newChatBtn');
+  if(newBtn) newBtn.style.display='flex';
+  addMsg('user',text);
+  input.value=''; input.style.height='auto';
+  var tmplMatch=detectTmplKeyword(text);
+  if(tmplMatch){ addTmplGuideMsg(tmplMatch); return; }
+  usageCount++; updateUsage();
+  try{ localStorage.setItem('exally_usage_count_v1', String(usageCount)); }catch(e){}
+  if(usageCount>=24) document.getElementById('limitBanner').classList.add('show');
+  var sendBtn=document.getElementById('sendBtn');
+  if(sendBtn) sendBtn.disabled=true;
+  isAILoading=true;
+  var typingId=addTyping();
+  var area=document.getElementById('chatArea');
+  setTimeout(function(){ area.scrollTop=area.scrollHeight; },50);
+  try{
+    var response=await fetch('/api/claude',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:text,history:chatHistory})
+    });
+    removeTyping(typingId);
+    if(!response.ok) throw new Error('API error');
+    var data=await response.json();
+    addAIMsg(data.text,data.tsv||'',text);
+    chatHistory.push({role:'user',content:text});
+    chatHistory.push({role:'assistant',content:data.text});
+    if(chatHistory.length>40) chatHistory=chatHistory.slice(-40);
+    talkCount++; updateMemoryBar();
+    saveChatHistory();
+  }catch(err){
+    removeTyping(typingId);
+    addAIMsgFallback(text);
+    saveChatHistory();
+  }finally{
+    if(sendBtn) sendBtn.disabled=false;
+    isAILoading=false;
+  }
+}
+
+function addMsg(role,text){
+  var area=document.getElementById('chatArea');
+  var div=document.createElement('div');
+  div.className='msg '+role;
+  div.innerHTML='<div class="msg-avatar">'+(role==='ai'?'Ex':'矢')+'</div><div class="msg-bubble">'+text+'</div>';
+  area.appendChild(div); area.scrollTop=area.scrollHeight;
+}
+
+function updateMemoryActive(area){
+  var aiMsgList=area.querySelectorAll('.msg.ai');
+  // 既存ラベルを全削除
+  area.querySelectorAll('.memory-label').forEach(function(el){ el.remove(); });
+  // memory-activeクラスを全削除
+  aiMsgList.forEach(function(el){ el.classList.remove('memory-active'); });
+  var idx=aiMsgList.length>20?aiMsgList.length-20:0;
+  if(aiMsgList[idx]){
+    aiMsgList[idx].classList.add('memory-active');
+    // ラベルをmemory-active要素の直前に挿入
+    var label=document.createElement('div');
+    label.className='memory-label';
+    label.textContent='📍 AIの記憶はここから';
+    aiMsgList[idx].parentNode.insertBefore(label, aiMsgList[idx]);
+  }
+}
+
+function addAIMsg(rawText,tsvData,question){
+  var area=document.getElementById('chatArea');
+  var div=document.createElement('div');
+  div.className='msg ai';
+  var _allF=[];
+  var _m, _p1=/`(=[^`\n]{2,120})`/g;
+  while((_m=_p1.exec(rawText))!==null) _allF.push(_m[1]);
+  if(!_allF.length){ var _p2=/(?:^|\n)(=[A-Za-z][^\n]{2,120})/gm; while((_m=_p2.exec(rawText))!==null) _allF.push(_m[1].trim()); }
+  var formula=_allF.length?_allF[0]:null;
+  var hasTSV=tsvData&&tsvData.trim().length>0;
+  var html=colorizeFormula(rawText)
+    .replace(/```[\w]*\n?([\s\S]*?)```/g,function(m,c){return '<div class="formula-block">'+colorizeFormulaBlock(c.trim())+'</div>';})
+    .replace(/`([^`]+)`/g,'<span class="inline-code">$1</span>')
+    .replace(/\n/g,'<br>');
+  var safeFormula=formula?formula.replace(/'/g,"&#39;"):'';
+  var msgId='msg_'+Date.now();
+  var bubble=document.createElement('div');
+  bubble.className='msg-bubble'; bubble.id=msgId;
+  bubble.setAttribute('data-raw',encodeURIComponent(rawText));
+  bubble.setAttribute('data-question',question||'');
+  bubble.innerHTML=html;
+  if(hasTSV){
+    bubble.setAttribute('data-tsv',encodeURIComponent(tsvData));
+    var tsvLines=tsvData.split('\n');
+    var preview=tsvLines.slice(0,6).map(function(r){ return r.replace(/\t/g,'  |  '); }).join('\n');
+    if(tsvLines.length>6) preview+='\n…';
+    var tsvBlock=document.createElement('div');
+    tsvBlock.className='tsv-block';
+    tsvBlock.innerHTML='<div class="tsv-block-label">Excel貼り付け用データ</div>'+preview;
+    var copyBtn=document.createElement('button');
+    copyBtn.className='copy-tsv-btn'; copyBtn.textContent='📋 Excelにコピー';
+    copyBtn.onclick=function(){ copyTSV(copyBtn,msgId); };
+    tsvBlock.appendChild(copyBtn);
+    bubble.appendChild(tsvBlock);
+  }
+  var actions=document.createElement('div');
+  actions.className='msg-actions';
+  if(!hasTSV&&formula){
+    var cb=document.createElement('button');
+    cb.className='copy-btn'; cb.textContent='📋 数式をコピー';
+    cb.onclick=function(){ copyText(cb,safeFormula); };
+    actions.appendChild(cb);
+  }
+  bubble.appendChild(actions);
+  if(formula){
+    var barId='bar_'+msgId;
+    var saveBar=document.createElement('div');
+    saveBar.className='save-bar'; saveBar.id=barId;
+    saveBar.innerHTML='<span>💡 数式帳に保存する？</span>'
+      +'<button class="save-bar-btn" onclick="saveBarAction(\''+barId+'\',\''+safeFormula+'\')">保存する</button>';
+    bubble.appendChild(saveBar);
+  }
+  // 関連ヒント追加
+  var catToUse=window.lastCat||window.currentCat;
+  if(catToUse&&RELATED_HINTS[catToUse]){
+    var hints=RELATED_HINTS[catToUse];
+    var rDiv=document.createElement('div');
+    rDiv.className='related-hints';
+    var rLabel=document.createElement('div');
+    rLabel.className='related-hints-label';
+    rLabel.textContent='💬 こんなことも聞けるよ';
+    rDiv.appendChild(rLabel);
+    hints.forEach(function(h){
+      var btn=document.createElement('button');
+      btn.className='related-hint-btn';
+      btn.textContent=h.icon+' '+h.text;
+      btn.onclick=function(){ setQuestion(h.text); };
+      rDiv.appendChild(btn);
+    });
+    bubble.appendChild(rDiv);
+  }
+  var avatar=document.createElement('div');
+  avatar.className='msg-avatar'; avatar.textContent='Ex';
+  div.appendChild(avatar); div.appendChild(bubble);
+  area.appendChild(div);
+  area.scrollTop=area.scrollHeight;
+  updateMemoryActive(area);
+}
+
+function addAIMsgFallback(question){
+  var fallbacks=[
+    {kw:['vlookup'],text:'社員番号を入れたら名前が自動で出てくる、あの便利な関数だよ。\n\n=VLOOKUP(A2,B1:D20,2,FALSE)\n\n🔵 **A2** → 「この番号で探して」って渡すマス\n🟠 **B1:D20** → 探しに行く名簿の範囲\n🟣 **2** → 取り出したいものが何列目か\n🟢 **FALSE** → ここはそのままでOK',formula:'=VLOOKUP(A2,B1:D20,2,FALSE)'},
+    {kw:['#n/a','iferror'],text:'エラーが出たときに空白や「-」を表示してくれる関数だよ。\n\n=IFERROR(VLOOKUP(A2,B1:D20,2,FALSE),"")\n\n🔵 **VLOOKUP(…)** → まず試してほしい数式\n🟠 **""** → エラーのとき代わりに表示するもの',formula:'=IFERROR(VLOOKUP(A2,B1:D20,2,FALSE),"")'},
+    {kw:['合計','sum','sumif'],text:'条件をつけた足し算ができる関数だよ。\n\n=SUMIF(A1:A20,"東京",B1:B20)\n\n🔵 **A1:A20** → 条件が入ってる列\n🟠 **"東京"** → この文字が入ってる行だけ計算\n🟣 **B1:B20** → 足し算したい数字の列',formula:'=SUMIF(A1:A20,"東京",B1:B20)'},
+    {kw:['if','条件'],text:'「80点以上なら合格」を自動で判定してくれる関数だよ。\n\n=IF(A1>=80,"合格","不合格")\n\n🔵 **A1>=80** → 判定する条件\n🟠 **"合格"** → 満たしたときの言葉\n🟣 **"不合格"** → 満たさなかったときの言葉',formula:'=IF(A1>=80,"合格","不合格")'},
+    {kw:['平均','average'],text:'選んだ範囲の平均を出してくれる関数だよ。\n\n=AVERAGE(A1:A20)\n\n🔵 **A1:A20** → 平均を出したい数字の範囲',formula:'=AVERAGE(A1:A20)'}
+  ];
+  var q=question.toLowerCase();
+  var match=fallbacks.find(function(f){ return f.kw.some(function(k){ return q.includes(k); }); })
+    ||{text:'現在AIに接続できません。しばらくしてからお試しください。',formula:null};
+  var area=document.getElementById('chatArea');
+  var div=document.createElement('div');
+  div.className='msg ai';
+  var fid='fbar_'+Date.now();
+  var avatar=document.createElement('div');
+  avatar.className='msg-avatar'; avatar.textContent='Ex';
+  var bubble=document.createElement('div');
+  bubble.className='msg-bubble';
+  bubble.setAttribute('data-raw',encodeURIComponent(match.text));
+  bubble.setAttribute('data-question',question||'');
+  bubble.innerHTML=colorizeFormula(match.text).replace(/\n/g,'<br>')
+    +(match.formula?'<div class="formula-block">'+match.formula+'</div>':'')
+    +'<div class="msg-actions">'
+    +(match.formula?'<button class="copy-btn" onclick="copyText(this,\''+match.formula.replace(/'/g,"&#39;")+'\')">📋 数式をコピー</button>':'')
+    +'</div>'
+    +(match.formula?'<div class="save-bar" id="'+fid+'"><span>💡 数式帳に保存する？</span><button class="save-bar-btn" onclick="saveBarAction(\''+fid+'\',\''+match.formula.replace(/'/g,"&#39;")+'\')">保存する</button></div>':'');
+  div.appendChild(avatar); div.appendChild(bubble);
+  area.appendChild(div); area.scrollTop=area.scrollHeight;
+  talkCount++; updateMemoryBar();
+  updateMemoryActive(area);
+}
+
+function addTyping(){
+  var area=document.getElementById('chatArea');
+  var id='t'+Date.now();
+  var div=document.createElement('div');
+  div.className='msg ai'; div.id=id;
+  div.innerHTML='<div class="msg-avatar">Ex</div><div class="msg-bubble"><div class="typing"><span></span><span></span><span></span></div></div>';
+  area.appendChild(div); area.scrollTop=area.scrollHeight;
+  return id;
+}
+function removeTyping(id){ var el=document.getElementById(id); if(el) el.remove(); }
+
+function copyTSV(btn,msgId){
+  var el=document.getElementById(msgId);
+  if(!el) return;
+  var tsv=decodeURIComponent(el.getAttribute('data-tsv')||'');
+  if(!tsv){ showToast('データがありません'); return; }
+  navigator.clipboard.writeText(tsv).then(function(){
+    btn.textContent='✅ コピー済み';
+    showToast('📋 コピーしたよ！ExcelのA1に貼り付けてみて');
+    setTimeout(function(){ btn.textContent='📋 Excelにコピー'; },3000);
+  });
+}
+
+function copyText(btn,text){
+  navigator.clipboard.writeText(text).then(function(){
+    btn.textContent='✅ コピー済み';
+    setTimeout(function(){ btn.textContent='📋 コピー'; },2000);
+  });
+}
+
+// ===== BACK TO CARDS =====
+function backToCards(){
+  var area=document.getElementById('chatArea');
+  var welcome=document.getElementById('welcomeMsg');
+  var backBar=document.getElementById('chatBackBar');
+  if(welcome) welcome.style.display='block';
+  if(area){
+    area.scrollTop=0;
+    if(welcome) welcome.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+}
+
+// ===== PTAB =====
+function collapsePtab(){
+  var wrap=document.getElementById('ptabWrap');
+  var expanded=document.getElementById('ptabExpanded');
+  var btn=document.getElementById('ptabToggleBtn');
+  if(wrap) wrap.style.display='';
+  var catToUse=currentCat||lastCat;
+  if(expanded&&catToUse&&CAT_Q[catToUse]){
+    var items=CAT_Q[catToUse].items;
+    var html='';
+    items.forEach(function(q){
+      var safe=q.text.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      html+='<button class="quick-btn" onclick="setQuestion(\''+safe+'\')">'+q.icon+' '+q.text+'</button>';
+    });
+    expanded.innerHTML=html;
+  }
+  if(expanded) expanded.style.display='flex';
+  if(btn) btn.style.display='none';
+}
+
+function togglePtab(){
+  var expanded=document.getElementById('ptabExpanded');
+  var btn=document.getElementById('ptabToggleBtn');
+  if(!expanded||!btn) return;
+  var isOpen=expanded.style.display!=='none';
+  if(isOpen){ expanded.style.display='none'; btn.textContent='💡 よく使う質問を見る ▼'; }
+  else{ expanded.style.display='flex'; btn.textContent='▲ 閉じる'; }
+}
+
+// ===== USAGE =====
+function updateUsage(){
+  var pct=(usageCount/MAX_FREE)*100;
+  var uc=document.getElementById('usageCount');
+  var ub=document.getElementById('usageBar');
+  var su=document.getElementById('settingsUsage');
+  if(uc) uc.textContent=usageCount+' / '+MAX_FREE+'回';
+  if(ub) ub.style.width=pct+'%';
+  if(su) su.textContent=usageCount+' / '+MAX_FREE+'回';
+  var wpct=(writeCount/MAX_WRITE_FREE)*100;
+  var wEl=document.getElementById('writeCount');
+  var wBar=document.getElementById('writeBar');
+  var wSet=document.getElementById('settingsWrite');
+  if(wEl) wEl.textContent=writeCount+' / '+MAX_WRITE_FREE+'回';
+  if(wBar) wBar.style.width=wpct+'%';
+  if(wSet) wSet.textContent=writeCount+' / '+MAX_WRITE_FREE+'回';
+}
+
+// ===== FORMULA BOOK =====
+function saveBarAction(barId,formula){
+  var bar=document.getElementById(barId);
+  if(!bar) return;
+  var bubble=bar.closest('.msg-bubble');
+  var rawText=bubble?decodeURIComponent(bubble.getAttribute('data-raw')||''):'';
+  var question=bubble?(bubble.getAttribute('data-question')||''):'';
+  var now=new Date();
+  var date=(now.getMonth()+1)+'月'+now.getDate()+'日';
+  var title=question||formula;
+  savedFormulas.unshift({title:title,formula:formula,memo:rawText,date:date});
+  try{ localStorage.setItem('savedFormulas',JSON.stringify(savedFormulas)); }catch(e){}
+  var bnb=document.getElementById('bookNavBadge');
+  if(bnb) bnb.classList.add('show');
+  var badge=document.getElementById('bookBadge');
+  if(badge) badge.style.display='inline-block';
+  bar.classList.add('saved');
+  bar.innerHTML='<span>✅ 数式帳に保存済み</span>';
+  showToast('📚 保存したよ！数式帳で確認できるよ');
+}
+
+function renderMemo(rawText){
+  return colorizeFormula(rawText)
+    .replace(/```[\w]*\n?([\s\S]*?)```/g,function(m,c){return '<div class="formula-block">'+colorizeFormulaBlock(c.trim())+'</div>';})
+    .replace(/`([^`]+)`/g,'<span class="inline-code">$1</span>')
+    .replace(/\n/g,'<br>');
+}
+function toggleTitle(idx){
+  var full=document.getElementById('title-full-'+idx);
+  var arrow=document.getElementById('title-arrow-'+idx);
+  if(!full) return;
+  var isOpen=full.style.display!=='none';
+  full.style.display=isOpen?'none':'block';
+  if(arrow) arrow.textContent=isOpen?'▼':'▲';
+}
+function renderBook(){
+  var el=document.getElementById('fbContent');
+  document.getElementById('fbCount').textContent=savedFormulas.length+'件';
+  if(!savedFormulas.length){
+    el.innerHTML='<div style="text-align:center;padding:40px 20px;">'
+      +'<div style="font-size:44px;margin-bottom:12px;">📭</div>'
+      +'<div style="font-size:16px;font-weight:700;color:#1A2B22;margin-bottom:8px;">まだ保存されていません</div>'
+      +'<div style="font-size:13px;color:#7A9A87;line-height:1.8;margin-bottom:20px;">AIチャットで数式を受け取ったら<br>「保存する」ボタンで追加できます。</div>'
+      +'<button onclick="switchTab(\'chat\')" style="background:#52B788;color:white;border:none;border-radius:12px;padding:13px 24px;font-size:14px;font-weight:700;cursor:pointer;font-family:\'Noto Sans JP\',sans-serif;">💬 AIチャットで質問する →</button>'
+      +'</div>';
+    return;
+  }
+  el.innerHTML='<div class="fb-list">'+savedFormulas.map(function(f,i){
+    var shortTitle=f.title.length>20?f.title.substring(0,20)+'…':f.title;
+    return '<div class="fb-item">'
+      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px;">'
+      +'<div style="flex:1;display:flex;align-items:baseline;gap:4px;">'
+      +'<div><div style="font-size:13px;font-weight:700;color:#1A2B22;line-height:1.5;">'+shortTitle+'</div>'
+      +'<div id="title-full-'+i+'" style="display:none;font-size:12px;color:#3D9E72;margin-top:3px;line-height:1.5;">'+f.title+'</div></div>'
+      +(f.title.length>20?'<button id="title-arrow-'+i+'" onclick="toggleTitle('+i+')" style="background:none;border:none;font-size:11px;color:#7A9A87;cursor:pointer;padding:0;flex-shrink:0;">▼</button>':'')
+      +'</div>'
+      +'<div style="font-size:11px;color:#7A9A87;flex-shrink:0;">'+f.date+'</div>'
+      +'</div>'
+      +'<div class="fb-item-formula">'+colorizeFormula(f.formula)+'</div>'
+      +(f.memo?'<div class="fb-item-memo">'+renderMemo(f.memo)+'</div>':'')
+      +'<div style="display:flex;gap:7px;margin-top:8px;">'
+      +'<button class="copy-btn" onclick="copyForBook('+i+')">📋 数式をコピー</button>'
+      +'<button class="fb-delete-btn" onclick="confirmDelete('+i+')">🗑 削除</button>'
+      +'</div>'
+      +'<div id="confirm-bar-'+i+'" style="display:none;align-items:center;justify-content:space-between;background:#FFF0F0;border:1px solid #FFCDD2;border-radius:10px;padding:8px 12px;margin-top:6px;font-size:12px;color:#E05555;font-weight:700;">'
+      +'<span>本当に削除しますか？</span>'
+      +'<div style="display:flex;gap:6px;">'
+      +'<button style="background:#E05555;border:none;color:#fff;font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;" onclick="deleteFromBook('+i+')">削除する</button>'
+      +'<button style="background:#F4F7F5;border:1px solid #D4EDE1;color:#2E4038;font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;" onclick="hideConfirmBar(this)">キャンセル</button>'
+      +'</div></div>'
+      +'</div>';
+  }).join('')+'</div>';
+}
+function hideSaveModal(){ document.getElementById('saveModal').classList.remove('show'); }
+function saveToBook(){
+  var title=document.getElementById('saveTitle').value.trim()||'保存した数式';
+  var formula=document.getElementById('saveFormula').value.trim();
+  if(!formula){ showToast('⚠️ 数式を入力してください'); return; }
+  var now=new Date();
+  savedFormulas.unshift({title:title,formula:formula,date:(now.getMonth()+1)+'/'+now.getDate()});
+  hideSaveModal();
+  var bnb=document.getElementById('bookNavBadge');
+  var bb=document.getElementById('bookBadge');
+  if(bnb) bnb.classList.add('show');
+  if(bb) bb.style.display='inline-block';
+  showToast('📚 数式帳に保存しました！');
+}
+function confirmDelete(idx){
+  var bar=document.getElementById('confirm-bar-'+idx);
+  if(bar) bar.style.display='flex';
+}
+function hideConfirmBar(btn){
+  var bar=btn.closest('[id^="confirm-bar-"]');
+  if(bar) bar.style.display='none';
+}
+function deleteFromBook(idx){
+  savedFormulas.splice(idx,1); renderBook();
+  if(!savedFormulas.length){
+    var bnb=document.getElementById('bookNavBadge');
+    var bb=document.getElementById('bookBadge');
+    if(bnb) bnb.classList.remove('show');
+    if(bb) bb.style.display='none';
+  }
+}
+function copyForBook(idx){ navigator.clipboard.writeText(savedFormulas[idx].formula).then(function(){ showToast('📋 コピーしました'); }); }
+
+// ===== MODALS =====
+function showUpgrade(){ document.getElementById('upgradeModal').classList.add('show'); }
+function hideUpgrade(){ document.getElementById('upgradeModal').classList.remove('show'); }
+document.getElementById('upgradeModal').addEventListener('click',function(e){ if(e.target===document.getElementById('upgradeModal')) hideUpgrade(); });
+document.getElementById('saveModal').addEventListener('click',function(e){ if(e.target===document.getElementById('saveModal')) hideSaveModal(); });
+
+// ===== TOAST =====
+function showToast(msg,duration){
+  var t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); },duration||2500);
+}
+
+// ===== PLACEHOLDER ROTATION =====
+(function(){
+  var examples=['VLOOKUPの使い方を教えて','IF関数でエラーを回避したい','SUMIFで条件付き合計を出したい','#REF! エラーが出て困ってます','売上データを自動集計したい','IFERRORの使い方を教えて','重複データを削除したい'];
+  var idx=0;
+  function rotate(){
+    var input=document.getElementById('msgInput');
+    if(input && document.activeElement!==input){
+      input.placeholder=examples[idx];
+      idx=(idx+1)%examples.length;
+    }
+  }
+  setInterval(rotate,3000);
+})();
+</script>
+<script>
+// ===== Excelバージョン管理（home.htmlと共有：localStorageキー exally_excel_version） =====
+var VER_LABEL_MAP = {
+  excel_365:'365', excel_2024:'2024', excel_2021:'2021', excel_2019:'2019',
+  excel_2016:'2016', excel_mac:'Mac', excel_online:'Online', excel_none:'なし'
+};
+function getVerKey(){
+  try{ var v=localStorage.getItem('exally_excel_version'); return (typeof v==='string' && v.length>0) ? v : 'excel_365'; }
+  catch(e){ return 'excel_365'; }
+}
+function openVerModal(){
+  var current=getVerKey();
+  document.querySelectorAll('.vm-op').forEach(function(el){
+    el.classList.toggle('current', el.getAttribute('data-ver')===current);
+  });
+  document.getElementById('verModal').classList.add('show');
+}
+function closeVerModal(){
+  document.getElementById('verModal').classList.remove('show');
+}
+function selectVer(verKey){
+  try{ localStorage.setItem('exally_excel_version', verKey); }catch(e){}
+  closeVerModal();
+  // chat.html既存showToast(msg, duration)を流用
+  if(typeof showToast === 'function') showToast('Excelバージョンを'+(VER_LABEL_MAP[verKey]||verKey)+'に変更したよ', 2500);
+}
+// モーダル外クリックで閉じる
+(function(){
+  var vm = document.getElementById('verModal');
+  if(vm) vm.addEventListener('click', function(e){ if(e.target===this) closeVerModal(); });
+})();
+</script>
+
+</body>
+</html>

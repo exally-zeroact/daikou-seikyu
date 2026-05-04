@@ -1,0 +1,14 @@
+{
+  "rewrites": [
+    { "source": "/.netlify/functions/claude", "destination": "/api/claude" },
+    { "source": "/api/claude", "destination": "/api/claude" },
+    { "source": "/", "destination": "/home.html" },
+    { "source": "/index.html", "destination": "/home.html" },
+    { "source": "/index6.html", "destination": "/chat.html" },
+    { "source": "/exally-home.html", "destination": "/home.html" },
+    { "source": "/exally-canvas-grid.html", "destination": "/book.html" },
+    { "source": "/seikyusyo-template.html", "destination": "/seikyusyo.html" },
+    { "source": "/mitsumoriyo-template.html", "destination": "/mitsumoriyo.html" },
+    { "source": "/template-demo.html", "destination": "/kyuuryoumeisai.html" }
+  ]
+}
