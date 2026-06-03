@@ -3756,7 +3756,7 @@ function bindEvents(){
       if(e.key==='Enter'){ e.preventDefault(); startEdit(selR1,selC1); return; }
     }
     // 編集モード中
-    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();refMode=false;refStartR=-1;commitEdit();moveSel(1,0);}
+    if(e.key==='Enter'&&!e.shiftKey){if(e.isComposing||e.keyCode===229)return;e.preventDefault();refMode=false;refStartR=-1;commitEdit();moveSel(1,0);}
     else if(e.key==='Tab'){e.preventDefault();refMode=false;refStartR=-1;commitEdit();moveSel(0,1);}
     else if(e.key==='Escape'){refMode=false;refStartR=-1;cancelEdit();}
   });
