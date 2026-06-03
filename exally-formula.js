@@ -355,6 +355,10 @@ function convertFormula(f) {
   f = f.replace(/\bHYPGEOMDIST\s*\(([^()]+)\)/gi, function(m,args){return args.split(',').length===4?'HYPGEOMDIST('+args+',FALSE())':m;});
   f = f.replace(/\bNEGBINOMDIST\s*\(([^()]+)\)/gi, function(m,args){return args.split(',').length===3?'NEGBINOMDIST('+args+',FALSE())':m;});
   f = f.replace(/\bISREF\s*\(([^)]+)\)/gi, function(m,arg){return /^[A-Z]+\d+(:[A-Z]+\d+)?$/i.test(arg.trim())?'TRUE()':'FALSE()';});
+  // INDEX({横1次元配列},n) → INDEX({配列},1,n) HyperFormulaは引数を行番号として扱うため列番号に変換
+  f = f.replace(/\bINDEX\s*\((\{[^}]*\})\s*,\s*(\d+)\s*\)/gi, function(m, arr, n) {
+    return arr.indexOf(';') === -1 ? 'INDEX(' + arr + ',1,' + n + ')' : m;
+  });
   return f;
 }
 
