@@ -1,0 +1,3 @@
+# ★push直前にテストを強制実行。緑でなければ push をブロック。
+# (lint は commit 時 lint-staged が --fix 済。lint を push ゲートに含めない=既存コードで全 push が止まるのを防ぐ)
+npm test
