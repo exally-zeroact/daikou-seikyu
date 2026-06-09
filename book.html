@@ -1031,7 +1031,10 @@ touch-action:manipulation;
 .fmtmd-tab{flex:1;padding:10px 6px;font-size:12px;font-weight:600;color:#7A9A87;background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;}
 .fmtmd-tab.active{color:#3D9E72;border-bottom-color:#3D9E72;background:#fff;}
 .fmtmd-tab:disabled{color:#C0CEC7;cursor:not-allowed;}
-.fmtmd-bd{padding:14px 18px;overflow-y:auto;flex:1;min-height:0;display:flex;gap:12px;}
+.fmtmd-bd{padding:14px 18px;overflow-y:auto;flex:1;min-height:0;display:block;}
+.fmtmd-panel{display:none;}
+.fmtmd-panel.active{display:block;}
+#fmtPanel-number.active{display:flex;gap:12px;}
 .fmtmd-cat{flex:0 0 130px;border:1px solid #D4EDE1;border-radius:8px;overflow:hidden;max-height:340px;overflow-y:auto;}
 .fmtmd-cat-it{padding:8px 10px;font-size:12px;color:#1A4A2E;cursor:pointer;border-bottom:1px solid #F0FAF4;}
 .fmtmd-cat-it:last-child{border-bottom:none;}
@@ -1051,9 +1054,25 @@ touch-action:manipulation;
 .fmtmd-btn{padding:8px 18px;border-radius:8px;border:1px solid #D4EDE1;background:#fff;color:#1A4A2E;font-size:13px;font-weight:600;cursor:pointer;}
 .fmtmd-btn-pr{background:#52B788;color:#fff;border-color:#52B788;}
 @media(max-width:600px){
-.fmtmd-bd{flex-direction:column;}
+#fmtPanel-number.active{flex-direction:column;}
 .fmtmd-cat{flex:none;max-height:130px;}
 }
+/* 書式モーダル 各タブ共通コントロール */
+.fmtf-row{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.fmtf-lb{font-size:12px;color:#7A9A87;width:72px;flex:none;}
+.fmtf-tg{padding:7px 12px;border:1px solid #D4EDE1;border-radius:8px;background:#fff;color:#1A4A2E;font-size:13px;cursor:pointer;font-weight:600;min-width:40px;}
+.fmtf-tg.active{background:#52B788;color:#fff;border-color:#52B788;}
+.fmtf-sel,.fmtf-num{padding:7px 10px;border:1px solid #D4EDE1;border-radius:8px;font-size:13px;color:#1A4A2E;background:#fff;}
+.fmtf-num{width:72px;}
+.fmtf-sw{width:32px;height:32px;border-radius:7px;border:1px solid #ccc;cursor:pointer;padding:0;}
+.fmtf-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:5px;max-width:320px;}
+.fmtf-grid .sw{width:100%;padding-bottom:100%;border-radius:5px;border:1px solid #ccc;cursor:pointer;position:relative;}
+.fmtf-grid .sw.active{outline:2px solid #52B788;outline-offset:1px;}
+.fmtf-bd-btns{display:flex;gap:8px;flex-wrap:wrap;}
+.fmtf-bd-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px 6px;border:1px solid #D4EDE1;border-radius:8px;background:#fff;cursor:pointer;font-size:11px;color:#1A4A2E;min-width:58px;}
+.fmtf-bd-btn:hover{background:#F0FAF4;}
+.fmtf-bd-ico{font-size:18px;line-height:1;}
+.fmtf-prev{padding:14px;border:1px solid #C8ECD8;border-radius:8px;background:#F0FAF4;text-align:center;font-size:16px;color:#1A4A2E;margin-top:6px;min-height:52px;display:flex;align-items:center;justify-content:center;}
 
 /* トースト通知 */
 #toast {
@@ -1815,7 +1834,8 @@ function drawText(r,c){
   var fontSize = Math.max(9, Math.min(72, Math.round((cell.fontSize||12)*scale)));
   var weight = cell.bold ? 'bold' : 'normal';
   var style  = cell.italic ? 'italic' : 'normal';
-  ctx.font = style+' '+weight+' '+fontSize+'px "Noto Sans JP",sans-serif';
+  var fam = cell.fontFamily ? '"'+cell.fontFamily+'",sans-serif' : '"Noto Sans JP",sans-serif';
+  ctx.font = style+' '+weight+' '+fontSize+'px '+fam;
 
   // 文字色
   var isFormula = cell.f && cell.f[0]==='=';
@@ -1829,6 +1849,7 @@ function drawText(r,c){
   ctx.save();
   ctx.rect(x+1,y,w-2,h); ctx.clip();
 
+  var valign = cell.valign||'middle';
   var tx;
   var indentPx = (cell.indent||0) * 12;
   if(align==='center') { ctx.textAlign='center'; tx=x+w/2; }
@@ -1854,12 +1875,18 @@ function drawText(r,c){
     }
     var lh = fontSize * 1.4;
     var totalH = wLines.length * lh;
-    var startY = y + Math.max(lh/2, (h - totalH)/2 + lh/2);
+    var startY;
+    if(valign==='top') startY = y + lh/2 + 2;
+    else if(valign==='bottom') startY = y + h - totalH + lh/2 - 2;
+    else startY = y + Math.max(lh/2, (h - totalH)/2 + lh/2);
     for(var li=0;li<wLines.length;li++){
       ctx.fillText(wLines[li], tx, startY + li*lh);
     }
   } else {
-    ctx.fillText(display, tx, y+h/2);
+    var ty = valign==='top' ? y + fontSize*0.6 + 2
+           : valign==='bottom' ? y + h - fontSize*0.6 - 2
+           : y + h/2;
+    ctx.fillText(display, tx, ty);
   }
 
   // 下線・取り消し線
@@ -1867,18 +1894,21 @@ function drawText(r,c){
     var metrics = ctx.measureText(display);
     var ux = align==='center' ? x+w/2-metrics.width/2 :
              align==='right'  ? x+w-4-metrics.width : x+4;
+    var lineY = valign==='top' ? y + fontSize*0.6 + 2
+              : valign==='bottom' ? y + h - fontSize*0.6 - 2
+              : y + h/2;
     ctx.strokeStyle = cell.color||C_CELL_TXT;
     ctx.lineWidth = 1;
     if(cell.underline){
       ctx.beginPath();
-      ctx.moveTo(ux, y+h/2+fontSize*0.6);
-      ctx.lineTo(ux+metrics.width, y+h/2+fontSize*0.6);
+      ctx.moveTo(ux, lineY+fontSize*0.6);
+      ctx.lineTo(ux+metrics.width, lineY+fontSize*0.6);
       ctx.stroke();
     }
     if(cell.strike){
       ctx.beginPath();
-      ctx.moveTo(ux, y+h/2);
-      ctx.lineTo(ux+metrics.width, y+h/2);
+      ctx.moveTo(ux, lineY);
+      ctx.lineTo(ux+metrics.width, lineY);
       ctx.stroke();
     }
   }
@@ -2581,29 +2611,127 @@ function detectTimePattern(values){
       <button class="fmtmd-cl" onclick="closeFmtModal()">×</button>
     </div>
     <div class="fmtmd-tabs">
-      <button class="fmtmd-tab active" data-tab="number">表示形式</button>
-      <button class="fmtmd-tab" disabled>フォント</button>
-      <button class="fmtmd-tab" disabled>罫線</button>
-      <button class="fmtmd-tab" disabled>配置</button>
-      <button class="fmtmd-tab" disabled>塗りつぶし</button>
+      <button class="fmtmd-tab active" data-tab="number" onclick="switchFmtTab('number')">表示形式</button>
+      <button class="fmtmd-tab" data-tab="font" onclick="switchFmtTab('font')">フォント</button>
+      <button class="fmtmd-tab" data-tab="border" onclick="switchFmtTab('border')">罫線</button>
+      <button class="fmtmd-tab" data-tab="align" onclick="switchFmtTab('align')">配置</button>
+      <button class="fmtmd-tab" data-tab="fill" onclick="switchFmtTab('fill')">塗りつぶし</button>
     </div>
     <div class="fmtmd-bd">
-      <div class="fmtmd-cat" id="fmtModalCat">
-        <div class="fmtmd-cat-it disabled" data-cat="general">標準</div>
-        <div class="fmtmd-cat-it disabled" data-cat="number">数値</div>
-        <div class="fmtmd-cat-it disabled" data-cat="currency">通貨</div>
-        <div class="fmtmd-cat-it active" data-cat="date" onclick="switchFmtCategory('date')">日付</div>
-        <div class="fmtmd-cat-it" data-cat="time" onclick="switchFmtCategory('time')">時刻</div>
-        <div class="fmtmd-cat-it disabled" data-cat="percent">パーセンテージ</div>
-        <div class="fmtmd-cat-it disabled" data-cat="text">文字列</div>
-      </div>
-      <div class="fmtmd-right">
-        <div class="fmtmd-pv-lb">プレビュー</div>
-        <div class="fmtmd-pv" id="fmtModalPreview">—</div>
-        <div class="fmtmd-types-lb">種類</div>
-        <div class="fmtmd-types" id="fmtModalTypes">
-          <!-- JSで動的に生成 -->
+      <!-- 表示形式 -->
+      <div class="fmtmd-panel active" id="fmtPanel-number">
+        <div class="fmtmd-cat" id="fmtModalCat">
+          <div class="fmtmd-cat-it disabled" data-cat="general">標準</div>
+          <div class="fmtmd-cat-it disabled" data-cat="number">数値</div>
+          <div class="fmtmd-cat-it disabled" data-cat="currency">通貨</div>
+          <div class="fmtmd-cat-it active" data-cat="date" onclick="switchFmtCategory('date')">日付</div>
+          <div class="fmtmd-cat-it" data-cat="time" onclick="switchFmtCategory('time')">時刻</div>
+          <div class="fmtmd-cat-it disabled" data-cat="percent">パーセンテージ</div>
+          <div class="fmtmd-cat-it disabled" data-cat="text">文字列</div>
         </div>
+        <div class="fmtmd-right">
+          <div class="fmtmd-pv-lb">プレビュー</div>
+          <div class="fmtmd-pv" id="fmtModalPreview">—</div>
+          <div class="fmtmd-types-lb">種類</div>
+          <div class="fmtmd-types" id="fmtModalTypes">
+            <!-- JSで動的に生成 -->
+          </div>
+        </div>
+      </div>
+      <!-- フォント -->
+      <div class="fmtmd-panel" id="fmtPanel-font">
+        <div class="fmtf-row">
+          <span class="fmtf-lb">スタイル</span>
+          <button class="fmtf-tg" id="fmtf-bold" onclick="fmtToggle('bold',this)" style="font-weight:700;">B</button>
+          <button class="fmtf-tg" id="fmtf-italic" onclick="fmtToggle('italic',this)" style="font-style:italic;">I</button>
+          <button class="fmtf-tg" id="fmtf-underline" onclick="fmtToggle('underline',this)" style="text-decoration:underline;">U</button>
+          <button class="fmtf-tg" id="fmtf-strike" onclick="fmtToggle('strike',this)" style="text-decoration:line-through;">S</button>
+        </div>
+        <div class="fmtf-row">
+          <span class="fmtf-lb">フォント</span>
+          <select class="fmtf-sel" id="fmtf-family" onchange="fmtSet('fontFamily',this.value)">
+            <option value="Noto Sans JP">Noto Sans JP</option>
+            <option value="DM Mono">DM Mono</option>
+            <option value="Yu Gothic">游ゴシック</option>
+            <option value="Meiryo">メイリオ</option>
+            <option value="MS PGothic">ＭＳ Ｐゴシック</option>
+            <option value="serif">明朝 (serif)</option>
+            <option value="monospace">等幅 (monospace)</option>
+            <option value="Arial">Arial</option>
+          </select>
+        </div>
+        <div class="fmtf-row">
+          <span class="fmtf-lb">サイズ</span>
+          <select class="fmtf-sel" id="fmtf-size" onchange="fmtSet('fontSize',parseInt(this.value))">
+            <option>8</option><option>9</option><option>10</option><option>11</option><option>12</option><option>14</option><option>16</option><option>18</option><option>20</option><option>24</option><option>28</option><option>36</option><option>48</option><option>72</option>
+          </select>
+        </div>
+        <div class="fmtf-row">
+          <span class="fmtf-lb">文字色</span>
+          <input type="color" class="fmtf-sw" id="fmtf-color" value="#1A4A2E" oninput="fmtSet('color',this.value)">
+        </div>
+        <div class="fmtf-prev" id="fmtf-preview">プレビュー Aa 123</div>
+      </div>
+      <!-- 罫線 -->
+      <div class="fmtmd-panel" id="fmtPanel-border">
+        <div class="fmtf-row">
+          <span class="fmtf-lb">線の太さ</span>
+          <button class="fmtf-tg active" id="fmtbd-thin" onclick="fmtBorderStyle(1)">細線</button>
+          <button class="fmtf-tg" id="fmtbd-thick" onclick="fmtBorderStyle(2)">太線</button>
+        </div>
+        <div class="fmtf-row">
+          <div class="fmtf-bd-btns">
+            <button class="fmtf-bd-btn" onclick="applyBorderAll(_fmtBorderStyle)"><span class="fmtf-bd-ico">⊞</span>格子</button>
+            <button class="fmtf-bd-btn" onclick="applyBorderOuter(_fmtBorderStyle)"><span class="fmtf-bd-ico">□</span>外枠</button>
+            <button class="fmtf-bd-btn" onclick="applyBorderInner(_fmtBorderStyle)"><span class="fmtf-bd-ico">田</span>内側</button>
+            <button class="fmtf-bd-btn" onclick="applyBorderSide('top',_fmtBorderStyle)"><span class="fmtf-bd-ico">▔</span>上</button>
+            <button class="fmtf-bd-btn" onclick="applyBorderSide('bottom',_fmtBorderStyle)"><span class="fmtf-bd-ico">▁</span>下</button>
+            <button class="fmtf-bd-btn" onclick="applyBorderSide('left',_fmtBorderStyle)"><span class="fmtf-bd-ico">▏</span>左</button>
+            <button class="fmtf-bd-btn" onclick="applyBorderSide('right',_fmtBorderStyle)"><span class="fmtf-bd-ico">▕</span>右</button>
+            <button class="fmtf-bd-btn" onclick="applyBorderAll(0)"><span class="fmtf-bd-ico">∅</span>なし</button>
+          </div>
+        </div>
+        <div style="font-size:11px;color:#7A9A87;">※罫線は選択範囲に即時適用されます</div>
+      </div>
+      <!-- 配置 -->
+      <div class="fmtmd-panel" id="fmtPanel-align">
+        <div class="fmtf-row">
+          <span class="fmtf-lb">横位置</span>
+          <button class="fmtf-tg" data-align="left" onclick="fmtSetAlign('align','left')">左</button>
+          <button class="fmtf-tg" data-align="center" onclick="fmtSetAlign('align','center')">中央</button>
+          <button class="fmtf-tg" data-align="right" onclick="fmtSetAlign('align','right')">右</button>
+        </div>
+        <div class="fmtf-row">
+          <span class="fmtf-lb">縦位置</span>
+          <button class="fmtf-tg" data-valign="top" onclick="fmtSetAlign('valign','top')">上</button>
+          <button class="fmtf-tg" data-valign="middle" onclick="fmtSetAlign('valign','middle')">中央</button>
+          <button class="fmtf-tg" data-valign="bottom" onclick="fmtSetAlign('valign','bottom')">下</button>
+        </div>
+        <div class="fmtf-row">
+          <span class="fmtf-lb">折り返し</span>
+          <button class="fmtf-tg" id="fmtf-wrap" onclick="fmtToggle('wrap',this)">折り返して全体を表示</button>
+        </div>
+        <div class="fmtf-row">
+          <span class="fmtf-lb">インデント</span>
+          <button class="fmtf-tg" onclick="fmtIndent(-1)">－</button>
+          <span id="fmtf-indent-val" style="min-width:24px;text-align:center;font-size:13px;color:#1A4A2E;">0</span>
+          <button class="fmtf-tg" onclick="fmtIndent(1)">＋</button>
+        </div>
+        <div class="fmtf-row">
+          <span class="fmtf-lb">セル結合</span>
+          <button class="fmtf-tg" onclick="applyMergeCells()">結合</button>
+          <button class="fmtf-tg" onclick="unmergeCells()">解除</button>
+        </div>
+      </div>
+      <!-- 塗りつぶし -->
+      <div class="fmtmd-panel" id="fmtPanel-fill">
+        <div class="fmtf-row">
+          <span class="fmtf-lb">背景色</span>
+          <button class="fmtf-tg" id="fmtf-nofill" onclick="fmtSetFill('')">塗りなし</button>
+          <input type="color" class="fmtf-sw" id="fmtf-fillcustom" value="#FFFF00" oninput="fmtSetFill(this.value)">
+        </div>
+        <div class="fmtf-grid" id="fmtf-fillgrid"></div>
+        <div class="fmtf-prev" id="fmtf-fillpreview">プレビュー</div>
       </div>
     </div>
     <div class="fmtmd-ft">
@@ -4966,6 +5094,8 @@ function openFmtModal(){
   if(timeFmtList.indexOf(currentFmt)>=0) _fmtModalCategory='time';
   else if(dateFmtList.indexOf(currentFmt)>=0) _fmtModalCategory='date';
   renderFmtModalCategory(currentFmt);
+  _loadFmtState();
+  switchFmtTab('number');
   document.getElementById('fmtModal').classList.add('show');
 }
 function renderFmtModalCategory(currentFmt){
@@ -5023,7 +5153,170 @@ function applyFmtModal(){
   if(_fmtModalSelectedFmt){
     applyFormat('numFmt', _fmtModalSelectedFmt);
   }
+  _applyFmtStateToSelection();
+  render(); updateBar();
   closeFmtModal();
+}
+
+// ===== 書式モーダル タブ（フォント/罫線/配置/塗りつぶし） =====
+var _fmtState={};
+var _fmtBorderStyle=1;
+
+function switchFmtTab(tab){
+  document.querySelectorAll('.fmtmd-tab').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-tab')===tab);
+  });
+  document.querySelectorAll('.fmtmd-panel').forEach(function(p){
+    p.classList.toggle('active', p.id==='fmtPanel-'+tab);
+  });
+}
+
+function _loadFmtState(){
+  var cell=getCell(selR1,selC1);
+  _fmtState={
+    bold:!!cell.bold, italic:!!cell.italic, underline:!!cell.underline, strike:!!cell.strike,
+    fontSize:cell.fontSize||12, fontFamily:cell.fontFamily||'Noto Sans JP',
+    color:cell.color||'#1A4A2E', bgColor:cell.bgColor||'',
+    align:cell.align||'left', valign:cell.valign||'middle',
+    wrap:!!cell.wrap, indent:cell.indent||0
+  };
+  // フォントタブ反映
+  ['bold','italic','underline','strike','wrap'].forEach(function(k){
+    var el=document.getElementById('fmtf-'+k);
+    if(el) el.classList.toggle('active', !!_fmtState[k]);
+  });
+  var fam=document.getElementById('fmtf-family'); if(fam) fam.value=_fmtState.fontFamily;
+  var sz=document.getElementById('fmtf-size'); if(sz) sz.value=String(_fmtState.fontSize);
+  var col=document.getElementById('fmtf-color'); if(col) col.value=_fmtState.color;
+  // 配置タブ反映
+  document.querySelectorAll('#fmtPanel-align [data-align]').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-align')===_fmtState.align);
+  });
+  document.querySelectorAll('#fmtPanel-align [data-valign]').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-valign')===_fmtState.valign);
+  });
+  var iv=document.getElementById('fmtf-indent-val'); if(iv) iv.textContent=_fmtState.indent;
+  // 塗りつぶしタブ反映
+  _buildFillGrid();
+  _updateFmtPreview();
+}
+
+function fmtToggle(key, btn){
+  _fmtState[key]=!_fmtState[key];
+  if(btn) btn.classList.toggle('active', _fmtState[key]);
+  _updateFmtPreview();
+}
+function fmtSet(key, val){
+  _fmtState[key]=val;
+  _updateFmtPreview();
+}
+function fmtSetAlign(key, val){
+  _fmtState[key]=val;
+  var attr=(key==='align')?'data-align':'data-valign';
+  document.querySelectorAll('#fmtPanel-align ['+attr+']').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute(attr)===val);
+  });
+}
+function fmtIndent(delta){
+  _fmtState.indent=Math.max(0,(_fmtState.indent||0)+delta);
+  var iv=document.getElementById('fmtf-indent-val'); if(iv) iv.textContent=_fmtState.indent;
+}
+function fmtBorderStyle(n){
+  _fmtBorderStyle=n;
+  var t=document.getElementById('fmtbd-thin'), k=document.getElementById('fmtbd-thick');
+  if(t) t.classList.toggle('active', n===1);
+  if(k) k.classList.toggle('active', n===2);
+}
+function fmtSetFill(val){
+  _fmtState.bgColor=val;
+  if(val){ var c=document.getElementById('fmtf-fillcustom'); if(c) c.value=val; }
+  document.querySelectorAll('#fmtf-fillgrid .sw').forEach(function(s){
+    s.classList.toggle('active', s.getAttribute('data-color')===val);
+  });
+  var nf=document.getElementById('fmtf-nofill'); if(nf) nf.classList.toggle('active', val==='');
+  _updateFmtPreview();
+}
+function _buildFillGrid(){
+  var grid=document.getElementById('fmtf-fillgrid');
+  if(!grid) return;
+  if(!grid.dataset.built){
+    var all=CPALETTE_BASIC.concat(CPALETTE_THEMES).concat(CPALETTE_STD);
+    all.forEach(function(c){
+      var d=document.createElement('div');
+      d.className='sw'; d.style.background=c; d.setAttribute('data-color',c);
+      d.onclick=function(){ fmtSetFill(c); };
+      grid.appendChild(d);
+    });
+    grid.dataset.built='1';
+  }
+  document.querySelectorAll('#fmtf-fillgrid .sw').forEach(function(s){
+    s.classList.toggle('active', s.getAttribute('data-color')===_fmtState.bgColor);
+  });
+  var nf=document.getElementById('fmtf-nofill'); if(nf) nf.classList.toggle('active', !_fmtState.bgColor);
+}
+function _updateFmtPreview(){
+  var s=_fmtState;
+  var p=document.getElementById('fmtf-preview');
+  if(p){
+    p.style.fontWeight=s.bold?'700':'400';
+    p.style.fontStyle=s.italic?'italic':'normal';
+    p.style.textDecoration=(s.underline?'underline ':'')+(s.strike?'line-through':'');
+    p.style.fontFamily='"'+s.fontFamily+'",sans-serif';
+    p.style.fontSize=Math.min(40,s.fontSize*1.3)+'px';
+    p.style.color=s.color;
+  }
+  var fp=document.getElementById('fmtf-fillpreview');
+  if(fp){
+    fp.style.background=s.bgColor||'#F0FAF4';
+    fp.style.color=s.bgColor?'#000':'#7A9A87';
+  }
+}
+function _applyFmtStateToSelection(){
+  var s=_fmtState; var snap=[];
+  var props=['bold','italic','underline','strike','fontSize','fontFamily','color','align','valign','wrap','indent'];
+  for(var r=selR1;r<=selR2;r++) for(var c=selC1;c<=selC2;c++){
+    var k=r+','+c;
+    if(!sheets[activeSheet].data[k]) sheets[activeSheet].data[k]={v:'',f:'',d:''};
+    var cell=sheets[activeSheet].data[k];
+    props.forEach(function(p){
+      snap.push({key:k,prop:p,old:cell[p],nw:s[p]});
+      cell[p]=s[p];
+    });
+    snap.push({key:k,prop:'bgColor',old:cell.bgColor,nw:s.bgColor||undefined});
+    if(s.bgColor) cell.bgColor=s.bgColor; else delete cell.bgColor;
+  }
+  undoStack.push({type:'format',snap:snap}); redoStack=[];
+}
+// 単一辺の罫線（選択範囲の該当エッジのみ）
+function applyBorderSide(side, style){
+  var snap=[];
+  for(var r=selR1;r<=selR2;r++) for(var c=selC1;c<=selC2;c++){
+    var onEdge=(side==='top'&&r===selR1)||(side==='bottom'&&r===selR2)||(side==='left'&&c===selC1)||(side==='right'&&c===selC2);
+    if(!onEdge) continue;
+    var k=r+','+c;
+    if(!sheets[activeSheet].data[k]) sheets[activeSheet].data[k]={v:'',f:'',d:''};
+    var cell=sheets[activeSheet].data[k];
+    var oldB=Object.assign({},cell.border||{});
+    var b=Object.assign({},cell.border||{});
+    if(style===0) delete b[side]; else b[side]=style;
+    snap.push({key:k,prop:'border',old:oldB,nw:b});
+    cell.border=b;
+  }
+  undoStack.push({type:'format',snap:snap}); redoStack=[];
+  render();
+}
+// セル結合の解除
+function unmergeCells(){
+  var snap=[];
+  for(var r=selR1;r<=selR2;r++) for(var c=selC1;c<=selC2;c++){
+    var k=r+','+c;
+    var cell=sheets[activeSheet].data[k];
+    if(!cell) continue;
+    if(cell.merged!==undefined){ snap.push({key:k,prop:'merged',old:cell.merged,nw:undefined}); delete cell.merged; }
+    if(cell.mergeEnd!==undefined){ snap.push({key:k,prop:'mergeEnd',old:cell.mergeEnd,nw:undefined}); delete cell.mergeEnd; }
+  }
+  if(snap.length){ undoStack.push({type:'format',snap:snap}); redoStack=[]; }
+  render();
 }
 // ===== カラーパレット（文字色・背景色共用） =====
 // 基本色：モノクロ10段階
