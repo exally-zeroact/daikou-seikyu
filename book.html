@@ -1074,6 +1074,25 @@ touch-action:manipulation;
 .fmtf-bd-ico{font-size:18px;line-height:1;}
 .fmtf-prev{padding:14px;border:1px solid #C8ECD8;border-radius:8px;background:#F0FAF4;text-align:center;font-size:16px;color:#1A4A2E;margin-top:6px;min-height:52px;display:flex;align-items:center;justify-content:center;}
 
+/* 検索・置換パネル */
+#findPanel{position:fixed;top:64px;right:16px;z-index:1400;width:320px;max-width:calc(100vw - 32px);background:#fff;border:1px solid #C8ECD8;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,0.18);display:none;overflow:hidden;}
+#findPanel.show{display:block;}
+.find-hd{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #E8F5EE;background:#F8FEFC;}
+.find-hd .tt{font-size:13px;font-weight:700;color:#1A4A2E;}
+.find-hd .cl{background:none;border:none;font-size:20px;color:#7A9A87;cursor:pointer;line-height:1;padding:0 2px;}
+.find-bd{padding:12px;display:flex;flex-direction:column;gap:8px;}
+.find-row{display:flex;align-items:center;gap:6px;}
+.find-row label{font-size:11px;color:#7A9A87;width:42px;flex:none;}
+.find-inp{flex:1;min-width:0;padding:7px 9px;border:1px solid #D4EDE1;border-radius:8px;font-size:13px;color:#1A4A2E;}
+.find-opts{display:flex;flex-wrap:wrap;gap:10px;padding:2px 0;}
+.find-opts label{display:flex;align-items:center;gap:4px;font-size:11px;color:#1A4A2E;width:auto;cursor:pointer;}
+.find-cnt{font-size:11px;color:#7A9A87;min-height:14px;}
+.find-btns{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;}
+.find-btn{padding:6px 12px;border:1px solid #D4EDE1;border-radius:8px;background:#fff;color:#1A4A2E;font-size:12px;font-weight:600;cursor:pointer;}
+.find-btn-pr{background:#52B788;color:#fff;border-color:#52B788;}
+.find-replace-only{display:none;}
+#findPanel.replace-mode .find-replace-only{display:flex;}
+
 /* トースト通知 */
 #toast {
 position:fixed;
@@ -2774,6 +2793,36 @@ function selectBookVer(v){try{localStorage.setItem('exally_excel_version',v);}ca
 document.getElementById('bookVerOverlay').addEventListener('click',function(e){if(e.target===this)closeBookVerModal();});
 window.addEventListener('load',updateBookVerBadge);
 </script>
+
+<!-- 検索・置換パネル -->
+<div id="findPanel">
+  <div class="find-hd">
+    <span class="tt" id="find-title">検索</span>
+    <button class="cl" onclick="closeFind()">×</button>
+  </div>
+  <div class="find-bd">
+    <div class="find-row">
+      <label>検索</label>
+      <input class="find-inp" id="find-term" type="text" placeholder="検索する文字列" autocomplete="off" oninput="_findRecompute()" onkeydown="if(event.key==='Enter'){event.preventDefault();event.shiftKey?findPrev():findNext();}else if(event.key==='Escape'){event.preventDefault();closeFind();}">
+    </div>
+    <div class="find-row find-replace-only">
+      <label>置換後</label>
+      <input class="find-inp" id="find-repl" type="text" placeholder="置換後の文字列" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();replaceOne();}else if(event.key==='Escape'){event.preventDefault();closeFind();}">
+    </div>
+    <div class="find-opts">
+      <label><input type="checkbox" id="find-case" onchange="_findRecompute()">大文字小文字を区別</label>
+      <label><input type="checkbox" id="find-whole" onchange="_findRecompute()">完全一致</label>
+      <label><input type="checkbox" id="find-formula" onchange="_findRecompute()">数式を対象</label>
+    </div>
+    <div class="find-cnt" id="find-count"></div>
+    <div class="find-btns">
+      <button class="find-btn" onclick="findPrev()">前を検索</button>
+      <button class="find-btn find-btn-pr" onclick="findNext()">次を検索</button>
+      <button class="find-btn find-replace-only" onclick="replaceOne()">置換</button>
+      <button class="find-btn find-replace-only" onclick="replaceAll()">すべて置換</button>
+    </div>
+  </div>
+</div>
 
 <div id="formula-bar">
   <input id="cell-addr" type="text" value="A1" readonly>
@@ -4569,6 +4618,8 @@ function onKD(e){
     if(ek==='z' && !e.shiftKey){ e.preventDefault(); doUndo(); return; }
     if(ek==='y' || (ek==='z' && e.shiftKey)){ e.preventDefault(); doRedo(); return; }
     if(ek==='a'){ e.preventDefault(); sel(0,0,ROWS-1,COLS-1); render(); return; }
+    if(ek==='f'){ e.preventDefault(); openFind(false); return; }
+    if(ek==='h'){ e.preventDefault(); openFind(true); return; }
     if(e.key==='Home'){ e.preventDefault(); sel(0,0,0,0); scrollTop=0; scrollLeft=0; render(); return; }
     if(e.key==='End'){
       var lr=0,lc=0;
@@ -5318,6 +5369,153 @@ function unmergeCells(){
   if(snap.length){ undoStack.push({type:'format',snap:snap}); redoStack=[]; }
   render();
 }
+
+// ===== 検索・置換（Ctrl+F / Ctrl+H） =====
+var _findState={term:'',matches:[],idx:-1};
+
+function openFind(replaceMode){
+  var p=document.getElementById('findPanel');
+  p.classList.add('show');
+  p.classList.toggle('replace-mode', !!replaceMode);
+  document.getElementById('find-title').textContent=replaceMode?'検索と置換':'検索';
+  var term=document.getElementById('find-term');
+  // 既存の選択セルの値を初期検索語に
+  if(!term.value){
+    var c0=getCell(selR1,selC1);
+    var v0=(c0.d!==undefined&&c0.d!=='')?c0.d:c0.v;
+    if(v0) term.value=String(v0);
+  }
+  _findRecompute();
+  term.focus(); term.select();
+}
+function closeFind(){
+  document.getElementById('findPanel').classList.remove('show');
+  _findState={term:'',matches:[],idx:-1};
+}
+function _findCellText(cell, inFormula){
+  if(inFormula) return String(cell.f||cell.v||'');
+  return String((cell.d!==undefined&&cell.d!=='')?cell.d:cell.v||'');
+}
+function _findMatch(text){
+  var term=_findState.term;
+  if(term==='') return false;
+  var cs=document.getElementById('find-case').checked;
+  var whole=document.getElementById('find-whole').checked;
+  var hay=cs?text:text.toLowerCase();
+  var needle=cs?term:term.toLowerCase();
+  if(whole) return hay===needle;
+  return hay.indexOf(needle)>=0;
+}
+function _findRecompute(){
+  var term=document.getElementById('find-term').value;
+  _findState.term=term;
+  _findState.matches=[];
+  _findState.idx=-1;
+  if(term!==''){
+    var inFormula=document.getElementById('find-formula').checked;
+    var dat=sheets[activeSheet].data;
+    var keys=Object.keys(dat).map(function(k){var p=k.split(',');return {r:parseInt(p[0]),c:parseInt(p[1]),k:k};});
+    keys.sort(function(a,b){return a.r-b.r||a.c-b.c;});
+    for(var i=0;i<keys.length;i++){
+      var cell=dat[keys[i].k];
+      if(_findMatch(_findCellText(cell,inFormula))) _findState.matches.push({r:keys[i].r,c:keys[i].c});
+    }
+  }
+  _findUpdateCount();
+}
+function _findUpdateCount(){
+  var el=document.getElementById('find-count');
+  var n=_findState.matches.length;
+  if(_findState.term===''){ el.textContent=''; return; }
+  if(n===0){ el.textContent='見つかりませんでした'; return; }
+  el.textContent=(_findState.idx>=0?(_findState.idx+1)+' / ':'')+n+' 件';
+}
+function _findGoto(){
+  var m=_findState.matches[_findState.idx];
+  if(!m) return;
+  sel(m.r,m.c,m.r,m.c);
+  _findUpdateCount();
+}
+function findNext(){
+  if(_findState.term!==document.getElementById('find-term').value) _findRecompute();
+  if(!_findState.matches.length){ _findUpdateCount(); return; }
+  _findState.idx=(_findState.idx+1)%_findState.matches.length;
+  _findGoto();
+}
+function findPrev(){
+  if(_findState.term!==document.getElementById('find-term').value) _findRecompute();
+  if(!_findState.matches.length){ _findUpdateCount(); return; }
+  _findState.idx=(_findState.idx-1+_findState.matches.length)%_findState.matches.length;
+  _findGoto();
+}
+function _replaceInCell(r,c){
+  var term=_findState.term;
+  if(term==='') return false;
+  var cs=document.getElementById('find-case').checked;
+  var whole=document.getElementById('find-whole').checked;
+  var repl=document.getElementById('find-repl').value;
+  var inFormula=document.getElementById('find-formula').checked;
+  var cell=getCell(r,c);
+  var src=inFormula?String(cell.f||cell.v||''):String((cell.d!==undefined&&cell.d!=='')?cell.d:cell.v||'');
+  // 数式セルは編集元(f)を対象にする（表示結果を壊さない）
+  if(!inFormula && cell.f && cell.f[0]==='='){ src=String(cell.f); }
+  var out;
+  if(whole){
+    var hay=cs?src:src.toLowerCase();
+    var needle=cs?term:term.toLowerCase();
+    if(hay!==needle) return false;
+    out=repl;
+  } else {
+    out=_strReplaceAll(src, term, repl, cs);
+    if(out===src) return false;
+  }
+  setCell(r,c,out);
+  return true;
+}
+function _strReplaceAll(src, term, repl, caseSensitive){
+  if(term==='') return src;
+  var out=''; var i=0;
+  var hay=caseSensitive?src:src.toLowerCase();
+  var needle=caseSensitive?term:term.toLowerCase();
+  while(i<src.length){
+    if(hay.substr(i,needle.length)===needle && needle.length>0){
+      out+=repl; i+=needle.length;
+    } else { out+=src[i]; i++; }
+  }
+  return out;
+}
+function replaceOne(){
+  if(_findState.term!==document.getElementById('find-term').value) _findRecompute();
+  if(_findState.idx<0){ findNext(); return; }
+  var m=_findState.matches[_findState.idx];
+  if(!m) return;
+  if(_replaceInCell(m.r,m.c)){
+    render(); updateBar();
+    _findRecompute();
+    // 同じ位置以降の次の一致へ
+    if(_findState.matches.length){
+      var nextIdx=0;
+      for(var i=0;i<_findState.matches.length;i++){
+        var mm=_findState.matches[i];
+        if(mm.r>m.r||(mm.r===m.r&&mm.c>=m.c)){ nextIdx=i; break; }
+      }
+      _findState.idx=nextIdx; _findGoto();
+    }
+  } else { findNext(); }
+}
+function replaceAll(){
+  _findRecompute();
+  var n=0;
+  // matchesは置換で変動するので、スナップショットをコピーして実行
+  var targets=_findState.matches.slice();
+  for(var i=0;i<targets.length;i++){
+    if(_replaceInCell(targets[i].r,targets[i].c)) n++;
+  }
+  render(); updateBar();
+  _findRecompute();
+  document.getElementById('find-count').textContent=n+' 件を置換しました';
+}
+
 // ===== カラーパレット（文字色・背景色共用） =====
 // 基本色：モノクロ10段階
 var CPALETTE_BASIC=[
