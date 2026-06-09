@@ -1644,6 +1644,9 @@ function _doRender() {
   }
   ctx.stroke();
 
+  // 検索ヒットのハイライト（テキストの下地）
+  if(typeof _findHighlightOn==='function' && _findHighlightOn()) drawFindHighlights(sR,eR,sC,eC);
+
   // 3. セルテキスト
   for(var r=sR;r<=eR+1;r++) for(var c=sC;c<=eC+1;c++) drawText(r,c);
 
@@ -2813,6 +2816,7 @@ window.addEventListener('load',updateBookVerBadge);
       <label><input type="checkbox" id="find-case" onchange="_findRecompute()">大文字小文字を区別</label>
       <label><input type="checkbox" id="find-whole" onchange="_findRecompute()">完全一致</label>
       <label><input type="checkbox" id="find-formula" onchange="_findRecompute()">数式を対象</label>
+      <label><input type="checkbox" id="find-highlight" onchange="render()">ヒットを色付け</label>
     </div>
     <div class="find-cnt" id="find-count"></div>
     <div class="find-btns">
@@ -5391,6 +5395,30 @@ function openFind(replaceMode){
 function closeFind(){
   document.getElementById('findPanel').classList.remove('show');
   _findState={term:'',matches:[],idx:-1};
+  render();
+}
+// ヒット色付けが有効か（チェックON かつ パネル表示中）
+function _findHighlightOn(){
+  var cb=document.getElementById('find-highlight');
+  var p=document.getElementById('findPanel');
+  return !!(cb&&cb.checked&&p&&p.classList.contains('show'));
+}
+// ヒットセルを下地として塗る
+function drawFindHighlights(sR,eR,sC,eC){
+  if(!_findState.matches.length) return;
+  ctx.save();
+  ctx.fillStyle='rgba(255,193,7,0.40)';
+  ctx.strokeStyle='rgba(245,124,0,0.9)';
+  ctx.lineWidth=1;
+  for(var i=0;i<_findState.matches.length;i++){
+    var m=_findState.matches[i];
+    if(m.r<sR-1||m.r>eR+2||m.c<sC-1||m.c>eC+2) continue;
+    var x=colX(m.c),y=rowY(m.r),w=cW(m.c),h=rH(m.r);
+    if(x+w<HDR_W||x>wrapW||y+h<HDR_H||y>wrapH) continue;
+    ctx.fillRect(x,y,w,h);
+    ctx.strokeRect(x+0.5,y+0.5,w-1,h-1);
+  }
+  ctx.restore();
 }
 function _findCellText(cell, inFormula){
   if(inFormula) return String(cell.f||cell.v||'');
@@ -5422,6 +5450,7 @@ function _findRecompute(){
     }
   }
   _findUpdateCount();
+  if(_findHighlightOn()) render();
 }
 function _findUpdateCount(){
   var el=document.getElementById('find-count');
