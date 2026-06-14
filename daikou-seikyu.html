@@ -1,0 +1,1941 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+    <title>代行請求システム | Exally</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html {
+        font-size: 14px;
+        -webkit-text-size-adjust: 100%;
+      }
+      body {
+        font-family: "Noto Sans JP", sans-serif;
+        background: #f0faf4;
+        color: #1a4a2e;
+        min-height: 100vh;
+        padding-bottom: 72px;
+      }
+
+      /* ===== HEADER ===== */
+      .app-header {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: #ffffff;
+        border-bottom: 1px solid #d4eae0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        box-shadow: 0 1px 4px rgba(30, 80, 46, 0.06);
+      }
+      .app-logo {
+        font-family: "DM Mono", monospace;
+        font-size: 20px;
+        font-weight: 500;
+        color: #52b788;
+        letter-spacing: -0.5px;
+      }
+      .app-logo-ja {
+        font-size: 10px;
+        font-weight: 700;
+        color: #5c7c6a;
+        margin-left: -2px;
+      }
+      .app-title {
+        margin-left: auto;
+        font-size: 12px;
+        font-weight: 700;
+        color: #5c7c6a;
+      }
+
+      /* ===== SCREEN ===== */
+      .screen {
+        display: none;
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 14px 12px;
+      }
+      .screen.active {
+        display: block;
+      }
+      .scr-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #1a4a2e;
+        margin-bottom: 4px;
+      }
+      .scr-sub {
+        font-size: 11px;
+        color: #5c7c6a;
+        margin-bottom: 14px;
+        line-height: 1.6;
+      }
+
+      /* ===== CARD ===== */
+      .card {
+        background: #ffffff;
+        border: 1px solid #d4eae0;
+        border-radius: 16px;
+        box-shadow: 0 1px 4px rgba(30, 80, 46, 0.06);
+        padding: 14px;
+        margin-bottom: 12px;
+      }
+      .card-label {
+        font-size: 10px;
+        font-weight: 700;
+        color: #7aa08c;
+        letter-spacing: 1.2px;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+      }
+
+      /* ===== FIELDS ===== */
+      .frow {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        margin-bottom: 10px;
+      }
+      .frow:last-child {
+        margin-bottom: 0;
+      }
+      .flabel {
+        font-size: 11px;
+        font-weight: 700;
+        color: #3d6b53;
+      }
+      .finput,
+      .fselect {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1.5px solid #d4eae0;
+        border-radius: 10px;
+        font-size: 14px;
+        font-family: "Noto Sans JP", sans-serif;
+        color: #1a4a2e;
+        outline: none;
+        background: #ffffff;
+        transition: border-color 0.15s;
+      }
+      .finput:focus,
+      .fselect:focus {
+        border-color: #52b788;
+      }
+      .finput::placeholder {
+        color: #a9c4b6;
+      }
+      .fnum {
+        font-family: "DM Mono", monospace;
+        text-align: right;
+      }
+      .fselect {
+        appearance: none;
+        -webkit-appearance: none;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' stroke='%233D9E72' stroke-width='1.6' fill='none' stroke-linecap='round'/></svg>");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        padding-right: 30px;
+      }
+
+      /* ===== BUTTONS ===== */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border: none;
+        border-radius: 12px;
+        font-family: "Noto Sans JP", sans-serif;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .btn-primary {
+        background: #3d9e72;
+        color: #ffffff;
+        padding: 13px 16px;
+        font-size: 14px;
+        width: 100%;
+        box-shadow: 0 3px 12px rgba(61, 158, 114, 0.32);
+      }
+      .btn-primary:hover {
+        background: #357f5f;
+      }
+      .btn-ghost {
+        background: #f0faf4;
+        color: #3d9e72;
+        border: 1.5px solid #c8ecd8;
+        padding: 11px 14px;
+        font-size: 13px;
+        width: 100%;
+      }
+      .btn-ghost:hover {
+        background: #e2f4ea;
+      }
+      .btn-sm {
+        padding: 7px 12px;
+        font-size: 12px;
+        width: auto;
+      }
+      .btn-danger {
+        background: #fdf1f0;
+        color: #c0392b;
+        border: 1.5px solid #f3c9c4;
+      }
+      .btn-danger:hover {
+        background: #fbe3e0;
+      }
+
+      /* ===== ENTRY GRID (input screen) ===== */
+      .entry-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .entry-table th {
+        font-size: 10px;
+        font-weight: 700;
+        color: #7aa08c;
+        text-align: left;
+        padding: 4px 4px;
+        border-bottom: 2px solid #e2f4ea;
+      }
+      .entry-table td {
+        padding: 3px 3px;
+        vertical-align: top;
+      }
+      .entry-inp {
+        width: 100%;
+        padding: 8px 7px;
+        border: 1.5px solid #e2f4ea;
+        border-radius: 8px;
+        font-size: 13px;
+        font-family: "Noto Sans JP", sans-serif;
+        color: #1a4a2e;
+        outline: none;
+        background: #ffffff;
+      }
+      .entry-inp:focus {
+        border-color: #52b788;
+        background: #ffffff;
+      }
+      .entry-inp.num {
+        font-family: "DM Mono", monospace;
+        text-align: right;
+      }
+      .entry-del {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: #f0faf4;
+        border: none;
+        color: #7aa08c;
+        font-size: 14px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .entry-del:hover {
+        background: #fdf1f0;
+        color: #c0392b;
+      }
+      .add-line {
+        width: 100%;
+        margin-top: 8px;
+        padding: 9px;
+        background: #f0faf4;
+        border: 1.5px dashed #c8ecd8;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #3d9e72;
+        cursor: pointer;
+        font-family: "Noto Sans JP", sans-serif;
+      }
+      .add-line:hover {
+        background: #e2f4ea;
+      }
+
+      /* ===== LIST ===== */
+      .list-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 11px 4px;
+        border-bottom: 1px solid #eaf5ef;
+        cursor: pointer;
+      }
+      .list-item:last-child {
+        border-bottom: none;
+      }
+      .li-date {
+        font-family: "DM Mono", monospace;
+        font-size: 12px;
+        color: #5c7c6a;
+        min-width: 42px;
+      }
+      .li-main {
+        flex: 1;
+        min-width: 0;
+      }
+      .li-dest {
+        font-size: 13px;
+        font-weight: 500;
+        color: #1a4a2e;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .li-meta {
+        font-size: 10px;
+        color: #7aa08c;
+        margin-top: 1px;
+      }
+      .li-amt {
+        font-family: "DM Mono", monospace;
+        font-size: 13px;
+        font-weight: 500;
+        color: #3d9e72;
+        white-space: nowrap;
+      }
+      .li-empty {
+        text-align: center;
+        color: #a9c4b6;
+        font-size: 12px;
+        padding: 30px 0;
+      }
+      .filterbar {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .filterbar .fselect,
+      .filterbar .finput {
+        font-size: 13px;
+        padding: 8px 10px;
+      }
+
+      /* ===== MASTER ===== */
+      .master-co {
+        border: 1px solid #d4eae0;
+        border-radius: 12px;
+        margin-bottom: 10px;
+        overflow: hidden;
+      }
+      .master-co-hd {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 11px 12px;
+        background: #f0faf4;
+        cursor: pointer;
+      }
+      .master-co-name {
+        font-size: 14px;
+        font-weight: 700;
+        color: #1a4a2e;
+        flex: 1;
+      }
+      .master-co-cols {
+        font-size: 10px;
+        color: #7aa08c;
+        font-family: "DM Mono", monospace;
+      }
+      .master-co-body {
+        display: none;
+        padding: 12px;
+        border-top: 1px solid #d4eae0;
+      }
+      .master-co-body.open {
+        display: block;
+      }
+      .chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 6px;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 11px;
+        border-radius: 20px;
+        border: 1.5px solid #d4eae0;
+        background: #ffffff;
+        font-size: 12px;
+        font-weight: 700;
+        color: #7aa08c;
+        cursor: pointer;
+        user-select: none;
+      }
+      .chip.on {
+        border-color: #52b788;
+        background: #f0faf4;
+        color: #2e7d54;
+      }
+      .dnd-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin: 8px 0;
+      }
+      .dnd-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border: 1.5px solid #d4eae0;
+        border-radius: 10px;
+        background: #ffffff;
+      }
+      .dnd-item.dragging {
+        opacity: 0.4;
+        border-color: #52b788;
+        background: #f0faf4;
+      }
+      .dnd-item.over {
+        border-color: #52b788;
+      }
+      .dnd-grip {
+        cursor: grab;
+        color: #a9c4b6;
+        font-size: 16px;
+        touch-action: none;
+        user-select: none;
+      }
+      .dnd-grip:active {
+        cursor: grabbing;
+      }
+      .dnd-name {
+        flex: 1;
+        font-size: 13px;
+        font-weight: 700;
+        color: #1a4a2e;
+      }
+      .dnd-w {
+        width: 64px;
+        padding: 6px 8px;
+        border: 1.5px solid #e2f4ea;
+        border-radius: 8px;
+        font-family: "DM Mono", monospace;
+        font-size: 12px;
+        text-align: right;
+        color: #1a4a2e;
+        outline: none;
+      }
+      .dnd-w:focus {
+        border-color: #52b788;
+      }
+      .dnd-wu {
+        font-size: 10px;
+        color: #a9c4b6;
+      }
+      .toggle-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 10px;
+        font-size: 12px;
+        color: #3d6b53;
+        font-weight: 700;
+      }
+      .toggle-row input {
+        width: 16px;
+        height: 16px;
+        accent-color: #52b788;
+      }
+
+      /* ===== INVOICE GEN ===== */
+      .inv-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: flex-end;
+        margin-bottom: 12px;
+      }
+      .inv-toolbar .frow {
+        flex: 1;
+        min-width: 120px;
+        margin-bottom: 0;
+      }
+      #invoiceOut {
+        margin-top: 4px;
+      }
+      .sheet-scale {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 8px;
+      }
+
+      /* ===== A4 INVOICE SHEET (print-faithful) ===== */
+      .sheet {
+        width: 720px;
+        min-height: 1018px;
+        background: #ffffff;
+        margin: 0 auto 18px;
+        padding: 34px 38px;
+        border: 1px solid #d4eae0;
+        box-shadow: 0 4px 16px rgba(30, 80, 46, 0.1);
+        color: #000000;
+        font-size: 12px;
+      }
+      .sh-title {
+        text-align: center;
+        font-size: 26px;
+        font-weight: 700;
+        letter-spacing: 10px;
+        margin: 2px 0 14px;
+        padding-left: 10px;
+      }
+      .sh-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+      .sh-left {
+        flex: 1;
+        padding-right: 14px;
+      }
+      .sh-date {
+        text-align: right;
+        font-size: 12px;
+        margin-bottom: 10px;
+      }
+      .sh-client {
+        font-size: 18px;
+        font-weight: 700;
+        border-bottom: 1.5px solid #000000;
+        padding-bottom: 3px;
+        display: inline-block;
+        margin-bottom: 8px;
+      }
+      .sh-client .ochu {
+        font-size: 15px;
+        font-weight: 700;
+        margin-left: 18px;
+      }
+      .sh-lead {
+        font-size: 12px;
+        line-height: 1.9;
+        margin-bottom: 2px;
+      }
+      .sh-grand {
+        font-size: 15px;
+        font-weight: 700;
+        border-bottom: 1.5px solid #000000;
+        padding-bottom: 4px;
+        margin: 10px 0 2px;
+        display: flex;
+        gap: 18px;
+        align-items: baseline;
+      }
+      .sh-grand .lbl {
+        white-space: nowrap;
+      }
+      .sh-grand .val {
+        font-family: "DM Mono", monospace;
+      }
+      .sh-issuer {
+        font-size: 11px;
+        line-height: 1.65;
+        text-align: left;
+        white-space: nowrap;
+        position: relative;
+        min-width: 172px;
+      }
+      .sh-issuer .big {
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .sh-hanko {
+        position: absolute;
+        right: 4px;
+        top: 0;
+        width: 56px;
+        height: 56px;
+        border: 2px solid #c0392b;
+        border-radius: 6px;
+        color: #c0392b;
+        font-size: 8px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        line-height: 1.2;
+        transform: rotate(-4deg);
+        opacity: 0.9;
+      }
+
+      .sh-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+        table-layout: fixed;
+      }
+      .sh-table th,
+      .sh-table td {
+        border: 1px solid #000000;
+        font-size: 11px;
+        padding: 3px 6px;
+        line-height: 1.5;
+      }
+      .sh-table th {
+        background: #dcefe6;
+        text-align: center;
+        font-weight: 700;
+      }
+      .sh-table td.c {
+        text-align: center;
+      }
+      .sh-table td.r {
+        text-align: right;
+        font-family: "DM Mono", monospace;
+        white-space: nowrap;
+      }
+      .sh-table td.dest {
+        text-align: center;
+      }
+      .sh-table tr.tot td {
+        background: #dcefe6;
+        text-align: center;
+        font-weight: 700;
+      }
+      .sh-table tr.tot td.r {
+        background: #ffffff;
+        font-weight: 700;
+      }
+      .sh-foot {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-top: 8px;
+      }
+      .sh-bank {
+        font-size: 11px;
+        line-height: 1.7;
+      }
+      .sh-summary {
+        border-collapse: collapse;
+      }
+      .sh-summary td {
+        border: 1px solid #000000;
+        font-size: 11px;
+        padding: 3px 10px;
+      }
+      .sh-summary td.k {
+        background: #dcefe6;
+        text-align: center;
+        font-weight: 700;
+        width: 52px;
+      }
+      .sh-summary td.v {
+        font-family: "DM Mono", monospace;
+        text-align: right;
+        min-width: 96px;
+      }
+
+      /* ===== BOTTOM NAV ===== */
+      .bottom-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 60;
+        background: #ffffff;
+        border-top: 1px solid #d4eae0;
+        display: flex;
+        justify-content: space-around;
+        box-shadow: 0 -2px 8px rgba(30, 80, 46, 0.05);
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+      .nav-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding: 8px 2px 7px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-family: "Noto Sans JP", sans-serif;
+        color: #9cbbab;
+      }
+      .nav-item.active {
+        color: #3d9e72;
+      }
+      .nav-ic {
+        font-size: 18px;
+        line-height: 1;
+      }
+      .nav-lb {
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      /* ===== MODAL ===== */
+      .modal-ov {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        background: rgba(20, 50, 35, 0.45);
+        align-items: flex-end;
+        justify-content: center;
+      }
+      .modal-ov.open {
+        display: flex;
+      }
+      .modal {
+        background: #ffffff;
+        width: 100%;
+        max-width: 520px;
+        border-radius: 18px 18px 0 0;
+        max-height: 88vh;
+        overflow-y: auto;
+        padding: 18px 16px 28px;
+      }
+      .modal-hd {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+      }
+      .modal-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: #1a4a2e;
+      }
+      .modal-x {
+        background: none;
+        border: 1.5px solid #d4eae0;
+        color: #7aa08c;
+        border-radius: 18px;
+        padding: 4px 12px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: "Noto Sans JP", sans-serif;
+      }
+      @media (min-width: 560px) {
+        .modal-ov {
+          align-items: center;
+        }
+        .modal {
+          border-radius: 18px;
+        }
+      }
+
+      /* ===== TOAST ===== */
+      .toast {
+        position: fixed;
+        left: 50%;
+        bottom: 84px;
+        transform: translateX(-50%) translateY(16px);
+        background: #2e7d54;
+        color: #ffffff;
+        padding: 10px 20px;
+        border-radius: 22px;
+        font-size: 13px;
+        font-weight: 700;
+        opacity: 0;
+        transition: all 0.25s;
+        z-index: 200;
+        pointer-events: none;
+        white-space: nowrap;
+      }
+      .toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+
+      /* ===== PRINT ===== */
+      @media print {
+        body {
+          background: #ffffff;
+          padding: 0;
+        }
+        .app-header,
+        .bottom-nav,
+        .inv-toolbar,
+        .scr-title,
+        .scr-sub,
+        .toast,
+        .no-print {
+          display: none !important;
+        }
+        .screen {
+          padding: 0;
+          max-width: none;
+        }
+        .sheet-scale {
+          overflow: visible;
+        }
+        .sheet {
+          box-shadow: none;
+          border: none;
+          margin: 0;
+          width: auto;
+          min-height: auto;
+          padding: 0;
+          page-break-after: always;
+        }
+        .sheet:last-child {
+          page-break-after: auto;
+        }
+        @page {
+          size: A4 portrait;
+          margin: 12mm;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ===== HEADER ===== -->
+    <div class="app-header">
+      <span class="app-logo">Exally</span>
+      <span class="app-logo-ja">エクサリー</span>
+      <span class="app-title" id="appTitle">代行請求</span>
+    </div>
+
+    <!-- ===== 入力 ===== -->
+    <section class="screen active" id="scr-input">
+      <div class="scr-title">明細を入力</div>
+      <div class="scr-sub">
+        会社を選ぶと、その会社に必要な項目だけ表示されます。まとめて入力 → 保存でDBに追加。
+      </div>
+
+      <div class="card">
+        <div class="frow">
+          <div class="flabel">会社名（プルダウン選択）</div>
+          <select class="fselect" id="inputCompany" onchange="onInputCompany()">
+            <option value="">― 会社を選択 ―</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card" id="entryCard" style="display: none">
+        <div class="card-label" id="entryCardLabel">明細</div>
+        <div style="overflow-x: auto">
+          <table class="entry-table">
+            <thead id="entryHead"></thead>
+            <tbody id="entryBody"></tbody>
+          </table>
+        </div>
+        <button class="add-line" onclick="addEntryRow()">＋ 行を追加</button>
+        <div style="margin-top: 12px">
+          <button class="btn btn-primary" onclick="saveEntries()">保存する（DBに追加）</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 一覧 / 修正 ===== -->
+    <section class="screen" id="scr-list">
+      <div class="scr-title">明細一覧 / 修正</div>
+      <div class="scr-sub">タップで1件ずつ編集・削除できます（idで特定）。</div>
+      <div class="filterbar">
+        <select class="fselect" id="listCompany" onchange="renderList()">
+          <option value="">全社</option>
+        </select>
+        <input class="finput" type="month" id="listMonth" onchange="renderList()" />
+      </div>
+      <div class="card">
+        <div id="listBody"></div>
+      </div>
+    </section>
+
+    <!-- ===== 会社マスタ ===== -->
+    <section class="screen" id="scr-master">
+      <div class="scr-title">会社マスタ</div>
+      <div class="scr-sub">
+        会社ごとに「どの項目を・どの順で・どの幅で」出すかを定義。項目名は手打ちしません（DB列をチェック→ドラッグ並べ替え→幅入力）。
+      </div>
+      <div id="masterBody"></div>
+      <button class="btn btn-ghost" onclick="openAddCompany()" style="margin-top: 4px">
+        ＋ 会社を追加
+      </button>
+    </section>
+
+    <!-- ===== 請求書生成 ===== -->
+    <section class="screen" id="scr-invoice">
+      <div class="scr-title">請求書生成</div>
+      <div class="scr-sub">
+        月を選ぶ → DBから該当月を会社ごとに集計 →
+        マスタ定義で請求書を組み立て。21〜22行で自動的にページを継ぎ足し。
+      </div>
+      <div class="inv-toolbar">
+        <div class="frow">
+          <div class="flabel">対象月</div>
+          <input class="finput" type="month" id="invMonth" />
+        </div>
+        <div class="frow">
+          <div class="flabel">会社</div>
+          <select class="fselect" id="invCompany">
+            <option value="">全社</option>
+          </select>
+        </div>
+        <button class="btn btn-primary btn-sm" style="flex: 0 0 auto" onclick="generateInvoices()">
+          生成
+        </button>
+        <button
+          class="btn btn-ghost btn-sm no-print"
+          style="flex: 0 0 auto"
+          onclick="window.print()"
+        >
+          印刷 / PDF
+        </button>
+      </div>
+      <div id="invoiceOut" class="sheet-scale"></div>
+    </section>
+
+    <!-- ===== BOTTOM NAV ===== -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-scr="input" onclick="showScreen('input')">
+        <span class="nav-ic">✍️</span><span class="nav-lb">入力</span>
+      </button>
+      <button class="nav-item" data-scr="list" onclick="showScreen('list')">
+        <span class="nav-ic">📋</span><span class="nav-lb">一覧</span>
+      </button>
+      <button class="nav-item" data-scr="master" onclick="showScreen('master')">
+        <span class="nav-ic">🏢</span><span class="nav-lb">会社</span>
+      </button>
+      <button class="nav-item" data-scr="invoice" onclick="showScreen('invoice')">
+        <span class="nav-ic">🧾</span><span class="nav-lb">請求書</span>
+      </button>
+    </nav>
+
+    <!-- ===== MODAL (edit / add company) ===== -->
+    <div class="modal-ov" id="modalOv" onclick="if (event.target === this) closeModal();">
+      <div class="modal">
+        <div class="modal-hd">
+          <span class="modal-title" id="modalTitle">編集</span>
+          <button class="modal-x" onclick="closeModal()">閉じる</button>
+        </div>
+        <div id="modalBody"></div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+      "use strict";
+
+      /* ===================================================================
+   定数・固定情報
+   =================================================================== */
+      // DBの器（固定・最大集合）。会社名/idは内部。選べる列はこの7つ。
+      var FIELD_DEFS = [
+        { key: "日付", type: "date" },
+        { key: "行き先", type: "text" },
+        { key: "金額", type: "number" },
+        { key: "備考", type: "text" },
+        { key: "距離", type: "number" },
+        { key: "人数", type: "number" },
+        { key: "名前", type: "text" },
+      ];
+      var DEFAULT_WIDTH = {
+        日付: 64,
+        行き先: 240,
+        金額: 100,
+        備考: 80,
+        距離: 80,
+        人数: 64,
+        名前: 96,
+      };
+      var ROWS_PER_PAGE = 22; // 1ページの明細スロット数（実物Excel基準）
+      var DB_KEY = "daiko_db_v1";
+      var MASTER_KEY = "daiko_master_v1";
+
+      // 全社共通ヘッダー（請求書の固定情報）
+      var ISSUER = {
+        lines: [
+          "合同会社ZEROact",
+          "ZERO代行",
+          "〒794-0018",
+          "今治市本町7-3-40　00コーポ1号",
+          "TEL090-5716-1946",
+          "登録番号：T3500003003293",
+        ],
+        bank: ["お振込先", "伊予銀行　今治支店　普通　4160657", "ド）ゼロアクト"],
+      };
+
+      /* ===================================================================
+   状態
+   =================================================================== */
+      var DB = []; // [{id,会社名,日付,行き先,金額,備考,距離,人数,名前}]
+      var MASTER = {}; // { 会社名: {items:[],widths:{},lead,tableTitle,noteSummary,noteGroups} }
+      var entryRows = []; // 入力画面の一時行
+
+      /* ===================================================================
+   永続化
+   =================================================================== */
+      function loadAll() {
+        try {
+          DB = JSON.parse(localStorage.getItem(DB_KEY)) || [];
+        } catch (e) {
+          DB = [];
+        }
+        try {
+          MASTER = JSON.parse(localStorage.getItem(MASTER_KEY)) || {};
+        } catch (e) {
+          MASTER = {};
+        }
+        if (!Object.keys(MASTER).length) seedMaster();
+        if (!DB.length) seedDB();
+      }
+      function saveDB() {
+        localStorage.setItem(DB_KEY, JSON.stringify(DB));
+      }
+      function saveMaster() {
+        localStorage.setItem(MASTER_KEY, JSON.stringify(MASTER));
+      }
+
+      function seedMaster() {
+        MASTER = {
+          "Lounge Chouchou": {
+            items: ["日付", "行き先", "金額"],
+            widths: { 日付: 64, 行き先: 300, 金額: 120 },
+            lead: "{月}月のご使用分です。",
+            tableTitle: "運転業務委託料",
+            noteSummary: false,
+            noteGroups: [],
+          },
+          藤原建設株式会社: {
+            items: ["日付", "行き先", "金額", "備考"],
+            widths: { 日付: 60, 行き先: 240, 金額: 104, 備考: 84 },
+            lead: "{月}月のご利用分です。",
+            tableTitle: "運転業務委託料",
+            noteSummary: true,
+            noteGroups: ["会長", "社長", "専務"],
+          },
+        };
+        saveMaster();
+      }
+      function seedDB() {
+        // 添付PDFの実データ（サンプル）。藤原=2026-01、シュシュ=2026-05。
+        var rows = [];
+        function push(co, d, dest, amt, note) {
+          rows.push({
+            会社名: co,
+            日付: d,
+            行き先: dest,
+            金額: amt,
+            備考: note || "",
+            距離: "",
+            人数: "",
+            名前: "",
+          });
+        }
+        // 藤原建設（1月）合計7,500 / 社長1,500・専務6,000
+        push("藤原建設株式会社", "2026-01-14", "松本〜蔵敷〜祇園", 1500, "社長");
+        push("藤原建設株式会社", "2026-01-17", "時代〜鳥生", 1400, "専務");
+        push("藤原建設株式会社", "2026-01-17", "立花〜時代", 1700, "専務");
+        push("藤原建設株式会社", "2026-01-31", "松本〜鳥生", 1400, "専務");
+        push("藤原建設株式会社", "2026-01-31", "基〜松本", 1500, "専務");
+        // Lounge Chouchou（5月）1ページ目=41,730 + 2ページ目先頭で継ぎ足し実演
+        var ch = [
+          ["2026-05-01", "UNIQLO〜郷本町", 1500],
+          ["2026-05-01", "立花〜UNIQLO〜喜田村", 2100],
+          ["2026-05-01", "UNIQLO〜喜田村", 2000],
+          ["2026-05-02", "駐車場代", 1100],
+          ["2026-05-02", "松本〜喜田村", 1800],
+          ["2026-05-02", "UNIQLO〜喜田村", 1700],
+          ["2026-05-02", "松本〜桜井", 2800],
+          ["2026-05-02", "松本〜喜田村", 1700],
+          ["2026-05-02", "UNIQLO〜東予", 5300],
+          ["2026-05-02", "UNIQLO〜郷本町", 1500],
+          ["2026-05-04", "桜井〜喜田村", 2000],
+          ["2026-05-04", "UNIQLO〜喜田村", 1700],
+          ["2026-05-04", "UNIQLO〜松本〜郷本町", 1800],
+          ["2026-05-04", "たかと〜郷本町〜辻堂〜喜田村", 2500],
+          ["2026-05-05", "旦〜喜田村", 2300],
+          ["2026-05-08", "UNIQLO〜喜田村", 1700],
+          ["2026-05-09", "駐車場代", 100],
+          ["2026-05-09", "パフェ〜喜田村", 1800],
+          ["2026-05-15", "UNIQLO〜喜田村", 1800],
+          ["2026-05-15", "UNIQLO〜郷本町", 1500],
+          ["2026-05-15", "タイムズ〜桜井", 2700],
+          ["2026-05-15", "駐車場代", 330],
+          ["2026-05-16", "UNIQLO〜郷本町", 1500],
+          ["2026-05-16", "UNIQLO〜喜田村", 1700],
+          ["2026-05-16", "光州園〜UNIQLO", 1000],
+          ["2026-05-16", "光州園〜UNIQLO", 1000],
+          ["2026-05-16", "UNIQLO〜喜田村", 1600],
+        ];
+        ch.forEach(function (r) {
+          push("Lounge Chouchou", r[0], r[1], r[2]);
+        });
+        rows.forEach(function (r) {
+          r.id = nextId();
+          DB.push(r);
+        });
+        saveDB();
+      }
+
+      var _idc = 0;
+      function nextId() {
+        _idc += 1;
+        return "R" + Date.now().toString(36) + _idc.toString(36);
+      }
+
+      /* ===================================================================
+   ユーティリティ
+   =================================================================== */
+      function yen(n) {
+        n = Math.round(n || 0);
+        return "¥" + n.toLocaleString("ja-JP");
+      }
+      function comma(n) {
+        if (n === "" || n === null || n === undefined) return "";
+        return Number(n).toLocaleString("ja-JP");
+      }
+      function mdShort(iso) {
+        if (!iso) return "";
+        var p = iso.split("-");
+        return Number(p[1]) + "/" + Number(p[2]);
+      }
+      function inMonth(iso, month) {
+        return iso && month && iso.slice(0, 7) === month;
+      }
+      function tax10(total) {
+        return Math.round((total * 10) / 110);
+      } // 内税10%の内消費税
+      function esc(s) {
+        return String(s == null ? "" : s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+      function reiwaIssueDate(month) {
+        if (!month) return "";
+        var p = month.split("-"),
+          y = Number(p[0]),
+          m = Number(p[1]);
+        m += 1;
+        if (m > 12) {
+          m = 1;
+          y += 1;
+        }
+        return "令和" + (y - 2018) + "年" + m + "月1日";
+      }
+      function toast(msg) {
+        var t = document.getElementById("toast");
+        t.textContent = msg;
+        t.classList.add("show");
+        clearTimeout(t._tm);
+        t._tm = setTimeout(function () {
+          t.classList.remove("show");
+        }, 1700);
+      }
+
+      /* ===================================================================
+   画面切替
+   =================================================================== */
+      function showScreen(name) {
+        var titles = {
+          input: "明細入力",
+          list: "明細一覧",
+          master: "会社マスタ",
+          invoice: "請求書生成",
+        };
+        document.querySelectorAll(".screen").forEach(function (s) {
+          s.classList.remove("active");
+        });
+        document.getElementById("scr-" + name).classList.add("active");
+        document.querySelectorAll(".nav-item").forEach(function (b) {
+          b.classList.toggle("active", b.dataset.scr === name);
+        });
+        document.getElementById("appTitle").textContent = titles[name] || "代行請求";
+        if (name === "list") renderList();
+        if (name === "master") renderMaster();
+        window.scrollTo(0, 0);
+      }
+
+      /* ===================================================================
+   会社プルダウン群を最新化
+   =================================================================== */
+      function refreshCompanySelects() {
+        var names = Object.keys(MASTER);
+        [
+          ["inputCompany", false],
+          ["listCompany", true],
+          ["invCompany", true],
+        ].forEach(function (pair) {
+          var el = document.getElementById(pair[0]);
+          if (!el) return;
+          var keep = el.value;
+          var head = pair[1]
+            ? '<option value="">全社</option>'
+            : '<option value="">― 会社を選択 ―</option>';
+          el.innerHTML =
+            head +
+            names
+              .map(function (n) {
+                return '<option value="' + esc(n) + '">' + esc(n) + "</option>";
+              })
+              .join("");
+          if (names.indexOf(keep) >= 0 || keep === "") el.value = keep;
+        });
+      }
+
+      /* ===================================================================
+   入力画面（定義駆動：マスタのitemsだけ欄を出す）
+   =================================================================== */
+      function onInputCompany() {
+        var co = document.getElementById("inputCompany").value;
+        var card = document.getElementById("entryCard");
+        if (!co || !MASTER[co]) {
+          card.style.display = "none";
+          return;
+        }
+        card.style.display = "block";
+        document.getElementById("entryCardLabel").textContent = co + " の明細";
+        entryRows = [blankEntry()];
+        renderEntry();
+      }
+      function blankEntry() {
+        var last = entryRows && entryRows.length ? entryRows[entryRows.length - 1] : null;
+        var e = {};
+        FIELD_DEFS.forEach(function (f) {
+          e[f.key] = "";
+        });
+        if (last && last["日付"]) e["日付"] = last["日付"]; // 日付は引き継ぎ（連続入力の利便）
+        return e;
+      }
+      function addEntryRow() {
+        entryRows.push(blankEntry());
+        renderEntry();
+      }
+      function renderEntry() {
+        var co = document.getElementById("inputCompany").value;
+        var items = MASTER[co].items;
+        var head =
+          "<tr>" +
+          items
+            .map(function (k) {
+              return "<th>" + esc(k) + "</th>";
+            })
+            .join("") +
+          "<th></th></tr>";
+        document.getElementById("entryHead").innerHTML = head;
+        var body = entryRows
+          .map(function (row, i) {
+            var tds = items
+              .map(function (k) {
+                var def = FIELD_DEFS.filter(function (f) {
+                  return f.key === k;
+                })[0];
+                var t = def ? def.type : "text";
+                var val = esc(row[k]);
+                var cls = "entry-inp" + (t === "number" ? " num" : "");
+                if (t === "date")
+                  return (
+                    '<td><input class="entry-inp" type="date" value="' +
+                    val +
+                    '" oninput="setEntry(' +
+                    i +
+                    ",'" +
+                    k +
+                    "',this.value)\"></td>"
+                  );
+                if (t === "number")
+                  return (
+                    '<td><input class="' +
+                    cls +
+                    '" inputmode="numeric" value="' +
+                    val +
+                    '" oninput="setEntry(' +
+                    i +
+                    ",'" +
+                    k +
+                    "',this.value)\"></td>"
+                  );
+                return (
+                  '<td><input class="' +
+                  cls +
+                  '" value="' +
+                  val +
+                  '" oninput="setEntry(' +
+                  i +
+                  ",'" +
+                  k +
+                  "',this.value)\"></td>"
+                );
+              })
+              .join("");
+            var del =
+              '<td style="text-align:center;"><button class="entry-del" onclick="delEntry(' +
+              i +
+              ')">✕</button></td>';
+            return "<tr>" + tds + del + "</tr>";
+          })
+          .join("");
+        document.getElementById("entryBody").innerHTML = body;
+      }
+      function setEntry(i, k, v) {
+        if (entryRows[i]) entryRows[i][k] = v;
+      }
+      function delEntry(i) {
+        entryRows.splice(i, 1);
+        if (!entryRows.length) entryRows = [blankEntry()];
+        renderEntry();
+      }
+      function saveEntries() {
+        var co = document.getElementById("inputCompany").value;
+        if (!co) {
+          toast("会社を選んでください");
+          return;
+        }
+        var items = MASTER[co].items;
+        var added = 0;
+        entryRows.forEach(function (row) {
+          // 何か入力がある行のみ保存（金額か行き先のどちらか）
+          var hasContent = items.some(function (k) {
+            return String(row[k] || "").trim() !== "";
+          });
+          if (!hasContent) return;
+          var rec = { id: nextId(), 会社名: co };
+          FIELD_DEFS.forEach(function (f) {
+            var raw = row[f.key];
+            if (f.type === "number")
+              rec[f.key] =
+                raw === "" || raw == null ? "" : Number(String(raw).replace(/[^0-9.\-]/g, "")) || 0;
+            else rec[f.key] = raw || "";
+          });
+          DB.push(rec);
+          added++;
+        });
+        if (!added) {
+          toast("入力がありません");
+          return;
+        }
+        saveDB();
+        entryRows = [blankEntry()];
+        renderEntry();
+        toast(added + "件を保存しました");
+      }
+
+      /* ===================================================================
+   一覧 / 修正
+   =================================================================== */
+      function renderList() {
+        refreshCompanySelects();
+        var co = document.getElementById("listCompany").value;
+        var mo = document.getElementById("listMonth").value;
+        var rows = DB.filter(function (r) {
+          if (co && r.会社名 !== co) return false;
+          if (mo && !inMonth(r.日付, mo)) return false;
+          return true;
+        }).sort(function (a, b) {
+          return (b.日付 || "").localeCompare(a.日付 || "");
+        });
+        var box = document.getElementById("listBody");
+        if (!rows.length) {
+          box.innerHTML = '<div class="li-empty">明細がありません</div>';
+          return;
+        }
+        box.innerHTML = rows
+          .map(function (r) {
+            var meta = r.会社名 + (r.備考 ? "・" + esc(r.備考) : "");
+            return (
+              '<div class="list-item" onclick="openEdit(\'' +
+              r.id +
+              "')\">" +
+              '<div class="li-date">' +
+              esc(mdShort(r.日付)) +
+              "</div>" +
+              '<div class="li-main"><div class="li-dest">' +
+              esc(r.行き先 || "（行き先なし）") +
+              '</div><div class="li-meta">' +
+              esc(meta) +
+              "</div></div>" +
+              '<div class="li-amt">' +
+              yen(r.金額 || 0) +
+              "</div></div>"
+            );
+          })
+          .join("");
+      }
+      function openEdit(id) {
+        var r = DB.filter(function (x) {
+          return x.id === id;
+        })[0];
+        if (!r) return;
+        var m = MASTER[r.会社名];
+        // 編集はその会社のitems（無ければ全列）を表示
+        var keys =
+          m && m.items
+            ? m.items.slice()
+            : FIELD_DEFS.map(function (f) {
+                return f.key;
+              });
+        document.getElementById("modalTitle").textContent = "明細を編集";
+        var fields = keys
+          .map(function (k) {
+            var def = FIELD_DEFS.filter(function (f) {
+              return f.key === k;
+            })[0];
+            var t = def ? def.type : "text";
+            var val = esc(r[k]);
+            var inp =
+              t === "date"
+                ? '<input class="finput" type="date" id="ed_' + k + '" value="' + val + '">'
+                : t === "number"
+                  ? '<input class="finput fnum" inputmode="numeric" id="ed_' +
+                    k +
+                    '" value="' +
+                    val +
+                    '">'
+                  : '<input class="finput" id="ed_' + k + '" value="' + val + '">';
+            return '<div class="frow"><div class="flabel">' + esc(k) + "</div>" + inp + "</div>";
+          })
+          .join("");
+        document.getElementById("modalBody").innerHTML =
+          '<div style="font-size:10px;color:#A9C4B6;font-family:DM Mono,monospace;margin-bottom:8px;">id: ' +
+          esc(r.id) +
+          "</div>" +
+          fields +
+          '<div style="display:flex;gap:8px;margin-top:14px;">' +
+          '<button class="btn btn-danger btn-sm" style="flex:1;" onclick="deleteRow(\'' +
+          r.id +
+          "')\">削除</button>" +
+          '<button class="btn btn-primary btn-sm" style="flex:2;" onclick="saveEdit(\'' +
+          r.id +
+          "')\">保存</button></div>";
+        openModal();
+      }
+      function saveEdit(id) {
+        var r = DB.filter(function (x) {
+          return x.id === id;
+        })[0];
+        if (!r) return;
+        var m = MASTER[r.会社名];
+        var keys =
+          m && m.items
+            ? m.items
+            : FIELD_DEFS.map(function (f) {
+                return f.key;
+              });
+        keys.forEach(function (k) {
+          var el = document.getElementById("ed_" + k);
+          if (!el) return;
+          var def = FIELD_DEFS.filter(function (f) {
+            return f.key === k;
+          })[0];
+          var t = def ? def.type : "text";
+          if (t === "number")
+            r[k] = el.value === "" ? "" : Number(String(el.value).replace(/[^0-9.\-]/g, "")) || 0;
+          else r[k] = el.value;
+        });
+        saveDB();
+        closeModal();
+        renderList();
+        toast("保存しました");
+      }
+      function deleteRow(id) {
+        DB = DB.filter(function (x) {
+          return x.id !== id;
+        });
+        saveDB();
+        closeModal();
+        renderList();
+        toast("削除しました");
+      }
+
+      /* ===================================================================
+   会社マスタ（チェック / ドラッグ / 幅）
+   =================================================================== */
+      function renderMaster() {
+        refreshCompanySelects();
+        var box = document.getElementById("masterBody");
+        var names = Object.keys(MASTER);
+        box.innerHTML = names
+          .map(function (co) {
+            return masterCardHTML(co);
+          })
+          .join("");
+      }
+      function masterCardHTML(co) {
+        var m = MASTER[co];
+        return (
+          '<div class="master-co">' +
+          '<div class="master-co-hd" onclick="toggleMasterBody(this)">' +
+          '<span class="master-co-name">' +
+          esc(co) +
+          "</span>" +
+          '<span class="master-co-cols">' +
+          esc(m.items.join(" / ")) +
+          "</span>" +
+          '<span style="color:#A9C4B6;">▾</span>' +
+          "</div>" +
+          '<div class="master-co-body" data-co="' +
+          esc(co) +
+          '">' +
+          masterBodyHTML(co) +
+          "</div>" +
+          "</div>"
+        );
+      }
+      function masterBodyHTML(co) {
+        var m = MASTER[co];
+        // 使う項目チェック（候補＝DB列名そのもの）
+        var chips = FIELD_DEFS.map(function (f) {
+          var on = m.items.indexOf(f.key) >= 0;
+          return (
+            '<span class="chip' +
+            (on ? " on" : "") +
+            '" onclick="toggleItem(\'' +
+            esc(co) +
+            "','" +
+            f.key +
+            "')\">" +
+            (on ? "✓ " : "") +
+            esc(f.key) +
+            "</span>"
+          );
+        }).join("");
+        // 順番（ドラッグ）＋幅
+        var dnd = m.items
+          .map(function (k) {
+            return (
+              '<div class="dnd-item" draggable="true" data-key="' +
+              esc(k) +
+              '"' +
+              " ondragstart=\"dndStart(event,'" +
+              esc(co) +
+              '\')" ondragover="dndOver(event)" ondrop="dndDrop(event,\'' +
+              esc(co) +
+              '\')" ondragend="dndEnd(event)">' +
+              '<span class="dnd-grip">⠿</span><span class="dnd-name">' +
+              esc(k) +
+              "</span>" +
+              '<input class="dnd-w" inputmode="numeric" value="' +
+              (m.widths[k] || DEFAULT_WIDTH[k] || 80) +
+              '" onchange="setWidth(\'' +
+              esc(co) +
+              "','" +
+              esc(k) +
+              "',this.value)\">" +
+              '<span class="dnd-wu">幅</span></div>'
+            );
+          })
+          .join("");
+        var noteG = (m.noteGroups || []).join("、");
+        return (
+          "" +
+          '<div class="card-label">使う項目（タップで選択）</div>' +
+          '<div class="chip-row">' +
+          chips +
+          "</div>" +
+          '<div class="card-label" style="margin-top:10px;">順番（ドラッグ）と幅</div>' +
+          '<div class="dnd-list">' +
+          dnd +
+          "</div>" +
+          '<div class="frow" style="margin-top:8px;"><div class="flabel">リード文（{月}は対象月に置換）</div>' +
+          '<input class="finput" value="' +
+          esc(m.lead || "") +
+          '" onchange="setMasterField(\'' +
+          esc(co) +
+          "','lead',this.value)\"></div>" +
+          '<div class="frow"><div class="flabel">表ヘッダー名</div>' +
+          '<input class="finput" value="' +
+          esc(m.tableTitle || "運転業務委託料") +
+          '" onchange="setMasterField(\'' +
+          esc(co) +
+          "','tableTitle',this.value)\"></div>" +
+          '<label class="toggle-row"><input type="checkbox" ' +
+          (m.noteSummary ? "checked" : "") +
+          " onchange=\"setMasterField('" +
+          esc(co) +
+          "','noteSummary',this.checked)\"> 備考で集計ボックスを出す（例：役職別）</label>" +
+          '<div class="frow" style="margin-top:6px;' +
+          (m.noteSummary ? "" : "display:none;") +
+          '"><div class="flabel">集計の並び（読点区切り）</div>' +
+          '<input class="finput" value="' +
+          esc(noteG) +
+          '" onchange="setNoteGroups(\'' +
+          esc(co) +
+          "',this.value)\"></div>" +
+          '<div style="display:flex;gap:8px;margin-top:12px;">' +
+          '<button class="btn btn-danger btn-sm" style="flex:1;" onclick="deleteCompany(\'' +
+          esc(co) +
+          "')\">会社を削除</button></div>"
+        );
+      }
+      function toggleMasterBody(hd) {
+        var body = hd.nextElementSibling;
+        body.classList.toggle("open");
+      }
+      function reopen(co) {
+        // マスタ再描画後、編集中の会社を開いたまま保つ
+        renderMaster();
+        var b = document.querySelector('.master-co-body[data-co="' + CSS.escape(co) + '"]');
+        if (b) b.classList.add("open");
+      }
+      function toggleItem(co, key) {
+        var m = MASTER[co];
+        var i = m.items.indexOf(key);
+        if (i >= 0) {
+          if (m.items.length <= 1) {
+            toast("最低1項目は必要です");
+            return;
+          }
+          m.items.splice(i, 1);
+        } else {
+          m.items.push(key);
+          if (!m.widths[key]) m.widths[key] = DEFAULT_WIDTH[key] || 80;
+        }
+        saveMaster();
+        reopen(co);
+      }
+      function setWidth(co, key, v) {
+        MASTER[co].widths[key] = Number(String(v).replace(/[^0-9]/g, "")) || 80;
+        saveMaster();
+      }
+      function setMasterField(co, field, v) {
+        MASTER[co][field] = v;
+        saveMaster();
+        if (field === "noteSummary") reopen(co);
+      }
+      function setNoteGroups(co, v) {
+        MASTER[co].noteGroups = v
+          .split(/[、,，]/)
+          .map(function (s) {
+            return s.trim();
+          })
+          .filter(Boolean);
+        saveMaster();
+      }
+      // drag & drop reorder
+      var _drag = { co: null, key: null };
+      function dndStart(e, co) {
+        _drag.co = co;
+        _drag.key = e.currentTarget.dataset.key;
+        e.currentTarget.classList.add("dragging");
+        e.dataTransfer.effectAllowed = "move";
+        try {
+          e.dataTransfer.setData("text/plain", _drag.key);
+        } catch (x) {}
+      }
+      function dndOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+      }
+      function dndDrop(e, co) {
+        e.preventDefault();
+        var target = e.currentTarget.dataset.key;
+        if (_drag.co !== co || _drag.key === target) return;
+        var arr = MASTER[co].items;
+        var from = arr.indexOf(_drag.key),
+          to = arr.indexOf(target);
+        if (from < 0 || to < 0) return;
+        arr.splice(to, 0, arr.splice(from, 1)[0]);
+        saveMaster();
+        reopen(co);
+      }
+      function dndEnd(e) {
+        e.currentTarget.classList.remove("dragging");
+      }
+
+      function openAddCompany() {
+        document.getElementById("modalTitle").textContent = "会社を追加";
+        document.getElementById("modalBody").innerHTML =
+          '<div class="frow"><div class="flabel">会社名（宛名）</div><input class="finput" id="newCoName" placeholder="例：テスト物流株式会社"></div>' +
+          '<div class="scr-sub" style="margin:2px 0 10px;">追加後、マスタ画面で項目・順番・幅を定義できます（初期＝日付/行き先/金額）。</div>' +
+          '<button class="btn btn-primary" onclick="addCompany()">追加する</button>';
+        openModal();
+      }
+      function addCompany() {
+        var name = document.getElementById("newCoName").value.trim();
+        if (!name) {
+          toast("会社名を入力してください");
+          return;
+        }
+        if (MASTER[name]) {
+          toast("同名の会社があります");
+          return;
+        }
+        MASTER[name] = {
+          items: ["日付", "行き先", "金額"],
+          widths: { 日付: 64, 行き先: 260, 金額: 110 },
+          lead: "{月}月のご利用分です。",
+          tableTitle: "運転業務委託料",
+          noteSummary: false,
+          noteGroups: [],
+        };
+        saveMaster();
+        closeModal();
+        renderMaster();
+        refreshCompanySelects();
+        toast("会社を追加しました");
+      }
+      function deleteCompany(co) {
+        if (!confirm(co + " をマスタから削除します。よろしいですか？（明細データは残ります）"))
+          return;
+        delete MASTER[co];
+        saveMaster();
+        renderMaster();
+        refreshCompanySelects();
+        toast("削除しました");
+      }
+
+      /* ===================================================================
+   請求書生成（定義駆動）
+   =================================================================== */
+      function generateInvoices() {
+        var month = document.getElementById("invMonth").value;
+        var onlyCo = document.getElementById("invCompany").value;
+        var out = document.getElementById("invoiceOut");
+        if (!month) {
+          out.innerHTML = '<div class="li-empty">対象月を選んでください</div>';
+          return;
+        }
+        var companies = onlyCo ? [onlyCo] : Object.keys(MASTER);
+        var html = "";
+        var produced = 0;
+        companies.forEach(function (co) {
+          var rows = DB.filter(function (r) {
+            return r.会社名 === co && inMonth(r.日付, month);
+          }).sort(function (a, b) {
+            return (
+              (a.日付 || "").localeCompare(b.日付 || "") || (a.id || "").localeCompare(b.id || "")
+            );
+          });
+          if (!rows.length) return;
+          html += buildCompanyInvoice(co, rows, month);
+          produced++;
+        });
+        out.innerHTML = produced ? html : '<div class="li-empty">該当する明細がありません</div>';
+      }
+
+      function buildCompanyInvoice(co, rows, month) {
+        var m = MASTER[co];
+        var items = m.items;
+        var grand = rows.reduce(function (s, r) {
+          return s + (Number(r.金額) || 0);
+        }, 0);
+        // ページ分割
+        var pages = [];
+        for (var i = 0; i < rows.length; i += ROWS_PER_PAGE)
+          pages.push(rows.slice(i, i + ROWS_PER_PAGE));
+        if (!pages.length) pages.push([]);
+        var monthNum = Number(month.split("-")[1]);
+        var html = "";
+        pages.forEach(function (pageRows, pi) {
+          var isLast = pi === pages.length - 1;
+          html += buildSheet(co, m, items, pageRows, {
+            month: month,
+            monthNum: monthNum,
+            grand: grand,
+            isLast: isLast,
+            allRows: rows,
+          });
+        });
+        return html;
+      }
+
+      function buildSheet(co, m, items, pageRows, ctx) {
+        var leadFilled = (m.lead || "").replace("{月}", ctx.monthNum);
+        // ---- 列幅 colgroup ----
+        var totalW = items.reduce(function (s, k) {
+          return s + (Number(m.widths[k]) || DEFAULT_WIDTH[k] || 80);
+        }, 0);
+        var colgroup = items
+          .map(function (k) {
+            var w = Number(m.widths[k]) || DEFAULT_WIDTH[k] || 80;
+            return '<col style="width:' + ((w / totalW) * 100).toFixed(2) + '%">';
+          })
+          .join("");
+        // ---- ヘッダー行：金額より前の列を tableTitle でまとめ、金額=「金額（税込み）」、以降は項目名 ----
+        var amtIdx = items.indexOf("金額");
+        var leadCount = amtIdx >= 0 ? amtIdx : items.length;
+        var headCells = "";
+        if (leadCount > 0)
+          headCells +=
+            '<th colspan="' + leadCount + '">' + esc(m.tableTitle || "運転業務委託料") + "</th>";
+        if (amtIdx >= 0) {
+          headCells += "<th>金額（税込み）</th>";
+          items.slice(amtIdx + 1).forEach(function (k) {
+            headCells += "<th>" + esc(k) + "</th>";
+          });
+        } else {
+          // 金額列が無い構成（理論上）→ 全項目名
+          headCells = items
+            .map(function (k) {
+              return "<th>" + esc(k) + "</th>";
+            })
+            .join("");
+        }
+        // ---- 明細行（日付は前行と同じなら空欄） ----
+        var prevDate = null;
+        var bodyRows = "";
+        for (var r = 0; r < ROWS_PER_PAGE; r++) {
+          var row = pageRows[r];
+          var tds = items
+            .map(function (k) {
+              if (!row) return "<td>&nbsp;</td>";
+              var def = FIELD_DEFS.filter(function (f) {
+                return f.key === k;
+              })[0];
+              var t = def ? def.type : "text";
+              if (k === "日付") {
+                var cur = row.日付 || "";
+                var show = cur && cur !== prevDate ? mdShort(cur) : "";
+                return '<td class="c">' + esc(show) + "</td>";
+              }
+              if (k === "金額") return '<td class="r">' + comma(row.金額) + "</td>";
+              if (t === "number") return '<td class="c">' + comma(row[k]) + "</td>";
+              return '<td class="dest">' + esc(row[k]) + "</td>";
+            })
+            .join("");
+          if (row) prevDate = row.日付 || prevDate;
+          bodyRows += "<tr>" + tds + "</tr>";
+        }
+        // ---- ページ小計（このページ分） ----
+        var pageTotal = pageRows.reduce(function (s, x) {
+          return s + (Number(x.金額) || 0);
+        }, 0);
+        var trailing = amtIdx >= 0 ? items.length - 1 - amtIdx : 0;
+        function totRow(label, valHtml) {
+          var t = '<tr class="tot"><td colspan="' + leadCount + '">' + label + "</td>";
+          t += '<td class="r">' + valHtml + "</td>";
+          for (var x = 0; x < trailing; x++) t += "<td>&nbsp;</td>";
+          return t + "</tr>";
+        }
+        var totals =
+          totRow("小計", yen(pageTotal)) +
+          totRow("消費税（10%）", yen(tax10(pageTotal))) +
+          totRow("合計", yen(pageTotal));
+        // ---- 役職（備考）集計ボックス：最終ページのみ ----
+        var summaryBox = "";
+        if (m.noteSummary && ctx.isLast && (m.noteGroups || []).length) {
+          var sums = {};
+          m.noteGroups.forEach(function (g) {
+            sums[g] = 0;
+          });
+          ctx.allRows.forEach(function (x) {
+            var g = (x.備考 || "").trim();
+            if (sums.hasOwnProperty(g)) sums[g] += Number(x.金額) || 0;
+          });
+          summaryBox =
+            '<table class="sh-summary">' +
+            m.noteGroups
+              .map(function (g) {
+                return (
+                  '<tr><td class="k">' +
+                  esc(g) +
+                  '</td><td class="v">' +
+                  (sums[g] ? yen(sums[g]) : "") +
+                  "</td></tr>"
+                );
+              })
+              .join("") +
+            "</table>";
+        }
+        // ---- ヘッダー（屋号・住所など固定） ----
+        var issuer =
+          '<div class="sh-issuer">' +
+          '<div class="sh-hanko">合同会社<br>ZEROact</div>' +
+          ISSUER.lines
+            .map(function (l, idx) {
+              return "<div" + (idx === 0 ? ' class="big"' : "") + ">" + esc(l) + "</div>";
+            })
+            .join("") +
+          "</div>";
+        var grandLine =
+          '<div class="sh-grand"><span class="lbl">ご請求金額（税込）</span><span class="val">' +
+          (ctx.isLast ? yen(ctx.grand) : "") +
+          "</span></div>";
+        var bank =
+          '<div class="sh-bank">' +
+          ISSUER.bank
+            .map(function (l) {
+              return "<div>" + esc(l) + "</div>";
+            })
+            .join("") +
+          "</div>";
+
+        return (
+          '<div class="sheet">' +
+          '<div class="sh-title">請求書</div>' +
+          '<div class="sh-top"><div class="sh-left">' +
+          '<div class="sh-date">' +
+          esc(reiwaIssueDate(ctx.month)) +
+          "</div>" +
+          '<div class="sh-client">' +
+          esc(co) +
+          '<span class="ochu">御中</span></div>' +
+          '<div class="sh-lead">' +
+          esc(leadFilled) +
+          "</div>" +
+          '<div class="sh-lead">下記の通り御請求申し上げます。</div>' +
+          grandLine +
+          "</div>" +
+          issuer +
+          "</div>" +
+          '<table class="sh-table"><colgroup>' +
+          colgroup +
+          "</colgroup>" +
+          "<thead><tr>" +
+          headCells +
+          "</tr></thead>" +
+          "<tbody>" +
+          bodyRows +
+          totals +
+          "</tbody></table>" +
+          '<div class="sh-foot">' +
+          bank +
+          summaryBox +
+          "</div>" +
+          "</div>"
+        );
+      }
+
+      /* ===================================================================
+   モーダル
+   =================================================================== */
+      function openModal() {
+        document.getElementById("modalOv").classList.add("open");
+      }
+      function closeModal() {
+        document.getElementById("modalOv").classList.remove("open");
+      }
+
+      /* ===================================================================
+   初期化
+   =================================================================== */
+      function boot() {
+        loadAll();
+        refreshCompanySelects();
+        // 既定の対象月＝最新明細の月
+        var months = DB.map(function (r) {
+          return (r.日付 || "").slice(0, 7);
+        })
+          .filter(Boolean)
+          .sort();
+        var def = months.length ? months[months.length - 1] : "";
+        if (def) {
+          document.getElementById("invMonth").value = def;
+        }
+        showScreen("input");
+      }
+      boot();
+    </script>
+  </body>
+</html>
