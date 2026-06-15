@@ -720,8 +720,9 @@
         font-weight: 700;
         border-bottom: 1.5px solid #000000;
         padding-bottom: 4px;
+        padding-right: 36px;
         margin: 10px 0 2px;
-        display: flex;
+        display: inline-flex;
         gap: 18px;
         align-items: baseline;
       }
@@ -1144,7 +1145,7 @@
         </div>
       </div>
       <div class="card">
-        <div class="card-label">請求書番号</div>
+        <div class="card-label">請求書番号・日付の表記</div>
         <label
           style="
             display: flex;
@@ -1163,6 +1164,20 @@
           />
           請求書番号を表示する（例：2026-06-02／会社ごとに自動採番）
         </label>
+        <div class="align-row" style="margin-top: 12px">
+          <span class="align-lbl">日付の表記</span>
+          <button
+            class="align-btn"
+            data-grp="dateEra"
+            data-a="seireki"
+            onclick="setDateEra('seireki')"
+          >
+            西暦
+          </button>
+          <button class="align-btn" data-grp="dateEra" data-a="reiwa" onclick="setDateEra('reiwa')">
+            令和
+          </button>
+        </div>
       </div>
       <div class="card">
         <div class="card-label">電子判子（任意）</div>
@@ -1653,6 +1668,7 @@
           bank: "伊予銀行　今治支店　普通　4160657\nド）ゼロアクト",
           issuerAlign: "left",
           bankAlign: "left",
+          dateEra: "seireki", // 日付の表記: seireki(2026/2/1) / reiwa(令和8年2月1日)
           showInvoiceNo: false, // 請求書番号を表示するか
           hanko: "", // 表示・出力用（白抜き処理後）
           hankoRaw: "", // 元画像（白抜きON/OFF切替時に再処理する素）
@@ -1712,6 +1728,7 @@
           bank: bankLines.length ? ["お振込先"].concat(bankLines) : [],
           lineAlign: s.issuerAlign || "left",
           bankAlign: s.bankAlign || "left",
+          dateEra: s.dateEra || "seireki",
           showInvoiceNo: !!s.showInvoiceNo,
           hanko: s.hanko || null,
           hankoSizeMm: Number(s.hankoSizeMm) || 21,
@@ -1719,6 +1736,10 @@
       }
       function setAlign(field, val) {
         setIssuer(field, val);
+        renderIssuer();
+      }
+      function setDateEra(val) {
+        setIssuer("dateEra", val);
         renderIssuer();
       }
       function setIssuer(field, value) {
@@ -1742,9 +1763,11 @@
         }
         // 揃え／白抜きボタンのハイライト更新
         var bg = s.hankoBg || "auto";
+        var era = s.dateEra || "seireki";
         document.querySelectorAll(".align-btn").forEach(function (b) {
           var grp = b.dataset.grp;
-          var cur = grp === "issuerAlign" ? ia : grp === "bankAlign" ? ba : bg;
+          var cur =
+            grp === "issuerAlign" ? ia : grp === "bankAlign" ? ba : grp === "hankoBg" ? bg : era;
           b.classList.toggle("on", b.dataset.a === cur);
         });
         var sz = document.getElementById("iss_hankoSize");

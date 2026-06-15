@@ -67,6 +67,10 @@
       .replace(/"/g, "&quot;");
   }
   function reiwaIssueDate(month) {
+    return issueDateStr(month, "reiwa");
+  }
+  // 請求日＝対象月の翌月1日。era: "seireki"(2026/2/1) / "reiwa"(令和8年2月1日)
+  function issueDateStr(month, era) {
     if (!month) return "";
     var p = month.split("-"),
       y = Number(p[0]),
@@ -76,6 +80,7 @@
       m = 1;
       y += 1;
     }
+    if (era === "seireki") return y + "/" + m + "/1";
     return "令和" + (y - 2018) + "年" + m + "月1日";
   }
 
@@ -222,7 +227,7 @@
     var metaHtml =
       '<div class="sh-meta">' +
       "<div>請求日　" +
-      esc(reiwaIssueDate(ctx.month)) +
+      esc(issueDateStr(ctx.month, iss.dateEra)) +
       "</div>" +
       (iss.showInvoiceNo && ctx.invoiceNo ? "<div>No.　" + esc(ctx.invoiceNo) + "</div>" : "") +
       "</div>";
