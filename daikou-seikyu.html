@@ -256,15 +256,45 @@
       .entry-inp:focus {
         border-color: #52b788;
       }
-      .entry-inp.num,
-      .entry-inp.md {
-        font-family: "DM Mono", monospace;
-      }
       .entry-inp.num {
+        font-family: "DM Mono", monospace;
         text-align: right;
       }
-      .entry-inp.md {
+      /* 日付：カレンダーで選んで、表示は M/D（6/15） */
+      .date-wrap {
+        position: relative;
+      }
+      .date-show {
+        display: block;
+        width: 100%;
+        padding: 9px 10px;
+        border: 1.5px solid #e2f4ea;
+        border-radius: 9px;
+        font-size: 14px;
+        font-family: "DM Mono", monospace;
         text-align: center;
+        color: #1a4a2e;
+        background: #ffffff;
+        pointer-events: none;
+      }
+      .date-show.empty {
+        color: #a9c4b6;
+      }
+      .date-wrap:focus-within .date-show {
+        border-color: #52b788;
+      }
+      .date-input {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        border: none;
+        padding: 0;
+        margin: 0;
+        background: transparent;
+        -webkit-appearance: none;
+        appearance: none;
       }
       .entry-del {
         width: 26px;
@@ -1265,17 +1295,24 @@
                 var sizeCls = k === "行き先" || k === "名前" ? "ef-wide" : "ef-narrow";
                 var inp;
                 if (t === "date") {
-                  // ネイティブのカレンダー入力（内部はISOで保持）
+                  // カレンダーで選択・内部はISO保持・表示は M/D（6/15）
+                  var md = mdShort(row[k]);
                   inp =
-                    '<input class="entry-inp" type="date" value="' +
+                    '<div class="date-wrap">' +
+                    '<span class="date-show' +
+                    (md ? "" : " empty") +
+                    '">' +
+                    (md ? esc(md) : "日付を選ぶ") +
+                    "</span>" +
+                    '<input class="date-input" type="date" value="' +
                     esc(row[k]) +
                     '" ' +
                     NOFILL +
-                    ' onchange="setEntry(' +
+                    ' onclick="try{this.showPicker()}catch(e){}" onchange="setEntryDate(' +
                     i +
                     ",'" +
                     k +
-                    "',this.value)\">";
+                    "',this)\"></div>";
                 } else if (t === "number") {
                   inp =
                     '<input class="entry-inp num" inputmode="numeric" placeholder="0" value="' +
@@ -1333,6 +1370,16 @@
         var clean = String(el.value).replace(/[^0-9]/g, "");
         if (el.value !== clean) el.value = clean;
         if (entryRows[i]) entryRows[i][k] = clean;
+      }
+      function setEntryDate(i, k, el) {
+        // 内部はISO（2026-06-15）で保持・画面表示だけ M/D（6/15）に更新
+        if (entryRows[i]) entryRows[i][k] = el.value;
+        var s = el.parentNode.querySelector(".date-show");
+        if (s) {
+          var md = mdShort(el.value);
+          s.textContent = md || "日付を選ぶ";
+          s.classList.toggle("empty", !md);
+        }
       }
       function delEntry(i) {
         entryRows.splice(i, 1);
