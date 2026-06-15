@@ -2930,6 +2930,71 @@
           })
           .join("");
         attachSwipeHandlers();
+        attachDndTouch();
+      }
+      // タッチ並べ替え（Exallyのseikyusyo/mitsumoriyoと同じ方式：取っ手touchstart→指の下の項目を
+      // ハイライト→touchendでその位置に差し込む）。HTML5 draggableはPCのみ動くのでスマホ用にこれを併設。
+      function attachDndTouch() {
+        document.querySelectorAll("#scr-settings .dnd-list").forEach(function (list) {
+          var co = list.getAttribute("data-co");
+          list.querySelectorAll(".dnd-item").forEach(function (it) {
+            if (it._dnt) return;
+            it._dnt = true;
+            var grip = it.querySelector(".dnd-grip");
+            var touching = false;
+            function clearOver() {
+              list.querySelectorAll(".dnd-item.over").forEach(function (el) {
+                el.classList.remove("over");
+              });
+            }
+            if (grip) {
+              grip.addEventListener(
+                "touchstart",
+                function (e) {
+                  touching = true;
+                  it.classList.add("dragging");
+                  e.stopPropagation(); // 親のスワイプ削除を発火させない
+                },
+                { passive: true }
+              );
+            }
+            it.addEventListener(
+              "touchmove",
+              function (e) {
+                if (!touching) return;
+                e.preventDefault();
+                var y = e.touches[0].clientY;
+                clearOver();
+                list.querySelectorAll(".dnd-item").forEach(function (el) {
+                  var r = el.getBoundingClientRect();
+                  if (y >= r.top && y <= r.bottom) el.classList.add("over");
+                });
+              },
+              { passive: false }
+            );
+            function end(e) {
+              if (!touching) return;
+              touching = false;
+              it.classList.remove("dragging");
+              var y = (e.changedTouches[0] || {}).clientY;
+              var arr = MASTER[co].items;
+              var from = arr.indexOf(it.dataset.key);
+              var to = -1;
+              list.querySelectorAll(".dnd-item").forEach(function (el) {
+                var r = el.getBoundingClientRect();
+                if (y >= r.top && y <= r.bottom) to = arr.indexOf(el.dataset.key);
+              });
+              clearOver();
+              if (from >= 0 && to >= 0 && from !== to) {
+                arr.splice(to, 0, arr.splice(from, 1)[0]);
+                saveMaster();
+                reopen(co);
+              }
+            }
+            it.addEventListener("touchend", end);
+            it.addEventListener("touchcancel", end);
+          });
+        });
       }
       // iOSメール式：会社の行を左スワイプ → 赤い「削除」を表示 → タップで削除
       function attachSwipeHandlers() {
@@ -3112,8 +3177,10 @@
           '<div class="chip-row">' +
           chips +
           "</div>" +
-          '<div class="card-label" style="margin-top:10px;">順番（長押しでドラッグして並べ替え）</div>' +
-          '<div class="dnd-list">' +
+          '<div class="card-label" style="margin-top:10px;">順番（取っ手⠿を長押しで上下にドラッグ）</div>' +
+          '<div class="dnd-list" data-co="' +
+          esc(co) +
+          '">' +
           dnd +
           "</div>" +
           '<div class="scr-sub" style="margin:2px 0 0;">列の幅は請求書に合わせて自動調整されます。</div>' +
