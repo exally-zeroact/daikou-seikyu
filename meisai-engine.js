@@ -234,11 +234,13 @@
       '<div class="sh-client">' +
       esc(co) +
       '<span class="ochu">御中</span></div>' +
+      '<div class="sh-leadwrap">' +
       '<div class="sh-lead">' +
       esc(leadFilled) +
       "</div>" +
       '<div class="sh-lead">下記の通り御請求申し上げます。</div>' +
       grandLine +
+      "</div>" +
       "</div>" +
       '<div class="sh-right" style="text-align:' +
       issuerAlign +
