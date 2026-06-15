@@ -614,6 +614,67 @@
         padding-top: 10px;
       }
 
+      /* ===== セグメント切替（タブ内サブ切替） ===== */
+      .seg {
+        display: flex;
+        gap: 0;
+        background: #eef7f1;
+        border: 1.5px solid #d4eae0;
+        border-radius: 12px;
+        padding: 3px;
+        margin: 0 0 14px;
+      }
+      .seg-btn {
+        flex: 1;
+        border: none;
+        background: none;
+        border-radius: 9px;
+        padding: 10px 8px;
+        font-family: "Noto Sans JP", sans-serif;
+        font-size: 13px;
+        font-weight: 700;
+        color: #7aa08c;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .seg-btn.on {
+        background: #3d9e72;
+        color: #ffffff;
+        box-shadow: 0 2px 6px rgba(61, 158, 114, 0.28);
+      }
+      .seg-panel {
+        display: none;
+      }
+      .seg-panel.on {
+        display: block;
+      }
+
+      /* ===== ナビのバッジ（未入金件数） ===== */
+      .nav-item {
+        position: relative;
+      }
+      .nav-badge {
+        display: none;
+        position: absolute;
+        top: 4px;
+        right: 50%;
+        margin-right: -20px;
+        min-width: 16px;
+        height: 16px;
+        padding: 0 4px;
+        border-radius: 8px;
+        background: #e11d48;
+        color: #ffffff;
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 16px;
+        text-align: center;
+        font-family: "DM Mono", monospace;
+      }
+      .nav-badge.on {
+        display: block;
+      }
+
       /* ===== MASTER ===== */
       .master-co {
         position: relative;
@@ -1223,239 +1284,294 @@
           <option value="">全期間</option>
         </select>
       </div>
+      <div class="invoice-actions">
+        <button class="btn btn-ghost btn-sm" onclick="exportListExcel()">
+          📤 表示中の明細をExcelに書き出す
+        </button>
+      </div>
       <div class="card">
         <div id="listBody"></div>
       </div>
     </section>
 
-    <!-- ===== 会社マスタ ===== -->
-    <section class="screen" id="scr-master">
-      <div class="scr-title">会社マスタ</div>
-      <div class="scr-sub">
-        会社ごとに「どの項目を・どの順で・どの幅で」出すかを定義。項目名は手打ちしません（DB列をチェック→ドラッグ並べ替え→幅入力）。
+    <!-- ===== 設定（会社マスタ / 自社情報）＝初回設定もの ===== -->
+    <section class="screen" id="scr-settings">
+      <div class="scr-title">設定</div>
+      <div class="seg">
+        <button class="seg-btn on" data-seg="master" onclick="showSettingsSeg('master')">
+          会社マスタ
+        </button>
+        <button class="seg-btn" data-seg="issuer" onclick="showSettingsSeg('issuer')">
+          自社情報
+        </button>
       </div>
-      <div id="masterBody"></div>
-      <button class="btn btn-ghost" onclick="openAddCompany()" style="margin-top: 4px">
-        ＋ 会社を追加
-      </button>
-    </section>
 
-    <!-- ===== 自社情報（請求書の発行者・振込先・判子） ===== -->
-    <section class="screen" id="scr-issuer">
-      <div class="scr-title">自社情報</div>
-      <div class="scr-sub">
-        請求書の発行者・振込先・判子。ここで一度設定すれば、毎月の請求書に自動で入ります（変更も即反映）。
-      </div>
-      <div class="card">
-        <div class="card-label">発行者（1行＝請求書の1行）</div>
-        <div class="frow">
-          <textarea
-            class="finput"
-            id="iss_issuer"
-            rows="6"
-            style="resize: vertical; line-height: 1.8"
-            oninput="setIssuer('issuer', this.value)"
-          ></textarea>
-          <div class="align-row">
-            <span class="align-lbl">文字揃え</span>
-            <button
-              class="align-btn"
-              data-grp="issuerAlign"
-              data-a="left"
-              onclick="setAlign('issuerAlign', 'left')"
-            >
-              左
-            </button>
-            <button
-              class="align-btn"
-              data-grp="issuerAlign"
-              data-a="center"
-              onclick="setAlign('issuerAlign', 'center')"
-            >
-              中央
-            </button>
-            <button
-              class="align-btn"
-              data-grp="issuerAlign"
-              data-a="right"
-              onclick="setAlign('issuerAlign', 'right')"
-            >
-              右
-            </button>
-          </div>
-          <div style="font-size: 10px; color: #7aa08c; margin-top: 5px; line-height: 1.6">
-            例：屋号／事業名／〒／住所／TEL／登録番号。<b>登録番号や事業名が無ければ、その行を消すだけ。</b>代表者名・FAX・メールなど足すのも自由。1行目が少し大きく出ます。
-          </div>
+      <!-- 会社マスタ -->
+      <div class="seg-panel on" data-seg="master">
+        <div class="scr-sub">
+          会社ごとに「どの項目を・どの順で・どの幅で」出すかを定義。項目名は手打ちしません（DB列をチェック→ドラッグ並べ替え→幅入力）。
         </div>
-      </div>
-      <div class="card">
-        <div class="card-label">振込先（1行＝1行・「お振込先」の見出しは自動）</div>
-        <div class="frow">
-          <textarea
-            class="finput"
-            id="iss_bank"
-            rows="3"
-            style="resize: vertical; line-height: 1.8"
-            oninput="setIssuer('bank', this.value)"
-          ></textarea>
-          <div class="align-row">
-            <span class="align-lbl">文字揃え</span>
-            <button
-              class="align-btn"
-              data-grp="bankAlign"
-              data-a="left"
-              onclick="setAlign('bankAlign', 'left')"
-            >
-              左
-            </button>
-            <button
-              class="align-btn"
-              data-grp="bankAlign"
-              data-a="center"
-              onclick="setAlign('bankAlign', 'center')"
-            >
-              中央
-            </button>
-            <button
-              class="align-btn"
-              data-grp="bankAlign"
-              data-a="right"
-              onclick="setAlign('bankAlign', 'right')"
-            >
-              右
-            </button>
-          </div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-label">請求書番号・日付の表記</div>
-        <label
-          style="
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-            color: #1a4a2e;
-            cursor: pointer;
-          "
-        >
-          <input
-            type="checkbox"
-            id="iss_showNo"
-            style="width: 18px; height: 18px; accent-color: #52b788"
-            onchange="setIssuer('showInvoiceNo', this.checked)"
-          />
-          請求書番号を表示する（例：2026-06-02／会社ごとに自動採番）
-        </label>
-        <div class="align-row" style="margin-top: 12px">
-          <span class="align-lbl">日付の表記</span>
-          <button
-            class="align-btn"
-            data-grp="dateEra"
-            data-a="seireki"
-            onclick="setDateEra('seireki')"
-          >
-            西暦
-          </button>
-          <button class="align-btn" data-grp="dateEra" data-a="reiwa" onclick="setDateEra('reiwa')">
-            令和
+        <div id="masterBody"></div>
+        <button class="btn btn-ghost" onclick="openAddCompany()" style="margin-top: 4px">
+          ＋ 会社を追加
+        </button>
+        <div class="invoice-actions" style="margin-top: 16px">
+          <button class="btn btn-ghost btn-sm" onclick="exportExcel()">
+            💾 全データをExcelバックアップ（明細＋会社マスタ）
           </button>
         </div>
       </div>
-      <div class="card">
-        <div class="card-label">電子判子（任意）</div>
-        <div style="display: flex; align-items: center; gap: 14px">
-          <div
-            id="hankoPreview"
+
+      <!-- 自社情報 -->
+      <div class="seg-panel" data-seg="issuer">
+        <div class="scr-sub">
+          請求書の発行者・振込先・判子。ここで一度設定すれば、毎月の請求書に自動で入ります（変更も即反映）。
+        </div>
+        <div class="card">
+          <div class="card-label">発行者（1行＝請求書の1行）</div>
+          <div class="frow">
+            <textarea
+              class="finput"
+              id="iss_issuer"
+              rows="6"
+              style="resize: vertical; line-height: 1.8"
+              oninput="setIssuer('issuer', this.value)"
+            ></textarea>
+            <div class="align-row">
+              <span class="align-lbl">文字揃え</span>
+              <button
+                class="align-btn"
+                data-grp="issuerAlign"
+                data-a="left"
+                onclick="setAlign('issuerAlign', 'left')"
+              >
+                左
+              </button>
+              <button
+                class="align-btn"
+                data-grp="issuerAlign"
+                data-a="center"
+                onclick="setAlign('issuerAlign', 'center')"
+              >
+                中央
+              </button>
+              <button
+                class="align-btn"
+                data-grp="issuerAlign"
+                data-a="right"
+                onclick="setAlign('issuerAlign', 'right')"
+              >
+                右
+              </button>
+            </div>
+            <div style="font-size: 10px; color: #7aa08c; margin-top: 5px; line-height: 1.6">
+              例：屋号／事業名／〒／住所／TEL／登録番号。<b>登録番号や事業名が無ければ、その行を消すだけ。</b>代表者名・FAX・メールなど足すのも自由。1行目が少し大きく出ます。
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-label">振込先（1行＝1行・「お振込先」の見出しは自動）</div>
+          <div class="frow">
+            <textarea
+              class="finput"
+              id="iss_bank"
+              rows="3"
+              style="resize: vertical; line-height: 1.8"
+              oninput="setIssuer('bank', this.value)"
+            ></textarea>
+            <div class="align-row">
+              <span class="align-lbl">文字揃え</span>
+              <button
+                class="align-btn"
+                data-grp="bankAlign"
+                data-a="left"
+                onclick="setAlign('bankAlign', 'left')"
+              >
+                左
+              </button>
+              <button
+                class="align-btn"
+                data-grp="bankAlign"
+                data-a="center"
+                onclick="setAlign('bankAlign', 'center')"
+              >
+                中央
+              </button>
+              <button
+                class="align-btn"
+                data-grp="bankAlign"
+                data-a="right"
+                onclick="setAlign('bankAlign', 'right')"
+              >
+                右
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-label">請求書番号・日付の表記</div>
+          <label
             style="
-              width: 72px;
-              height: 72px;
-              border: 1.5px dashed #c8ecd8;
-              border-radius: 10px;
               display: flex;
               align-items: center;
-              justify-content: center;
-              color: #a9c4b6;
-              font-size: 11px;
-              text-align: center;
-              overflow: hidden;
-              flex-shrink: 0;
+              gap: 8px;
+              font-size: 13px;
+              color: #1a4a2e;
+              cursor: pointer;
             "
           >
-            なし
-          </div>
-          <div style="flex: 1">
-            <button
-              class="btn btn-ghost btn-sm"
-              onclick="document.getElementById('hankoFile').click()"
-            >
-              📷 判子画像をアップロード
-            </button>
-            <button class="btn btn-danger btn-sm" style="margin-top: 6px" onclick="clearHanko()">
-              ✕ 判子を消す
-            </button>
             <input
-              type="file"
-              id="hankoFile"
-              accept="image/*"
-              style="display: none"
-              onchange="loadHanko(event)"
+              type="checkbox"
+              id="iss_showNo"
+              style="width: 18px; height: 18px; accent-color: #52b788"
+              onchange="setIssuer('showInvoiceNo', this.checked)"
+            />
+            請求書番号を表示する（例：2026-06-02／会社ごとに自動採番）
+          </label>
+          <div class="align-row" style="margin-top: 12px">
+            <span class="align-lbl">日付の表記</span>
+            <button
+              class="align-btn"
+              data-grp="dateEra"
+              data-a="seireki"
+              onclick="setDateEra('seireki')"
+            >
+              西暦
+            </button>
+            <button
+              class="align-btn"
+              data-grp="dateEra"
+              data-a="reiwa"
+              onclick="setDateEra('reiwa')"
+            >
+              令和
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-label">電子判子（任意）</div>
+          <div style="display: flex; align-items: center; gap: 14px">
+            <div
+              id="hankoPreview"
+              style="
+                width: 72px;
+                height: 72px;
+                border: 1.5px dashed #c8ecd8;
+                border-radius: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #a9c4b6;
+                font-size: 11px;
+                text-align: center;
+                overflow: hidden;
+                flex-shrink: 0;
+              "
+            >
+              なし
+            </div>
+            <div style="flex: 1">
+              <button
+                class="btn btn-ghost btn-sm"
+                onclick="document.getElementById('hankoFile').click()"
+              >
+                📷 判子画像をアップロード
+              </button>
+              <button class="btn btn-danger btn-sm" style="margin-top: 6px" onclick="clearHanko()">
+                ✕ 判子を消す
+              </button>
+              <input
+                type="file"
+                id="hankoFile"
+                accept="image/*"
+                style="display: none"
+                onchange="loadHanko(event)"
+              />
+            </div>
+          </div>
+          <div class="align-row">
+            <span class="align-lbl">背景の白抜き</span>
+            <button class="align-btn" data-grp="hankoBg" data-a="auto" onclick="setHankoBg('auto')">
+              自動
+            </button>
+            <button class="align-btn" data-grp="hankoBg" data-a="on" onclick="setHankoBg('on')">
+              する
+            </button>
+            <button class="align-btn" data-grp="hankoBg" data-a="off" onclick="setHankoBg('off')">
+              しない
+            </button>
+          </div>
+          <div class="frow" style="margin-top: 10px">
+            <div class="flabel">判子の大きさ（本物のmm・角印なら21前後）</div>
+            <input
+              class="finput fnum"
+              id="iss_hankoSize"
+              inputmode="numeric"
+              style="max-width: 120px"
+              oninput="setHankoSize(this.value)"
             />
           </div>
+          <div class="scr-sub" style="margin-top: 8px">
+            一度入れたら保存され、毎回の請求書に自動で入ります。白い紙の判子写真でも背景を自動で透過（透過済み画像はそのまま）。
+          </div>
         </div>
-        <div class="align-row">
-          <span class="align-lbl">背景の白抜き</span>
-          <button class="align-btn" data-grp="hankoBg" data-a="auto" onclick="setHankoBg('auto')">
-            自動
-          </button>
-          <button class="align-btn" data-grp="hankoBg" data-a="on" onclick="setHankoBg('on')">
-            する
-          </button>
-          <button class="align-btn" data-grp="hankoBg" data-a="off" onclick="setHankoBg('off')">
-            しない
-          </button>
+      </div>
+      <!-- /自社情報パネル -->
+    </section>
+
+    <!-- ===== 請求（請求書 / 集計）＝月末の締め作業 ===== -->
+    <section class="screen" id="scr-billing">
+      <div class="scr-title">請求</div>
+      <div class="seg">
+        <button class="seg-btn on" data-seg="invoice" onclick="showBillingSeg('invoice')">
+          請求書
+        </button>
+        <button class="seg-btn" data-seg="report" onclick="showBillingSeg('report')">集計</button>
+      </div>
+
+      <!-- 請求書 -->
+      <div class="seg-panel on" data-seg="invoice">
+        <div class="scr-sub">
+          月・会社を選ぶと、会社マスタ＋自社情報＋明細から請求書を自動生成。印刷／PDFで出力します。
         </div>
-        <div class="frow" style="margin-top: 10px">
-          <div class="flabel">判子の大きさ（本物のmm・角印なら21前後）</div>
-          <input
-            class="finput fnum"
-            id="iss_hankoSize"
-            inputmode="numeric"
-            style="max-width: 120px"
-            oninput="setHankoSize(this.value)"
-          />
+        <div class="filterbar">
+          <select class="fselect" id="invMonth" onchange="generateInvoices()">
+            <option value="">― 月を選択 ―</option>
+          </select>
+          <select class="fselect" id="invCompany" onchange="generateInvoices()">
+            <option value="">全社</option>
+          </select>
         </div>
-        <div class="scr-sub" style="margin-top: 8px">
-          一度入れたら保存され、毎回の請求書に自動で入ります。白い紙の判子写真でも背景を自動で透過（透過済み画像はそのまま）。
+        <div class="invoice-actions no-print">
+          <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 印刷 / PDF</button>
+        </div>
+        <div id="invoiceOut" class="sheet-scale"></div>
+        <div class="scr-sub no-print" style="margin-top: 8px; color: #c0392b">
+          ※プレビューは“見た目の確認用”。明細データのExcel書き出しは「一覧」タブにあります。
+        </div>
+      </div>
+
+      <!-- 集計（月次集計・読み取り専用レポート） -->
+      <div class="seg-panel" data-seg="report">
+        <div class="scr-sub">
+          選んだ月の「どの会社にいくら請求／入金／残」を一覧で確認できます。
+        </div>
+        <div class="filterbar">
+          <select class="fselect" id="repMonth" onchange="renderReport()">
+            <option value="">― 月を選択 ―</option>
+          </select>
+        </div>
+        <div id="repSummary" class="pay-summary"></div>
+        <div id="repBody"></div>
+        <div class="invoice-actions" id="repActions" style="margin-top: 12px">
+          <button class="btn btn-ghost btn-sm" onclick="exportReport()">
+            📊 この集計をExcel書き出し
+          </button>
         </div>
       </div>
     </section>
 
-    <!-- ===== 請求書 / 出力 ===== -->
-    <section class="screen" id="scr-invoice">
-      <div class="scr-title">請求書 / 出力</div>
-      <div class="scr-sub">
-        月を選ぶと、会社マスタ＋自社情報＋明細から請求書を自動生成してプレビューします。
-      </div>
-      <div class="filterbar">
-        <select class="fselect" id="invMonth" onchange="generateInvoices()">
-          <option value="">― 月を選択 ―</option>
-        </select>
-        <select class="fselect" id="invCompany" onchange="generateInvoices()">
-          <option value="">全社</option>
-        </select>
-      </div>
-      <div class="invoice-actions no-print">
-        <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 印刷 / PDF</button>
-        <button class="btn btn-ghost btn-sm" onclick="exportExcel()">⬇ Excel（明細データ）</button>
-      </div>
-      <div id="invoiceOut" class="sheet-scale"></div>
-      <div class="scr-sub no-print" style="margin-top: 8px; color: #c0392b">
-        ※プレビューは“見た目の確認用”。送る形（Excel微調整・PCで印刷）は本番で詰めます。Excelボタンは今は明細データのみ書き出します。
-      </div>
-    </section>
-
-    <!-- ===== 入金管理 ===== -->
+    <!-- ===== 入金管理（独立・回収管理） ===== -->
     <section class="screen" id="scr-payment">
       <div class="scr-title">入金管理</div>
       <div class="scr-sub">
@@ -1476,24 +1592,6 @@
       <div id="payBody"></div>
     </section>
 
-    <!-- ===== 月次集計 ===== -->
-    <section class="screen" id="scr-report">
-      <div class="scr-title">月次集計</div>
-      <div class="scr-sub">選んだ月の「どの会社にいくら請求／入金／残」を一覧で確認できます。</div>
-      <div class="filterbar">
-        <select class="fselect" id="repMonth" onchange="renderReport()">
-          <option value="">― 月を選択 ―</option>
-        </select>
-      </div>
-      <div id="repSummary" class="pay-summary"></div>
-      <div id="repBody"></div>
-      <div class="invoice-actions" id="repActions" style="margin-top: 12px">
-        <button class="btn btn-ghost btn-sm" onclick="exportReport()">
-          📊 この集計をExcel書き出し
-        </button>
-      </div>
-    </section>
-
     <!-- ===== BOTTOM NAV ===== -->
     <nav class="bottom-nav">
       <button class="nav-item active" data-scr="input" onclick="showScreen('input')">
@@ -1502,20 +1600,15 @@
       <button class="nav-item" data-scr="list" onclick="showScreen('list')">
         <span class="nav-ic">📋</span><span class="nav-lb">一覧</span>
       </button>
-      <button class="nav-item" data-scr="invoice" onclick="showScreen('invoice')">
-        <span class="nav-ic">🧾</span><span class="nav-lb">請求書</span>
+      <button class="nav-item" data-scr="billing" onclick="showScreen('billing')">
+        <span class="nav-ic">🧾</span><span class="nav-lb">請求</span>
       </button>
       <button class="nav-item" data-scr="payment" onclick="showScreen('payment')">
         <span class="nav-ic">💰</span><span class="nav-lb">入金</span>
+        <span class="nav-badge" id="payBadge"></span>
       </button>
-      <button class="nav-item" data-scr="report" onclick="showScreen('report')">
-        <span class="nav-ic">📊</span><span class="nav-lb">集計</span>
-      </button>
-      <button class="nav-item" data-scr="master" onclick="showScreen('master')">
-        <span class="nav-ic">🏢</span><span class="nav-lb">会社</span>
-      </button>
-      <button class="nav-item" data-scr="issuer" onclick="showScreen('issuer')">
-        <span class="nav-ic">🏷️</span><span class="nav-lb">自社</span>
+      <button class="nav-item" data-scr="settings" onclick="showScreen('settings')">
+        <span class="nav-ic">⚙️</span><span class="nav-lb">設定</span>
       </button>
     </nav>
 
@@ -1782,11 +1875,9 @@
         var titles = {
           input: "明細入力",
           list: "明細一覧",
-          invoice: "請求書 / 出力",
+          billing: "請求 / 集計",
           payment: "入金管理",
-          report: "月次集計",
-          master: "会社マスタ",
-          issuer: "自社情報",
+          settings: "設定",
         };
         document.querySelectorAll(".screen").forEach(function (s) {
           s.classList.remove("active");
@@ -1797,15 +1888,47 @@
         });
         document.getElementById("appTitle").textContent = titles[name] || "代行請求";
         if (name === "list") renderList();
-        if (name === "master") renderMaster();
-        if (name === "issuer") renderIssuer();
-        if (name === "invoice") {
+        if (name === "billing") showBillingSeg("invoice"); // 既定＝請求書
+        if (name === "payment") renderPayments();
+        if (name === "settings") showSettingsSeg("master"); // 既定＝会社マスタ
+        updatePayBadge();
+        window.scrollTo(0, 0);
+      }
+      // タブ内サブ切替（請求＝請求書/集計）
+      function showBillingSeg(seg) {
+        document.querySelectorAll("#scr-billing .seg-panel").forEach(function (p) {
+          p.classList.toggle("on", p.dataset.seg === seg);
+        });
+        document.querySelectorAll("#scr-billing .seg-btn").forEach(function (b) {
+          b.classList.toggle("on", b.dataset.seg === seg);
+        });
+        if (seg === "invoice") {
           refreshInvoiceSelects();
           generateInvoices();
+        } else {
+          renderReport();
         }
-        if (name === "payment") renderPayments();
-        if (name === "report") renderReport();
-        window.scrollTo(0, 0);
+      }
+      // タブ内サブ切替（設定＝会社マスタ/自社情報）
+      function showSettingsSeg(seg) {
+        document.querySelectorAll("#scr-settings .seg-panel").forEach(function (p) {
+          p.classList.toggle("on", p.dataset.seg === seg);
+        });
+        document.querySelectorAll("#scr-settings .seg-btn").forEach(function (b) {
+          b.classList.toggle("on", b.dataset.seg === seg);
+        });
+        if (seg === "master") renderMaster();
+        else renderIssuer();
+      }
+      // 入金タブの未入金バッジ（未入金＋一部入金の件数）
+      function updatePayBadge() {
+        var el = document.getElementById("payBadge");
+        if (!el) return;
+        var n = summarize(null, "").rows.filter(function (x) {
+          return x.st !== "paid";
+        }).length;
+        el.textContent = n > 99 ? "99+" : String(n);
+        el.classList.toggle("on", n > 0);
       }
 
       /* ===================================================================
@@ -2090,6 +2213,7 @@
         savePayments();
         closeModal();
         renderPayments();
+        updatePayBadge();
         toast("入金を記録しました");
       }
 
@@ -3082,6 +3206,55 @@
         toast("Excelファイル(.xlsx)を書き出しました");
       }
 
+      // 一覧タブ：表示中（＝絞り込み連動）の明細をそのままExcelに書き出す。
+      // 「今見えている明細＝出るもの」を一致させる（会社/期間フィルタを尊重）。
+      function exportListExcel() {
+        if (typeof XLSX === "undefined") {
+          toast("Excelライブラリの読み込み待ちです。少し待って再度押してください");
+          return;
+        }
+        var co = document.getElementById("listCompany").value;
+        var mo = document.getElementById("listMonth").value;
+        var rows = DB.filter(function (r) {
+          if (r.account_id !== CURRENT_ACCOUNT) return false;
+          if (co && r.会社名 !== co) return false;
+          if (mo && !inMonth(r.日付, mo)) return false;
+          return true;
+        }).sort(function (a, b) {
+          return (
+            (a.日付 || "").localeCompare(b.日付 || "") || (a.id || "").localeCompare(b.id || "")
+          );
+        });
+        if (!rows.length) {
+          toast("書き出す明細がありません");
+          return;
+        }
+        var cols = ["会社名", "日付", "行き先", "金額", "備考", "距離", "人数", "名前"];
+        var nums = { 金額: 1, 距離: 1, 人数: 1 };
+        var aoa = [cols];
+        var tot = 0;
+        rows.forEach(function (r) {
+          tot += Number(r.金額) || 0;
+          aoa.push(
+            cols.map(function (c) {
+              var v = r[c];
+              if (nums[c]) return v === "" || v == null ? "" : Number(v);
+              return v == null ? "" : v;
+            })
+          );
+        });
+        aoa.push(["合計", "", "", tot, "", "", "", ""]);
+        var wb = XLSX.utils.book_new();
+        var ws = XLSX.utils.aoa_to_sheet(aoa);
+        ws["!cols"] = autoColWidths(aoa);
+        XLSX.utils.book_append_sheet(wb, ws, "明細");
+        var d = new Date();
+        var ymd =
+          d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2);
+        XLSX.writeFile(wb, "明細_" + (co || "全社") + "_" + (mo || "全期間") + "_" + ymd + ".xlsx");
+        toast("明細(.xlsx)を書き出しました");
+      }
+
       /* ===================================================================
    月次集計（アプリ内で閲覧）＝選んだ月の「どの会社にいくら請求/入金/残」を一覧表示。
    集計データの組み立ては共通化（画面表示とExcel書き出しで同じ summarize() を使う）。
@@ -3256,13 +3429,17 @@
 
       // 画面回転・リサイズで請求書プレビューの縮尺を合わせ直す
       window.addEventListener("resize", function () {
-        if (document.getElementById("scr-invoice").classList.contains("active")) fitInvoice();
+        var billing = document.getElementById("scr-billing");
+        var invPanel = document.querySelector('#scr-billing .seg-panel[data-seg="invoice"]');
+        if (billing.classList.contains("active") && invPanel && invPanel.classList.contains("on"))
+          fitInvoice();
       });
       function boot() {
         loadAll();
         loadIssuer();
         refreshCompanySelects();
         showScreen("input");
+        updatePayBadge();
       }
       boot();
     </script>
