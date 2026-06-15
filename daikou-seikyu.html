@@ -392,10 +392,43 @@
 
       /* ===== MASTER ===== */
       .master-co {
+        position: relative;
         border: 1px solid #d4eae0;
         border-radius: 12px;
         margin-bottom: 10px;
         overflow: hidden;
+      }
+      /* スワイプ削除（iOSメール式） */
+      .swipe-action {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 86px;
+        background: #c0392b;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .swipe-del {
+        width: 100%;
+        height: 100%;
+        background: none;
+        border: none;
+        color: #ffffff;
+        font-family: "Noto Sans JP", sans-serif;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .swipe-content {
+        position: relative;
+        background: #ffffff;
+        transition: transform 0.2s ease;
+        touch-action: pan-y;
+      }
+      .swipe-content.swiping {
+        transition: none;
       }
       .master-co-hd {
         display: flex;
@@ -1562,11 +1595,116 @@
             return masterCardHTML(co);
           })
           .join("");
+        attachSwipeHandlers();
+      }
+      // iOSメール式：会社の行を左スワイプ → 赤い「削除」を表示 → タップで削除
+      function attachSwipeHandlers() {
+        var OPEN = -86,
+          TH = -42;
+        document.querySelectorAll(".master-co").forEach(function (card) {
+          var content = card.querySelector(".swipe-content");
+          if (!content || content._sw) return;
+          content._sw = true;
+          var startX = 0,
+            startY = 0,
+            dx = 0,
+            dragging = false,
+            decided = false,
+            horiz = false;
+          function opened() {
+            return content.classList.contains("swipe-open");
+          }
+          function setX(x) {
+            content.style.transform = "translateX(" + x + "px)";
+          }
+          function closeOthers() {
+            document.querySelectorAll(".swipe-content.swipe-open").forEach(function (c) {
+              if (c !== content) {
+                c.classList.remove("swipe-open");
+                c.style.transform = "translateX(0)";
+              }
+            });
+          }
+          content.addEventListener(
+            "touchstart",
+            function (e) {
+              if (e.touches.length > 1) {
+                dragging = false;
+                return;
+              }
+              // フォーム部品・チップ・ドラッグ項目の操作は妨げない
+              if (e.target.closest("input,select,textarea,button,.dnd-item,.chip")) {
+                dragging = false;
+                return;
+              }
+              startX = e.touches[0].clientX;
+              startY = e.touches[0].clientY;
+              dx = opened() ? OPEN : 0;
+              dragging = true;
+              decided = false;
+              horiz = false;
+              content.classList.add("swiping");
+            },
+            { passive: true }
+          );
+          content.addEventListener(
+            "touchmove",
+            function (e) {
+              if (!dragging) return;
+              var ddx = e.touches[0].clientX - startX;
+              var ddy = e.touches[0].clientY - startY;
+              if (!decided && (Math.abs(ddx) > 8 || Math.abs(ddy) > 8)) {
+                decided = true;
+                horiz = Math.abs(ddx) > Math.abs(ddy);
+                if (horiz) closeOthers();
+              }
+              if (decided && horiz) {
+                e.preventDefault();
+                var base = opened() ? OPEN : 0;
+                dx = Math.max(OPEN, Math.min(0, base + ddx));
+                setX(dx);
+              }
+            },
+            { passive: false }
+          );
+          function end() {
+            if (!dragging) return;
+            dragging = false;
+            content.classList.remove("swiping");
+            if (!horiz) return;
+            if (dx < TH) {
+              content.classList.add("swipe-open");
+              setX(OPEN);
+            } else {
+              content.classList.remove("swipe-open");
+              setX(0);
+            }
+          }
+          content.addEventListener("touchend", end);
+          content.addEventListener("touchcancel", end);
+          // 開いた状態でタップ → 展開させずに閉じる
+          content.addEventListener(
+            "click",
+            function (e) {
+              if (opened()) {
+                e.stopPropagation();
+                e.preventDefault();
+                content.classList.remove("swipe-open");
+                setX(0);
+              }
+            },
+            true
+          );
+        });
       }
       function masterCardHTML(co) {
         var m = MASTER[co];
         return (
           '<div class="master-co">' +
+          '<div class="swipe-action"><button class="swipe-del" onclick="deleteCompany(\'' +
+          esc(co) +
+          "')\">削除</button></div>" +
+          '<div class="swipe-content">' +
           '<div class="master-co-hd" onclick="toggleMasterBody(this)">' +
           '<span class="master-co-name">' +
           esc(co) +
@@ -1580,6 +1718,7 @@
           esc(co) +
           '">' +
           masterBodyHTML(co) +
+          "</div>" +
           "</div>" +
           "</div>"
         );
