@@ -1985,6 +1985,21 @@
       /* ===================================================================
    Excel書き出し（スマホ→Excel=中央DB の一方向ハンドオフ）
    =================================================================== */
+      // 各列の最大文字幅から Excel の列幅(!cols)を算出（全角は2、半角は1で概算）
+      function autoColWidths(aoa) {
+        var widths = [];
+        aoa.forEach(function (row) {
+          (row || []).forEach(function (cell, c) {
+            var s = cell == null ? "" : String(cell);
+            var w = 0;
+            for (var i = 0; i < s.length; i++) w += s.charCodeAt(i) > 255 ? 2 : 1;
+            if (!widths[c] || w > widths[c]) widths[c] = w;
+          });
+        });
+        return widths.map(function (w) {
+          return { wch: Math.min(Math.max((w || 0) + 2, 6), 50) };
+        });
+      }
       function exportExcel() {
         if (
           !DB.filter(function (r) {
@@ -2003,6 +2018,7 @@
         var wb = XLSX.utils.book_new();
         data.sheets.forEach(function (sh) {
           var ws = XLSX.utils.aoa_to_sheet(sh.aoa);
+          ws["!cols"] = autoColWidths(sh.aoa); // 列幅を中身に合わせて自動調整
           XLSX.utils.book_append_sheet(wb, ws, sh.name);
         });
         var d = new Date();
