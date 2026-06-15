@@ -1251,24 +1251,6 @@
       }
       // 共通：オートフィル/予測変換の混入を止める属性
       var NOFILL = 'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"';
-      // ISO(2026-06-15) ⇔ 表示用 M/D(6/15)
-      function isoToMD(iso) {
-        if (!iso) return "";
-        var p = String(iso).split("-");
-        if (p.length < 3) return "";
-        return Number(p[1]) + "/" + Number(p[2]);
-      }
-      function mdToIso(md, prevIso) {
-        var m = String(md).match(/(\d{1,2})\s*[\/\.\-月]\s*(\d{1,2})/);
-        if (!m) return "";
-        var year =
-          prevIso && /^\d{4}-/.test(prevIso)
-            ? Number(prevIso.slice(0, 4))
-            : new Date().getFullYear();
-        var mm = ("0" + m[1]).slice(-2);
-        var dd = ("0" + m[2]).slice(-2);
-        return year + "-" + mm + "-" + dd;
-      }
       function renderEntry() {
         var co = document.getElementById("inputCompany").value;
         var items = MASTER[co].items;
@@ -1283,13 +1265,13 @@
                 var sizeCls = k === "行き先" || k === "名前" ? "ef-wide" : "ef-narrow";
                 var inp;
                 if (t === "date") {
-                  // 表示は M/D（内部は年つきISOで保持）
+                  // ネイティブのカレンダー入力（内部はISOで保持）
                   inp =
-                    '<input class="entry-inp md" inputmode="numeric" placeholder="6/15" value="' +
-                    esc(isoToMD(row[k])) +
+                    '<input class="entry-inp" type="date" value="' +
+                    esc(row[k]) +
                     '" ' +
                     NOFILL +
-                    ' onchange="setEntryDate(' +
+                    ' onchange="setEntry(' +
                     i +
                     ",'" +
                     k +
@@ -1351,11 +1333,6 @@
         var clean = String(el.value).replace(/[^0-9]/g, "");
         if (el.value !== clean) el.value = clean;
         if (entryRows[i]) entryRows[i][k] = clean;
-      }
-      function setEntryDate(i, k, v) {
-        if (!entryRows[i]) return;
-        var iso = mdToIso(v, entryRows[i][k]);
-        entryRows[i][k] = iso;
       }
       function delEntry(i) {
         entryRows.splice(i, 1);
