@@ -1421,6 +1421,11 @@
         </select>
       </div>
       <div id="paySummary" class="pay-summary"></div>
+      <div class="invoice-actions">
+        <button class="btn btn-ghost btn-sm" onclick="exportPaymentSummary()">
+          📊 集計をExcel書き出し
+        </button>
+      </div>
       <div id="payBody"></div>
     </section>
 
@@ -3005,6 +3010,73 @@
           d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2);
         XLSX.writeFile(wb, "代行明細_" + ymd + ".xlsx");
         toast("Excelファイル(.xlsx)を書き出しました");
+      }
+
+      /* ===================================================================
+   月次集計の書き出し（入金タブの現フィルタ＝月／状態 をそのまま帳簿用Excelに）
+   会社×月ごとの 請求/入金/残/状態 ＋合計行。請求は明細(DB)、入金は PAYMENTS から。
+   金額は数値で出力＝Excel側で集計/編集できる。
+   =================================================================== */
+      function exportPaymentSummary() {
+        if (typeof XLSX === "undefined") {
+          toast("Excelライブラリの読み込み待ちです。少し待って再度押してください");
+          return;
+        }
+        var month = document.getElementById("payMonth").value;
+        var statusF = document.getElementById("payStatus").value;
+        var invs = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, month || null);
+        var rows = invs
+          .map(function (iv) {
+            var rec = payRecord(iv.month, iv.company);
+            var paid = Number(rec.paid) || 0;
+            return {
+              iv: iv,
+              paid: paid,
+              st: payStatusOf(iv.total, paid),
+              rem: iv.total - paid,
+              date: rec.paidDate || "",
+              note: rec.note || "",
+            };
+          })
+          .filter(function (x) {
+            return !statusF || x.st === statusF;
+          });
+        if (!rows.length) {
+          toast("書き出す請求がありません");
+          return;
+        }
+        var head = ["月", "会社", "件数", "請求額", "入金額", "残額", "状態", "入金日", "メモ"];
+        var aoa = [head];
+        var tT = 0,
+          tP = 0,
+          tR = 0;
+        rows.forEach(function (x) {
+          var p = x.iv.month.split("-");
+          tT += x.iv.total;
+          tP += x.paid;
+          tR += x.rem;
+          aoa.push([
+            Number(p[0]) + "年" + Number(p[1]) + "月",
+            x.iv.company,
+            x.iv.count,
+            x.iv.total,
+            x.paid,
+            x.rem,
+            PAY_LABEL[x.st],
+            x.date,
+            x.note,
+          ]);
+        });
+        aoa.push(["合計", "", "", tT, tP, tR, "", "", ""]);
+        var wb = XLSX.utils.book_new();
+        var ws = XLSX.utils.aoa_to_sheet(aoa);
+        ws["!cols"] = autoColWidths(aoa);
+        XLSX.utils.book_append_sheet(wb, ws, "入金集計");
+        var d = new Date();
+        var ymd =
+          d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2);
+        XLSX.writeFile(wb, "入金集計_" + (month || "全期間") + "_" + ymd + ".xlsx");
+        toast("入金集計(.xlsx)を書き出しました");
       }
 
       // 画面回転・リサイズで請求書プレビューの縮尺を合わせ直す
