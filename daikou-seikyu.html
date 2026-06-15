@@ -767,18 +767,25 @@
         border-collapse: collapse;
         margin-top: 12px;
         table-layout: fixed;
+        border: 1px solid #000000; /* 外枠 */
       }
       .sh-table th,
       .sh-table td {
-        border: 1px solid #000000;
         font-size: 11px;
         padding: 3px 6px;
         line-height: 1.5;
       }
+      /* ヘッダーは縦線あり（枠で仕切る） */
       .sh-table th {
+        border: 1px solid #000000;
         background: #dcefe6;
         text-align: center;
         font-weight: 700;
+      }
+      /* 本文は横線だけ（列の縦線なし）。左右は外枠で囲む */
+      .sh-table td {
+        border-top: 1px solid #000000;
+        border-bottom: 1px solid #000000;
       }
       .sh-table td.c {
         text-align: center;
