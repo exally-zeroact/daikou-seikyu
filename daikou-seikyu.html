@@ -1113,6 +1113,7 @@
       .nav-lb {
         font-size: 10px;
         font-weight: 700;
+        white-space: nowrap;
       }
 
       /* ===== MODAL ===== */
@@ -1594,6 +1595,13 @@
 
     <!-- ===== BOTTOM NAV ===== -->
     <nav class="bottom-nav">
+      <button class="nav-item" data-scr="settings" onclick="showScreen('settings')">
+        <span class="nav-ic">⚙️</span><span class="nav-lb">設定</span>
+      </button>
+      <button class="nav-item" data-scr="payment" onclick="showScreen('payment')">
+        <span class="nav-ic">💰</span><span class="nav-lb">入金</span>
+        <span class="nav-badge" id="payBadge"></span>
+      </button>
       <button class="nav-item active" data-scr="input" onclick="showScreen('input')">
         <span class="nav-ic">✍️</span><span class="nav-lb">入力</span>
       </button>
@@ -1601,14 +1609,7 @@
         <span class="nav-ic">📋</span><span class="nav-lb">一覧</span>
       </button>
       <button class="nav-item" data-scr="billing" onclick="showScreen('billing')">
-        <span class="nav-ic">🧾</span><span class="nav-lb">請求</span>
-      </button>
-      <button class="nav-item" data-scr="payment" onclick="showScreen('payment')">
-        <span class="nav-ic">💰</span><span class="nav-lb">入金</span>
-        <span class="nav-badge" id="payBadge"></span>
-      </button>
-      <button class="nav-item" data-scr="settings" onclick="showScreen('settings')">
-        <span class="nav-ic">⚙️</span><span class="nav-lb">設定</span>
+        <span class="nav-ic">🧾</span><span class="nav-lb">請求/集計</span>
       </button>
     </nav>
 
