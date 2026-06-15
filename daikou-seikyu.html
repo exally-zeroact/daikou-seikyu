@@ -830,23 +830,21 @@
         align-items: center;
         gap: 8px;
         padding: 8px 10px;
-        border: 2px solid #d4eae0;
+        border: 1.5px solid #d4eae0;
         border-radius: 10px;
         background: #ffffff;
         /* Exally給料明細(.drag-tr)と同じ滑らかな遷移 */
         transition:
           opacity 0.15s,
-          box-shadow 0.2s,
           transform 0.15s,
-          border-color 0.15s,
-          background 0.15s;
+          background 0.15s,
+          border-color 0.15s;
       }
-      /* つかんで動かしている項目を「緑の枠」でしっかり囲う＝Exally給料明細の着地点ボックス */
+      /* つかんで動かしている項目＝Exally給料明細(.drag-over)と同じ控えめ表現：
+         ミント背景＋緑の上線だけ。枠で囲わない・持ち上げない・影なし。 */
       .dnd-item.dragging {
-        transform: scale(1.02);
         background: #e8f5ed;
-        border: 2px solid #2e7d54;
-        box-shadow: 0 6px 16px rgba(46, 125, 84, 0.28);
+        border-top: 2px solid #52b788;
       }
       .dnd-grip {
         cursor: grab;
