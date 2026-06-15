@@ -961,37 +961,7 @@
       </button>
     </section>
 
-    <!-- ===== 請求書生成 ===== -->
-    <section class="screen" id="scr-invoice">
-      <div class="scr-title">請求書生成</div>
-      <div class="scr-sub">
-        月を選ぶ → DBから該当月を会社ごとに集計 →
-        マスタ定義で請求書を組み立て。21〜22行で自動的にページを継ぎ足し。
-      </div>
-      <div class="inv-toolbar">
-        <div class="frow">
-          <div class="flabel">対象月</div>
-          <input class="finput" type="month" id="invMonth" />
-        </div>
-        <div class="frow">
-          <div class="flabel">会社</div>
-          <select class="fselect" id="invCompany">
-            <option value="">全社</option>
-          </select>
-        </div>
-        <button class="btn btn-primary btn-sm" style="flex: 0 0 auto" onclick="generateInvoices()">
-          生成
-        </button>
-        <button
-          class="btn btn-ghost btn-sm no-print"
-          style="flex: 0 0 auto"
-          onclick="window.print()"
-        >
-          印刷 / PDF
-        </button>
-      </div>
-      <div id="invoiceOut" class="sheet-scale"></div>
-    </section>
+    <!-- 請求書生成はExcel/本番側へ移管（定義駆動コアは meisai-engine.js に集約） -->
 
     <!-- ===== BOTTOM NAV ===== -->
     <nav class="bottom-nav">
@@ -1003,9 +973,6 @@
       </button>
       <button class="nav-item" data-scr="master" onclick="showScreen('master')">
         <span class="nav-ic">🏢</span><span class="nav-lb">会社</span>
-      </button>
-      <button class="nav-item" data-scr="invoice" onclick="showScreen('invoice')">
-        <span class="nav-ic">🧾</span><span class="nav-lb">請求書</span>
       </button>
     </nav>
 
@@ -1242,7 +1209,6 @@
           input: "明細入力",
           list: "明細一覧",
           master: "会社マスタ",
-          invoice: "請求書生成",
         };
         document.querySelectorAll(".screen").forEach(function (s) {
           s.classList.remove("active");
@@ -1265,7 +1231,6 @@
         [
           ["inputCompany", false],
           ["listCompany", true],
-          ["invCompany", true],
         ].forEach(function (pair) {
           var el = document.getElementById(pair[0]);
           if (!el) return;
@@ -2199,16 +2164,6 @@
       function boot() {
         loadAll();
         refreshCompanySelects();
-        // 既定の対象月＝最新明細の月
-        var months = DB.map(function (r) {
-          return (r.日付 || "").slice(0, 7);
-        })
-          .filter(Boolean)
-          .sort();
-        var def = months.length ? months[months.length - 1] : "";
-        if (def) {
-          document.getElementById("invMonth").value = def;
-        }
         showScreen("input");
       }
       boot();
