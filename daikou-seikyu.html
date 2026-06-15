@@ -715,6 +715,58 @@
       .swipe-content.swiping {
         transition: none;
       }
+      /* 一覧の明細をスワイプ削除できるよう包む土台（会社マスタと同じ仕組み） */
+      .list-swipe {
+        position: relative;
+        overflow: hidden;
+        border-bottom: 1px solid #eaf5ef;
+      }
+      .list-swipe:last-child {
+        border-bottom: none;
+      }
+      .list-swipe .list-item {
+        border-bottom: none;
+      }
+
+      /* ===== 行き先サジェスト（自前ドロップダウン・iOSでも確実に出る/絞れる） ===== */
+      .sugg-wrap {
+        position: relative;
+      }
+      .sugg-box {
+        display: none;
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 100%;
+        margin-top: 2px;
+        background: #ffffff;
+        border: 1.5px solid #c8ecd8;
+        border-radius: 10px;
+        box-shadow: 0 8px 20px rgba(30, 80, 46, 0.14);
+        max-height: 210px;
+        overflow-y: auto;
+        z-index: 50;
+        -webkit-overflow-scrolling: touch;
+      }
+      .sugg-box.on {
+        display: block;
+      }
+      .sugg-item {
+        padding: 11px 12px;
+        font-size: 13px;
+        color: #1a4a2e;
+        border-bottom: 1px solid #eef7f1;
+        cursor: pointer;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .sugg-item:last-child {
+        border-bottom: none;
+      }
+      .sugg-item:active {
+        background: #f0faf4;
+      }
       .master-co-hd {
         display: flex;
         align-items: center;
@@ -1266,8 +1318,6 @@
       <div class="card" id="entryCard" style="display: none">
         <div class="card-label" id="entryCardLabel">明細</div>
         <div id="entryBody"></div>
-        <!-- 行き先サジェスト（過去の明細から・会社で絞り込み）。行き先入力に list で紐付け -->
-        <datalist id="destList"></datalist>
         <button class="add-line" onclick="addEntryRow()">＋ 行を追加</button>
         <div style="margin-top: 12px">
           <button class="btn btn-primary" onclick="saveEntries()">保存する（DBに追加）</button>
@@ -1312,7 +1362,7 @@
       <!-- 会社マスタ -->
       <div class="seg-panel on" data-seg="master">
         <div class="scr-sub">
-          会社ごとに「どの項目を・どの順で・どの幅で」出すかを定義。項目名は手打ちしません（DB列をチェック→ドラッグ並べ替え→幅入力）。
+          会社ごとに「どの項目を・どの順で」出すかを定義。項目名は手打ちしません（DB列をチェック→長押しドラッグで並べ替え）。列の幅は自動。
         </div>
         <div id="masterBody"></div>
         <button class="btn btn-ghost" onclick="openAddCompany()" style="margin-top: 4px">
@@ -2500,17 +2550,26 @@
                     ",'" +
                     k +
                     "',this)\">";
+                } else if (k === "行き先") {
+                  // 行き先は自前のサジェスト（タップで履歴表示・打つと絞り込み・iOSでも確実）
+                  inp =
+                    '<div class="sugg-wrap">' +
+                    '<input class="entry-inp" value="' +
+                    esc(row[k]) +
+                    '" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"' +
+                    ' oninput="onDestInput(' +
+                    i +
+                    ',this)" onfocus="onDestInput(' +
+                    i +
+                    ',this)" onblur="hideSugg(this)">' +
+                    '<div class="sugg-box"></div>' +
+                    "</div>";
                 } else {
-                  // 行き先は過去履歴のサジェスト（datalist）を付ける。autocompleteはdatalist表示のため外す
-                  var isDest = k === "行き先";
-                  var attrs = isDest
-                    ? 'list="destList" autocorrect="off" autocapitalize="off" spellcheck="false"'
-                    : NOFILL;
                   inp =
                     '<input class="entry-inp" value="' +
                     esc(row[k]) +
                     '" ' +
-                    attrs +
+                    NOFILL +
                     ' oninput="setEntry(' +
                     i +
                     ",'" +
@@ -2544,10 +2603,9 @@
         document.getElementById("entryBody").innerHTML = body;
         refreshDestList(co);
       }
-      // 行き先サジェスト：過去の明細から（その会社優先・無ければ全社）頻度順に候補化
+      // 行き先サジェストの母集合：過去明細から（その会社優先・少なければ全社）頻度順
+      var DEST_ALL = [];
       function refreshDestList(co) {
-        var dl = document.getElementById("destList");
-        if (!dl) return;
         function collect(filterCo) {
           var freq = {};
           DB.forEach(function (r) {
@@ -2562,17 +2620,56 @@
         }
         var list = collect(co);
         if (list.length < 5) {
-          // その会社の履歴が少なければ全社の頻出も足す（重複除外）
           collect("").forEach(function (d) {
             if (list.indexOf(d) < 0) list.push(d);
           });
         }
-        dl.innerHTML = list
-          .slice(0, 50)
+        DEST_ALL = list;
+      }
+      // 行き先入力：状態を更新しつつ、母集合を絞り込んで自前ドロップダウンに出す
+      function onDestInput(i, el) {
+        if (entryRows[i]) entryRows[i]["行き先"] = el.value;
+        var q = (el.value || "").trim().toLowerCase();
+        var list = DEST_ALL.filter(function (d) {
+          return !q || d.toLowerCase().indexOf(q) >= 0;
+        });
+        var box = el.nextElementSibling;
+        if (!box) return;
+        if (!list.length) {
+          box.classList.remove("on");
+          box.innerHTML = "";
+          return;
+        }
+        box.innerHTML = list
+          .slice(0, 30)
           .map(function (d) {
-            return '<option value="' + esc(d) + '"></option>';
+            return (
+              '<div class="sugg-item" data-i="' +
+              i +
+              '" onmousedown="pickDest(event,this)">' +
+              esc(d) +
+              "</div>"
+            );
           })
           .join("");
+        box.classList.add("on");
+      }
+      // 候補タップ（onmousedown＝blurより先に発火させて確実に拾う）
+      function pickDest(ev, item) {
+        ev.preventDefault();
+        var wrap = item.closest(".sugg-wrap");
+        var input = wrap.querySelector("input");
+        var i = Number(item.getAttribute("data-i"));
+        input.value = item.textContent;
+        if (entryRows[i]) entryRows[i]["行き先"] = item.textContent;
+        wrap.querySelector(".sugg-box").classList.remove("on");
+      }
+      function hideSugg(el) {
+        // blur直後に閉じる（候補タップのonmousedownが先に走るよう少し遅延）
+        setTimeout(function () {
+          var b = el.nextElementSibling;
+          if (b) b.classList.remove("on");
+        }, 160);
       }
       function setEntry(i, k, v) {
         if (entryRows[i]) entryRows[i][k] = v;
@@ -2698,8 +2795,13 @@
             var dateCell = r.日付
               ? '<div class="li-date">' + esc(mdShort(r.日付)) + "</div>"
               : '<div class="li-date li-nodate">⚠️日付なし</div>';
+            // 左スワイプで削除（会社マスタと同じ仕組み）・タップで編集
             return (
-              '<div class="list-item" onclick="openEdit(\'' +
+              '<div class="list-swipe">' +
+              '<div class="swipe-action"><button class="swipe-del" onclick="deleteRow(\'' +
+              r.id +
+              "')\">削除</button></div>" +
+              '<div class="swipe-content"><div class="list-item" onclick="openEdit(\'' +
               r.id +
               "')\">" +
               dateCell +
@@ -2710,10 +2812,11 @@
               "</div></div>" +
               '<div class="li-amt">' +
               yen(r.金額 || 0) +
-              "</div></div>"
+              "</div></div></div></div>"
             );
           })
           .join("");
+        attachSwipeHandlers();
       }
       function openEdit(id) {
         var r = DB.filter(function (x) {
@@ -2808,6 +2911,7 @@
         saveDB();
         closeModal();
         renderList();
+        updatePayBadge();
         toast("削除しました");
       }
 
@@ -2831,9 +2935,9 @@
       function attachSwipeHandlers() {
         var OPEN = -86,
           TH = -42;
-        document.querySelectorAll(".master-co").forEach(function (card) {
-          var content = card.querySelector(".swipe-content");
-          if (!content || content._sw) return;
+        // 会社マスタ・一覧の両方（.swipe-content を持つもの全部）にスワイプ削除を付与
+        document.querySelectorAll(".swipe-content").forEach(function (content) {
+          if (content._sw) return;
           content._sw = true;
           var startX = 0,
             startY = 0,
@@ -2985,15 +3089,7 @@
               '\')" ondragend="dndEnd(event)">' +
               '<span class="dnd-grip">⠿</span><span class="dnd-name">' +
               esc(k) +
-              "</span>" +
-              '<input class="dnd-w" inputmode="numeric" value="' +
-              (m.widths[k] || DEFAULT_WIDTH[k] || 80) +
-              '" onchange="setWidth(\'' +
-              esc(co) +
-              "','" +
-              esc(k) +
-              "',this.value)\">" +
-              '<span class="dnd-wu">幅</span></div>'
+              "</span></div>"
             );
           })
           .join("");
@@ -3016,10 +3112,11 @@
           '<div class="chip-row">' +
           chips +
           "</div>" +
-          '<div class="card-label" style="margin-top:10px;">順番（ドラッグ）と幅</div>' +
+          '<div class="card-label" style="margin-top:10px;">順番（長押しでドラッグして並べ替え）</div>' +
           '<div class="dnd-list">' +
           dnd +
           "</div>" +
+          '<div class="scr-sub" style="margin:2px 0 0;">列の幅は請求書に合わせて自動調整されます。</div>' +
           '<div class="frow" style="margin-top:8px;"><div class="flabel">リード文（{月}は対象月に置換）</div>' +
           '<input class="finput" value="' +
           esc(m.lead || "") +
@@ -3077,10 +3174,6 @@
         saveMaster();
         reopen(co);
       }
-      function setWidth(co, key, v) {
-        MASTER[co].widths[key] = Number(String(v).replace(/[^0-9]/g, "")) || 80;
-        saveMaster();
-      }
       function setMasterField(co, field, v) {
         MASTER[co][field] = v;
         saveMaster();
@@ -3130,7 +3223,7 @@
         document.getElementById("modalTitle").textContent = "会社を追加";
         document.getElementById("modalBody").innerHTML =
           '<div class="frow"><div class="flabel">会社名（宛名）</div><input class="finput" id="newCoName" placeholder="例：テスト物流株式会社"></div>' +
-          '<div class="scr-sub" style="margin:2px 0 10px;">追加後、マスタ画面で項目・順番・幅を定義できます（初期＝日付/行き先/金額）。</div>' +
+          '<div class="scr-sub" style="margin:2px 0 10px;">追加後、設定→会社マスタで 項目・順番 を定義できます（初期＝日付/行き先/金額）。</div>' +
           '<button class="btn btn-primary" onclick="addCompany()">追加する</button>';
         openModal();
       }
