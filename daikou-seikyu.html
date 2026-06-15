@@ -1125,8 +1125,30 @@
             />
           </div>
         </div>
+        <div class="align-row">
+          <span class="align-lbl">背景の白抜き</span>
+          <button class="align-btn" data-grp="hankoBg" data-a="auto" onclick="setHankoBg('auto')">
+            自動
+          </button>
+          <button class="align-btn" data-grp="hankoBg" data-a="on" onclick="setHankoBg('on')">
+            する
+          </button>
+          <button class="align-btn" data-grp="hankoBg" data-a="off" onclick="setHankoBg('off')">
+            しない
+          </button>
+        </div>
+        <div class="frow" style="margin-top: 10px">
+          <div class="flabel">判子の大きさ（本物のmm・角印なら21前後）</div>
+          <input
+            class="finput fnum"
+            id="iss_hankoSize"
+            inputmode="numeric"
+            style="max-width: 120px"
+            oninput="setHankoSize(this.value)"
+          />
+        </div>
         <div class="scr-sub" style="margin-top: 8px">
-          一度入れたら、あなたのアカウントに保存され、毎回の請求書に自動で入ります。
+          一度入れたら保存され、毎回の請求書に自動で入ります。白い紙の判子写真でも背景を自動で透過（透過済み画像はそのまま）。
         </div>
       </div>
     </section>
@@ -1166,6 +1188,8 @@
     <script src="xlsx.full.min.js"></script>
     <!-- 定義駆動 帳票エンジン（移植可能な共通モジュール／DOM非依存） -->
     <script src="meisai-engine.js"></script>
+    <!-- 電子判子の画像処理（背景白抜き・透過判定／再利用モジュール） -->
+    <script src="hanko.js"></script>
     <script>
       "use strict";
 
@@ -1430,7 +1454,10 @@
           bank: "伊予銀行　今治支店　普通　4160657\nド）ゼロアクト",
           issuerAlign: "left",
           bankAlign: "left",
-          hanko: "",
+          hanko: "", // 表示・出力用（白抜き処理後）
+          hankoRaw: "", // 元画像（白抜きON/OFF切替時に再処理する素）
+          hankoBg: "auto", // 背景白抜き: auto / on / off
+          hankoSizeMm: 21, // 本物の判子サイズ(mm)
         };
       }
       function loadIssuer() {
@@ -1486,6 +1513,7 @@
           lineAlign: s.issuerAlign || "left",
           bankAlign: s.bankAlign || "left",
           hanko: s.hanko || null,
+          hankoSizeMm: Number(s.hankoSizeMm) || 21,
         };
       }
       function setAlign(field, val) {
@@ -1511,12 +1539,15 @@
           tb.value = s.bank || "";
           tb.style.textAlign = ba;
         }
-        // 揃えボタンのハイライト更新
+        // 揃え／白抜きボタンのハイライト更新
+        var bg = s.hankoBg || "auto";
         document.querySelectorAll(".align-btn").forEach(function (b) {
           var grp = b.dataset.grp;
-          var cur = grp === "issuerAlign" ? ia : ba;
+          var cur = grp === "issuerAlign" ? ia : grp === "bankAlign" ? ba : bg;
           b.classList.toggle("on", b.dataset.a === cur);
         });
+        var sz = document.getElementById("iss_hankoSize");
+        if (sz && document.activeElement !== sz) sz.value = s.hankoSizeMm || 21;
         var prev = document.getElementById("hankoPreview");
         if (s.hanko) {
           prev.innerHTML =
@@ -1530,15 +1561,34 @@
         if (!file) return;
         var reader = new FileReader();
         reader.onload = function (e) {
-          setIssuer("hanko", e.target.result);
-          renderIssuer();
-          toast("判子を保存しました");
+          setIssuer("hankoRaw", e.target.result); // 元画像を保持（再処理用）
+          reprocessHanko();
         };
         reader.readAsDataURL(file);
         ev.target.value = "";
       }
+      // 元画像から、選択中の白抜きモードで処理して hanko を更新
+      function reprocessHanko() {
+        var s = currentIssuer();
+        if (!s.hankoRaw) return;
+        HankoTool.process(s.hankoRaw, { mode: s.hankoBg || "auto" }).then(function (r) {
+          setIssuer("hanko", r.dataURL);
+          renderIssuer();
+          toast(r.kept ? "透過済み画像をそのまま使います" : "判子を保存しました（背景を透過）");
+        });
+      }
+      function setHankoBg(mode) {
+        setIssuer("hankoBg", mode);
+        renderIssuer();
+        reprocessHanko(); // モード変更→元画像から作り直し
+      }
+      function setHankoSize(v) {
+        var n = Number(String(v).replace(/[^0-9.]/g, "")) || 21;
+        setIssuer("hankoSizeMm", n);
+      }
       function clearHanko() {
         setIssuer("hanko", "");
+        setIssuer("hankoRaw", "");
         renderIssuer();
         toast("判子を消しました");
       }

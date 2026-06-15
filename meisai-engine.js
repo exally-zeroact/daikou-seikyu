@@ -180,8 +180,13 @@
         "</table>";
     }
     // ヘッダー（屋号・住所など＝自社情報。判子はユーザー画像があれば描画、なければ無し）
+    var hankoMm = Number(iss.hankoSizeMm) || 21; // 本物の判子サイズ(mm)
     var hankoHtml = iss.hanko
-      ? '<div style="position:absolute;right:4px;top:0;width:56px;height:56px;"><img src="' +
+      ? '<div style="position:absolute;right:4px;top:0;width:' +
+        hankoMm +
+        "mm;height:" +
+        hankoMm +
+        'mm;"><img src="' +
         iss.hanko +
         '" style="width:100%;height:100%;object-fit:contain;"></div>'
       : "";
