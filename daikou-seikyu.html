@@ -199,29 +199,55 @@
         background: #fbe3e0;
       }
 
-      /* ===== ENTRY GRID (input screen) ===== */
-      .entry-table {
-        width: 100%;
-        border-collapse: collapse;
+      /* ===== ENTRY LINES (input screen) ===== */
+      .entry-line {
+        border: 1.5px solid #e2f4ea;
+        border-radius: 12px;
+        padding: 10px 10px 11px;
+        margin-bottom: 10px;
+        background: #fbfefc;
       }
-      .entry-table th {
+      .entry-line-hd {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+      .entry-line-no {
         font-size: 10px;
         font-weight: 700;
         color: #7aa08c;
-        text-align: left;
-        padding: 4px 4px;
-        border-bottom: 2px solid #e2f4ea;
+        letter-spacing: 0.5px;
       }
-      .entry-table td {
-        padding: 3px 3px;
-        vertical-align: top;
+      .ef-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .ef {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 0;
+      }
+      .ef-wide {
+        flex: 1 1 100%;
+      }
+      .ef-narrow {
+        flex: 1 1 92px;
+      }
+      .ef-lb {
+        font-size: 10px;
+        font-weight: 700;
+        color: #7aa08c;
+        padding-left: 2px;
       }
       .entry-inp {
         width: 100%;
-        padding: 8px 7px;
+        padding: 9px 10px;
         border: 1.5px solid #e2f4ea;
-        border-radius: 8px;
-        font-size: 13px;
+        border-radius: 9px;
+        font-size: 14px;
         font-family: "Noto Sans JP", sans-serif;
         color: #1a4a2e;
         outline: none;
@@ -229,11 +255,16 @@
       }
       .entry-inp:focus {
         border-color: #52b788;
-        background: #ffffff;
+      }
+      .entry-inp.num,
+      .entry-inp.md {
+        font-family: "DM Mono", monospace;
       }
       .entry-inp.num {
-        font-family: "DM Mono", monospace;
         text-align: right;
+      }
+      .entry-inp.md {
+        text-align: center;
       }
       .entry-del {
         width: 26px;
@@ -247,6 +278,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        flex-shrink: 0;
       }
       .entry-del:hover {
         background: #fdf1f0;
@@ -831,12 +863,7 @@
 
       <div class="card" id="entryCard" style="display: none">
         <div class="card-label" id="entryCardLabel">明細</div>
-        <div style="overflow-x: auto">
-          <table class="entry-table">
-            <thead id="entryHead"></thead>
-            <tbody id="entryBody"></tbody>
-          </table>
-        </div>
+        <div id="entryBody"></div>
         <button class="add-line" onclick="addEntryRow()">＋ 行を追加</button>
         <div style="margin-top: 12px">
           <button class="btn btn-primary" onclick="saveEntries()">保存する（DBに追加）</button>
@@ -1222,74 +1249,113 @@
         entryRows.push(blankEntry());
         renderEntry();
       }
+      // 共通：オートフィル/予測変換の混入を止める属性
+      var NOFILL = 'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"';
+      // ISO(2026-06-15) ⇔ 表示用 M/D(6/15)
+      function isoToMD(iso) {
+        if (!iso) return "";
+        var p = String(iso).split("-");
+        if (p.length < 3) return "";
+        return Number(p[1]) + "/" + Number(p[2]);
+      }
+      function mdToIso(md, prevIso) {
+        var m = String(md).match(/(\d{1,2})\s*[\/\.\-月]\s*(\d{1,2})/);
+        if (!m) return "";
+        var year =
+          prevIso && /^\d{4}-/.test(prevIso)
+            ? Number(prevIso.slice(0, 4))
+            : new Date().getFullYear();
+        var mm = ("0" + m[1]).slice(-2);
+        var dd = ("0" + m[2]).slice(-2);
+        return year + "-" + mm + "-" + dd;
+      }
       function renderEntry() {
         var co = document.getElementById("inputCompany").value;
         var items = MASTER[co].items;
-        var head =
-          "<tr>" +
-          items
-            .map(function (k) {
-              return "<th>" + esc(k) + "</th>";
-            })
-            .join("") +
-          "<th></th></tr>";
-        document.getElementById("entryHead").innerHTML = head;
         var body = entryRows
           .map(function (row, i) {
-            var tds = items
+            var fields = items
               .map(function (k) {
                 var def = FIELD_DEFS.filter(function (f) {
                   return f.key === k;
                 })[0];
                 var t = def ? def.type : "text";
-                var val = esc(row[k]);
-                var cls = "entry-inp" + (t === "number" ? " num" : "");
-                if (t === "date")
-                  return (
-                    '<td><input class="entry-inp" type="date" value="' +
-                    val +
-                    '" oninput="setEntry(' +
+                var sizeCls = k === "行き先" || k === "名前" ? "ef-wide" : "ef-narrow";
+                var inp;
+                if (t === "date") {
+                  // 表示は M/D（内部は年つきISOで保持）
+                  inp =
+                    '<input class="entry-inp md" inputmode="numeric" placeholder="6/15" value="' +
+                    esc(isoToMD(row[k])) +
+                    '" ' +
+                    NOFILL +
+                    ' onchange="setEntryDate(' +
                     i +
                     ",'" +
                     k +
-                    "',this.value)\"></td>"
-                  );
-                if (t === "number")
-                  return (
-                    '<td><input class="' +
-                    cls +
-                    '" inputmode="numeric" value="' +
-                    val +
-                    '" oninput="setEntry(' +
+                    "',this.value)\">";
+                } else if (t === "number") {
+                  inp =
+                    '<input class="entry-inp num" inputmode="numeric" placeholder="0" value="' +
+                    esc(row[k]) +
+                    '" ' +
+                    NOFILL +
+                    ' oninput="setEntryNum(' +
                     i +
                     ",'" +
                     k +
-                    "',this.value)\"></td>"
-                  );
+                    "',this)\">";
+                } else {
+                  inp =
+                    '<input class="entry-inp" value="' +
+                    esc(row[k]) +
+                    '" ' +
+                    NOFILL +
+                    ' oninput="setEntry(' +
+                    i +
+                    ",'" +
+                    k +
+                    "',this.value)\">";
+                }
                 return (
-                  '<td><input class="' +
-                  cls +
-                  '" value="' +
-                  val +
-                  '" oninput="setEntry(' +
-                  i +
-                  ",'" +
-                  k +
-                  "',this.value)\"></td>"
+                  '<div class="ef ' +
+                  sizeCls +
+                  '"><span class="ef-lb">' +
+                  esc(k) +
+                  "</span>" +
+                  inp +
+                  "</div>"
                 );
               })
               .join("");
-            var del =
-              '<td style="text-align:center;"><button class="entry-del" onclick="delEntry(' +
+            return (
+              '<div class="entry-line">' +
+              '<div class="entry-line-hd"><span class="entry-line-no">明細 ' +
+              (i + 1) +
+              '</span><button class="entry-del" onclick="delEntry(' +
               i +
-              ')">✕</button></td>';
-            return "<tr>" + tds + del + "</tr>";
+              ')" aria-label="削除">✕</button></div>' +
+              '<div class="ef-grid">' +
+              fields +
+              "</div></div>"
+            );
           })
           .join("");
         document.getElementById("entryBody").innerHTML = body;
       }
       function setEntry(i, k, v) {
         if (entryRows[i]) entryRows[i][k] = v;
+      }
+      function setEntryNum(i, k, el) {
+        // 数字以外を即除去（オートフィルの文章混入を物理的に弾く）
+        var clean = String(el.value).replace(/[^0-9]/g, "");
+        if (el.value !== clean) el.value = clean;
+        if (entryRows[i]) entryRows[i][k] = clean;
+      }
+      function setEntryDate(i, k, v) {
+        if (!entryRows[i]) return;
+        var iso = mdToIso(v, entryRows[i][k]);
+        entryRows[i][k] = iso;
       }
       function delEntry(i) {
         entryRows.splice(i, 1);
@@ -1397,12 +1463,14 @@
               t === "date"
                 ? '<input class="finput" type="date" id="ed_' + k + '" value="' + val + '">'
                 : t === "number"
-                  ? '<input class="finput fnum" inputmode="numeric" id="ed_' +
+                  ? '<input class="finput fnum" inputmode="numeric" ' +
+                    NOFILL +
+                    ' oninput="this.value=this.value.replace(/[^0-9]/g,\'\')" id="ed_' +
                     k +
                     '" value="' +
                     val +
                     '">'
-                  : '<input class="finput" id="ed_' + k + '" value="' + val + '">';
+                  : '<input class="finput" ' + NOFILL + ' id="ed_' + k + '" value="' + val + '">';
             return '<div class="frow"><div class="flabel">' + esc(k) + "</div>" + inp + "</div>";
           })
           .join("");
