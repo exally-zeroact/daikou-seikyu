@@ -124,8 +124,10 @@
     for (var r = 0; r < ROWS_PER_PAGE; r++) {
       var row = pageRows[r];
       var tds = items
-        .map(function (k) {
-          if (!row) return "<td>&nbsp;</td>";
+        .map(function (k, ci) {
+          // 金額の列とそれ以降（備考など）は左に縦線を入れる
+          var vl = amtIdx >= 0 && ci >= amtIdx ? " vl" : "";
+          if (!row) return vl ? '<td class="vl">&nbsp;</td>' : "<td>&nbsp;</td>";
           var def = FIELD_DEFS.filter(function (f) {
             return f.key === k;
           })[0];
@@ -133,11 +135,11 @@
           if (k === "日付") {
             var cur = row.日付 || "";
             var show = cur && cur !== prevDate ? mdShort(cur) : "";
-            return '<td class="c">' + esc(show) + "</td>";
+            return '<td class="c' + vl + '">' + esc(show) + "</td>";
           }
-          if (k === "金額") return '<td class="r">' + comma(row.金額) + "</td>";
-          if (t === "number") return '<td class="c">' + comma(row[k]) + "</td>";
-          return '<td class="dest">' + esc(row[k]) + "</td>";
+          if (k === "金額") return '<td class="r' + vl + '">' + comma(row.金額) + "</td>";
+          if (t === "number") return '<td class="c' + vl + '">' + comma(row[k]) + "</td>";
+          return '<td class="dest' + vl + '">' + esc(row[k]) + "</td>";
         })
         .join("");
       if (row) prevDate = row.日付 || prevDate;
@@ -150,8 +152,8 @@
     var trailing = amtIdx >= 0 ? items.length - 1 - amtIdx : 0;
     function totRow(label, valHtml) {
       var t = '<tr class="tot"><td colspan="' + leadCount + '">' + label + "</td>";
-      t += '<td class="r">' + valHtml + "</td>";
-      for (var x = 0; x < trailing; x++) t += "<td>&nbsp;</td>";
+      t += '<td class="r vl">' + valHtml + "</td>";
+      for (var x = 0; x < trailing; x++) t += '<td class="vl">&nbsp;</td>';
       return t + "</tr>";
     }
     var totals =
