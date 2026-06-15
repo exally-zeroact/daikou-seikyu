@@ -856,31 +856,34 @@
       .dnd-grip:active {
         cursor: grabbing;
       }
-      /* 固定列(日付/金額)のプレーン名も、編集欄(.dnd-name-inp)と同じ寸法にして行の高さを統一 */
-      .dnd-name {
-        flex: 1;
-        min-width: 0;
-        font-size: 13px;
-        font-weight: 700;
-        color: #1a4a2e;
-        padding: 5px 6px;
-        border: 1.5px solid transparent;
-        line-height: 1.4;
-      }
-      /* 編集名はExally(seikyusyo)流＝普段はプレーンなテキスト見え（透明枠）、タップ編集時だけ枠が出る */
+      /* 固定列(日付/金額)の名前と 編集欄(行き先/備考/自由項目) を“完全に同じ箱”にして
+         行の高さを統一。iOSのinput標準装飾(余分な高さ)を -webkit-appearance:none で消すのが要。 */
+      .dnd-name,
       .dnd-name-inp {
         flex: 1;
         min-width: 0;
+        box-sizing: border-box;
+        height: 34px;
         font-size: 13px;
         font-weight: 700;
         color: #1a4a2e;
         font-family: "Noto Sans JP", sans-serif;
         border: 1.5px solid transparent;
         border-radius: 8px;
-        padding: 5px 6px;
+        padding: 0 6px;
         background: transparent;
+        margin: 0;
+      }
+      /* spanはflexで縦中央、inputは標準で縦中央される */
+      .dnd-name {
+        display: flex;
+        align-items: center;
+      }
+      .dnd-name-inp {
+        -webkit-appearance: none;
+        appearance: none;
         outline: none;
-        line-height: 1.4;
+        line-height: normal;
       }
       .dnd-name-inp:focus {
         border-color: #52b788;
