@@ -149,17 +149,19 @@
     var pageTotal = pageRows.reduce(function (s, x) {
       return s + (Number(x.金額) || 0);
     }, 0);
-    var trailing = amtIdx >= 0 ? items.length - 1 - amtIdx : 0;
-    function totRow(label, valHtml) {
-      var t = '<tr class="tot"><td colspan="' + leadCount + '">' + label + "</td>";
-      t += '<td class="r vl">' + valHtml + "</td>";
-      for (var x = 0; x < trailing; x++) t += '<td class="vl">&nbsp;</td>';
-      return t + "</tr>";
-    }
-    var totals =
-      totRow("小計", yen(pageTotal)) +
-      totRow("消費税（10%）", yen(tax10(pageTotal))) +
-      totRow("合計", yen(pageTotal));
+    // 小計/消費税/合計は ENEOS式の右下のコンパクトな枠に（中身は税込/内税のまま）
+    var totalsBox =
+      '<table class="sh-totalbox">' +
+      '<tr><td class="k">小計</td><td class="v">' +
+      yen(pageTotal) +
+      "</td></tr>" +
+      '<tr><td class="k">消費税（10%）</td><td class="v">' +
+      yen(tax10(pageTotal)) +
+      "</td></tr>" +
+      '<tr><td class="k">合計</td><td class="v">' +
+      yen(pageTotal) +
+      "</td></tr>" +
+      "</table>";
     // 役職（備考）集計ボックス：最終ページのみ
     var summaryBox = "";
     if (m.noteSummary && ctx.isLast && (m.noteGroups || []).length) {
@@ -264,11 +266,13 @@
       "</tr></thead>" +
       "<tbody>" +
       bodyRows +
-      totals +
       "</tbody></table>" +
       '<div class="sh-foot">' +
       bank +
+      '<div class="sh-foot-right">' +
+      totalsBox +
       summaryBox +
+      "</div>" +
       "</div>" +
       "</div>"
     );

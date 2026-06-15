@@ -840,6 +840,33 @@
         text-align: right;
         min-width: 96px;
       }
+      /* 右下の合計枠（小計/消費税/合計）＋役職集計を縦に積む */
+      .sh-foot-right {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-end;
+      }
+      .sh-totalbox {
+        border-collapse: collapse;
+      }
+      .sh-totalbox td {
+        border: 1px solid #000000;
+        font-size: 12px;
+        padding: 4px 12px;
+      }
+      .sh-totalbox td.k {
+        background: #dcefe6;
+        text-align: center;
+        font-weight: 700;
+        min-width: 84px;
+      }
+      .sh-totalbox td.v {
+        font-family: "DM Mono", monospace;
+        font-weight: 700;
+        text-align: right;
+        min-width: 100px;
+      }
 
       /* ===== BOTTOM NAV ===== */
       .bottom-nav {
