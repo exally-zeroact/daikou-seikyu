@@ -199,6 +199,36 @@
         background: #fbe3e0;
       }
 
+      /* ===== ALIGN TOGGLE (自社情報) ===== */
+      .align-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .align-lbl {
+        font-size: 11px;
+        font-weight: 700;
+        color: #7aa08c;
+        margin-right: 2px;
+      }
+      .align-btn {
+        padding: 5px 12px;
+        border: 1.5px solid #d4eae0;
+        border-radius: 8px;
+        background: #ffffff;
+        font-size: 12px;
+        font-weight: 700;
+        color: #7aa08c;
+        cursor: pointer;
+        font-family: "Noto Sans JP", sans-serif;
+      }
+      .align-btn.on {
+        border-color: #52b788;
+        background: #f0faf4;
+        color: #2e7d54;
+      }
+
       /* ===== ENTRY LINES (input screen) ===== */
       .entry-line {
         border: 1.5px solid #e2f4ea;
@@ -983,6 +1013,33 @@
             style="resize: vertical; line-height: 1.8"
             oninput="setIssuer('issuer', this.value)"
           ></textarea>
+          <div class="align-row">
+            <span class="align-lbl">文字揃え</span>
+            <button
+              class="align-btn"
+              data-grp="issuerAlign"
+              data-a="left"
+              onclick="setAlign('issuerAlign', 'left')"
+            >
+              左
+            </button>
+            <button
+              class="align-btn"
+              data-grp="issuerAlign"
+              data-a="center"
+              onclick="setAlign('issuerAlign', 'center')"
+            >
+              中央
+            </button>
+            <button
+              class="align-btn"
+              data-grp="issuerAlign"
+              data-a="right"
+              onclick="setAlign('issuerAlign', 'right')"
+            >
+              右
+            </button>
+          </div>
           <div style="font-size: 10px; color: #7aa08c; margin-top: 5px; line-height: 1.6">
             例：屋号／事業名／〒／住所／TEL／登録番号。<b>登録番号や事業名が無ければ、その行を消すだけ。</b>代表者名・FAX・メールなど足すのも自由。1行目が少し大きく出ます。
           </div>
@@ -998,6 +1055,33 @@
             style="resize: vertical; line-height: 1.8"
             oninput="setIssuer('bank', this.value)"
           ></textarea>
+          <div class="align-row">
+            <span class="align-lbl">文字揃え</span>
+            <button
+              class="align-btn"
+              data-grp="bankAlign"
+              data-a="left"
+              onclick="setAlign('bankAlign', 'left')"
+            >
+              左
+            </button>
+            <button
+              class="align-btn"
+              data-grp="bankAlign"
+              data-a="center"
+              onclick="setAlign('bankAlign', 'center')"
+            >
+              中央
+            </button>
+            <button
+              class="align-btn"
+              data-grp="bankAlign"
+              data-a="right"
+              onclick="setAlign('bankAlign', 'right')"
+            >
+              右
+            </button>
+          </div>
         </div>
       </div>
       <div class="card">
@@ -1344,6 +1428,8 @@
           issuer:
             "合同会社ZEROact\nZERO代行\n〒794-0018\n今治市本町7-3-40　00コーポ1号\nTEL090-5716-1946\n登録番号：T3500003003293",
           bank: "伊予銀行　今治支店　普通　4160657\nド）ゼロアクト",
+          issuerAlign: "left",
+          bankAlign: "left",
           hanko: "",
         };
       }
@@ -1397,8 +1483,14 @@
         return {
           lines: splitLines(s.issuer),
           bank: bankLines.length ? ["お振込先"].concat(bankLines) : [],
+          lineAlign: s.issuerAlign || "left",
+          bankAlign: s.bankAlign || "left",
           hanko: s.hanko || null,
         };
+      }
+      function setAlign(field, val) {
+        setIssuer(field, val);
+        renderIssuer();
       }
       function setIssuer(field, value) {
         if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
@@ -1409,8 +1501,22 @@
         var s = currentIssuer();
         var ti = document.getElementById("iss_issuer");
         var tb = document.getElementById("iss_bank");
-        if (ti) ti.value = s.issuer || "";
-        if (tb) tb.value = s.bank || "";
+        var ia = s.issuerAlign || "left";
+        var ba = s.bankAlign || "left";
+        if (ti) {
+          ti.value = s.issuer || "";
+          ti.style.textAlign = ia;
+        }
+        if (tb) {
+          tb.value = s.bank || "";
+          tb.style.textAlign = ba;
+        }
+        // 揃えボタンのハイライト更新
+        document.querySelectorAll(".align-btn").forEach(function (b) {
+          var grp = b.dataset.grp;
+          var cur = grp === "issuerAlign" ? ia : ba;
+          b.classList.toggle("on", b.dataset.a === cur);
+        });
         var prev = document.getElementById("hankoPreview");
         if (s.hanko) {
           prev.innerHTML =

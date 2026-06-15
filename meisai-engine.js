@@ -185,8 +185,12 @@
         iss.hanko +
         '" style="width:100%;height:100%;object-fit:contain;"></div>'
       : "";
+    var issuerAlign = iss.lineAlign || "left"; // left / center / right
+    var bankAlign = iss.bankAlign || "left";
     var issuer =
-      '<div class="sh-issuer">' +
+      '<div class="sh-issuer" style="text-align:' +
+      issuerAlign +
+      '">' +
       hankoHtml +
       (iss.lines || [])
         .map(function (l, idx) {
@@ -199,7 +203,9 @@
       (ctx.isLast ? yen(ctx.grand) : "") +
       "</span></div>";
     var bank =
-      '<div class="sh-bank">' +
+      '<div class="sh-bank" style="text-align:' +
+      bankAlign +
+      '">' +
       (iss.bank || [])
         .map(function (l) {
           return "<div>" + esc(l) + "</div>";
