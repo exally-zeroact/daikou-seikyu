@@ -1631,7 +1631,19 @@
         var noteG = (m.noteGroups || []).join("、");
         return (
           "" +
-          '<div class="card-label">使う項目（タップで選択）</div>' +
+          '<div class="card-label">会社名（編集）</div>' +
+          '<div style="display:flex;gap:8px;margin-bottom:6px;">' +
+          '<input class="finput" style="flex:1;" value="' +
+          esc(co) +
+          '" ' +
+          NOFILL +
+          " onkeydown=\"if(event.key==='Enter'){renameCompany('" +
+          esc(co) +
+          "',this.value);}\">" +
+          '<button class="btn btn-ghost btn-sm" style="flex:0 0 auto;width:auto;" onclick="renameCompany(\'' +
+          esc(co) +
+          "',this.previousElementSibling.value)\">名前を変更</button></div>" +
+          '<div class="card-label" style="margin-top:10px;">使う項目（タップで選択）</div>' +
           '<div class="chip-row">' +
           chips +
           "</div>" +
@@ -1785,6 +1797,39 @@
         renderMaster();
         refreshCompanySelects();
         toast("削除しました");
+      }
+      function renameCompany(oldName, newName) {
+        newName = (newName || "").trim();
+        if (!newName || newName === oldName) {
+          renderMaster();
+          return;
+        }
+        if (MASTER[newName]) {
+          toast("同名の会社があります");
+          renderMaster();
+          return;
+        }
+        // MASTERの並び順を保ったままキーを差し替え
+        var rebuilt = {};
+        Object.keys(MASTER).forEach(function (k) {
+          rebuilt[k === oldName ? newName : k] = MASTER[k];
+        });
+        MASTER = rebuilt;
+        // 既存明細の会社名も追従（紐付けを維持）
+        var moved = 0;
+        DB.forEach(function (r) {
+          if (r.会社名 === oldName) {
+            r.会社名 = newName;
+            moved++;
+          }
+        });
+        saveMaster();
+        saveDB();
+        refreshCompanySelects();
+        renderMaster();
+        var b = document.querySelector('.master-co-body[data-co="' + CSS.escape(newName) + '"]');
+        if (b) b.classList.add("open");
+        toast("会社名を変更しました（明細" + moved + "件も更新）");
       }
 
       /* ===================================================================
