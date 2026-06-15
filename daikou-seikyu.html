@@ -204,6 +204,14 @@
         font-weight: 700;
         min-width: 64px;
       }
+      .invoice-actions {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .invoice-actions .btn {
+        flex: 1;
+      }
 
       /* ===== LIST SCOPE (期間表示) ===== */
       .list-scope {
@@ -1181,21 +1189,23 @@
     <section class="screen" id="scr-invoice">
       <div class="scr-title">請求書 / 出力</div>
       <div class="scr-sub">
-        明細データをExcelへ書き出します（請求書プレビューは次のステップで追加予定）。
+        月を選ぶと、会社マスタ＋自社情報＋明細から請求書を自動生成してプレビューします。
       </div>
-      <div class="card">
-        <div class="card-label">Excelへ書き出し</div>
-        <button class="btn btn-primary" onclick="exportExcel()">
-          ⬇ Excelへ書き出し（明細DB＋会社マスタ）
-        </button>
-        <div class="scr-sub" style="margin-top: 10px">
-          書き出した .xlsx
-          を開くと「明細DB」「会社マスタ」の2シートが入っています（一方向のデータ受け渡し）。
-        </div>
-        <div class="scr-sub" style="margin-top: 4px; color: #c0392b">
-          ※今は「ファイルを書き出す」だけです。スマホで押すとファイルができる→PCへ送って開く、の手動。
-          “押したらPCのExcelに自動反映”は本番のクラウド化で対応します。
-        </div>
+      <div class="filterbar">
+        <select class="fselect" id="invMonth" onchange="generateInvoices()">
+          <option value="">― 月を選択 ―</option>
+        </select>
+        <select class="fselect" id="invCompany" onchange="generateInvoices()">
+          <option value="">全社</option>
+        </select>
+      </div>
+      <div class="invoice-actions no-print">
+        <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 印刷 / PDF</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportExcel()">⬇ Excel（明細データ）</button>
+      </div>
+      <div id="invoiceOut" class="sheet-scale"></div>
+      <div class="scr-sub no-print" style="margin-top: 8px; color: #c0392b">
+        ※プレビューは“見た目の確認用”。送る形（Excel微調整・PCで印刷）は本番で詰めます。Excelボタンは今は明細データのみ書き出します。
       </div>
     </section>
 
@@ -1486,7 +1496,78 @@
         if (name === "list") renderList();
         if (name === "master") renderMaster();
         if (name === "issuer") renderIssuer();
+        if (name === "invoice") {
+          refreshInvoiceSelects();
+          generateInvoices();
+        }
         window.scrollTo(0, 0);
+      }
+
+      /* ===================================================================
+   請求書プレビュー（定義から自動生成・エンジンで描画）
+   =================================================================== */
+      function refreshInvoiceSelects() {
+        var ms = document.getElementById("invMonth");
+        var keepM = ms.value;
+        var present = {};
+        DB.forEach(function (r) {
+          if (r.account_id === CURRENT_ACCOUNT && r.日付) present[r.日付.slice(0, 7)] = true;
+        });
+        var months = Object.keys(present).sort().reverse();
+        ms.innerHTML =
+          '<option value="">― 月を選択 ―</option>' +
+          months
+            .map(function (m) {
+              var p = m.split("-");
+              return (
+                '<option value="' + m + '">' + Number(p[0]) + "年" + Number(p[1]) + "月</option>"
+              );
+            })
+            .join("");
+        if (months.indexOf(keepM) >= 0) ms.value = keepM;
+        else if (months.length) ms.value = months[0]; // 既定＝最新月
+        var cs = document.getElementById("invCompany");
+        var keepC = cs.value;
+        var names = Object.keys(MASTER).filter(function (n) {
+          return MASTER[n].account_id === CURRENT_ACCOUNT;
+        });
+        cs.innerHTML =
+          '<option value="">全社</option>' +
+          names
+            .map(function (n) {
+              return '<option value="' + esc(n) + '">' + esc(n) + "</option>";
+            })
+            .join("");
+        if (names.indexOf(keepC) >= 0 || keepC === "") cs.value = keepC;
+      }
+      function generateInvoices() {
+        var out = document.getElementById("invoiceOut");
+        var month = document.getElementById("invMonth").value;
+        var onlyCo = document.getElementById("invCompany").value;
+        if (!month) {
+          out.innerHTML = '<div class="li-empty">月を選んでください</div>';
+          return;
+        }
+        var iss = issuerForEngine();
+        if (onlyCo) {
+          var rows = DB.filter(function (r) {
+            return (
+              r.account_id === CURRENT_ACCOUNT && r.会社名 === onlyCo && inMonth(r.日付, month)
+            );
+          }).sort(function (a, b) {
+            return (
+              (a.日付 || "").localeCompare(b.日付 || "") || (a.id || "").localeCompare(b.id || "")
+            );
+          });
+          out.innerHTML = rows.length
+            ? MeisaiEngine.buildInvoiceHTML(MASTER, onlyCo, rows, month, iss)
+            : '<div class="li-empty">該当する明細がありません</div>';
+        } else {
+          var res = MeisaiEngine.buildMonth(MASTER, DB, month, CURRENT_ACCOUNT, iss);
+          out.innerHTML = res.produced
+            ? res.html
+            : '<div class="li-empty">該当する明細がありません</div>';
+        }
       }
 
       /* ===================================================================
