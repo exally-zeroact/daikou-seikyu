@@ -947,6 +947,12 @@
       <div class="card">
         <div id="listBody"></div>
       </div>
+      <button class="btn btn-primary" onclick="exportExcel()" style="margin-top: 4px">
+        ⬇ Excelへ書き出し（明細DB＋会社マスタ）
+      </button>
+      <div class="scr-sub" style="margin-top: 8px; text-align: center">
+        書き出したファイルをPCのExcelで開く＝Excel側が中央DBになります（一方向）。
+      </div>
     </section>
 
     <!-- ===== 会社マスタ ===== -->
@@ -1974,6 +1980,37 @@
       /* ===================================================================
    初期化
    =================================================================== */
+      /* ===================================================================
+   Excel書き出し（スマホ→Excel=中央DB の一方向ハンドオフ）
+   =================================================================== */
+      function exportExcel() {
+        if (
+          !DB.filter(function (r) {
+            return r.account_id === CURRENT_ACCOUNT;
+          }).length
+        ) {
+          toast("書き出す明細がありません");
+          return;
+        }
+        var xls = MeisaiEngine.buildDataWorkbook(MASTER, DB, CURRENT_ACCOUNT);
+        var d = new Date();
+        var ymd =
+          d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2);
+        // 先頭に BOM を付けて Excel に UTF-8 と認識させる
+        var blob = new Blob(["﻿" + xls], { type: "application/vnd.ms-excel" });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = "代行明細_" + ymd + ".xls";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () {
+          URL.revokeObjectURL(url);
+        }, 1000);
+        toast("Excelファイルを書き出しました");
+      }
+
       function boot() {
         loadAll();
         refreshCompanySelects();

@@ -288,13 +288,119 @@
     return { produced: out.length, companies: out, html: html };
   }
 
+  // ===== Excel受け渡し：明細DB＋会社マスタを1つの.xls(HTML)に書き出す =====
+  // スマホ→Excel(=中央DB) の一方向ハンドオフ。account_id でテナント分離。
+  var DB_COLS = [
+    "id",
+    "account_id",
+    "会社名",
+    "日付",
+    "行き先",
+    "金額",
+    "備考",
+    "距離",
+    "人数",
+    "名前",
+  ];
+  function wbTable(headers, rows) {
+    var head =
+      "<tr>" +
+      headers
+        .map(function (h) {
+          return "<th>" + esc(h) + "</th>";
+        })
+        .join("") +
+      "</tr>";
+    var body = rows
+      .map(function (r) {
+        return (
+          "<tr>" +
+          r
+            .map(function (c) {
+              return "<td>" + esc(c == null ? "" : c) + "</td>";
+            })
+            .join("") +
+          "</tr>"
+        );
+      })
+      .join("");
+    return "<table>" + head + body + "</table>";
+  }
+  function buildDataWorkbook(master, db, accountId) {
+    var rows = db.filter(function (r) {
+      return accountId == null || r.account_id === accountId;
+    });
+    var cos = Object.keys(master).filter(function (c) {
+      return accountId == null || master[c].account_id === accountId;
+    });
+    var dbRows = rows.map(function (r) {
+      return DB_COLS.map(function (c) {
+        return r[c];
+      });
+    });
+    var dbTable = wbTable(DB_COLS, dbRows);
+    var mCols = [
+      "会社名",
+      "account_id",
+      "項目(順)",
+      "各幅",
+      "リード文",
+      "表ヘッダー名",
+      "備考集計",
+      "集計グループ",
+    ];
+    var mRows = cos.map(function (co) {
+      var m = master[co];
+      return [
+        co,
+        m.account_id,
+        (m.items || []).join(" / "),
+        (m.items || [])
+          .map(function (k) {
+            return k + ":" + ((m.widths && m.widths[k]) || "");
+          })
+          .join(" / "),
+        m.lead || "",
+        m.tableTitle || "",
+        m.noteSummary ? "ON" : "",
+        (m.noteGroups || []).join("、"),
+      ];
+    });
+    var mTable = wbTable(mCols, mRows);
+    var names = ["明細DB", "会社マスタ"];
+    var sheets = names
+      .map(function (n) {
+        return (
+          "<x:ExcelWorksheet><x:Name>" +
+          esc(n) +
+          "</x:Name><x:WorksheetOptions/></x:ExcelWorksheet>"
+        );
+      })
+      .join("");
+    return (
+      '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
+      '<head><meta charset="UTF-8">' +
+      "<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets>" +
+      sheets +
+      "</x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->" +
+      "<style>td,th{mso-number-format:\\@;border:0.5pt solid #cccccc;padding:2px 6px;} th{background:#DCEFE6;font-weight:bold;}</style>" +
+      "</head><body>" +
+      dbTable +
+      '<br style="page-break-before:always">' +
+      mTable +
+      "</body></html>"
+    );
+  }
+
   root.MeisaiEngine = {
     FIELD_DEFS: FIELD_DEFS,
     DEFAULT_WIDTH: DEFAULT_WIDTH,
     ISSUER: ISSUER,
     ROWS_PER_PAGE: ROWS_PER_PAGE,
+    DB_COLS: DB_COLS,
     buildInvoiceHTML: buildInvoiceHTML,
     buildMonth: buildMonth,
+    buildDataWorkbook: buildDataWorkbook,
     utils: {
       yen: yen,
       comma: comma,
