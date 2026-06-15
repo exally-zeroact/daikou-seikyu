@@ -637,9 +637,21 @@
         margin-top: 4px;
       }
       .sheet-scale {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
+        overflow: hidden;
         padding-bottom: 8px;
+      }
+      /* 720pxのA4シートをスマホ幅に縮小して全体を見せる */
+      #invScaleInner {
+        width: 720px;
+        transform-origin: top left;
+      }
+      .sh-right {
+        text-align: right;
+        flex-shrink: 0;
+      }
+      .sh-no {
+        font-size: 11px;
+        margin-bottom: 8px;
       }
 
       /* ===== A4 INVOICE SHEET (print-faithful) ===== */
@@ -946,6 +958,12 @@
         }
         .sheet-scale {
           overflow: visible;
+          height: auto !important;
+        }
+        /* 印刷時は縮小を解除して実寸A4で出す */
+        #invScaleInner {
+          transform: none !important;
+          width: auto !important;
         }
         .sheet {
           box-shadow: none;
@@ -1115,6 +1133,27 @@
             </button>
           </div>
         </div>
+      </div>
+      <div class="card">
+        <div class="card-label">請求書番号</div>
+        <label
+          style="
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #1a4a2e;
+            cursor: pointer;
+          "
+        >
+          <input
+            type="checkbox"
+            id="iss_showNo"
+            style="width: 18px; height: 18px; accent-color: #52b788"
+            onchange="setIssuer('showInvoiceNo', this.checked)"
+          />
+          請求書番号を表示する（例：2026-06-02／会社ごとに自動採番）
+        </label>
       </div>
       <div class="card">
         <div class="card-label">電子判子（任意）</div>
@@ -1549,6 +1588,7 @@
           return;
         }
         var iss = issuerForEngine();
+        var html;
         if (onlyCo) {
           var rows = DB.filter(function (r) {
             return (
@@ -1559,15 +1599,36 @@
               (a.日付 || "").localeCompare(b.日付 || "") || (a.id || "").localeCompare(b.id || "")
             );
           });
-          out.innerHTML = rows.length
-            ? MeisaiEngine.buildInvoiceHTML(MASTER, onlyCo, rows, month, iss)
-            : '<div class="li-empty">該当する明細がありません</div>';
+          html = rows.length
+            ? MeisaiEngine.buildInvoiceHTML(
+                MASTER,
+                onlyCo,
+                rows,
+                month,
+                iss,
+                MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, onlyCo)
+              )
+            : "";
         } else {
           var res = MeisaiEngine.buildMonth(MASTER, DB, month, CURRENT_ACCOUNT, iss);
-          out.innerHTML = res.produced
-            ? res.html
-            : '<div class="li-empty">該当する明細がありません</div>';
+          html = res.produced ? res.html : "";
         }
+        if (!html) {
+          out.innerHTML = '<div class="li-empty">該当する明細がありません</div>';
+          out.style.height = "";
+          return;
+        }
+        out.innerHTML = '<div id="invScaleInner">' + html + "</div>";
+        fitInvoice();
+      }
+      // 720pxのA4シートをスマホ画面幅に縮小して全体を見せる
+      function fitInvoice() {
+        var out = document.getElementById("invoiceOut");
+        var inner = document.getElementById("invScaleInner");
+        if (!inner) return;
+        var s = Math.min(1, out.clientWidth / 720);
+        inner.style.transform = "scale(" + s + ")";
+        out.style.height = inner.offsetHeight * s + "px";
       }
 
       /* ===================================================================
@@ -1583,6 +1644,7 @@
           bank: "伊予銀行　今治支店　普通　4160657\nド）ゼロアクト",
           issuerAlign: "left",
           bankAlign: "left",
+          showInvoiceNo: false, // 請求書番号を表示するか
           hanko: "", // 表示・出力用（白抜き処理後）
           hankoRaw: "", // 元画像（白抜きON/OFF切替時に再処理する素）
           hankoBg: "auto", // 背景白抜き: auto / on / off
@@ -1641,6 +1703,7 @@
           bank: bankLines.length ? ["お振込先"].concat(bankLines) : [],
           lineAlign: s.issuerAlign || "left",
           bankAlign: s.bankAlign || "left",
+          showInvoiceNo: !!s.showInvoiceNo,
           hanko: s.hanko || null,
           hankoSizeMm: Number(s.hankoSizeMm) || 21,
         };
@@ -1677,6 +1740,8 @@
         });
         var sz = document.getElementById("iss_hankoSize");
         if (sz && document.activeElement !== sz) sz.value = s.hankoSizeMm || 21;
+        var cn = document.getElementById("iss_showNo");
+        if (cn) cn.checked = !!s.showInvoiceNo;
         var prev = document.getElementById("hankoPreview");
         if (s.hanko) {
           prev.innerHTML =
@@ -2547,6 +2612,10 @@
         toast("Excelファイル(.xlsx)を書き出しました");
       }
 
+      // 画面回転・リサイズで請求書プレビューの縮尺を合わせ直す
+      window.addEventListener("resize", function () {
+        if (document.getElementById("scr-invoice").classList.contains("active")) fitInvoice();
+      });
       function boot() {
         loadAll();
         loadIssuer();

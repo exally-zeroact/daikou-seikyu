@@ -218,13 +218,19 @@
         .join("") +
       "</div>";
 
-    return (
-      '<div class="sheet">' +
-      '<div class="sh-title">請求書</div>' +
-      '<div class="sh-top"><div class="sh-left">' +
+    // 発行日・請求書No は右上（自社情報の上）に置く
+    var rightTop =
       '<div class="sh-date">' +
       esc(reiwaIssueDate(ctx.month)) +
       "</div>" +
+      (iss.showInvoiceNo && ctx.invoiceNo
+        ? '<div class="sh-no">No. ' + esc(ctx.invoiceNo) + "</div>"
+        : "");
+    return (
+      '<div class="sheet">' +
+      '<div class="sh-title">請求書</div>' +
+      '<div class="sh-top">' +
+      '<div class="sh-left">' +
       '<div class="sh-client">' +
       esc(co) +
       '<span class="ochu">御中</span></div>' +
@@ -234,7 +240,10 @@
       '<div class="sh-lead">下記の通り御請求申し上げます。</div>' +
       grandLine +
       "</div>" +
+      '<div class="sh-right">' +
+      rightTop +
       issuer +
+      "</div>" +
       "</div>" +
       '<table class="sh-table"><colgroup>' +
       colgroup +
@@ -254,8 +263,20 @@
     );
   }
 
+  // 請求書No（会社の登録順で安定）: "2026-06-02" 形式
+  function pad2(n) {
+    return (n < 10 ? "0" : "") + n;
+  }
+  function invoiceNoFor(master, accountId, month, co) {
+    var cos = Object.keys(master).filter(function (c) {
+      return accountId == null || master[c].account_id === accountId;
+    });
+    var i = cos.indexOf(co);
+    return month + "-" + pad2((i < 0 ? 0 : i) + 1);
+  }
+
   // ===== 1社ぶん（複数ページ）の請求書HTML =====
-  function buildInvoiceHTML(master, co, rows, month, issuer) {
+  function buildInvoiceHTML(master, co, rows, month, issuer, invoiceNo) {
     var m = master[co];
     if (!m) return "";
     var items = m.items;
@@ -280,6 +301,7 @@
           grand: grand,
           isLast: pi === pages.length - 1,
           allRows: rows,
+          invoiceNo: invoiceNo || "",
         },
         issuer
       );
@@ -306,7 +328,14 @@
           );
         });
       if (!rows.length) return;
-      var co_html = buildInvoiceHTML(master, co, rows, month, issuer);
+      var co_html = buildInvoiceHTML(
+        master,
+        co,
+        rows,
+        month,
+        issuer,
+        invoiceNoFor(master, accountId, month, co)
+      );
       out.push({ company: co, rows: rows.length, html: co_html });
       html += co_html;
     });
@@ -389,6 +418,7 @@
     buildInvoiceHTML: buildInvoiceHTML,
     buildMonth: buildMonth,
     buildWorkbookData: buildWorkbookData,
+    invoiceNoFor: invoiceNoFor,
     utils: {
       yen: yen,
       comma: comma,
