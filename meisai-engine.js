@@ -69,6 +69,10 @@
   function reiwaIssueDate(month) {
     return issueDateStr(month, "reiwa");
   }
+  // 項目の表示見出し。会社マスタの labels で上書き可（自由項目・見出し名編集）。未設定はキーそのもの。
+  function labelOf(m, k) {
+    return (m && m.labels && m.labels[k]) || k;
+  }
   // 請求日＝対象月の翌月1日。era: "seireki"(2026/2/1) / "reiwa"(令和8年2月1日)
   function issueDateStr(month, era) {
     if (!month) return "";
@@ -109,12 +113,12 @@
     if (amtIdx >= 0) {
       headCells += "<th>金額（税込み）</th>";
       items.slice(amtIdx + 1).forEach(function (k) {
-        headCells += "<th>" + esc(k) + "</th>";
+        headCells += "<th>" + esc(labelOf(m, k)) + "</th>";
       });
     } else {
       headCells = items
         .map(function (k) {
-          return "<th>" + esc(k) + "</th>";
+          return "<th>" + esc(labelOf(m, k)) + "</th>";
         })
         .join("");
     }
@@ -476,6 +480,7 @@
       tax10: tax10,
       esc: esc,
       reiwaIssueDate: reiwaIssueDate,
+      labelOf: labelOf,
     },
   };
 

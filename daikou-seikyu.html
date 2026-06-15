@@ -858,6 +858,50 @@
         font-weight: 700;
         color: #1a4a2e;
       }
+      .dnd-name-inp {
+        flex: 1;
+        min-width: 0;
+        font-size: 13px;
+        font-weight: 700;
+        color: #1a4a2e;
+        font-family: "Noto Sans JP", sans-serif;
+        border: 1.5px solid #e2f4ea;
+        border-radius: 8px;
+        padding: 5px 8px;
+        background: #fbfefc;
+        outline: none;
+      }
+      .dnd-name-inp:focus {
+        border-color: #52b788;
+        background: #ffffff;
+      }
+      .dnd-del {
+        flex: 0 0 auto;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        border: 1.5px solid #f3c9c4;
+        background: #fdf1f0;
+        color: #c0392b;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .addcustom {
+        display: flex;
+        gap: 8px;
+        margin: 8px 0 2px;
+      }
+      .addcustom-inp {
+        flex: 1;
+        min-width: 0;
+        font-size: 13px;
+        padding: 8px 10px;
+      }
+      .addcustom-btn {
+        flex: 0 0 auto;
+        width: auto;
+      }
       .dnd-w {
         width: 64px;
         padding: 6px 8px;
@@ -2612,7 +2656,7 @@
                   '<div class="ef ' +
                   sizeCls +
                   '"><span class="ef-lb">' +
-                  esc(k) +
+                  esc(MeisaiEngine.utils.labelOf(MASTER[co], k)) +
                   "</span>" +
                   inp +
                   "</div>"
@@ -2764,6 +2808,16 @@
               rec[f.key] =
                 raw === "" || raw == null ? "" : Number(String(raw).replace(/[^0-9.\-]/g, "")) || 0;
             else rec[f.key] = raw || "";
+          });
+          // 自由項目（固定列以外）はテキストとして保存
+          items.forEach(function (k) {
+            if (
+              FIELD_DEFS.some(function (f) {
+                return f.key === k;
+              })
+            )
+              return;
+            rec[k] = row[k] || "";
           });
           DB.push(rec);
           added++;
@@ -3141,7 +3195,13 @@
           esc(co) +
           "</span>" +
           '<span class="master-co-cols">' +
-          esc(m.items.join(" / ")) +
+          esc(
+            m.items
+              .map(function (k) {
+                return MeisaiEngine.utils.labelOf(m, k);
+              })
+              .join(" / ")
+          ) +
           "</span>" +
           '<span style="color:#A9C4B6;">▾</span>' +
           "</div>" +
@@ -3184,9 +3244,9 @@
               '\')" ondragover="dndOver(event)" ondrop="dndDrop(event,\'' +
               esc(co) +
               '\')" ondragend="dndEnd(event)">' +
-              '<span class="dnd-grip">⠿</span><span class="dnd-name">' +
-              esc(k) +
-              "</span></div>"
+              '<span class="dnd-grip">⠿</span>' +
+              dndNameHTML(co, k) +
+              "</div>"
             );
           })
           .join("");
@@ -3209,13 +3269,20 @@
           '<div class="chip-row">' +
           chips +
           "</div>" +
-          '<div class="card-label" style="margin-top:10px;">順番（取っ手⠿を長押しで上下にドラッグ）</div>' +
+          '<div class="addcustom"><input class="finput addcustom-inp" placeholder="自由な項目名（例：台数 / 担当）" ' +
+          NOFILL +
+          " onkeydown=\"if(event.key==='Enter'){addCustomItem('" +
+          esc(co) +
+          '\',this.value);}"><button class="btn btn-ghost btn-sm addcustom-btn" onclick="addCustomItem(\'' +
+          esc(co) +
+          "',this.previousElementSibling.value)\">＋追加</button></div>" +
+          '<div class="card-label" style="margin-top:10px;">順番（取っ手⠿を長押しで上下にドラッグ）／名前はタップで編集</div>' +
           '<div class="dnd-list" data-co="' +
           esc(co) +
           '">' +
           dnd +
           "</div>" +
-          '<div class="scr-sub" style="margin:2px 0 0;">列の幅は請求書に合わせて自動調整されます。</div>' +
+          '<div class="scr-sub" style="margin:2px 0 0;">金額・日付は名前固定。それ以外は見出し名を編集でき、自由項目は✕で削除。列幅は自動。</div>' +
           '<div class="frow" style="margin-top:8px;"><div class="flabel">リード文（{月}は対象月に置換）</div>' +
           '<input class="finput" value="' +
           esc(m.lead || "") +
@@ -3287,6 +3354,71 @@
           }
           if (!m.widths[key]) m.widths[key] = DEFAULT_WIDTH[key] || 80;
         }
+        saveMaster();
+        reopen(co);
+      }
+      // 並べ替え行の名前部分。金額・日付は固定ラベル、それ以外は編集可、自由項目は✕削除付き。
+      function dndNameHTML(co, k) {
+        var m = MASTER[co];
+        var isProtected = k === "金額" || k === "日付";
+        var isCustom = !FIELD_DEFS.some(function (f) {
+          return f.key === k;
+        });
+        var label = MeisaiEngine.utils.labelOf(m, k);
+        var name = isProtected
+          ? '<span class="dnd-name">' + esc(label) + "</span>"
+          : '<input class="dnd-name-inp" value="' +
+            esc(label) +
+            '" ' +
+            NOFILL +
+            " onchange=\"setItemLabel('" +
+            esc(co) +
+            "','" +
+            esc(k) +
+            "',this.value)\">";
+        var del = isCustom
+          ? '<button class="dnd-del" onclick="removeCustomItem(\'' +
+            esc(co) +
+            "','" +
+            esc(k) +
+            '\')" aria-label="削除">✕</button>'
+          : "";
+        return name + del;
+      }
+      // 見出し名の編集（請求書ヘッダー・入力ラベルに反映。キー＝データは不変＝壊れない）
+      function setItemLabel(co, key, v) {
+        v = (v || "").trim();
+        var m = MASTER[co];
+        if (!m.labels) m.labels = {};
+        if (!v || v === key) delete m.labels[key];
+        else m.labels[key] = v;
+        saveMaster();
+        reopen(co);
+      }
+      // 自由項目（テキスト列）の追加。キーは一意id、表示名はlabelsで持つ＝改名してもデータ不変。
+      function addCustomItem(co, name) {
+        name = (name || "").trim();
+        if (!name) {
+          toast("項目名を入力してください");
+          return;
+        }
+        var m = MASTER[co];
+        if (!m.labels) m.labels = {};
+        if (!m.widths) m.widths = {};
+        var key = "x" + Date.now().toString(36);
+        m.items.push(key);
+        m.labels[key] = name;
+        m.widths[key] = DEFAULT_WIDTH["備考"] || 80;
+        saveMaster();
+        reopen(co);
+        toast("項目「" + name + "」を追加しました");
+      }
+      function removeCustomItem(co, key) {
+        var m = MASTER[co];
+        m.items = m.items.filter(function (k) {
+          return k !== key;
+        });
+        if (m.labels) delete m.labels[key];
         saveMaster();
         reopen(co);
       }
