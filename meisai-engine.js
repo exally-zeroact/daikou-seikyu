@@ -240,7 +240,9 @@
       '<div class="sh-lead">下記の通り御請求申し上げます。</div>' +
       grandLine +
       "</div>" +
-      '<div class="sh-right">' +
+      '<div class="sh-right" style="text-align:' +
+      issuerAlign +
+      '">' +
       rightTop +
       issuer +
       "</div>" +
