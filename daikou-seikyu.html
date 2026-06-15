@@ -199,6 +199,28 @@
         background: #fbe3e0;
       }
 
+      /* ===== LIST SCOPE (期間表示) ===== */
+      .list-scope {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: -4px 2px 12px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #3d9e72;
+      }
+      .scope-clear {
+        background: #f0faf4;
+        border: 1.5px solid #c8ecd8;
+        color: #3d9e72;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 16px;
+        cursor: pointer;
+        font-family: "Noto Sans JP", sans-serif;
+      }
+
       /* ===== ALIGN TOGGLE (自社情報) ===== */
       .align-row {
         display: flex;
@@ -974,14 +996,19 @@
         </select>
         <input class="finput" type="month" id="listMonth" onchange="renderList()" />
       </div>
+      <div class="list-scope" id="listScope">
+        <span>📅 全期間</span>
+        <button
+          id="listScopeClear"
+          class="scope-clear"
+          onclick="clearListMonth()"
+          style="display: none"
+        >
+          全期間に戻す
+        </button>
+      </div>
       <div class="card">
         <div id="listBody"></div>
-      </div>
-      <button class="btn btn-primary" onclick="exportExcel()" style="margin-top: 4px">
-        ⬇ Excelへ書き出し（明細DB＋会社マスタ）
-      </button>
-      <div class="scr-sub" style="margin-top: 8px; text-align: center">
-        書き出したファイルをPCのExcelで開く＝Excel側が中央DBになります（一方向）。
       </div>
     </section>
 
@@ -1153,7 +1180,27 @@
       </div>
     </section>
 
-    <!-- 請求書生成はExcel/本番側へ移管（定義駆動コアは meisai-engine.js に集約） -->
+    <!-- ===== 請求書 / 出力 ===== -->
+    <section class="screen" id="scr-invoice">
+      <div class="scr-title">請求書 / 出力</div>
+      <div class="scr-sub">
+        明細データをExcelへ書き出します（請求書プレビューは次のステップで追加予定）。
+      </div>
+      <div class="card">
+        <div class="card-label">Excelへ書き出し</div>
+        <button class="btn btn-primary" onclick="exportExcel()">
+          ⬇ Excelへ書き出し（明細DB＋会社マスタ）
+        </button>
+        <div class="scr-sub" style="margin-top: 10px">
+          書き出した .xlsx
+          を開くと「明細DB」「会社マスタ」の2シートが入っています（一方向のデータ受け渡し）。
+        </div>
+        <div class="scr-sub" style="margin-top: 4px; color: #c0392b">
+          ※今は「ファイルを書き出す」だけです。スマホで押すとファイルができる→PCへ送って開く、の手動。
+          “押したらPCのExcelに自動反映”は本番のクラウド化で対応します。
+        </div>
+      </div>
+    </section>
 
     <!-- ===== BOTTOM NAV ===== -->
     <nav class="bottom-nav">
@@ -1162,6 +1209,9 @@
       </button>
       <button class="nav-item" data-scr="list" onclick="showScreen('list')">
         <span class="nav-ic">📋</span><span class="nav-lb">一覧</span>
+      </button>
+      <button class="nav-item" data-scr="invoice" onclick="showScreen('invoice')">
+        <span class="nav-ic">🧾</span><span class="nav-lb">請求書</span>
       </button>
       <button class="nav-item" data-scr="master" onclick="showScreen('master')">
         <span class="nav-ic">🏢</span><span class="nav-lb">会社</span>
@@ -1424,6 +1474,7 @@
         var titles = {
           input: "明細入力",
           list: "明細一覧",
+          invoice: "請求書 / 出力",
           master: "会社マスタ",
           issuer: "自社情報",
         };
@@ -1794,10 +1845,23 @@
       /* ===================================================================
    一覧 / 修正
    =================================================================== */
+      function clearListMonth() {
+        document.getElementById("listMonth").value = "";
+        renderList();
+      }
       function renderList() {
         refreshCompanySelects();
         var co = document.getElementById("listCompany").value;
         var mo = document.getElementById("listMonth").value;
+        // 期間スコープ表示（空＝全期間と明示）
+        var scope = document.getElementById("listScope");
+        if (scope) {
+          var p = mo.split("-");
+          scope.querySelector("span").textContent = mo
+            ? "📅 " + Number(p[0]) + "年" + Number(p[1]) + "月"
+            : "📅 全期間";
+          document.getElementById("listScopeClear").style.display = mo ? "" : "none";
+        }
         var rows = DB.filter(function (r) {
           if (r.account_id !== CURRENT_ACCOUNT) return false;
           if (co && r.会社名 !== co) return false;
