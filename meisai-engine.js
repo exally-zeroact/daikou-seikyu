@@ -149,6 +149,9 @@
     var pageTotal = pageRows.reduce(function (s, x) {
       return s + (Number(x.金額) || 0);
     }, 0);
+    // 役職集計が下に続くか（続く時だけ合計の下に区切りの下線を入れる）
+    var showSummary = m.noteSummary && ctx.isLast && (m.noteGroups || []).length;
+    var ul = showSummary ? " ul" : "";
     // 小計/消費税/合計は ENEOS式の右下のコンパクトな枠に（中身は税込/内税のまま）
     var totalsBox =
       '<table class="sh-totalbox">' +
@@ -158,13 +161,17 @@
       '<tr><td class="k">消費税（10%）</td><td class="v">' +
       yen(tax10(pageTotal)) +
       "</td></tr>" +
-      '<tr><td class="k">合計</td><td class="v">' +
+      '<tr><td class="k' +
+      ul +
+      '">合計</td><td class="v' +
+      ul +
+      '">' +
       yen(pageTotal) +
       "</td></tr>" +
       "</table>";
     // 役職（備考）集計ボックス：最終ページのみ
     var summaryBox = "";
-    if (m.noteSummary && ctx.isLast && (m.noteGroups || []).length) {
+    if (showSummary) {
       var sums = {};
       m.noteGroups.forEach(function (g) {
         sums[g] = 0;
