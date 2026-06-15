@@ -974,41 +974,30 @@
         請求書の発行者・振込先・判子。ここで一度設定すれば、毎月の請求書に自動で入ります（変更も即反映）。
       </div>
       <div class="card">
-        <div class="card-label">発行者</div>
+        <div class="card-label">発行者（1行＝請求書の1行）</div>
         <div class="frow">
-          <div class="flabel">屋号・会社名</div>
-          <input class="finput" id="iss_name1" oninput="setIssuer('name1', this.value)" />
-        </div>
-        <div class="frow">
-          <div class="flabel">事業名（屋号下の行）</div>
-          <input class="finput" id="iss_name2" oninput="setIssuer('name2', this.value)" />
-        </div>
-        <div class="frow">
-          <div class="flabel">郵便番号</div>
-          <input class="finput" id="iss_zip" oninput="setIssuer('zip', this.value)" />
-        </div>
-        <div class="frow">
-          <div class="flabel">住所</div>
-          <input class="finput" id="iss_addr" oninput="setIssuer('addr', this.value)" />
-        </div>
-        <div class="frow">
-          <div class="flabel">電話番号</div>
-          <input class="finput" id="iss_tel" oninput="setIssuer('tel', this.value)" />
-        </div>
-        <div class="frow">
-          <div class="flabel">登録番号（インボイス）</div>
-          <input class="finput" id="iss_regno" oninput="setIssuer('regno', this.value)" />
+          <textarea
+            class="finput"
+            id="iss_issuer"
+            rows="6"
+            style="resize: vertical; line-height: 1.8"
+            oninput="setIssuer('issuer', this.value)"
+          ></textarea>
+          <div style="font-size: 10px; color: #7aa08c; margin-top: 5px; line-height: 1.6">
+            例：屋号／事業名／〒／住所／TEL／登録番号。<b>登録番号や事業名が無ければ、その行を消すだけ。</b>代表者名・FAX・メールなど足すのも自由。1行目が少し大きく出ます。
+          </div>
         </div>
       </div>
       <div class="card">
-        <div class="card-label">振込先</div>
+        <div class="card-label">振込先（1行＝1行・「お振込先」の見出しは自動）</div>
         <div class="frow">
-          <div class="flabel">銀行・支店・種別・口座番号</div>
-          <input class="finput" id="iss_bank" oninput="setIssuer('bank', this.value)" />
-        </div>
-        <div class="frow">
-          <div class="flabel">口座名義</div>
-          <input class="finput" id="iss_holder" oninput="setIssuer('holder', this.value)" />
+          <textarea
+            class="finput"
+            id="iss_bank"
+            rows="3"
+            style="resize: vertical; line-height: 1.8"
+            oninput="setIssuer('bank', this.value)"
+          ></textarea>
         </div>
       </div>
       <div class="card">
@@ -1349,16 +1338,12 @@
    アカウント単位で保存。エンジンの issuer 形へ変換して請求書に渡す。
    =================================================================== */
       var ISSUER_SETTINGS = {};
+      // 自社情報は「自由な行」。要らない行は消す、足したい行は足す＝定義駆動。
       function defaultIssuer() {
         return {
-          name1: "合同会社ZEROact",
-          name2: "ZERO代行",
-          zip: "〒794-0018",
-          addr: "今治市本町7-3-40　00コーポ1号",
-          tel: "TEL090-5716-1946",
-          regno: "登録番号：T3500003003293",
-          bank: "伊予銀行　今治支店　普通　4160657",
-          holder: "ド）ゼロアクト",
+          issuer:
+            "合同会社ZEROact\nZERO代行\n〒794-0018\n今治市本町7-3-40　00コーポ1号\nTEL090-5716-1946\n登録番号：T3500003003293",
+          bank: "伊予銀行　今治支店　普通　4160657\nド）ゼロアクト",
           hanko: "",
         };
       }
@@ -1369,6 +1354,27 @@
           ISSUER_SETTINGS = {};
         }
         if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
+        migrateIssuer();
+      }
+      // 旧「固定8項目」形式があれば自由行形式へ変換
+      function migrateIssuer() {
+        var changed = false;
+        Object.keys(ISSUER_SETTINGS).forEach(function (acc) {
+          var s = ISSUER_SETTINGS[acc];
+          if (s && s.name1 !== undefined && s.issuer === undefined) {
+            s.issuer = [s.name1, s.name2, s.zip, s.addr, s.tel, s.regno].filter(Boolean).join("\n");
+            s.bank = [s.bank, s.holder].filter(Boolean).join("\n");
+            delete s.name1;
+            delete s.name2;
+            delete s.zip;
+            delete s.addr;
+            delete s.tel;
+            delete s.regno;
+            delete s.holder;
+            changed = true;
+          }
+        });
+        if (changed) saveIssuer();
       }
       function saveIssuer() {
         localStorage.setItem(ISSUER_KEY, JSON.stringify(ISSUER_SETTINGS));
@@ -1376,12 +1382,21 @@
       function currentIssuer() {
         return ISSUER_SETTINGS[CURRENT_ACCOUNT] || defaultIssuer();
       }
-      // エンジンが受け取る形（lines/bank/hanko）へ変換
+      function splitLines(t) {
+        return String(t || "")
+          .split(/\r?\n/)
+          .map(function (l) {
+            return l.trim();
+          })
+          .filter(Boolean);
+      }
+      // エンジンが受け取る形（lines/bank/hanko）へ変換。空行は自動で除外。
       function issuerForEngine() {
         var s = currentIssuer();
+        var bankLines = splitLines(s.bank);
         return {
-          lines: [s.name1, s.name2, s.zip, s.addr, s.tel, s.regno].filter(Boolean),
-          bank: ["お振込先", s.bank, s.holder].filter(Boolean),
+          lines: splitLines(s.issuer),
+          bank: bankLines.length ? ["お振込先"].concat(bankLines) : [],
           hanko: s.hanko || null,
         };
       }
@@ -1392,10 +1407,10 @@
       }
       function renderIssuer() {
         var s = currentIssuer();
-        ["name1", "name2", "zip", "addr", "tel", "regno", "bank", "holder"].forEach(function (k) {
-          var el = document.getElementById("iss_" + k);
-          if (el) el.value = s[k] || "";
-        });
+        var ti = document.getElementById("iss_issuer");
+        var tb = document.getElementById("iss_bank");
+        if (ti) ti.value = s.issuer || "";
+        if (tb) tb.value = s.bank || "";
         var prev = document.getElementById("hankoPreview");
         if (s.hanko) {
           prev.innerHTML =
