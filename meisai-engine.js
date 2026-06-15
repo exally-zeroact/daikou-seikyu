@@ -80,7 +80,9 @@
   }
 
   // ===== 1ページぶんのシートHTML（純粋） =====
-  function buildSheet(m, co, items, pageRows, ctx) {
+  // issuer = { lines:[], bank:[], hanko:dataURL|null }。未指定なら組み込み既定(ZEROact・判子なし)。
+  function buildSheet(m, co, items, pageRows, ctx, issuer) {
+    var iss = issuer || { lines: ISSUER.lines, bank: ISSUER.bank, hanko: null };
     var leadFilled = (m.lead || "").replace("{月}", ctx.monthNum);
     // 列幅 colgroup
     var totalW = items.reduce(function (s, k) {
@@ -177,11 +179,16 @@
           .join("") +
         "</table>";
     }
-    // ヘッダー（屋号・住所など固定）
+    // ヘッダー（屋号・住所など＝自社情報。判子はユーザー画像があれば描画、なければ無し）
+    var hankoHtml = iss.hanko
+      ? '<div style="position:absolute;right:4px;top:0;width:56px;height:56px;"><img src="' +
+        iss.hanko +
+        '" style="width:100%;height:100%;object-fit:contain;"></div>'
+      : "";
     var issuer =
       '<div class="sh-issuer">' +
-      '<div class="sh-hanko">合同会社<br>ZEROact</div>' +
-      ISSUER.lines
+      hankoHtml +
+      (iss.lines || [])
         .map(function (l, idx) {
           return "<div" + (idx === 0 ? ' class="big"' : "") + ">" + esc(l) + "</div>";
         })
@@ -193,7 +200,7 @@
       "</span></div>";
     var bank =
       '<div class="sh-bank">' +
-      ISSUER.bank
+      (iss.bank || [])
         .map(function (l) {
           return "<div>" + esc(l) + "</div>";
         })
@@ -237,7 +244,7 @@
   }
 
   // ===== 1社ぶん（複数ページ）の請求書HTML =====
-  function buildInvoiceHTML(master, co, rows, month) {
+  function buildInvoiceHTML(master, co, rows, month, issuer) {
     var m = master[co];
     if (!m) return "";
     var items = m.items;
@@ -251,19 +258,26 @@
     var monthNum = Number(month.split("-")[1]);
     var html = "";
     pages.forEach(function (pageRows, pi) {
-      html += buildSheet(m, co, items, pageRows, {
-        month: month,
-        monthNum: monthNum,
-        grand: grand,
-        isLast: pi === pages.length - 1,
-        allRows: rows,
-      });
+      html += buildSheet(
+        m,
+        co,
+        items,
+        pageRows,
+        {
+          month: month,
+          monthNum: monthNum,
+          grand: grand,
+          isLast: pi === pages.length - 1,
+          allRows: rows,
+        },
+        issuer
+      );
     });
     return html;
   }
 
   // ===== 月＋アカウントで全社ぶんを生成 =====
-  function buildMonth(master, db, month, accountId) {
+  function buildMonth(master, db, month, accountId, issuer) {
     var companies = Object.keys(master).filter(function (co) {
       return accountId == null || master[co].account_id === accountId;
     });
@@ -281,7 +295,7 @@
           );
         });
       if (!rows.length) return;
-      var co_html = buildInvoiceHTML(master, co, rows, month);
+      var co_html = buildInvoiceHTML(master, co, rows, month, issuer);
       out.push({ company: co, rows: rows.length, html: co_html });
       html += co_html;
     });
