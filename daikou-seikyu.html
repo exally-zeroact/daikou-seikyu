@@ -856,38 +856,18 @@
       .dnd-grip:active {
         cursor: grabbing;
       }
-      /* 固定列(日付/金額)の名前と 編集欄(行き先/備考/自由項目) を“完全に同じ箱”にして
-         行の高さを統一。iOSのinput標準装飾(余分な高さ)を -webkit-appearance:none で消すのが要。 */
-      .dnd-name,
-      .dnd-name-inp {
+      /* 並べ替え行の名前＝全項目プレーンなテキスト（編集欄は廃止）。全行同じ高さ。 */
+      .dnd-name {
         flex: 1;
         min-width: 0;
         box-sizing: border-box;
         height: 34px;
+        display: flex;
+        align-items: center;
         font-size: 13px;
         font-weight: 700;
         color: #1a4a2e;
-        font-family: "Noto Sans JP", sans-serif;
-        border: 1.5px solid transparent;
-        border-radius: 8px;
         padding: 0 6px;
-        background: transparent;
-        margin: 0;
-      }
-      /* spanはflexで縦中央、inputは標準で縦中央される */
-      .dnd-name {
-        display: flex;
-        align-items: center;
-      }
-      .dnd-name-inp {
-        -webkit-appearance: none;
-        appearance: none;
-        outline: none;
-        line-height: normal;
-      }
-      .dnd-name-inp:focus {
-        border-color: #52b788;
-        background: #ffffff;
       }
       .dnd-del {
         flex: 0 0 auto;
@@ -3298,13 +3278,13 @@
           '\',this.value);}"><button class="btn btn-ghost btn-sm addcustom-btn" onclick="addCustomItem(\'' +
           esc(co) +
           "',this.previousElementSibling.value)\">＋追加</button></div>" +
-          '<div class="card-label" style="margin-top:10px;">順番（取っ手⠿を長押しで上下にドラッグ）／名前はタップで編集</div>' +
+          '<div class="card-label" style="margin-top:10px;">順番（取っ手⠿を長押しで上下にドラッグ）</div>' +
           '<div class="dnd-list" data-co="' +
           esc(co) +
           '">' +
           dnd +
           "</div>" +
-          '<div class="scr-sub" style="margin:2px 0 0;">金額・日付は名前固定。それ以外は見出し名を編集でき、自由項目は✕で削除。列幅は自動。</div>' +
+          '<div class="scr-sub" style="margin:2px 0 0;">自由項目は✕で削除できます。列の幅は請求書に合わせて自動。</div>' +
           '<div class="frow" style="margin-top:8px;"><div class="flabel">リード文（{月}は対象月に置換）</div>' +
           '<input class="finput" value="' +
           esc(m.lead || "") +
@@ -3380,24 +3360,14 @@
         reopen(co);
       }
       // 並べ替え行の名前部分。金額・日付は固定ラベル、それ以外は編集可、自由項目は✕削除付き。
+      // 並べ替え行の名前部分。名前はすべてプレーン表示（インライン編集はしない＝上のチップで
+      // 追加/削除、自由項目は＋で追加できるため不要）。自由項目だけ✕で削除できる。
       function dndNameHTML(co, k) {
         var m = MASTER[co];
-        var isProtected = k === "金額" || k === "日付";
         var isCustom = !FIELD_DEFS.some(function (f) {
           return f.key === k;
         });
         var label = MeisaiEngine.utils.labelOf(m, k);
-        var name = isProtected
-          ? '<span class="dnd-name">' + esc(label) + "</span>"
-          : '<input class="dnd-name-inp" value="' +
-            esc(label) +
-            '" ' +
-            NOFILL +
-            " onchange=\"setItemLabel('" +
-            esc(co) +
-            "','" +
-            esc(k) +
-            "',this.value)\">";
         var del = isCustom
           ? '<button class="dnd-del" onclick="removeCustomItem(\'' +
             esc(co) +
@@ -3405,19 +3375,9 @@
             esc(k) +
             '\')" aria-label="削除">✕</button>'
           : "";
-        return name + del;
+        return '<span class="dnd-name">' + esc(label) + "</span>" + del;
       }
-      // 見出し名の編集（請求書ヘッダー・入力ラベルに反映。キー＝データは不変＝壊れない）
-      function setItemLabel(co, key, v) {
-        v = (v || "").trim();
-        var m = MASTER[co];
-        if (!m.labels) m.labels = {};
-        if (!v || v === key) delete m.labels[key];
-        else m.labels[key] = v;
-        saveMaster();
-        reopen(co);
-      }
-      // 自由項目（テキスト列）の追加。キーは一意id、表示名はlabelsで持つ＝改名してもデータ不変。
+      // 自由項目（テキスト列）の追加。キーは一意id、表示名はlabelsで持つ。
       function addCustomItem(co, name) {
         name = (name || "").trim();
         if (!name) {
