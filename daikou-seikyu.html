@@ -1000,18 +1000,9 @@
         <select class="fselect" id="listCompany" onchange="renderList()">
           <option value="">全社</option>
         </select>
-        <input class="finput" type="month" id="listMonth" onchange="renderList()" />
-      </div>
-      <div class="list-scope" id="listScope">
-        <span>📅 全期間</span>
-        <button
-          id="listScopeClear"
-          class="scope-clear"
-          onclick="clearListMonth()"
-          style="display: none"
-        >
-          全期間に戻す
-        </button>
+        <select class="fselect" id="listMonth" onchange="renderList()">
+          <option value="">全期間</option>
+        </select>
       </div>
       <div class="card">
         <div id="listBody"></div>
@@ -1863,23 +1854,33 @@
       /* ===================================================================
    一覧 / 修正
    =================================================================== */
-      function clearListMonth() {
-        document.getElementById("listMonth").value = "";
-        renderList();
+      // 期間プルダウンを最新化（「全期間」＋データのある月だけ）
+      function refreshMonthSelect() {
+        var sel = document.getElementById("listMonth");
+        if (!sel) return;
+        var keep = sel.value;
+        var present = {};
+        DB.forEach(function (r) {
+          if (r.account_id === CURRENT_ACCOUNT && r.日付) present[r.日付.slice(0, 7)] = true;
+        });
+        var months = Object.keys(present).sort().reverse();
+        sel.innerHTML =
+          '<option value="">全期間</option>' +
+          months
+            .map(function (m) {
+              var p = m.split("-");
+              return (
+                '<option value="' + m + '">' + Number(p[0]) + "年" + Number(p[1]) + "月</option>"
+              );
+            })
+            .join("");
+        if (months.indexOf(keep) >= 0 || keep === "") sel.value = keep;
       }
       function renderList() {
         refreshCompanySelects();
+        refreshMonthSelect();
         var co = document.getElementById("listCompany").value;
         var mo = document.getElementById("listMonth").value;
-        // 期間スコープ表示（空＝全期間と明示）
-        var scope = document.getElementById("listScope");
-        if (scope) {
-          var p = mo.split("-");
-          scope.querySelector("span").textContent = mo
-            ? "📅 " + Number(p[0]) + "年" + Number(p[1]) + "月"
-            : "📅 全期間";
-          document.getElementById("listScopeClear").style.display = mo ? "" : "none";
-        }
         var rows = DB.filter(function (r) {
           if (r.account_id !== CURRENT_ACCOUNT) return false;
           if (co && r.会社名 !== co) return false;
