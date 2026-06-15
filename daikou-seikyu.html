@@ -1266,6 +1266,8 @@
       <div class="card" id="entryCard" style="display: none">
         <div class="card-label" id="entryCardLabel">明細</div>
         <div id="entryBody"></div>
+        <!-- 行き先サジェスト（過去の明細から・会社で絞り込み）。行き先入力に list で紐付け -->
+        <datalist id="destList"></datalist>
         <button class="add-line" onclick="addEntryRow()">＋ 行を追加</button>
         <div style="margin-top: 12px">
           <button class="btn btn-primary" onclick="saveEntries()">保存する（DBに追加）</button>
@@ -1647,6 +1649,7 @@
       var ISSUER_KEY = "daiko_issuer_v1";
       var MASTER_KEY = "daiko_master_v1";
       var PAY_KEY = "daiko_payments_v1";
+      var LAST_CO_KEY = "daiko_lastco_v1"; // 入力で直近に使った会社（自動選択用）
 
       // ===== テナント（マルチテナントの土台） =====
       // 本番ではログインアカウント(=代行業者)のIDが入る。練習台は単一アカウント固定。
@@ -1888,6 +1891,7 @@
           b.classList.toggle("active", b.dataset.scr === name);
         });
         document.getElementById("appTitle").textContent = titles[name] || "代行請求";
+        if (name === "input") preselectInputCompany();
         if (name === "list") renderList();
         if (name === "billing") showBillingSeg("invoice"); // 既定＝請求書
         if (name === "payment") renderPayments();
@@ -2413,6 +2417,19 @@
       /* ===================================================================
    入力画面（定義駆動：マスタのitemsだけ欄を出す）
    =================================================================== */
+      // 会社選択補助：直近に使った会社を自動選択（未選択のときだけ）。連続入力が速くなる。
+      function preselectInputCompany() {
+        var el = document.getElementById("inputCompany");
+        if (!el || el.value) return;
+        var last = "";
+        try {
+          last = localStorage.getItem(LAST_CO_KEY) || "";
+        } catch (e) {}
+        if (last && MASTER[last] && MASTER[last].account_id === CURRENT_ACCOUNT) {
+          el.value = last;
+          onInputCompany();
+        }
+      }
       function onInputCompany() {
         var co = document.getElementById("inputCompany").value;
         var card = document.getElementById("entryCard");
@@ -2484,11 +2501,16 @@
                     k +
                     "',this)\">";
                 } else {
+                  // 行き先は過去履歴のサジェスト（datalist）を付ける。autocompleteはdatalist表示のため外す
+                  var isDest = k === "行き先";
+                  var attrs = isDest
+                    ? 'list="destList" autocorrect="off" autocapitalize="off" spellcheck="false"'
+                    : NOFILL;
                   inp =
                     '<input class="entry-inp" value="' +
                     esc(row[k]) +
                     '" ' +
-                    NOFILL +
+                    attrs +
                     ' oninput="setEntry(' +
                     i +
                     ",'" +
@@ -2520,6 +2542,37 @@
           })
           .join("");
         document.getElementById("entryBody").innerHTML = body;
+        refreshDestList(co);
+      }
+      // 行き先サジェスト：過去の明細から（その会社優先・無ければ全社）頻度順に候補化
+      function refreshDestList(co) {
+        var dl = document.getElementById("destList");
+        if (!dl) return;
+        function collect(filterCo) {
+          var freq = {};
+          DB.forEach(function (r) {
+            if (r.account_id !== CURRENT_ACCOUNT) return;
+            if (filterCo && r.会社名 !== filterCo) return;
+            var d = (r.行き先 || "").trim();
+            if (d) freq[d] = (freq[d] || 0) + 1;
+          });
+          return Object.keys(freq).sort(function (a, b) {
+            return freq[b] - freq[a] || a.localeCompare(b);
+          });
+        }
+        var list = collect(co);
+        if (list.length < 5) {
+          // その会社の履歴が少なければ全社の頻出も足す（重複除外）
+          collect("").forEach(function (d) {
+            if (list.indexOf(d) < 0) list.push(d);
+          });
+        }
+        dl.innerHTML = list
+          .slice(0, 50)
+          .map(function (d) {
+            return '<option value="' + esc(d) + '"></option>';
+          })
+          .join("");
       }
       function setEntry(i, k, v) {
         if (entryRows[i]) entryRows[i][k] = v;
@@ -2587,6 +2640,10 @@
           added++;
         });
         saveDB();
+        try {
+          localStorage.setItem(LAST_CO_KEY, co); // 次回の入力で同じ会社を自動選択
+        } catch (e) {}
+        updatePayBadge(); // 明細追加で請求が増える→未入金バッジ更新
         entryRows = [blankEntry()];
         renderEntry();
         toast(added + "件を保存しました");
