@@ -1749,6 +1749,23 @@
         if (!Object.keys(MASTER).length) seedMaster();
         if (!DB.length) seedDB();
         migrateAccount();
+        normalizeItemOrderOnce();
+      }
+      // 既存データの項目順ドリフト（toggleの末尾push等で 金額/日付/行き先 等になっていた）を
+      // 一度だけ標準順（日付→行き先→金額→…）に直す。以後の手動ドラッグは保持（フラグで1回限り）。
+      function normalizeItemOrderOnce() {
+        try {
+          if (localStorage.getItem("daiko_order_norm_v1")) return;
+        } catch (e) {
+          return;
+        }
+        Object.keys(MASTER).forEach(function (co) {
+          MASTER[co].items = inputItemsOrder(MASTER[co].items);
+        });
+        saveMaster();
+        try {
+          localStorage.setItem("daiko_order_norm_v1", "1");
+        } catch (e) {}
       }
       function savePayments() {
         localStorage.setItem(PAY_KEY, JSON.stringify(PAYMENTS));
@@ -2507,9 +2524,24 @@
       }
       // 共通：オートフィル/予測変換の混入を止める属性
       var NOFILL = 'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"';
+      // 入力欄は常に自然な順（日付→行き先→金額→…の固定列順、そのあと自由項目）で出す。
+      // ＝請求書の列順（ドラッグで自由）に引きずられて入力欄が乱れないようにする。
+      function inputItemsOrder(items) {
+        var order = FIELD_DEFS.map(function (f) {
+          return f.key;
+        });
+        return items.slice().sort(function (a, b) {
+          var ia = order.indexOf(a),
+            ib = order.indexOf(b);
+          if (ia < 0 && ib < 0) return items.indexOf(a) - items.indexOf(b); // 自由項目同士は元の順
+          if (ia < 0) return 1; // 自由項目は固定列の後ろ
+          if (ib < 0) return -1;
+          return ia - ib;
+        });
+      }
       function renderEntry() {
         var co = document.getElementById("inputCompany").value;
-        var items = MASTER[co].items;
+        var items = inputItemsOrder(MASTER[co].items);
         var body = entryRows
           .map(function (row, i) {
             var fields = items
@@ -3235,7 +3267,24 @@
           }
           m.items.splice(i, 1);
         } else {
-          m.items.push(key);
+          // 固定列は標準の位置に挿入（末尾pushだと順番がドリフトするため）。自由項目は末尾。
+          var order = FIELD_DEFS.map(function (f) {
+            return f.key;
+          });
+          var ki = order.indexOf(key);
+          if (ki < 0) {
+            m.items.push(key);
+          } else {
+            var pos = m.items.length;
+            for (var j = 0; j < m.items.length; j++) {
+              var oj = order.indexOf(m.items[j]);
+              if (oj < 0 || oj > ki) {
+                pos = j;
+                break;
+              }
+            }
+            m.items.splice(pos, 0, key);
+          }
           if (!m.widths[key]) m.widths[key] = DEFAULT_WIDTH[key] || 80;
         }
         saveMaster();
