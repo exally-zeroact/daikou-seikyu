@@ -1,6 +1,6 @@
 # 代行請求システム（プロトタイプ）引き継ぎ
 
-最終更新: 2026-06-15 / リポジトリ: **Exally-test** / 最新コミット: `89a9351`
+最終更新: 2026-06-15 / リポジトリ: **Exally-test** / 最新コミット: `a034b8f`
 URL（テスト本番）: https://exally-test.vercel.app/daikou-seikyu.html
 
 ## これは何
@@ -25,13 +25,14 @@ URL（テスト本番）: https://exally-test.vercel.app/daikou-seikyu.html
 - **自社情報＝請求書フォーマット定義の残り**: localStorage `daiko_issuer_v1`（account単位）。`issuer`(発行者・1行=1行) / `bank`(振込先) / `issuerAlign` / `bankAlign` / `dateEra`(seireki|reiwa) / `showInvoiceNo` / `hanko`(処理後dataURL) / `hankoRaw`(元画像) / `hankoBg`(auto|on|off) / `hankoSizeMm`。
 - **account_id＝マルチテナントの土台**（将来のシャード/RLSキー）。練習台は単一 `CURRENT_ACCOUNT="acct_local"`。本番はログインアカウント(=代行業者)IDに。
 
-## 画面（下部ナビ5タブ）
+## 画面（下部ナビ6タブ）
 
 1. **入力**: 会社選択→その会社のitemsだけ入力欄（明細1件=カード）。日付はカレンダー＋表示M/D。金額は数字以外を即除去＋autocomplete off。**日付必須**（空はブロック）。
 2. **一覧**: 明細をタップで編集/削除（id特定）。会社・期間（「全期間」+月のプルダウン）で絞り込み。日付なしは「⚠️日付なし」赤表示。
 3. **請求書**: 月・会社を選ぶ→エンジンで自動生成プレビュー（720pxのA4をスマホ幅に自動縮小）。印刷/PDF（@page A4・実寸）＋Excel書き出し（明細データ）。
-4. **会社**: 会社マスタ（追加・名前変更・左スワイプ削除・項目チェック・ドラッグ・幅）。
-5. **自社**: 発行者/振込先(自由行・文字揃え左中右)・請求書番号トグル・日付(西暦/令和)・判子(アップロード/自動白抜き/サイズmm)。
+4. **入金**: 請求（=会社×月）ごとに **入金済 / 一部入金 / 未入金** と残額を管理。月/状態フィルタ＋上部サマリ(請求/入金/残額)。カードタップで入金額を記録（全額/未入金クイック・入金日・メモ）。状態は請求額と入金額から自動判定。localStorage `daiko_payments_v1`（キー=`account::month::会社名`）。
+5. **会社**: 会社マスタ（追加・名前変更・左スワイプ削除・項目チェック・ドラッグ・幅）。
+6. **自社**: 発行者/振込先(自由行・文字揃え左中右)・請求書番号トグル・日付(西暦/令和)・判子(アップロード/自動白抜き/サイズmm)。
 
 ## エンジン API（`window.MeisaiEngine` / Nodeでも `require`可）
 
@@ -40,6 +41,7 @@ URL（テスト本番）: https://exally-test.vercel.app/daikou-seikyu.html
 - `buildMonth(master, db, month, accountId, issuer)` … 月+account で全社分
 - `buildWorkbookData(master, db, accountId)` … Excel用シートデータ（{sheets:[{name,aoa}]}）
 - `invoiceNoFor(master, accountId, month, co)` … 請求書No（"2026-06-02"形式・会社登録順で安定）
+- `listInvoices(db, accountId, month)` … 請求(会社×月)の一覧 `[{company,month,total,count}]`（月=nullで全期間・日付なしは除外・新しい月→会社名順）。入金管理／月次集計の土台。
 - `utils.{yen,comma,mdShort,inMonth,tax10,esc,reiwaIssueDate,issueDateStr}`
 - issuer引数の形: `{lines:[], bank:[], lineAlign, bankAlign, dateEra, showInvoiceNo, hanko, hankoSizeMm}`。HTML側は `issuerForEngine()` で生成。
 
@@ -64,8 +66,8 @@ URL（テスト本番）: https://exally-test.vercel.app/daikou-seikyu.html
 
 ## 残タスク / 次の一歩
 
-1. **入金管理**（請求ごとに入金済/未入金/残額）＝アプリでスマホ閲覧 ← 次にやる予定
-2. **月次集計**（その月 誰にいくら請求/入金 の一覧）＝アプリでスマホ閲覧
+1. ~~**入金管理**（請求ごとに入金済/未入金/残額）~~ ✅ 完了（commit `a034b8f`・入金タブ）。入金画面のサマリが簡易な月次集計も兼ねる。
+2. **月次集計**（その月 誰にいくら請求/入金 の一覧・専用画面/出力）＝入金タブのサマリより踏み込んだ集計が要るなら ← 次の候補
 3. （あれば便利）入力補助（よく使う行き先/会社のサジェスト）
 4. 本番移行: localStorage→Supabase、ブラウザ印刷→サーバPDF、account_id→ログインアカウント
 
