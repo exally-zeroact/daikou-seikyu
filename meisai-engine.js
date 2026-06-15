@@ -218,16 +218,17 @@
         .join("") +
       "</div>";
 
-    // 発行日・請求書No は右上（自社情報の上）に置く
-    var rightTop =
-      '<div class="sh-date">' +
+    // 請求日・請求書No は最上部の右端（タイトルの上）に置く
+    var metaHtml =
+      '<div class="sh-meta">' +
+      "<div>請求日　" +
       esc(reiwaIssueDate(ctx.month)) +
       "</div>" +
-      (iss.showInvoiceNo && ctx.invoiceNo
-        ? '<div class="sh-no">No. ' + esc(ctx.invoiceNo) + "</div>"
-        : "");
+      (iss.showInvoiceNo && ctx.invoiceNo ? "<div>No.　" + esc(ctx.invoiceNo) + "</div>" : "") +
+      "</div>";
     return (
       '<div class="sheet">' +
+      metaHtml +
       '<div class="sh-title">請求書</div>' +
       '<div class="sh-top">' +
       '<div class="sh-left">' +
@@ -245,7 +246,6 @@
       '<div class="sh-right" style="text-align:' +
       issuerAlign +
       '">' +
-      rightTop +
       issuer +
       "</div>" +
       "</div>" +
