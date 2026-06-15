@@ -835,12 +835,13 @@
         background: #ffffff;
       }
       .dnd-item.dragging {
-        opacity: 0.4;
+        opacity: 0.5;
         border-color: #52b788;
         background: #f0faf4;
       }
       .dnd-item.over {
         border-color: #52b788;
+        background: #e8f5ed;
       }
       .dnd-grip {
         cursor: grab;
@@ -3114,6 +3115,12 @@
             "touchstart",
             function (e) {
               if (e.touches.length > 1) {
+                dragging = false;
+                return;
+              }
+              // 会社マスタは「開いて編集中」のときはスワイプ削除を無効化（編集の邪魔をしない）。
+              // 閉じている（会社名だけ）ときだけ左スワイプ削除を有効にする。
+              if (content.querySelector(".master-co-body.open")) {
                 dragging = false;
                 return;
               }
