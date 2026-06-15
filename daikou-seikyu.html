@@ -995,6 +995,8 @@
 
     <div class="toast" id="toast"></div>
 
+    <!-- 本物の .xlsx 生成（警告なし・複数シート対応） -->
+    <script src="xlsx.full.min.js"></script>
     <!-- 定義駆動 帳票エンジン（移植可能な共通モジュール／DOM非依存） -->
     <script src="meisai-engine.js"></script>
     <script>
@@ -1992,23 +1994,22 @@
           toast("書き出す明細がありません");
           return;
         }
-        var xls = MeisaiEngine.buildDataWorkbook(MASTER, DB, CURRENT_ACCOUNT);
+        if (typeof XLSX === "undefined") {
+          toast("Excelライブラリの読み込み待ちです。少し待って再度押してください");
+          return;
+        }
+        // エンジンが返す「シートごとの2次元配列」を本物の .xlsx に変換（警告なし・2シート）
+        var data = MeisaiEngine.buildWorkbookData(MASTER, DB, CURRENT_ACCOUNT);
+        var wb = XLSX.utils.book_new();
+        data.sheets.forEach(function (sh) {
+          var ws = XLSX.utils.aoa_to_sheet(sh.aoa);
+          XLSX.utils.book_append_sheet(wb, ws, sh.name);
+        });
         var d = new Date();
         var ymd =
           d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2);
-        // 先頭に BOM を付けて Excel に UTF-8 と認識させる
-        var blob = new Blob(["﻿" + xls], { type: "application/vnd.ms-excel" });
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement("a");
-        a.href = url;
-        a.download = "代行明細_" + ymd + ".xls";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(function () {
-          URL.revokeObjectURL(url);
-        }, 1000);
-        toast("Excelファイルを書き出しました");
+        XLSX.writeFile(wb, "代行明細_" + ymd + ".xlsx");
+        toast("Excelファイル(.xlsx)を書き出しました");
       }
 
       function boot() {
