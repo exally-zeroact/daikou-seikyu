@@ -821,48 +821,36 @@
         font-size: 11px;
         line-height: 1.7;
       }
-      .sh-summary {
-        border-collapse: collapse;
-      }
-      .sh-summary td {
-        font-size: 11px;
-        padding: 3px 10px;
-      }
-      .sh-summary td.k {
-        text-align: center;
-        font-weight: 700;
-        width: 52px;
-      }
-      .sh-summary td.v {
-        font-family: "DM Mono", monospace;
-        text-align: right;
-        min-width: 96px;
-      }
-      /* 右下の合計枠（小計/消費税/合計）＋役職集計を縦に積む */
+      /* 右下の合計枠（小計/消費税/合計）＋役職集計を縦に積む。両方同じ列幅で縦ラインを揃える */
       .sh-foot-right {
         display: flex;
         flex-direction: column;
         gap: 8px;
         align-items: flex-end;
       }
-      .sh-totalbox {
+      .sh-totalbox,
+      .sh-summary {
         border-collapse: collapse;
+        width: 210px;
+        table-layout: fixed;
       }
-      /* ENEOS式：枠で囲まず、ラベル＋金額だけ */
-      .sh-totalbox td {
+      /* ENEOS式：枠で囲まず、ラベル＋金額だけ。列幅は両塊で共通 */
+      .sh-totalbox td,
+      .sh-summary td {
         font-size: 12px;
         padding: 3px 12px;
       }
-      .sh-totalbox td.k {
-        text-align: center;
+      .sh-totalbox td.k,
+      .sh-summary td.k {
+        width: 110px;
+        text-align: left;
         font-weight: 700;
-        min-width: 84px;
       }
-      .sh-totalbox td.v {
+      .sh-totalbox td.v,
+      .sh-summary td.v {
         font-family: "DM Mono", monospace;
         font-weight: 700;
         text-align: right;
-        min-width: 100px;
       }
 
       /* ===== BOTTOM NAV ===== */
