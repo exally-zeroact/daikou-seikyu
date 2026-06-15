@@ -562,6 +562,58 @@
         flex: 1;
       }
 
+      /* ===== 月次集計テーブル ===== */
+      .rep-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      .rep-table th {
+        font-size: 10px;
+        font-weight: 700;
+        color: #7aa08c;
+        text-align: right;
+        padding: 6px 4px;
+        border-bottom: 1.5px solid #d4eae0;
+      }
+      .rep-table th:first-child {
+        text-align: left;
+      }
+      .rep-table td {
+        padding: 9px 4px;
+        border-bottom: 1px solid #eaf5ef;
+        vertical-align: middle;
+      }
+      .rep-co {
+        font-size: 12px;
+        font-weight: 700;
+        color: #1a4a2e;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .rep-co .pay-pill {
+        font-size: 9px;
+        padding: 2px 7px;
+      }
+      .rep-n {
+        font-family: "DM Mono", monospace;
+        text-align: right;
+        color: #1a4a2e;
+        white-space: nowrap;
+      }
+      .rep-rem {
+        color: #c0392b;
+      }
+      .rep-table tfoot td {
+        border-top: 1.5px solid #d4eae0;
+        border-bottom: none;
+        font-weight: 700;
+        color: #1a4a2e;
+        padding-top: 10px;
+      }
+
       /* ===== MASTER ===== */
       .master-co {
         position: relative;
@@ -1421,12 +1473,25 @@
         </select>
       </div>
       <div id="paySummary" class="pay-summary"></div>
-      <div class="invoice-actions">
-        <button class="btn btn-ghost btn-sm" onclick="exportPaymentSummary()">
-          📊 集計をExcel書き出し
+      <div id="payBody"></div>
+    </section>
+
+    <!-- ===== 月次集計 ===== -->
+    <section class="screen" id="scr-report">
+      <div class="scr-title">月次集計</div>
+      <div class="scr-sub">選んだ月の「どの会社にいくら請求／入金／残」を一覧で確認できます。</div>
+      <div class="filterbar">
+        <select class="fselect" id="repMonth" onchange="renderReport()">
+          <option value="">― 月を選択 ―</option>
+        </select>
+      </div>
+      <div id="repSummary" class="pay-summary"></div>
+      <div id="repBody"></div>
+      <div class="invoice-actions" id="repActions" style="margin-top: 12px">
+        <button class="btn btn-ghost btn-sm" onclick="exportReport()">
+          📊 この集計をExcel書き出し
         </button>
       </div>
-      <div id="payBody"></div>
     </section>
 
     <!-- ===== BOTTOM NAV ===== -->
@@ -1442,6 +1507,9 @@
       </button>
       <button class="nav-item" data-scr="payment" onclick="showScreen('payment')">
         <span class="nav-ic">💰</span><span class="nav-lb">入金</span>
+      </button>
+      <button class="nav-item" data-scr="report" onclick="showScreen('report')">
+        <span class="nav-ic">📊</span><span class="nav-lb">集計</span>
       </button>
       <button class="nav-item" data-scr="master" onclick="showScreen('master')">
         <span class="nav-ic">🏢</span><span class="nav-lb">会社</span>
@@ -1716,6 +1784,7 @@
           list: "明細一覧",
           invoice: "請求書 / 出力",
           payment: "入金管理",
+          report: "月次集計",
           master: "会社マスタ",
           issuer: "自社情報",
         };
@@ -1735,6 +1804,7 @@
           generateInvoices();
         }
         if (name === "payment") renderPayments();
+        if (name === "report") renderReport();
         window.scrollTo(0, 0);
       }
 
@@ -3013,24 +3083,21 @@
       }
 
       /* ===================================================================
-   月次集計の書き出し（入金タブの現フィルタ＝月／状態 をそのまま帳簿用Excelに）
-   会社×月ごとの 請求/入金/残/状態 ＋合計行。請求は明細(DB)、入金は PAYMENTS から。
-   金額は数値で出力＝Excel側で集計/編集できる。
+   月次集計（アプリ内で閲覧）＝選んだ月の「どの会社にいくら請求/入金/残」を一覧表示。
+   集計データの組み立ては共通化（画面表示とExcel書き出しで同じ summarize() を使う）。
+   請求は明細(DB)、入金は PAYMENTS から都度計算＝一方向アーキ維持。
    =================================================================== */
-      function exportPaymentSummary() {
-        if (typeof XLSX === "undefined") {
-          toast("Excelライブラリの読み込み待ちです。少し待って再度押してください");
-          return;
-        }
-        var month = document.getElementById("payMonth").value;
-        var statusF = document.getElementById("payStatus").value;
+      function summarize(month, statusF) {
         var invs = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, month || null);
         var rows = invs
           .map(function (iv) {
             var rec = payRecord(iv.month, iv.company);
             var paid = Number(rec.paid) || 0;
             return {
-              iv: iv,
+              month: iv.month,
+              company: iv.company,
+              count: iv.count,
+              total: iv.total,
               paid: paid,
               st: payStatusOf(iv.total, paid),
               rem: iv.total - paid,
@@ -3041,25 +3108,132 @@
           .filter(function (x) {
             return !statusF || x.st === statusF;
           });
-        if (!rows.length) {
+        var t = { total: 0, paid: 0, rem: 0, count: 0 };
+        rows.forEach(function (x) {
+          t.total += x.total;
+          t.paid += x.paid;
+          t.rem += x.rem;
+          t.count += x.count;
+        });
+        return { rows: rows, totals: t };
+      }
+      function refreshReportMonthSelect() {
+        var sel = document.getElementById("repMonth");
+        if (!sel) return;
+        var keep = sel.value;
+        var present = {};
+        DB.forEach(function (r) {
+          if (r.account_id === CURRENT_ACCOUNT && r.日付) present[r.日付.slice(0, 7)] = true;
+        });
+        var months = Object.keys(present).sort().reverse();
+        sel.innerHTML =
+          '<option value="">― 月を選択 ―</option>' +
+          months
+            .map(function (m) {
+              var p = m.split("-");
+              return (
+                '<option value="' + m + '">' + Number(p[0]) + "年" + Number(p[1]) + "月</option>"
+              );
+            })
+            .join("");
+        if (months.indexOf(keep) >= 0) sel.value = keep;
+        else if (months.length) sel.value = months[0]; // 既定＝最新月
+      }
+      function renderReport() {
+        refreshReportMonthSelect();
+        var month = document.getElementById("repMonth").value;
+        var sumEl = document.getElementById("repSummary");
+        var box = document.getElementById("repBody");
+        var act = document.getElementById("repActions");
+        if (!month) {
+          sumEl.innerHTML = "";
+          box.innerHTML = '<div class="li-empty">月を選んでください</div>';
+          act.style.display = "none";
+          return;
+        }
+        var s = summarize(month, "");
+        if (!s.rows.length) {
+          sumEl.innerHTML = "";
+          box.innerHTML = '<div class="li-empty">この月の請求はありません</div>';
+          act.style.display = "none";
+          return;
+        }
+        act.style.display = "";
+        var t = s.totals;
+        sumEl.innerHTML =
+          '<div class="pay-sum-cell"><div class="pay-sum-lb">請求</div><div class="pay-sum-val">' +
+          yen(t.total) +
+          '</div></div><div class="pay-sum-cell"><div class="pay-sum-lb">入金</div><div class="pay-sum-val">' +
+          yen(t.paid) +
+          '</div></div><div class="pay-sum-cell rem"><div class="pay-sum-lb">残額</div><div class="pay-sum-val">' +
+          yen(t.rem > 0 ? t.rem : 0) +
+          "</div></div>";
+        // 請求額の大きい順に並べた読み取り専用の集計表
+        var sorted = s.rows.slice().sort(function (a, b) {
+          return b.total - a.total;
+        });
+        var body = sorted
+          .map(function (x) {
+            return (
+              '<tr><td class="rep-co"><span class="pay-pill ' +
+              x.st +
+              '">' +
+              PAY_LABEL[x.st] +
+              "</span>" +
+              esc(x.company) +
+              '</td><td class="rep-n">' +
+              yen(x.total) +
+              '</td><td class="rep-n">' +
+              yen(x.paid) +
+              '</td><td class="rep-n' +
+              (x.rem > 0 ? " rep-rem" : "") +
+              '">' +
+              yen(x.rem) +
+              "</td></tr>"
+            );
+          })
+          .join("");
+        box.innerHTML =
+          '<table class="rep-table"><thead><tr><th>会社</th><th>請求</th><th>入金</th><th>残</th></tr></thead><tbody>' +
+          body +
+          "</tbody><tfoot><tr><td>合計（" +
+          s.rows.length +
+          "社・" +
+          t.count +
+          '件）</td><td class="rep-n">' +
+          yen(t.total) +
+          '</td><td class="rep-n">' +
+          yen(t.paid) +
+          '</td><td class="rep-n' +
+          (t.rem > 0 ? " rep-rem" : "") +
+          '">' +
+          yen(t.rem) +
+          "</td></tr></tfoot></table>";
+      }
+      // 表示中の月の集計を帳簿用 .xlsx に（金額は数値＝Excel側で集計/編集できる）
+      function exportReport() {
+        if (typeof XLSX === "undefined") {
+          toast("Excelライブラリの読み込み待ちです。少し待って再度押してください");
+          return;
+        }
+        var month = document.getElementById("repMonth").value;
+        if (!month) {
+          toast("月を選んでください");
+          return;
+        }
+        var s = summarize(month, "");
+        if (!s.rows.length) {
           toast("書き出す請求がありません");
           return;
         }
-        var head = ["月", "会社", "件数", "請求額", "入金額", "残額", "状態", "入金日", "メモ"];
-        var aoa = [head];
-        var tT = 0,
-          tP = 0,
-          tR = 0;
-        rows.forEach(function (x) {
-          var p = x.iv.month.split("-");
-          tT += x.iv.total;
-          tP += x.paid;
-          tR += x.rem;
+        var aoa = [["月", "会社", "件数", "請求額", "入金額", "残額", "状態", "入金日", "メモ"]];
+        s.rows.forEach(function (x) {
+          var p = x.month.split("-");
           aoa.push([
             Number(p[0]) + "年" + Number(p[1]) + "月",
-            x.iv.company,
-            x.iv.count,
-            x.iv.total,
+            x.company,
+            x.count,
+            x.total,
             x.paid,
             x.rem,
             PAY_LABEL[x.st],
@@ -3067,16 +3241,17 @@
             x.note,
           ]);
         });
-        aoa.push(["合計", "", "", tT, tP, tR, "", "", ""]);
+        var t = s.totals;
+        aoa.push(["合計", "", t.count, t.total, t.paid, t.rem, "", "", ""]);
         var wb = XLSX.utils.book_new();
         var ws = XLSX.utils.aoa_to_sheet(aoa);
         ws["!cols"] = autoColWidths(aoa);
-        XLSX.utils.book_append_sheet(wb, ws, "入金集計");
+        XLSX.utils.book_append_sheet(wb, ws, "月次集計");
         var d = new Date();
         var ymd =
           d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2);
-        XLSX.writeFile(wb, "入金集計_" + (month || "全期間") + "_" + ymd + ".xlsx");
-        toast("入金集計(.xlsx)を書き出しました");
+        XLSX.writeFile(wb, "月次集計_" + month + "_" + ymd + ".xlsx");
+        toast("月次集計(.xlsx)を書き出しました");
       }
 
       // 画面回転・リサイズで請求書プレビューの縮尺を合わせ直す
