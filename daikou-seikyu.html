@@ -1018,6 +1018,11 @@
       var DB_KEY = "daiko_db_v1";
       var MASTER_KEY = "daiko_master_v1";
 
+      // ===== テナント（マルチテナントの土台） =====
+      // 本番ではログインアカウント(=代行業者)のIDが入る。練習台は単一アカウント固定。
+      // 明細・会社マスタすべてに account_id を持たせ、将来のシャード/RLSキーにする。
+      var CURRENT_ACCOUNT = "acct_local";
+
       // 全社共通ヘッダー（請求書の固定情報）
       var ISSUER = {
         lines: [
@@ -1054,6 +1059,27 @@
         }
         if (!Object.keys(MASTER).length) seedMaster();
         if (!DB.length) seedDB();
+        migrateAccount();
+      }
+      // 既存データ（account_id 無し）に現アカウントを補完する移行処理
+      function migrateAccount() {
+        var changed = false;
+        DB.forEach(function (r) {
+          if (!r.account_id) {
+            r.account_id = CURRENT_ACCOUNT;
+            changed = true;
+          }
+        });
+        Object.keys(MASTER).forEach(function (co) {
+          if (!MASTER[co].account_id) {
+            MASTER[co].account_id = CURRENT_ACCOUNT;
+            changed = true;
+          }
+        });
+        if (changed) {
+          saveDB();
+          saveMaster();
+        }
       }
       function saveDB() {
         localStorage.setItem(DB_KEY, JSON.stringify(DB));
@@ -1065,6 +1091,7 @@
       function seedMaster() {
         MASTER = {
           "Lounge Chouchou": {
+            account_id: CURRENT_ACCOUNT,
             items: ["日付", "行き先", "金額"],
             widths: { 日付: 64, 行き先: 300, 金額: 120 },
             lead: "{月}月のご使用分です。",
@@ -1073,6 +1100,7 @@
             noteGroups: [],
           },
           藤原建設株式会社: {
+            account_id: CURRENT_ACCOUNT,
             items: ["日付", "行き先", "金額", "備考"],
             widths: { 日付: 60, 行き先: 240, 金額: 104, 備考: 84 },
             lead: "{月}月のご利用分です。",
@@ -1088,6 +1116,7 @@
         var rows = [];
         function push(co, d, dest, amt, note) {
           rows.push({
+            account_id: CURRENT_ACCOUNT,
             会社名: co,
             日付: d,
             行き先: dest,
@@ -1227,7 +1256,9 @@
    会社プルダウン群を最新化
    =================================================================== */
       function refreshCompanySelects() {
-        var names = Object.keys(MASTER);
+        var names = Object.keys(MASTER).filter(function (n) {
+          return MASTER[n].account_id === CURRENT_ACCOUNT;
+        });
         [
           ["inputCompany", false],
           ["listCompany", true],
@@ -1398,7 +1429,7 @@
             return String(row[k] || "").trim() !== "";
           });
           if (!hasContent) return;
-          var rec = { id: nextId(), 会社名: co };
+          var rec = { id: nextId(), account_id: CURRENT_ACCOUNT, 会社名: co };
           FIELD_DEFS.forEach(function (f) {
             var raw = row[f.key];
             if (f.type === "number")
@@ -1427,6 +1458,7 @@
         var co = document.getElementById("listCompany").value;
         var mo = document.getElementById("listMonth").value;
         var rows = DB.filter(function (r) {
+          if (r.account_id !== CURRENT_ACCOUNT) return false;
           if (co && r.会社名 !== co) return false;
           if (mo && !inMonth(r.日付, mo)) return false;
           return true;
@@ -1554,7 +1586,9 @@
       function renderMaster() {
         refreshCompanySelects();
         var box = document.getElementById("masterBody");
-        var names = Object.keys(MASTER);
+        var names = Object.keys(MASTER).filter(function (n) {
+          return MASTER[n].account_id === CURRENT_ACCOUNT;
+        });
         box.innerHTML = names
           .map(function (co) {
             return masterCardHTML(co);
@@ -1880,6 +1914,7 @@
           return;
         }
         MASTER[name] = {
+          account_id: CURRENT_ACCOUNT,
           items: ["日付", "行き先", "金額"],
           widths: { 日付: 64, 行き先: 260, 金額: 110 },
           lead: "{月}月のご利用分です。",
