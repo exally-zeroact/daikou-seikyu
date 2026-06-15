@@ -456,6 +456,112 @@
         padding: 8px 10px;
       }
 
+      /* ===== 入金管理 ===== */
+      .pay-summary {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .pay-sum-cell {
+        flex: 1;
+        background: #f7fcf9;
+        border: 1.5px solid #e2f4ea;
+        border-radius: 12px;
+        padding: 9px 8px;
+        text-align: center;
+      }
+      .pay-sum-lb {
+        font-size: 10px;
+        font-weight: 700;
+        color: #7aa08c;
+      }
+      .pay-sum-val {
+        font-family: "DM Mono", monospace;
+        font-size: 14px;
+        font-weight: 500;
+        color: #1a4a2e;
+        margin-top: 2px;
+      }
+      .pay-sum-cell.rem .pay-sum-val {
+        color: #c0392b;
+      }
+      .pay-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 11px 4px;
+        border-bottom: 1px solid #eaf5ef;
+        cursor: pointer;
+      }
+      .pay-item:last-child {
+        border-bottom: none;
+      }
+      .pay-main {
+        flex: 1;
+        min-width: 0;
+      }
+      .pay-co {
+        font-size: 13px;
+        font-weight: 700;
+        color: #1a4a2e;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .pay-sub {
+        font-size: 10px;
+        color: #7aa08c;
+        margin-top: 2px;
+        font-family: "DM Mono", monospace;
+      }
+      .pay-right {
+        text-align: right;
+        white-space: nowrap;
+      }
+      .pay-amt {
+        font-family: "DM Mono", monospace;
+        font-size: 13px;
+        font-weight: 500;
+        color: #1a4a2e;
+      }
+      .pay-rem {
+        font-family: "DM Mono", monospace;
+        font-size: 10px;
+        margin-top: 2px;
+        color: #c0392b;
+      }
+      .pay-pill {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 3px 9px;
+        border-radius: 12px;
+        white-space: nowrap;
+      }
+      .pay-pill.unpaid {
+        background: #fdf1f0;
+        color: #c0392b;
+        border: 1.5px solid #f3c9c4;
+      }
+      .pay-pill.partial {
+        background: #fff7e8;
+        color: #b5790a;
+        border: 1.5px solid #f3e0b6;
+      }
+      .pay-pill.paid {
+        background: #f0faf4;
+        color: #2e7d54;
+        border: 1.5px solid #c8ecd8;
+      }
+      .pay-quick {
+        display: flex;
+        gap: 8px;
+        margin: 10px 0 4px;
+      }
+      .pay-quick .btn {
+        flex: 1;
+      }
+
       /* ===== MASTER ===== */
       .master-co {
         position: relative;
@@ -1297,6 +1403,27 @@
       </div>
     </section>
 
+    <!-- ===== 入金管理 ===== -->
+    <section class="screen" id="scr-payment">
+      <div class="scr-title">入金管理</div>
+      <div class="scr-sub">
+        請求(会社×月)ごとに 入金済 / 一部入金 / 未入金 と残額を管理します。タップで入金額を記録。
+      </div>
+      <div class="filterbar">
+        <select class="fselect" id="payMonth" onchange="renderPayments()">
+          <option value="">全期間</option>
+        </select>
+        <select class="fselect" id="payStatus" onchange="renderPayments()">
+          <option value="">全状態</option>
+          <option value="unpaid">未入金</option>
+          <option value="partial">一部入金</option>
+          <option value="paid">入金済</option>
+        </select>
+      </div>
+      <div id="paySummary" class="pay-summary"></div>
+      <div id="payBody"></div>
+    </section>
+
     <!-- ===== BOTTOM NAV ===== -->
     <nav class="bottom-nav">
       <button class="nav-item active" data-scr="input" onclick="showScreen('input')">
@@ -1307,6 +1434,9 @@
       </button>
       <button class="nav-item" data-scr="invoice" onclick="showScreen('invoice')">
         <span class="nav-ic">🧾</span><span class="nav-lb">請求書</span>
+      </button>
+      <button class="nav-item" data-scr="payment" onclick="showScreen('payment')">
+        <span class="nav-ic">💰</span><span class="nav-lb">入金</span>
       </button>
       <button class="nav-item" data-scr="master" onclick="showScreen('master')">
         <span class="nav-ic">🏢</span><span class="nav-lb">会社</span>
@@ -1349,6 +1479,7 @@
       var DB_KEY = "daiko_db_v1";
       var ISSUER_KEY = "daiko_issuer_v1";
       var MASTER_KEY = "daiko_master_v1";
+      var PAY_KEY = "daiko_payments_v1";
 
       // ===== テナント（マルチテナントの土台） =====
       // 本番ではログインアカウント(=代行業者)のIDが入る。練習台は単一アカウント固定。
@@ -1373,6 +1504,7 @@
    =================================================================== */
       var DB = []; // [{id,会社名,日付,行き先,金額,備考,距離,人数,名前}]
       var MASTER = {}; // { 会社名: {items:[],widths:{},lead,tableTitle,noteSummary,noteGroups} }
+      var PAYMENTS = {}; // { "account::month::会社名": {paid,paidDate,note,updatedAt} } 入金記録(請求単位)
       var entryRows = []; // 入力画面の一時行
 
       /* ===================================================================
@@ -1389,9 +1521,17 @@
         } catch (e) {
           MASTER = {};
         }
+        try {
+          PAYMENTS = JSON.parse(localStorage.getItem(PAY_KEY)) || {};
+        } catch (e) {
+          PAYMENTS = {};
+        }
         if (!Object.keys(MASTER).length) seedMaster();
         if (!DB.length) seedDB();
         migrateAccount();
+      }
+      function savePayments() {
+        localStorage.setItem(PAY_KEY, JSON.stringify(PAYMENTS));
       }
       // 既存データ（account_id 無し）に現アカウントを補完する移行処理
       function migrateAccount() {
@@ -1570,6 +1710,7 @@
           input: "明細入力",
           list: "明細一覧",
           invoice: "請求書 / 出力",
+          payment: "入金管理",
           master: "会社マスタ",
           issuer: "自社情報",
         };
@@ -1588,6 +1729,7 @@
           refreshInvoiceSelects();
           generateInvoices();
         }
+        if (name === "payment") renderPayments();
         window.scrollTo(0, 0);
       }
 
@@ -1678,6 +1820,202 @@
         var s = Math.min(1, out.clientWidth / 720);
         inner.style.transform = "scale(" + s + ")";
         out.style.height = inner.offsetHeight * s + "px";
+      }
+
+      /* ===================================================================
+   入金管理（請求＝会社×月 ごとに 入金額／残額／状態を記録）
+   請求書の単位(account_id, month, 会社名)＝invoiceNoFor と同じ粒度。
+   PAYMENTS にユーザーが記録した入金額を持ち、請求額は明細(DB)から都度計算。
+   =================================================================== */
+      function payKeyFor(month, co) {
+        return CURRENT_ACCOUNT + "::" + month + "::" + co;
+      }
+      function payRecord(month, co) {
+        return PAYMENTS[payKeyFor(month, co)] || { paid: 0, paidDate: "", note: "" };
+      }
+      function payStatusOf(total, paid) {
+        if (paid <= 0) return "unpaid";
+        if (paid >= total) return "paid";
+        return "partial";
+      }
+      var PAY_LABEL = { unpaid: "未入金", partial: "一部入金", paid: "入金済" };
+      function refreshPayMonthSelect() {
+        var sel = document.getElementById("payMonth");
+        if (!sel) return;
+        var keep = sel.value;
+        var present = {};
+        DB.forEach(function (r) {
+          if (r.account_id === CURRENT_ACCOUNT && r.日付) present[r.日付.slice(0, 7)] = true;
+        });
+        var months = Object.keys(present).sort().reverse();
+        sel.innerHTML =
+          '<option value="">全期間</option>' +
+          months
+            .map(function (m) {
+              var p = m.split("-");
+              return (
+                '<option value="' + m + '">' + Number(p[0]) + "年" + Number(p[1]) + "月</option>"
+              );
+            })
+            .join("");
+        if (months.indexOf(keep) >= 0 || keep === "") sel.value = keep;
+      }
+      function renderPayments() {
+        refreshPayMonthSelect();
+        var month = document.getElementById("payMonth").value;
+        var statusF = document.getElementById("payStatus").value;
+        var invs = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, month || null);
+        // 状態を付与しつつ集計
+        var totalSum = 0,
+          paidSum = 0;
+        var rows = invs.map(function (iv) {
+          var rec = payRecord(iv.month, iv.company);
+          var paid = Number(rec.paid) || 0;
+          var st = payStatusOf(iv.total, paid);
+          totalSum += iv.total;
+          paidSum += paid;
+          return { iv: iv, paid: paid, st: st, rem: iv.total - paid };
+        });
+        var remSum = totalSum - paidSum;
+        // サマリ（フィルタ結果の合計＝簡易な月次集計も兼ねる）
+        document.getElementById("paySummary").innerHTML =
+          '<div class="pay-sum-cell"><div class="pay-sum-lb">請求</div><div class="pay-sum-val">' +
+          yen(totalSum) +
+          '</div></div><div class="pay-sum-cell"><div class="pay-sum-lb">入金</div><div class="pay-sum-val">' +
+          yen(paidSum) +
+          '</div></div><div class="pay-sum-cell rem"><div class="pay-sum-lb">残額</div><div class="pay-sum-val">' +
+          yen(remSum > 0 ? remSum : 0) +
+          "</div></div>";
+        var box = document.getElementById("payBody");
+        var shown = rows.filter(function (x) {
+          return !statusF || x.st === statusF;
+        });
+        if (!shown.length) {
+          box.innerHTML = '<div class="li-empty">該当する請求がありません</div>';
+          return;
+        }
+        box.innerHTML = shown
+          .map(function (x) {
+            var p = x.iv.month.split("-");
+            var sub =
+              Number(p[0]) +
+              "年" +
+              Number(p[1]) +
+              "月・" +
+              x.iv.count +
+              "件" +
+              (x.paid > 0 && x.st !== "paid" ? "・入金 " + yen(x.paid) : "");
+            var remHtml = x.st === "paid" ? "" : '<div class="pay-rem">残 ' + yen(x.rem) + "</div>";
+            return (
+              '<div class="pay-item" onclick="openPayEdit(\'' +
+              esc(x.iv.month) +
+              "','" +
+              esc(x.iv.company).replace(/'/g, "\\'") +
+              "')\">" +
+              '<span class="pay-pill ' +
+              x.st +
+              '">' +
+              PAY_LABEL[x.st] +
+              "</span>" +
+              '<div class="pay-main"><div class="pay-co">' +
+              esc(x.iv.company) +
+              '</div><div class="pay-sub">' +
+              esc(sub) +
+              "</div></div>" +
+              '<div class="pay-right"><div class="pay-amt">' +
+              yen(x.iv.total) +
+              "</div>" +
+              remHtml +
+              "</div></div>"
+            );
+          })
+          .join("");
+      }
+      function openPayEdit(month, co) {
+        var iv = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, month).filter(function (x) {
+          return x.company === co;
+        })[0];
+        if (!iv) return;
+        var rec = payRecord(month, co);
+        var p = month.split("-");
+        document.getElementById("modalTitle").textContent = "入金を記録";
+        document.getElementById("modalBody").innerHTML =
+          '<div class="pay-co" style="font-size:15px;">' +
+          esc(co) +
+          '</div><div class="pay-sub" style="margin-bottom:12px;">' +
+          Number(p[0]) +
+          "年" +
+          Number(p[1]) +
+          "月・明細" +
+          iv.count +
+          "件　請求額 " +
+          yen(iv.total) +
+          "</div>" +
+          '<div class="frow"><div class="flabel">入金額（税込）</div>' +
+          '<input class="finput fnum" inputmode="numeric" ' +
+          NOFILL +
+          ' oninput="this.value=this.value.replace(/[^0-9]/g,\'\')" id="pay_amt" value="' +
+          (Number(rec.paid) || 0) +
+          '"></div>' +
+          '<div class="pay-quick"><button class="btn btn-ghost btn-sm" onclick="payFill(' +
+          iv.total +
+          ')">全額（' +
+          yen(iv.total) +
+          ')</button><button class="btn btn-ghost btn-sm" onclick="payFill(0)">未入金(0)</button></div>' +
+          '<div class="frow"><div class="flabel">入金日</div>' +
+          '<input class="finput" type="date" id="pay_date" value="' +
+          esc(rec.paidDate || "") +
+          '"></div>' +
+          '<div class="frow"><div class="flabel">メモ</div>' +
+          '<input class="finput" ' +
+          NOFILL +
+          ' id="pay_note" value="' +
+          esc(rec.note || "") +
+          '"></div>' +
+          '<div style="display:flex;gap:8px;margin-top:14px;">' +
+          '<button class="btn btn-primary btn-sm" style="flex:1;" onclick="savePay(\'' +
+          esc(month) +
+          "','" +
+          esc(co).replace(/'/g, "\\'") +
+          "'," +
+          iv.total +
+          ')">保存</button></div>';
+        openModal();
+      }
+      function payFill(v) {
+        var el = document.getElementById("pay_amt");
+        if (el) el.value = v;
+      }
+      function savePay(month, co, total) {
+        var amt =
+          Number(String(document.getElementById("pay_amt").value).replace(/[^0-9]/g, "")) || 0;
+        var date = document.getElementById("pay_date").value || "";
+        var note = document.getElementById("pay_note").value || "";
+        var key = payKeyFor(month, co);
+        if (amt <= 0 && !date && !note) {
+          delete PAYMENTS[key]; // 全部空＝未入金に戻す＝記録を消す
+        } else {
+          // 全額入金なのに入金日が空なら今日を補完
+          if (amt >= total && !date) {
+            var d = new Date();
+            date =
+              d.getFullYear() +
+              "-" +
+              ("0" + (d.getMonth() + 1)).slice(-2) +
+              "-" +
+              ("0" + d.getDate()).slice(-2);
+          }
+          PAYMENTS[key] = {
+            paid: amt,
+            paidDate: date,
+            note: note,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        savePayments();
+        closeModal();
+        renderPayments();
+        toast("入金を記録しました");
       }
 
       /* ===================================================================

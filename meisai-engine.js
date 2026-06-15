@@ -364,6 +364,32 @@
     return { produced: out.length, companies: out, html: html };
   }
 
+  // ===== 入金管理／月次集計の土台：請求書(=会社×月)の一覧 =====
+  // db を「会社×対象月」でまとめ、各請求の合計額と明細件数を返す純粋関数。
+  // 請求書の単位は (account_id, month, 会社名)＝invoiceNoFor と同じ粒度。
+  // month を渡せばその月だけ、null なら全期間（月またぎで会社×月ごとに分かれる）。
+  // 日付なしの行は請求対象外（除外）。新しい月→会社名順でソート。
+  function listInvoices(db, accountId, month) {
+    var groups = {};
+    db.forEach(function (r) {
+      if (accountId != null && r.account_id !== accountId) return;
+      if (!r.日付) return; // 日付なしは請求にできない
+      var ym = String(r.日付).slice(0, 7);
+      if (month && ym !== month) return;
+      var key = ym + " " + r.会社名;
+      if (!groups[key]) groups[key] = { company: r.会社名, month: ym, total: 0, count: 0 };
+      groups[key].total += Number(r.金額) || 0;
+      groups[key].count++;
+    });
+    return Object.keys(groups)
+      .map(function (k) {
+        return groups[k];
+      })
+      .sort(function (a, b) {
+        return b.month.localeCompare(a.month) || a.company.localeCompare(b.company);
+      });
+  }
+
   // ===== Excel受け渡し：明細DB＋会社マスタを1つの.xls(HTML)に書き出す =====
   // スマホ→Excel(=中央DB) の一方向ハンドオフ。account_id でテナント分離。
   var DB_COLS = [
@@ -441,6 +467,7 @@
     buildMonth: buildMonth,
     buildWorkbookData: buildWorkbookData,
     invoiceNoFor: invoiceNoFor,
+    listInvoices: listInvoices,
     utils: {
       yen: yen,
       comma: comma,
