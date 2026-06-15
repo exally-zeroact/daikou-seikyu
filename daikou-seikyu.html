@@ -199,6 +199,12 @@
         background: #fbe3e0;
       }
 
+      .li-nodate {
+        color: #c0392b;
+        font-weight: 700;
+        min-width: 64px;
+      }
+
       /* ===== LIST SCOPE (期間表示) ===== */
       .list-scope {
         display: flex;
@@ -1814,13 +1820,29 @@
           return;
         }
         var items = MASTER[co].items;
-        var added = 0;
-        entryRows.forEach(function (row) {
-          // 何か入力がある行のみ保存（金額か行き先のどちらか）
-          var hasContent = items.some(function (k) {
+        var needsDate = items.indexOf("日付") >= 0;
+        // 内容のある行だけ対象
+        var contentRows = entryRows.filter(function (row) {
+          return items.some(function (k) {
             return String(row[k] || "").trim() !== "";
           });
-          if (!hasContent) return;
+        });
+        if (!contentRows.length) {
+          toast("入力がありません");
+          return;
+        }
+        // 日付必須（空のまま保存すると月集計・請求書から抜けるためブロック）
+        if (
+          needsDate &&
+          contentRows.some(function (row) {
+            return !String(row["日付"] || "").trim();
+          })
+        ) {
+          toast("日付が空の明細があります。日付を入れてください");
+          return;
+        }
+        var added = 0;
+        contentRows.forEach(function (row) {
           var rec = { id: nextId(), account_id: CURRENT_ACCOUNT, 会社名: co };
           FIELD_DEFS.forEach(function (f) {
             var raw = row[f.key];
@@ -1832,10 +1854,6 @@
           DB.push(rec);
           added++;
         });
-        if (!added) {
-          toast("入力がありません");
-          return;
-        }
         saveDB();
         entryRows = [blankEntry()];
         renderEntry();
@@ -1878,13 +1896,14 @@
         box.innerHTML = rows
           .map(function (r) {
             var meta = r.会社名 + (r.備考 ? "・" + esc(r.備考) : "");
+            var dateCell = r.日付
+              ? '<div class="li-date">' + esc(mdShort(r.日付)) + "</div>"
+              : '<div class="li-date li-nodate">⚠️日付なし</div>';
             return (
               '<div class="list-item" onclick="openEdit(\'' +
               r.id +
               "')\">" +
-              '<div class="li-date">' +
-              esc(mdShort(r.日付)) +
-              "</div>" +
+              dateCell +
               '<div class="li-main"><div class="li-dest">' +
               esc(r.行き先 || "（行き先なし）") +
               '</div><div class="li-meta">' +
@@ -1959,6 +1978,14 @@
             : FIELD_DEFS.map(function (f) {
                 return f.key;
               });
+        // 日付必須チェック（編集でも空にはできない）
+        if (keys.indexOf("日付") >= 0) {
+          var dEl = document.getElementById("ed_日付");
+          if (dEl && !String(dEl.value || "").trim()) {
+            toast("日付を入れてください");
+            return;
+          }
+        }
         keys.forEach(function (k) {
           var el = document.getElementById("ed_" + k);
           if (!el) return;
