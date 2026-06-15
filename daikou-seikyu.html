@@ -856,11 +856,16 @@
       .dnd-grip:active {
         cursor: grabbing;
       }
+      /* 固定列(日付/金額)のプレーン名も、編集欄(.dnd-name-inp)と同じ寸法にして行の高さを統一 */
       .dnd-name {
         flex: 1;
+        min-width: 0;
         font-size: 13px;
         font-weight: 700;
         color: #1a4a2e;
+        padding: 5px 6px;
+        border: 1.5px solid transparent;
+        line-height: 1.4;
       }
       /* 編集名はExally(seikyusyo)流＝普段はプレーンなテキスト見え（透明枠）、タップ編集時だけ枠が出る */
       .dnd-name-inp {
@@ -875,6 +880,7 @@
         padding: 5px 6px;
         background: transparent;
         outline: none;
+        line-height: 1.4;
       }
       .dnd-name-inp:focus {
         border-color: #52b788;
