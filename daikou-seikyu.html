@@ -967,6 +967,97 @@
       </button>
     </section>
 
+    <!-- ===== 自社情報（請求書の発行者・振込先・判子） ===== -->
+    <section class="screen" id="scr-issuer">
+      <div class="scr-title">自社情報</div>
+      <div class="scr-sub">
+        請求書の発行者・振込先・判子。ここで一度設定すれば、毎月の請求書に自動で入ります（変更も即反映）。
+      </div>
+      <div class="card">
+        <div class="card-label">発行者</div>
+        <div class="frow">
+          <div class="flabel">屋号・会社名</div>
+          <input class="finput" id="iss_name1" oninput="setIssuer('name1', this.value)" />
+        </div>
+        <div class="frow">
+          <div class="flabel">事業名（屋号下の行）</div>
+          <input class="finput" id="iss_name2" oninput="setIssuer('name2', this.value)" />
+        </div>
+        <div class="frow">
+          <div class="flabel">郵便番号</div>
+          <input class="finput" id="iss_zip" oninput="setIssuer('zip', this.value)" />
+        </div>
+        <div class="frow">
+          <div class="flabel">住所</div>
+          <input class="finput" id="iss_addr" oninput="setIssuer('addr', this.value)" />
+        </div>
+        <div class="frow">
+          <div class="flabel">電話番号</div>
+          <input class="finput" id="iss_tel" oninput="setIssuer('tel', this.value)" />
+        </div>
+        <div class="frow">
+          <div class="flabel">登録番号（インボイス）</div>
+          <input class="finput" id="iss_regno" oninput="setIssuer('regno', this.value)" />
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">振込先</div>
+        <div class="frow">
+          <div class="flabel">銀行・支店・種別・口座番号</div>
+          <input class="finput" id="iss_bank" oninput="setIssuer('bank', this.value)" />
+        </div>
+        <div class="frow">
+          <div class="flabel">口座名義</div>
+          <input class="finput" id="iss_holder" oninput="setIssuer('holder', this.value)" />
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">電子判子（任意）</div>
+        <div style="display: flex; align-items: center; gap: 14px">
+          <div
+            id="hankoPreview"
+            style="
+              width: 72px;
+              height: 72px;
+              border: 1.5px dashed #c8ecd8;
+              border-radius: 10px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              color: #a9c4b6;
+              font-size: 11px;
+              text-align: center;
+              overflow: hidden;
+              flex-shrink: 0;
+            "
+          >
+            なし
+          </div>
+          <div style="flex: 1">
+            <button
+              class="btn btn-ghost btn-sm"
+              onclick="document.getElementById('hankoFile').click()"
+            >
+              📷 判子画像をアップロード
+            </button>
+            <button class="btn btn-danger btn-sm" style="margin-top: 6px" onclick="clearHanko()">
+              ✕ 判子を消す
+            </button>
+            <input
+              type="file"
+              id="hankoFile"
+              accept="image/*"
+              style="display: none"
+              onchange="loadHanko(event)"
+            />
+          </div>
+        </div>
+        <div class="scr-sub" style="margin-top: 8px">
+          一度入れたら、あなたのアカウントに保存され、毎回の請求書に自動で入ります。
+        </div>
+      </div>
+    </section>
+
     <!-- 請求書生成はExcel/本番側へ移管（定義駆動コアは meisai-engine.js に集約） -->
 
     <!-- ===== BOTTOM NAV ===== -->
@@ -979,6 +1070,9 @@
       </button>
       <button class="nav-item" data-scr="master" onclick="showScreen('master')">
         <span class="nav-ic">🏢</span><span class="nav-lb">会社</span>
+      </button>
+      <button class="nav-item" data-scr="issuer" onclick="showScreen('issuer')">
+        <span class="nav-ic">🏷️</span><span class="nav-lb">自社</span>
       </button>
     </nav>
 
@@ -1011,6 +1105,7 @@
       var DEFAULT_WIDTH = MeisaiEngine.DEFAULT_WIDTH;
       var ROWS_PER_PAGE = 22; // 1ページの明細スロット数（実物Excel基準）
       var DB_KEY = "daiko_db_v1";
+      var ISSUER_KEY = "daiko_issuer_v1";
       var MASTER_KEY = "daiko_master_v1";
 
       // ===== テナント（マルチテナントの土台） =====
@@ -1233,6 +1328,7 @@
           input: "明細入力",
           list: "明細一覧",
           master: "会社マスタ",
+          issuer: "自社情報",
         };
         document.querySelectorAll(".screen").forEach(function (s) {
           s.classList.remove("active");
@@ -1244,7 +1340,86 @@
         document.getElementById("appTitle").textContent = titles[name] || "代行請求";
         if (name === "list") renderList();
         if (name === "master") renderMaster();
+        if (name === "issuer") renderIssuer();
         window.scrollTo(0, 0);
+      }
+
+      /* ===================================================================
+   自社情報（発行者・振込先・判子）＝請求書フォーマット定義の残りピース
+   アカウント単位で保存。エンジンの issuer 形へ変換して請求書に渡す。
+   =================================================================== */
+      var ISSUER_SETTINGS = {};
+      function defaultIssuer() {
+        return {
+          name1: "合同会社ZEROact",
+          name2: "ZERO代行",
+          zip: "〒794-0018",
+          addr: "今治市本町7-3-40　00コーポ1号",
+          tel: "TEL090-5716-1946",
+          regno: "登録番号：T3500003003293",
+          bank: "伊予銀行　今治支店　普通　4160657",
+          holder: "ド）ゼロアクト",
+          hanko: "",
+        };
+      }
+      function loadIssuer() {
+        try {
+          ISSUER_SETTINGS = JSON.parse(localStorage.getItem(ISSUER_KEY)) || {};
+        } catch (e) {
+          ISSUER_SETTINGS = {};
+        }
+        if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
+      }
+      function saveIssuer() {
+        localStorage.setItem(ISSUER_KEY, JSON.stringify(ISSUER_SETTINGS));
+      }
+      function currentIssuer() {
+        return ISSUER_SETTINGS[CURRENT_ACCOUNT] || defaultIssuer();
+      }
+      // エンジンが受け取る形（lines/bank/hanko）へ変換
+      function issuerForEngine() {
+        var s = currentIssuer();
+        return {
+          lines: [s.name1, s.name2, s.zip, s.addr, s.tel, s.regno].filter(Boolean),
+          bank: ["お振込先", s.bank, s.holder].filter(Boolean),
+          hanko: s.hanko || null,
+        };
+      }
+      function setIssuer(field, value) {
+        if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
+        ISSUER_SETTINGS[CURRENT_ACCOUNT][field] = value;
+        saveIssuer();
+      }
+      function renderIssuer() {
+        var s = currentIssuer();
+        ["name1", "name2", "zip", "addr", "tel", "regno", "bank", "holder"].forEach(function (k) {
+          var el = document.getElementById("iss_" + k);
+          if (el) el.value = s[k] || "";
+        });
+        var prev = document.getElementById("hankoPreview");
+        if (s.hanko) {
+          prev.innerHTML =
+            '<img src="' + s.hanko + '" style="width:100%;height:100%;object-fit:contain;">';
+        } else {
+          prev.textContent = "なし";
+        }
+      }
+      function loadHanko(ev) {
+        var file = ev.target.files && ev.target.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          setIssuer("hanko", e.target.result);
+          renderIssuer();
+          toast("判子を保存しました");
+        };
+        reader.readAsDataURL(file);
+        ev.target.value = "";
+      }
+      function clearHanko() {
+        setIssuer("hanko", "");
+        renderIssuer();
+        toast("判子を消しました");
       }
 
       /* ===================================================================
@@ -2030,6 +2205,7 @@
 
       function boot() {
         loadAll();
+        loadIssuer();
         refreshCompanySelects();
         showScreen("input");
       }
