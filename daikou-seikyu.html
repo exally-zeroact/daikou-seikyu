@@ -2050,53 +2050,56 @@
 
       <!-- Excel自動連携（個人URLをPCのExcelに1回貼るだけ→以後は自動更新） -->
       <div class="exl-card">
-        <div class="exl-title">📊 Excelに自動連携（PCのExcel）</div>
+        <div class="exl-title">📊 Excelに連携</div>
         <div class="exl-sub">
-          下のURLをPCのExcelに<b>1回だけ</b>貼れば、<b>あとはExcelを開くだけで勝手に最新</b>。クラウドから自動で取ってくるので<b>ファイルは増えません</b>。鍵はURLに入ってるので<b>あなたは何もしなくてOK</b>。
+          ボタン1個で、<b>明細・入金・集計・会社の4シートが入ったExcel</b>が落ちます。鍵は中に入ってるので<b>あなたは何もしなくてOK</b>。<b>iPhoneでもPCでも開けます</b>。PCのExcelなら<b>「すべて更新」でクラウドから最新</b>を取れます（ファイルは増えません）。
         </div>
-        <div class="exl-row">
-          <span class="exl-tag">明細</span>
-          <input class="exl-url" id="exlMeisai" readonly value="ログインで表示…" />
-          <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlMeisai')">
-            コピー
-          </button>
-        </div>
-        <div class="exl-row">
-          <span class="exl-tag">入金</span>
-          <input class="exl-url" id="exlPay" readonly value="ログインで表示…" />
-          <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlPay')">コピー</button>
-        </div>
-        <div class="exl-row">
-          <span class="exl-tag">集計</span>
-          <input class="exl-url" id="exlSummary" readonly value="ログインで表示…" />
-          <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlSummary')">
-            コピー
-          </button>
-        </div>
-        <div class="exl-row">
-          <span class="exl-tag">会社</span>
-          <input class="exl-url" id="exlCompanies" readonly value="ログインで表示…" />
-          <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlCompanies')">
-            コピー
-          </button>
-        </div>
-        <button
-          class="btn btn-ghost btn-sm"
-          style="margin-top: 6px; width: auto"
-          onclick="toggleExlHelp(this)"
-        >
-          ▼ 貼り方（図つき・初回だけ）
-        </button>
-        <div class="exl-dlnote" style="margin-top: 8px">
-          ※PC（Windows）のExcel用です。<b>iPhone / iPadのExcelは自動更新できない仕様</b
-          >なので、その時は下の「今すぐ1回だけ」を使ってください。URLは<b>あなたの鍵入り＝人に教えない</b>。
+        <button class="exl-dl" onclick="downloadExcelWorkbook(this)">📥 Excelをダウンロード</button>
+        <div class="exl-dlnote">
+          開く → 4シート入り。<br />
+          <b>▶ PCのExcel</b
+          >：黄色い帯「コンテンツの有効化」→「データ」→「<b>すべて更新</b>」で最新になります（「開くだけ更新」も設定できます）。<br />
+          <b>▶ iPhone / iPad</b
+          >：開けます。ただし<b>自動更新はMicrosoftの仕様で不可</b>＝最新が要る時は、また押してください。
         </div>
         <details class="exl-adv">
-          <summary>📥 今すぐ1回だけExcelが欲しい（iPhoneでもOK・自動更新なし）</summary>
+          <summary>うまくいかない時 / URLを手で貼る（上級者向け・PCのExcel）</summary>
           <div class="exl-advbody">
-            その時点のコピーを4シート（明細／入金／集計／会社）で保存します。<b>勝手には更新されません</b>（最新にしたい時は、また押す）。
-            <button class="exl-dl" style="margin-top: 8px" onclick="downloadExcelWorkbook(this)">
-              📥 Excelをダウンロード
+            PCのExcelで、下のURLを「データ」→「Webから」に貼る方法もあります（シートごと・鍵入り＝<b>人に教えない</b>）。
+            <div class="exl-row">
+              <span class="exl-tag">明細</span>
+              <input class="exl-url" id="exlMeisai" readonly value="ログインで表示…" />
+              <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlMeisai')">
+                コピー
+              </button>
+            </div>
+            <div class="exl-row">
+              <span class="exl-tag">入金</span>
+              <input class="exl-url" id="exlPay" readonly value="ログインで表示…" />
+              <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlPay')">
+                コピー
+              </button>
+            </div>
+            <div class="exl-row">
+              <span class="exl-tag">集計</span>
+              <input class="exl-url" id="exlSummary" readonly value="ログインで表示…" />
+              <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlSummary')">
+                コピー
+              </button>
+            </div>
+            <div class="exl-row">
+              <span class="exl-tag">会社</span>
+              <input class="exl-url" id="exlCompanies" readonly value="ログインで表示…" />
+              <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlCompanies')">
+                コピー
+              </button>
+            </div>
+            <button
+              class="btn btn-ghost btn-sm"
+              style="margin-top: 6px; width: auto"
+              onclick="toggleExlHelp(this)"
+            >
+              ▼ 貼り方（図つき・初回だけ）
             </button>
           </div>
         </details>
@@ -2701,25 +2704,339 @@
           });
         return aoa;
       }
-      // SheetJSは既定でCalibri12を埋め込む→日本語Excelの初期フォント(游ゴシック11)に差し替える。
-      // styles.xmlのfonts定義を書き換えるだけ（全セルがfontId=0を参照するので全体に効く）。
-      async function _exlFontFix(buf) {
+      /* ===================================================================
+   Excel自動更新ファイル ─ SheetJSの「開ける実データxlsx」を土台に、その上に
+   Power Query層(接続+DataMashup+テーブル)を載せる。
+   → ①列数=実データ完全一致で破損回避 ②iPhoneは実データがそのまま見える
+      ③PCのExcelは「すべて更新」でクラウドから最新を取得。
+   PQ注入に失敗しても、フォント補正だけした静的Excel(=今まで通り開ける)で落ちる。
+   nodeで構造検証済み(content-type全網羅/rels全解決/列数一致/DataMashupバイト一致)。
+   =================================================================== */
+      function _pqCol(n) {
+        var s = "";
+        n++;
+        while (n > 0) {
+          var r = (n - 1) % 26;
+          s = String.fromCharCode(65 + r) + s;
+          n = Math.floor((n - 1) / 26);
+        }
+        return s;
+      }
+      function _pqU32(n) {
+        var b = new Uint8Array(4);
+        new DataView(b.buffer).setUint32(0, n >>> 0, true);
+        return b;
+      }
+      function _pqConcat(arrs) {
+        var len = arrs.reduce(function (s, a) {
+          return s + a.length;
+        }, 0);
+        var out = new Uint8Array(len),
+          off = 0;
+        arrs.forEach(function (a) {
+          out.set(a, off);
+          off += a.length;
+        });
+        return out;
+      }
+      function _pqB64(u8) {
+        var s = "",
+          CH = 0x8000;
+        for (var i = 0; i < u8.length; i += CH)
+          s += String.fromCharCode.apply(null, u8.subarray(i, i + CH));
+        return btoa(s);
+      }
+      function _pqEsc(v) {
+        return String(v)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+      function _pqSectionM(sheets, token) {
+        var m = "section Section1;\r\n";
+        sheets.forEach(function (sh) {
+          var url =
+            SUPABASE_URL + "/rest/v1/rpc/" + sh.fn + "?token=" + token + "&apikey=" + SUPABASE_ANON;
+          m +=
+            'shared #"' +
+            sh.name +
+            '" = let\r\n    Source = Json.Document(Web.Contents("' +
+            url +
+            '")),\r\n    ToTable = Table.FromRecords(Source)\r\nin\r\n    ToTable;\r\n';
+        });
+        return m;
+      }
+      async function _pqMashupPkg(sheets, token) {
+        var z = new JSZip();
+        z.file(
+          "[Content_Types].xml",
+          '<?xml version="1.0" encoding="utf-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="text/xml" /><Override PartName="/Formulas/Section1.m" ContentType="application/x-ms-m" /></Types>'
+        );
+        z.file(
+          "Config/Package.xml",
+          '<?xml version="1.0" encoding="utf-8"?><Package xmlns="http://schemas.microsoft.com/DataMashup"><Version>2.0.0</Version></Package>'
+        );
+        z.file("Formulas/Section1.m", _pqSectionM(sheets, token));
+        return z.generateAsync({ type: "uint8array", compression: "DEFLATE" });
+      }
+      function _pqMetaXml(sheets) {
+        var items =
+          "<Item><ItemLocation><ItemType>AllFormulas</ItemType><ItemPath /></ItemLocation><StableEntries /></Item>";
+        sheets.forEach(function (sh) {
+          items +=
+            "<Item><ItemLocation><ItemType>Formula</ItemType><ItemPath>Section1/" +
+            sh.name +
+            "</ItemPath></ItemLocation><StableEntries>" +
+            '<Entry Type="IsPrivate" Value="l0" />' +
+            '<Entry Type="FillEnabled" Value="l1" />' +
+            '<Entry Type="FillObjectType" Value="sTable" />' +
+            '<Entry Type="FillToDataModelEnabled" Value="l0" />' +
+            '<Entry Type="ResultType" Value="sTable" />' +
+            '<Entry Type="FillTarget" Value="s' +
+            sh.name +
+            '" /></StableEntries></Item>';
+        });
+        return (
+          '<?xml version="1.0" encoding="utf-8"?><LocalPackageMetadataFile xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><Items>' +
+          items +
+          "</Items></LocalPackageMetadataFile>"
+        );
+      }
+      async function _pqDataMashupB64(sheets, token) {
+        var pkg = await _pqMashupPkg(sheets, token);
+        var perm = new TextEncoder().encode(
+          '<?xml version="1.0" encoding="utf-8"?><PermissionList xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><CanEvaluateFuturePackages>false</CanEvaluateFuturePackages><FirewallEnabled>true</FirewallEnabled><WorkbookGroupType xsi:nil="true" /></PermissionList>'
+        );
+        var meta = new TextEncoder().encode(_pqMetaXml(sheets));
+        var blob = _pqConcat([
+          _pqU32(0),
+          _pqU32(pkg.length),
+          pkg,
+          _pqU32(perm.length),
+          perm,
+          _pqU32(meta.length),
+          meta,
+          _pqU32(0),
+        ]);
+        return _pqB64(blob);
+      }
+      // SheetJSのxlsx(buf)にフォント補正＋PQ層注入。失敗時はフォント補正だけで返す。
+      async function _exlEnhance(buf, sheets, token) {
         var TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
         if (typeof JSZip === "undefined") return new Blob([buf], { type: TYPE });
-        try {
-          var z = await JSZip.loadAsync(buf);
+        async function fontFix(z) {
           var f = z.file("xl/styles.xml");
           if (f) {
             var s = await f.async("string");
-            var font =
-              '<fonts count="1"><font><sz val="11"/><color theme="1"/><name val="游ゴシック"/><family val="2"/></font></fonts>';
-            s = s.replace(/<fonts count="\d+">[\s\S]*?<\/fonts>/, font);
+            s = s.replace(
+              /<fonts count="\d+">[\s\S]*?<\/fonts>/,
+              '<fonts count="1"><font><sz val="11"/><color theme="1"/><name val="游ゴシック"/><family val="2"/></font></fonts>'
+            );
             z.file("xl/styles.xml", s);
+          }
+        }
+        try {
+          var z = await JSZip.loadAsync(buf);
+          await fontFix(z);
+          if (token) {
+            try {
+              await _pqInject(z, sheets, token);
+            } catch (e) {
+              // PQ注入で壊れたら、クリーンに作り直してフォント補正だけ＝静的Excelで落とす
+              z = await JSZip.loadAsync(buf);
+              await fontFix(z);
+            }
           }
           return z.generateAsync({ type: "blob", mimeType: TYPE, compression: "DEFLATE" });
         } catch (e) {
           return new Blob([buf], { type: TYPE });
         }
+      }
+      // zに接続・DataMashup・テーブルを注入（実データ範囲に厳密一致）
+      async function _pqInject(z, sheets, token) {
+        var b64 = await _pqDataMashupB64(sheets, token);
+        z.file(
+          "customXml/item1.xml",
+          '<DataMashup xmlns="http://schemas.microsoft.com/DataMashup">' + b64 + "</DataMashup>"
+        );
+        z.file(
+          "customXml/itemProps1.xml",
+          '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ds:datastoreItem ds:itemID="{F4D2C9A1-1111-4A3E-9B88-1234567890AB}" xmlns:ds="http://schemas.openxmlformats.org/officeDocument/2006/customXml"><ds:schemaRefs><ds:schemaRef ds:uri="http://schemas.microsoft.com/DataMashup"/></ds:schemaRefs></ds:datastoreItem>'
+        );
+        z.file(
+          "customXml/_rels/item1.xml.rels",
+          '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXmlProps" Target="itemProps1.xml"/></Relationships>'
+        );
+        var conns =
+          '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><connections xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
+        sheets.forEach(function (sh, i) {
+          conns +=
+            '<connection id="' +
+            (i + 1) +
+            '" keepAlive="1" name="クエリ - ' +
+            sh.name +
+            '" description="ブック内の クエリ \'' +
+            sh.name +
+            '\' への接続です。" type="5" refreshedVersion="6" minRefreshableVersion="3" refreshOnLoad="1" background="1" saveData="1"><dbPr connection="Provider=Microsoft.Mashup.OleDb.1;Data Source=$Workbook$;Location=' +
+            sh.name +
+            ';Extended Properties=&quot;&quot;" command="SELECT * FROM [' +
+            sh.name +
+            ']"/></connection>';
+        });
+        conns += "</connections>";
+        z.file("xl/connections.xml", conns);
+
+        // workbook.xml と rels から シート名→ファイル を特定
+        var wbXml = await z.file("xl/workbook.xml").async("string");
+        var wbRels = await z.file("xl/_rels/workbook.xml.rels").async("string");
+        var sheetRid = {},
+          ridTarget = {},
+          mm;
+        var sre = /<sheet[^>]*name="([^"]+)"[^>]*r:id="([^"]+)"[^>]*\/>/g;
+        while ((mm = sre.exec(wbXml))) sheetRid[mm[1]] = mm[2];
+        var rre = /<Relationship[^>]*Id="([^"]+)"[^>]*Target="([^"]+)"[^>]*\/>/g;
+        while ((mm = rre.exec(wbRels))) ridTarget[mm[1]] = mm[2];
+
+        var ctExtra = "";
+        for (var i = 0; i < sheets.length; i++) {
+          var sh = sheets[i],
+            n = i + 1;
+          var cols = sh.aoa[0].length,
+            rows = sh.aoa.length;
+          var ref = "A1:" + _pqCol(cols - 1) + rows;
+          var tcols = "",
+            qfields = "";
+          sh.aoa[0].forEach(function (h, ci) {
+            var nm = _pqEsc(h);
+            tcols +=
+              '<tableColumn id="' +
+              (ci + 1) +
+              '" uniqueName="' +
+              (ci + 1) +
+              '" name="' +
+              nm +
+              '" queryTableFieldId="' +
+              (ci + 1) +
+              '"/>';
+            qfields +=
+              '<queryTableField id="' +
+              (ci + 1) +
+              '" name="' +
+              nm +
+              '" tableColumnId="' +
+              (ci + 1) +
+              '"/>';
+          });
+          z.file(
+            "xl/tables/table" + n + ".xml",
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="' +
+              n +
+              '" name="Tbl_' +
+              sh.fn +
+              '" displayName="Tbl_' +
+              sh.fn +
+              '" ref="' +
+              ref +
+              '" tableType="queryTable" totalsRowShown="0"><autoFilter ref="' +
+              ref +
+              '"/><tableColumns count="' +
+              cols +
+              '">' +
+              tcols +
+              '</tableColumns><tableStyleInfo name="TableStyleMedium2" showFirstColumn="0" showLastColumn="0" showRowStripes="1" showColumnStripes="0"/></table>'
+          );
+          z.file(
+            "xl/tables/_rels/table" + n + ".xml.rels",
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdQ" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/queryTable" Target="../queryTables/queryTable' +
+              n +
+              '.xml"/></Relationships>'
+          );
+          z.file(
+            "xl/queryTables/queryTable" + n + ".xml",
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><queryTable xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" name="クエリ - ' +
+              sh.name +
+              '" connectionId="' +
+              n +
+              '" autoFormatId="16" applyNumberFormats="0" applyBorderFormats="0" applyFontFormats="0" applyPatternFormats="0" applyAlignmentFormats="0" applyWidthHeightFormats="0"><queryTableRefresh nextId="' +
+              (cols + 1) +
+              '" preserveSortFilterLayout="0"><queryTableFields count="' +
+              cols +
+              '">' +
+              qfields +
+              "</queryTableFields></queryTableRefresh></queryTable>"
+          );
+          ctExtra +=
+            '<Override PartName="/xl/tables/table' +
+            n +
+            '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml"/><Override PartName="/xl/queryTables/queryTable' +
+            n +
+            '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.queryTable+xml"/>';
+
+          // シートXMLにtableParts差し込み＋rels
+          var sheetPath = "xl/" + ridTarget[sheetRid[sh.name]];
+          var sxml = await z.file(sheetPath).async("string");
+          if (!/<tableParts/.test(sxml)) {
+            sxml = sxml.replace(
+              "</worksheet>",
+              '<tableParts count="1"><tablePart r:id="rIdTbl' + n + '"/></tableParts></worksheet>'
+            );
+            z.file(sheetPath, sxml);
+          }
+          var relPath = sheetPath.replace(
+            /worksheets\/(sheet\d+)\.xml$/,
+            "worksheets/_rels/$1.xml.rels"
+          );
+          var relEntry =
+            '<Relationship Id="rIdTbl' +
+            n +
+            '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/table" Target="../tables/table' +
+            n +
+            '.xml"/>';
+          var ef = z.file(relPath);
+          if (ef) {
+            var rx = await ef.async("string");
+            if (rx.indexOf("rIdTbl" + n) < 0)
+              z.file(relPath, rx.replace("</Relationships>", relEntry + "</Relationships>"));
+          } else {
+            z.file(
+              relPath,
+              '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+                relEntry +
+                "</Relationships>"
+            );
+          }
+        }
+
+        // [Content_Types].xml に override 追加
+        var ct = await z.file("[Content_Types].xml").async("string");
+        if (!/spreadsheetml\.connections/.test(ct))
+          ctExtra =
+            '<Override PartName="/xl/connections.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.connections+xml"/>' +
+            ctExtra;
+        if (!/customXmlProperties/.test(ct))
+          ctExtra +=
+            '<Override PartName="/customXml/itemProps1.xml" ContentType="application/vnd.openxmlformats-officedocument.customXmlProperties+xml"/>';
+        z.file("[Content_Types].xml", ct.replace("</Types>", ctExtra + "</Types>"));
+
+        // workbook.xml.rels に connections、root .rels に customXml
+        if (!/connections\.xml/.test(wbRels))
+          z.file(
+            "xl/_rels/workbook.xml.rels",
+            wbRels.replace(
+              "</Relationships>",
+              '<Relationship Id="rIdConnx" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/connections" Target="connections.xml"/></Relationships>'
+            )
+          );
+        var rootRels = await z.file("_rels/.rels").async("string");
+        if (!/customXml\/item1\.xml/.test(rootRels))
+          z.file(
+            "_rels/.rels",
+            rootRels.replace(
+              "</Relationships>",
+              '<Relationship Id="rIdCustomXml1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml" Target="customXml/item1.xml"/></Relationships>'
+            )
+          );
       }
       async function downloadExcelWorkbook(btn) {
         if (typeof XLSX === "undefined") {
@@ -2734,10 +3051,10 @@
         try {
           var sumRows = _exlSummaryRows();
           var sheets = [
-            { name: "明細", aoa: _exlMeisaiAoa() },
-            { name: "入金", aoa: _exlPayAoa(sumRows) },
-            { name: "集計", aoa: _exlSummaryAoa(sumRows) },
-            { name: "会社", aoa: _exlCompaniesAoa() },
+            { name: "明細", fn: "export_meisai", aoa: _exlMeisaiAoa() },
+            { name: "入金", fn: "export_payments", aoa: _exlPayAoa(sumRows) },
+            { name: "集計", fn: "export_summary", aoa: _exlSummaryAoa(sumRows) },
+            { name: "会社", fn: "export_companies", aoa: _exlCompaniesAoa() },
           ];
           var wb = XLSX.utils.book_new();
           sheets.forEach(function (sh) {
@@ -2746,7 +3063,11 @@
             XLSX.utils.book_append_sheet(wb, ws, sh.name);
           });
           var buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-          var blob = await _exlFontFix(buf); // フォントをExcel初期(游ゴシック)に差し替え
+          var token = null;
+          try {
+            token = await ensureExportToken();
+          } catch (e) {}
+          var blob = await _exlEnhance(buf, sheets, token); // フォント補正＋自動更新(PQ)層
           var d = new Date();
           var ymd =
             d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2);
