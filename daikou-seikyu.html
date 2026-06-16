@@ -1838,11 +1838,27 @@
           <input class="exl-url" id="exlPay" readonly value="読み込み中…" />
           <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlPay')">コピー</button>
         </div>
-        <div class="exl-help">
-          <b>Excelでの貼り方</b>：データ → データの取得 → その他のデータソースから →
-          <b>Web から</b> → URLを貼って「OK」→「閉じて読み込む」。次からは
-          <b>データ → すべて更新</b> で最新に。<br />
-          ※このURLはあなた専用の鍵入り。<b>人に教えない</b>でください。
+        <button
+          class="btn btn-ghost btn-sm"
+          style="margin-top: 4px; width: auto"
+          onclick="toggleExlHelp(this)"
+        >
+          ▼ Excelへの貼り方（はじめの1回だけ）
+        </button>
+        <div class="exl-help" id="exlHelp" style="display: none">
+          <b>① はじめの1回（つなぐ）</b><br />
+          1. PCでExcelを開く → 上の「<b>データ</b>」タブ<br />
+          2.「<b>データの取得</b>」→「その他のデータソースから」→「<b>Web から</b>」<br />
+          3. 出てきた枠に、上の<b>「明細」のURL</b>を貼って「OK」<br />
+          4. プレビューが出たら「<b>読み込む</b>」→ 明細がシートに入ります<br />
+          （「入金」も同じ手順で、入金のURLを貼ればOK）<br /><br />
+          <b>② 次からは（自動で最新に）</b><br />
+          ・Excelの「データ」→「<b>すべて更新</b>」を押すだけで最新になります<br />
+          ・もっと自動にするなら：「データ」→「クエリと接続」→ 接続を右クリック →「プロパティ」→
+          「<b>ファイルを開くときにデータを更新する</b>」にチェック → 次から<b>開くだけで自動更新</b
+          ><br /><br />
+          ※このURLは<b>あなた専用の鍵入り</b>。人に教えない・ファイルを共有しないでください。<br />
+          ※Windowsの Excel 用です（Mac版は手順が少し違います・必要なら案内します）。
         </div>
       </div>
 
@@ -2216,6 +2232,12 @@
             toast("URLを長押しでコピーしてください");
           }
         }
+      }
+      function toggleExlHelp(btn) {
+        var h = document.getElementById("exlHelp");
+        var open = h.style.display !== "none";
+        h.style.display = open ? "none" : "block";
+        btn.textContent = (open ? "▼" : "▲") + " Excelへの貼り方（はじめの1回だけ）";
       }
       // ワンタップで この会社の項目順を標準（日付/行き先/金額/…）に戻す。
       function resetItemOrder(co) {
