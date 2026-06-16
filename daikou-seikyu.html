@@ -1821,7 +1821,7 @@
       </div>
       <div class="invoice-actions">
         <button class="btn btn-ghost btn-sm" onclick="exportListExcel()">
-          📤 表示中の明細をExcelに書き出す
+          📤 いま絞り込んでる明細だけExcelに（1回ぶん）
         </button>
       </div>
       <div class="card">
@@ -2050,59 +2050,54 @@
 
       <!-- Excel自動連携（個人URLをPCのExcelに1回貼るだけ→以後は自動更新） -->
       <div class="exl-card">
-        <div class="exl-title">📊 Excelに書き出し</div>
+        <div class="exl-title">📊 Excelに自動連携（PCのExcel）</div>
         <div class="exl-sub">
-          ボタン1個で、<b>明細・入金・集計・会社の4シートが入ったExcel</b>が作れます。<b>iPhoneでもPCでも</b>そのまま開けます。最新にしたい時は<b>もう一度押すだけ</b>。
+          下のURLをPCのExcelに<b>1回だけ</b>貼れば、<b>あとはExcelを開くだけで勝手に最新</b>。クラウドから自動で取ってくるので<b>ファイルは増えません</b>。鍵はURLに入ってるので<b>あなたは何もしなくてOK</b>。
         </div>
-        <button class="exl-dl" onclick="downloadExcelWorkbook(this)">
-          📥 最新のExcelをダウンロード
-        </button>
-        <div class="exl-dlnote">
-          押す → ダウンロード → 開く（4シート入り）。<br />
-          ※このExcelは<b>押した時点のコピー</b>です（勝手には変わりません）。データを足したら、<b>また押して新しいExcelを作って</b>ください。<br />
-          <b>“何もせず勝手に最新”にしたい場合</b
-          >は、下の「自動更新用のURL」（PCのExcelのみ）を使います。
+        <div class="exl-row">
+          <span class="exl-tag">明細</span>
+          <input class="exl-url" id="exlMeisai" readonly value="ログインで表示…" />
+          <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlMeisai')">
+            コピー
+          </button>
+        </div>
+        <div class="exl-row">
+          <span class="exl-tag">入金</span>
+          <input class="exl-url" id="exlPay" readonly value="ログインで表示…" />
+          <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlPay')">コピー</button>
+        </div>
+        <div class="exl-row">
+          <span class="exl-tag">集計</span>
+          <input class="exl-url" id="exlSummary" readonly value="ログインで表示…" />
+          <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlSummary')">
+            コピー
+          </button>
+        </div>
+        <div class="exl-row">
+          <span class="exl-tag">会社</span>
+          <input class="exl-url" id="exlCompanies" readonly value="ログインで表示…" />
+          <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlCompanies')">
+            コピー
+          </button>
         </div>
         <button
           class="btn btn-ghost btn-sm"
-          style="margin-top: 8px; width: auto"
+          style="margin-top: 6px; width: auto"
           onclick="toggleExlHelp(this)"
         >
-          ▼ PCで自動更新したい場合（URL方式・図つき手順）
+          ▼ 貼り方（図つき・初回だけ）
         </button>
+        <div class="exl-dlnote" style="margin-top: 8px">
+          ※PC（Windows）のExcel用です。<b>iPhone / iPadのExcelは自動更新できない仕様</b
+          >なので、その時は下の「今すぐ1回だけ」を使ってください。URLは<b>あなたの鍵入り＝人に教えない</b>。
+        </div>
         <details class="exl-adv">
-          <summary>自動更新用のURL（上級者向け・PCのExcelのみ）</summary>
+          <summary>📥 今すぐ1回だけExcelが欲しい（iPhoneでもOK・自動更新なし）</summary>
           <div class="exl-advbody">
-            PCのExcelなら、URLを貼ると<b>開くだけで自動更新</b>にできます（iPhoneのExcelは自動更新に非対応）。鍵は<b>1個（あなた専用）</b>。各ページ＝各シート。欲しいシートのURLを
-            Excel の「Web から」に貼ってもOKです。
-            <div class="exl-row">
-              <span class="exl-tag">明細</span>
-              <input class="exl-url" id="exlMeisai" readonly value="読み込み中…" />
-              <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlMeisai')">
-                コピー
-              </button>
-            </div>
-            <div class="exl-row">
-              <span class="exl-tag">入金</span>
-              <input class="exl-url" id="exlPay" readonly value="読み込み中…" />
-              <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlPay')">
-                コピー
-              </button>
-            </div>
-            <div class="exl-row">
-              <span class="exl-tag">集計</span>
-              <input class="exl-url" id="exlSummary" readonly value="読み込み中…" />
-              <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlSummary')">
-                コピー
-              </button>
-            </div>
-            <div class="exl-row">
-              <span class="exl-tag">会社</span>
-              <input class="exl-url" id="exlCompanies" readonly value="読み込み中…" />
-              <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlCompanies')">
-                コピー
-              </button>
-            </div>
+            その時点のコピーを4シート（明細／入金／集計／会社）で保存します。<b>勝手には更新されません</b>（最新にしたい時は、また押す）。
+            <button class="exl-dl" style="margin-top: 8px" onclick="downloadExcelWorkbook(this)">
+              📥 Excelをダウンロード
+            </button>
           </div>
         </details>
         <div class="exl-help" id="exlHelp" style="display: none">
@@ -2306,7 +2301,7 @@
         <div id="repBody"></div>
         <div class="invoice-actions" id="repActions" style="margin-top: 12px">
           <button class="btn btn-ghost btn-sm" onclick="exportReport()">
-            📊 この集計をExcel書き出し
+            📊 この月の集計だけExcelに（1回ぶん）
           </button>
         </div>
       </div>
@@ -2634,7 +2629,7 @@
         var h = document.getElementById("exlHelp");
         var open = h.style.display !== "none";
         h.style.display = open ? "none" : "block";
-        btn.textContent = (open ? "▼" : "▲") + " PCで自動更新したい場合（URL方式・図つき手順）";
+        btn.textContent = (open ? "▼" : "▲") + " 貼り方（図つき・初回だけ）";
       }
 
       /* ===================================================================
