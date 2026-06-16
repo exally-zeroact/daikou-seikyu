@@ -1789,11 +1789,11 @@
         migrateAccount();
         normalizeItemOrderOnce();
       }
-      // 既存データの項目順ドリフト（toggleの末尾push等で 金額/日付/行き先 等になっていた）を
-      // 一度だけ標準順（日付→行き先→金額→…）に直す。以後の手動ドラッグは保持（フラグで1回限り）。
+      // 項目順を一度だけ標準順（日付→行き先→金額→…）に直す。以後の手動ドラッグは保持（フラグで1回限り）。
+      // ★v2: 並べ替えテストで日付が真ん中に動いていたのを標準に戻すため、もう一度だけ実行する。
       function normalizeItemOrderOnce() {
         try {
-          if (localStorage.getItem("daiko_order_norm_v1")) return;
+          if (localStorage.getItem("daiko_order_norm_v2")) return;
         } catch (e) {
           return;
         }
@@ -1802,8 +1802,15 @@
         });
         saveMaster();
         try {
-          localStorage.setItem("daiko_order_norm_v1", "1");
+          localStorage.setItem("daiko_order_norm_v2", "1");
         } catch (e) {}
+      }
+      // ワンタップで この会社の項目順を標準（日付/行き先/金額/…）に戻す。
+      function resetItemOrder(co) {
+        MASTER[co].items = inputItemsOrder(MASTER[co].items);
+        saveMaster();
+        reopen(co);
+        toast("標準の順に戻しました");
       }
       function savePayments() {
         localStorage.setItem(PAY_KEY, JSON.stringify(PAYMENTS));
@@ -3284,7 +3291,10 @@
           '">' +
           dnd +
           "</div>" +
-          '<div class="scr-sub" style="margin:2px 0 0;">自由項目は✕で削除できます。列の幅は請求書に合わせて自動。</div>' +
+          '<div class="scr-sub" style="margin:2px 0 0;">この順番がそのまま請求書の列順になります。自由項目は✕で削除・列の幅は自動。</div>' +
+          '<button class="btn btn-ghost btn-sm" style="margin-top:8px;width:auto;" onclick="resetItemOrder(\'' +
+          esc(co) +
+          "')\">↩ 標準の順（日付/行き先/金額…）に戻す</button>" +
           '<div class="frow" style="margin-top:8px;"><div class="flabel">リード文（{月}は対象月に置換）</div>' +
           '<input class="finput" value="' +
           esc(m.lead || "") +
