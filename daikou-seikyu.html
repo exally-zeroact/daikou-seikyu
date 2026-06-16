@@ -1824,11 +1824,31 @@
       <div class="exl-card">
         <div class="exl-title">📊 Excelに自動連携</div>
         <div class="exl-sub">
-          このURLをPCのExcelに<b>1回貼るだけ</b>。あとはExcelの「すべて更新」で最新が入ります（あなたの明細データだけ）。
+          鍵は<b>1個（あなた専用）</b>。アプリの<b>各ページが、Excelの各シート</b>になります。欲しいシートのURLを貼るだけ（機能が増えたらシートも増えます・あなたのデータだけ）。
         </div>
         <div class="exl-row">
+          <span class="exl-tag">明細</span>
           <input class="exl-url" id="exlMeisai" readonly value="読み込み中…" />
           <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlMeisai')">
+            コピー
+          </button>
+        </div>
+        <div class="exl-row">
+          <span class="exl-tag">入金</span>
+          <input class="exl-url" id="exlPay" readonly value="読み込み中…" />
+          <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlPay')">コピー</button>
+        </div>
+        <div class="exl-row">
+          <span class="exl-tag">集計</span>
+          <input class="exl-url" id="exlSummary" readonly value="読み込み中…" />
+          <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlSummary')">
+            コピー
+          </button>
+        </div>
+        <div class="exl-row">
+          <span class="exl-tag">会社</span>
+          <input class="exl-url" id="exlCompanies" readonly value="読み込み中…" />
+          <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlCompanies')">
             コピー
           </button>
         </div>
@@ -1840,11 +1860,13 @@
           ▼ Excelへの貼り方（はじめの1回だけ）
         </button>
         <div class="exl-help" id="exlHelp" style="display: none">
-          <b>① はじめの1回（つなぐ）</b><br />
+          <b>① はじめの1回（シートごとに繋ぐ）</b><br />
           1. PCでExcelを開く → 上の「<b>データ</b>」タブ<br />
           2.「<b>データの取得</b>」→「その他のデータソースから」→「<b>Web から</b>」<br />
-          3. 出てきた枠に、上の<b>URL</b>を貼って「OK」<br />
-          4. プレビューが出たら「<b>読み込む</b>」→ 明細がシートに入ります<br /><br />
+          3. 出てきた枠に <b>「明細」のURL</b> を貼って「OK」<br />
+          4. プレビューが出たら「<b>読み込む</b>」→ <b>明細シート</b>ができます<br />
+          5.「入金」「集計」「会社」も同じ手順で貼れば
+          <b>それぞれのシート</b>ができます（鍵は同じ1個・URLの末尾だけ違う）<br /><br />
           <b>② 次からは（自動で最新に）</b><br />
           ・Excelの「データ」→「<b>すべて更新</b>」を押すだけで最新になります<br />
           ・もっと自動にするなら：「データ」→「クエリと接続」→ 接続を右クリック →「プロパティ」→
@@ -2187,14 +2209,25 @@
       }
       async function renderExcelLink() {
         var mEl = document.getElementById("exlMeisai");
+        var pEl = document.getElementById("exlPay");
+        var sEl = document.getElementById("exlSummary");
+        var cEl = document.getElementById("exlCompanies");
         if (!mEl) return;
         var t = await ensureExportToken();
         if (!t) {
           mEl.value = "（取得に失敗・通信を確認）";
+          if (pEl) pEl.value = "";
+          if (sEl) sEl.value = "";
+          if (cEl) cEl.value = "";
           return;
         }
-        mEl.value =
-          SUPABASE_URL + "/rest/v1/rpc/export_meisai?token=" + t + "&apikey=" + SUPABASE_ANON;
+        // 鍵(token)は1個。ページごとにエンドポイントを変える＝Excelの別シートになる
+        var base = SUPABASE_URL + "/rest/v1/rpc/";
+        var key = "?token=" + t + "&apikey=" + SUPABASE_ANON;
+        mEl.value = base + "export_meisai" + key;
+        if (pEl) pEl.value = base + "export_payments" + key;
+        if (sEl) sEl.value = base + "export_summary" + key;
+        if (cEl) cEl.value = base + "export_companies" + key;
       }
       function copyExl(id) {
         var el = document.getElementById(id);
