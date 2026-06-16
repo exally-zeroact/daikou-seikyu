@@ -238,6 +238,16 @@
       .exl-advbody .exl-row {
         margin-top: 8px;
       }
+      .iqy-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+      }
+      .iqy-row .btn {
+        flex: 1;
+        min-width: 64px;
+      }
       /* ===== Excel風 絵入りガイド ===== */
       .xl-step {
         display: flex;
@@ -2057,47 +2067,69 @@
         <button class="exl-dl" onclick="downloadExcelWorkbook(this)">📥 Excelをダウンロード</button>
         <div class="exl-dlnote">
           開く → 4シート入り。勝手には更新されません（最新が要る時は、また押す）。<br />
-          <b>“PCで勝手に最新”にしたい</b>なら ↓「自動更新（URLを貼る）」を使ってください。
+          <b>“PCで勝手に最新”にしたい</b>なら ↓「自動更新」を使ってください。
         </div>
-        <details class="exl-adv">
-          <summary>🔄 PCで自動更新したい（URLを貼る・確実に動く方式）</summary>
+        <details class="exl-adv" open>
+          <summary>🔄 PCで自動更新したい（ダブルクリックで設定）</summary>
           <div class="exl-advbody">
-            PCのExcelで、下のURLを「データ」→「Webから」に貼ると、<b>開くだけで勝手に最新</b>にできます（<b>Excelが自分で取り込む方式なので確実</b>）。シートごと・鍵入り＝<b>人に教えない</b>。
-            <div class="exl-row">
-              <span class="exl-tag">明細</span>
-              <input class="exl-url" id="exlMeisai" readonly value="ログインで表示…" />
-              <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlMeisai')">
-                コピー
+            <b>下のファイルをダウンロード → ダブルクリック</b
+            >するだけで、Excelに<b>自動更新の表</b>ができます（次から「データ」→「すべて更新」で最新／「開くだけ更新」も設定可）。PCのWindows
+            Excel用・鍵入り＝<b>人に教えない</b>。
+            <div class="iqy-row">
+              <button class="btn btn-ghost btn-sm" onclick="downloadIqy('meisai', '明細', this)">
+                📥 明細
+              </button>
+              <button class="btn btn-ghost btn-sm" onclick="downloadIqy('pay', '入金', this)">
+                📥 入金
+              </button>
+              <button class="btn btn-ghost btn-sm" onclick="downloadIqy('summary', '集計', this)">
+                📥 集計
+              </button>
+              <button class="btn btn-ghost btn-sm" onclick="downloadIqy('companies', '会社', this)">
+                📥 会社
               </button>
             </div>
-            <div class="exl-row">
-              <span class="exl-tag">入金</span>
-              <input class="exl-url" id="exlPay" readonly value="ログインで表示…" />
-              <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlPay')">
-                コピー
+            <details style="margin-top: 10px">
+              <summary style="font-size: 11px; color: #9bb0a4">
+                うまくいかない時：URLを手で貼る方法
+              </summary>
+              下のURLを「データ」→「Webから」に貼ってもOK（同じ鍵）。
+              <div class="exl-row">
+                <span class="exl-tag">明細</span>
+                <input class="exl-url" id="exlMeisai" readonly value="ログインで表示…" />
+                <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlMeisai')">
+                  コピー
+                </button>
+              </div>
+              <div class="exl-row">
+                <span class="exl-tag">入金</span>
+                <input class="exl-url" id="exlPay" readonly value="ログインで表示…" />
+                <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlPay')">
+                  コピー
+                </button>
+              </div>
+              <div class="exl-row">
+                <span class="exl-tag">集計</span>
+                <input class="exl-url" id="exlSummary" readonly value="ログインで表示…" />
+                <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlSummary')">
+                  コピー
+                </button>
+              </div>
+              <div class="exl-row">
+                <span class="exl-tag">会社</span>
+                <input class="exl-url" id="exlCompanies" readonly value="ログインで表示…" />
+                <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlCompanies')">
+                  コピー
+                </button>
+              </div>
+              <button
+                class="btn btn-ghost btn-sm"
+                style="margin-top: 6px; width: auto"
+                onclick="toggleExlHelp(this)"
+              >
+                ▼ 貼り方（図つき・初回だけ）
               </button>
-            </div>
-            <div class="exl-row">
-              <span class="exl-tag">集計</span>
-              <input class="exl-url" id="exlSummary" readonly value="ログインで表示…" />
-              <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlSummary')">
-                コピー
-              </button>
-            </div>
-            <div class="exl-row">
-              <span class="exl-tag">会社</span>
-              <input class="exl-url" id="exlCompanies" readonly value="ログインで表示…" />
-              <button class="btn btn-ghost btn-sm exl-copy" onclick="copyExl('exlCompanies')">
-                コピー
-              </button>
-            </div>
-            <button
-              class="btn btn-ghost btn-sm"
-              style="margin-top: 6px; width: auto"
-              onclick="toggleExlHelp(this)"
-            >
-              ▼ 貼り方（図つき・初回だけ）
-            </button>
+            </details>
           </div>
         </details>
         <div class="exl-help" id="exlHelp" style="display: none">
@@ -2622,6 +2654,47 @@
             done();
           } catch (e) {
             toast("URLを長押しでコピーしてください");
+          }
+        }
+      }
+      // 自動更新ファイル(.iqy)生成 ─ ダブルクリックでExcelに自動更新テーブルを作る。
+      // /api/excel(JSON→HTML表)を指す3行テキスト。SharePointと同型・壊れようがない。
+      async function downloadIqy(sheet, label, btn) {
+        var old = btn ? btn.textContent : "";
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = "作成中…";
+        }
+        try {
+          var token = await ensureExportToken();
+          if (!token) {
+            toast("鍵の取得に失敗（通信を確認）");
+            return;
+          }
+          var url = location.origin + "/api/excel?token=" + token + "&sheet=" + sheet;
+          var iqy =
+            "WEB\r\n1\r\n" +
+            url +
+            "\r\n\r\nSelection=AllTables\r\nFormatting=None\r\nPreFormattedTextToColumns=True\r\n" +
+            "ConsecutiveDelimitersAsOne=True\r\nSingleBlockTextImport=False\r\n" +
+            "DisableDateRecognition=False\r\nDisableRedirections=False\r\n";
+          var blob = new Blob([iqy], { type: "text/plain" });
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "ダイコメ_" + label + "_自動更新.iqy";
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(function () {
+            URL.revokeObjectURL(a.href);
+            a.remove();
+          }, 1500);
+          toast(label + "の自動更新ファイルを保存しました");
+        } catch (e) {
+          toast("作成に失敗：" + (e && e.message ? e.message : e));
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = old;
           }
         }
       }
