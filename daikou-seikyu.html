@@ -104,6 +104,44 @@
         margin-top: 14px;
         line-height: 1.6;
       }
+      /* 読み込み中／通信エラー */
+      .load-ov {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 280;
+        background: #eef7f1;
+        align-items: center;
+        justify-content: center;
+      }
+      .load-ov.on {
+        display: flex;
+      }
+      .load-card {
+        text-align: center;
+        padding: 24px;
+      }
+      .load-spin {
+        width: 36px;
+        height: 36px;
+        margin: 0 auto 14px;
+        border: 3px solid #d4eae0;
+        border-top-color: #3d9e72;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .load-msg {
+        font-size: 13px;
+        font-weight: 700;
+        color: #2e7d54;
+        margin-bottom: 12px;
+        line-height: 1.6;
+      }
 
       .app-header {
         position: sticky;
@@ -1438,6 +1476,17 @@
       </div>
     </div>
 
+    <!-- ===== 読み込み中／通信エラー ===== -->
+    <div class="load-ov" id="loadOverlay">
+      <div class="load-card">
+        <div class="load-spin" id="loadSpin"></div>
+        <div class="load-msg" id="loadMsg">読み込み中…</div>
+        <button class="btn btn-ghost" id="loadRetry" style="display: none" onclick="startApp()">
+          もう一度読み込む
+        </button>
+      </div>
+    </div>
+
     <!-- ===== HEADER ===== -->
     <div class="app-header">
       <span class="app-logo">Exally</span>
@@ -1980,9 +2029,11 @@
         MASTER = {};
         PAYMENTS = {};
         ISSUER_SETTINGS = {};
+        var ok = true;
         var c = await SB.from("companies").select("*").is("deleted_at", null);
         if (c.error) {
           cloudErr("会社読込", c.error);
+          ok = false;
         } else {
           c.data.forEach(function (r) {
             var cf = r.config || {};
@@ -2000,8 +2051,10 @@
           });
         }
         var m = await SB.from("meisai").select("*").is("deleted_at", null);
-        if (m.error) cloudErr("明細読込", m.error);
-        else DB = m.data.map(meisaiFromDb);
+        if (m.error) {
+          cloudErr("明細読込", m.error);
+          ok = false;
+        } else DB = m.data.map(meisaiFromDb);
         var p = await SB.from("payments").select("*").is("deleted_at", null);
         if (p.error) cloudErr("入金読込", p.error);
         else
@@ -2019,6 +2072,7 @@
           .maybeSingle();
         if (!i.error && i.data && i.data.config) ISSUER_SETTINGS[CURRENT_ACCOUNT] = i.data.config;
         if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
+        return ok;
       }
       // ワンタップで この会社の項目順を標準（日付/行き先/金額/…）に戻す。
       function resetItemOrder(co) {
@@ -4166,8 +4220,34 @@
         if (al) al.textContent = "ログイン中：" + (user.email || "");
         startApp();
       }
+      function showLoad(msg) {
+        document.getElementById("loadMsg").textContent = msg || "読み込み中…";
+        document.getElementById("loadSpin").style.display = "block";
+        document.getElementById("loadRetry").style.display = "none";
+        document.getElementById("loadOverlay").classList.add("on");
+      }
+      function showLoadError(msg) {
+        document.getElementById("loadMsg").textContent = msg;
+        document.getElementById("loadSpin").style.display = "none";
+        document.getElementById("loadRetry").style.display = "";
+        document.getElementById("loadOverlay").classList.add("on");
+      }
+      function hideLoad() {
+        document.getElementById("loadOverlay").classList.remove("on");
+      }
       async function startApp() {
-        await loadAllCloud(); // クラウドから自分のデータを一括読み込み
+        showLoad("クラウドから読み込み中…");
+        var ok;
+        try {
+          ok = await loadAllCloud();
+        } catch (e) {
+          ok = false;
+        }
+        if (!ok) {
+          showLoadError("読み込みに失敗しました。通信を確認してもう一度。");
+          return;
+        }
+        hideLoad();
         refreshCompanySelects();
         showScreen("input");
         updatePayBadge();
