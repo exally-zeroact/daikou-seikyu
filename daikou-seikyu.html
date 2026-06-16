@@ -1897,42 +1897,128 @@
       /* ===================================================================
    永続化
    =================================================================== */
-      function loadAll() {
-        try {
-          DB = JSON.parse(localStorage.getItem(DB_KEY)) || [];
-        } catch (e) {
-          DB = [];
-        }
-        try {
-          MASTER = JSON.parse(localStorage.getItem(MASTER_KEY)) || {};
-        } catch (e) {
-          MASTER = {};
-        }
-        try {
-          PAYMENTS = JSON.parse(localStorage.getItem(PAY_KEY)) || {};
-        } catch (e) {
-          PAYMENTS = {};
-        }
-        if (!Object.keys(MASTER).length) seedMaster();
-        if (!DB.length) seedDB();
-        migrateAccount();
-        normalizeItemOrderOnce();
+      /* ===================================================================
+   クラウド(Supabase)データ層 ─ localStorageを置き換え。
+   in-memory(DB/MASTER/PAYMENTS/ISSUER_SETTINGS)を作業状態にし、
+   読込=ログイン時に一括fetch／書込=各操作でinsert/update/softdelete。
+   日本語キー(会社名/日付…)↔英語列(company/date…)はここで写像する。
+   =================================================================== */
+      var STD_MEISAI_KEYS = [
+        "id",
+        "account_id",
+        "会社名",
+        "日付",
+        "行き先",
+        "金額",
+        "備考",
+        "距離",
+        "人数",
+        "名前",
+      ];
+      function _numOrNull(v) {
+        if (v === "" || v == null) return null;
+        return Number(String(v).replace(/[^0-9.\-]/g, "")) || 0;
       }
-      // 項目順を一度だけ標準順（日付→行き先→金額→…）に直す。以後の手動ドラッグは保持（フラグで1回限り）。
-      // ★v2: 並べ替えテストで日付が真ん中に動いていたのを標準に戻すため、もう一度だけ実行する。
-      function normalizeItemOrderOnce() {
-        try {
-          if (localStorage.getItem("daiko_order_norm_v2")) return;
-        } catch (e) {
-          return;
-        }
-        Object.keys(MASTER).forEach(function (co) {
-          MASTER[co].items = inputItemsOrder(MASTER[co].items);
+      function meisaiFromDb(r) {
+        var o = {
+          id: r.id,
+          account_id: r.user_id,
+          会社名: r.company,
+          日付: r.date || "",
+          行き先: r.destination || "",
+          金額: r.amount == null ? "" : r.amount,
+          備考: r.note || "",
+          距離: r.distance == null ? "" : r.distance,
+          人数: r.people == null ? "" : r.people,
+          名前: r.name || "",
+        };
+        if (r.extra && typeof r.extra === "object")
+          Object.keys(r.extra).forEach(function (k) {
+            o[k] = r.extra[k];
+          });
+        return o;
+      }
+      function meisaiToDb(row) {
+        var extra = {};
+        Object.keys(row).forEach(function (k) {
+          if (STD_MEISAI_KEYS.indexOf(k) < 0 && row[k] !== "" && row[k] != null) extra[k] = row[k];
         });
-        saveMaster();
-        try {
-          localStorage.setItem("daiko_order_norm_v2", "1");
-        } catch (e) {}
+        return {
+          company: row.会社名,
+          date: row.日付 ? row.日付 : null,
+          destination: row.行き先 || "",
+          amount: _numOrNull(row.金額) || 0,
+          note: row.備考 || "",
+          distance: _numOrNull(row.距離),
+          people: _numOrNull(row.人数),
+          name: row.名前 || "",
+          extra: extra,
+        };
+      }
+      function companyToDb(co) {
+        var m = MASTER[co];
+        return {
+          name: co,
+          items: m.items || [],
+          config: {
+            widths: m.widths || {},
+            lead: m.lead || "",
+            tableTitle: m.tableTitle || "",
+            noteSummary: !!m.noteSummary,
+            noteGroups: m.noteGroups || [],
+            labels: m.labels || {},
+          },
+        };
+      }
+      function cloudErr(where, e) {
+        console.warn("cloud", where, e);
+        toast("クラウド保存に失敗（" + where + "）通信を確認して再操作してください");
+      }
+      // ログイン後の一括読み込み（RLSで自分の行だけ返る）
+      async function loadAllCloud() {
+        DB = [];
+        MASTER = {};
+        PAYMENTS = {};
+        ISSUER_SETTINGS = {};
+        var c = await SB.from("companies").select("*").is("deleted_at", null);
+        if (c.error) {
+          cloudErr("会社読込", c.error);
+        } else {
+          c.data.forEach(function (r) {
+            var cf = r.config || {};
+            MASTER[r.name] = {
+              _dbid: r.id,
+              account_id: r.user_id,
+              items: r.items || [],
+              widths: cf.widths || {},
+              lead: cf.lead || "",
+              tableTitle: cf.tableTitle || "",
+              noteSummary: !!cf.noteSummary,
+              noteGroups: cf.noteGroups || [],
+              labels: cf.labels || {},
+            };
+          });
+        }
+        var m = await SB.from("meisai").select("*").is("deleted_at", null);
+        if (m.error) cloudErr("明細読込", m.error);
+        else DB = m.data.map(meisaiFromDb);
+        var p = await SB.from("payments").select("*").is("deleted_at", null);
+        if (p.error) cloudErr("入金読込", p.error);
+        else
+          p.data.forEach(function (r) {
+            PAYMENTS[CURRENT_ACCOUNT + "::" + r.month + "::" + r.company] = {
+              paid: r.paid,
+              paidDate: r.paid_date || "",
+              note: r.memo || "",
+              _dbid: r.id,
+            };
+          });
+        var i = await SB.from("issuer")
+          .select("config")
+          .eq("user_id", CURRENT_ACCOUNT)
+          .maybeSingle();
+        if (!i.error && i.data && i.data.config) ISSUER_SETTINGS[CURRENT_ACCOUNT] = i.data.config;
+        if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
       }
       // ワンタップで この会社の項目順を標準（日付/行き先/金額/…）に戻す。
       function resetItemOrder(co) {
@@ -1941,34 +2027,32 @@
         reopen(co);
         toast("標準の順に戻しました");
       }
-      function savePayments() {
-        localStorage.setItem(PAY_KEY, JSON.stringify(PAYMENTS));
-      }
-      // 既存データ（account_id 無し）に現アカウントを補完する移行処理
-      function migrateAccount() {
-        var changed = false;
-        DB.forEach(function (r) {
-          if (!r.account_id) {
-            r.account_id = CURRENT_ACCOUNT;
-            changed = true;
-          }
+      // 明細はsaveEntries/saveEdit/deleteRowが各操作で直接クラウドに書く＝ここは何もしない
+      function saveDB() {}
+      // 入金はsavePayが各操作で直接upsert＝ここは何もしない
+      function savePayments() {}
+      // 会社マスタ：現在のMASTER全社をクラウドに同期（社数は少ないので全upsert）
+      async function saveMaster() {
+        var names = Object.keys(MASTER).filter(function (n) {
+          return !MASTER[n].account_id || MASTER[n].account_id === CURRENT_ACCOUNT;
         });
-        Object.keys(MASTER).forEach(function (co) {
-          if (!MASTER[co].account_id) {
-            MASTER[co].account_id = CURRENT_ACCOUNT;
-            changed = true;
+        for (var idx = 0; idx < names.length; idx++) {
+          var co = names[idx];
+          var m = MASTER[co];
+          var payload = companyToDb(co);
+          try {
+            if (m._dbid) {
+              var u = await SB.from("companies").update(payload).eq("id", m._dbid);
+              if (u.error) cloudErr("会社更新", u.error);
+            } else {
+              var r = await SB.from("companies").insert(payload).select("id").single();
+              if (r.error) cloudErr("会社追加", r.error);
+              else m._dbid = r.data.id;
+            }
+          } catch (e) {
+            cloudErr("会社保存", e);
           }
-        });
-        if (changed) {
-          saveDB();
-          saveMaster();
         }
-      }
-      function saveDB() {
-        localStorage.setItem(DB_KEY, JSON.stringify(DB));
-      }
-      function saveMaster() {
-        localStorage.setItem(MASTER_KEY, JSON.stringify(MASTER));
       }
 
       function seedMaster() {
@@ -2430,16 +2514,21 @@
         var el = document.getElementById("pay_amt");
         if (el) el.value = v;
       }
-      function savePay(month, co, total) {
+      async function savePay(month, co, total) {
         var amt =
           Number(String(document.getElementById("pay_amt").value).replace(/[^0-9]/g, "")) || 0;
         var date = document.getElementById("pay_date").value || "";
         var note = document.getElementById("pay_note").value || "";
         var key = payKeyFor(month, co);
         if (amt <= 0 && !date && !note) {
-          delete PAYMENTS[key]; // 全部空＝未入金に戻す＝記録を消す
+          // 全部空＝未入金に戻す＝記録を消す（入金は実削除）
+          var del = await SB.from("payments").delete().eq("month", month).eq("company", co);
+          if (del.error) {
+            cloudErr("入金削除", del.error);
+            return;
+          }
+          delete PAYMENTS[key];
         } else {
-          // 全額入金なのに入金日が空なら今日を補完
           if (amt >= total && !date) {
             var d = new Date();
             date =
@@ -2449,14 +2538,27 @@
               "-" +
               ("0" + d.getDate()).slice(-2);
           }
-          PAYMENTS[key] = {
-            paid: amt,
-            paidDate: date,
-            note: note,
-            updatedAt: new Date().toISOString(),
-          };
+          var up = await SB.from("payments")
+            .upsert(
+              {
+                user_id: CURRENT_ACCOUNT,
+                month: month,
+                company: co,
+                paid: amt,
+                paid_date: date || null,
+                memo: note,
+                deleted_at: null,
+              },
+              { onConflict: "user_id,month,company" }
+            )
+            .select("id")
+            .single();
+          if (up.error) {
+            cloudErr("入金保存", up.error);
+            return;
+          }
+          PAYMENTS[key] = { paid: amt, paidDate: date, note: note, _dbid: up.data.id };
         }
-        savePayments();
         closeModal();
         renderPayments();
         updatePayBadge();
@@ -2513,8 +2615,14 @@
         });
         if (changed) saveIssuer();
       }
-      function saveIssuer() {
-        localStorage.setItem(ISSUER_KEY, JSON.stringify(ISSUER_SETTINGS));
+      async function saveIssuer() {
+        // 自社情報（1業者1行）をクラウドにupsert
+        var cfg = ISSUER_SETTINGS[CURRENT_ACCOUNT] || defaultIssuer();
+        var up = await SB.from("issuer").upsert(
+          { user_id: CURRENT_ACCOUNT, config: cfg, updated_at: new Date().toISOString() },
+          { onConflict: "user_id" }
+        );
+        if (up.error) cloudErr("自社情報保存", up.error);
       }
       function currentIssuer() {
         return ISSUER_SETTINGS[CURRENT_ACCOUNT] || defaultIssuer();
@@ -2901,7 +3009,7 @@
         if (!entryRows.length) entryRows = [blankEntry()];
         renderEntry();
       }
-      function saveEntries() {
+      async function saveEntries() {
         var co = document.getElementById("inputCompany").value;
         if (!co) {
           toast("会社を選んでください");
@@ -2929,9 +3037,8 @@
           toast("日付が空の明細があります。日付を入れてください");
           return;
         }
-        var added = 0;
-        contentRows.forEach(function (row) {
-          var rec = { id: nextId(), account_id: CURRENT_ACCOUNT, 会社名: co };
+        var recs = contentRows.map(function (row) {
+          var rec = { account_id: CURRENT_ACCOUNT, 会社名: co };
           FIELD_DEFS.forEach(function (f) {
             var raw = row[f.key];
             if (f.type === "number")
@@ -2939,7 +3046,6 @@
                 raw === "" || raw == null ? "" : Number(String(raw).replace(/[^0-9.\-]/g, "")) || 0;
             else rec[f.key] = raw || "";
           });
-          // 自由項目（固定列以外）はテキストとして保存
           items.forEach(function (k) {
             if (
               FIELD_DEFS.some(function (f) {
@@ -2949,17 +3055,25 @@
               return;
             rec[k] = row[k] || "";
           });
-          DB.push(rec);
-          added++;
+          return rec;
         });
-        saveDB();
+        // クラウドに一括insert→返ってきたuuidを各明細のidにして in-memory に追加
+        var ins = await SB.from("meisai").insert(recs.map(meisaiToDb)).select("id");
+        if (ins.error) {
+          cloudErr("明細追加", ins.error);
+          return;
+        }
+        ins.data.forEach(function (r, i) {
+          recs[i].id = r.id;
+          DB.push(recs[i]);
+        });
         try {
-          localStorage.setItem(LAST_CO_KEY, co); // 次回の入力で同じ会社を自動選択
+          localStorage.setItem(LAST_CO_KEY, co); // 次回の入力で同じ会社を自動選択（端末ごと）
         } catch (e) {}
-        updatePayBadge(); // 明細追加で請求が増える→未入金バッジ更新
+        updatePayBadge();
         entryRows = [blankEntry()];
         renderEntry();
-        toast(added + "件を保存しました");
+        toast(recs.length + "件を保存しました");
       }
 
       /* ===================================================================
@@ -3084,7 +3198,7 @@
           "')\">保存</button></div>";
         openModal();
       }
-      function saveEdit(id) {
+      async function saveEdit(id) {
         var r = DB.filter(function (x) {
           return x.id === id;
         })[0];
@@ -3115,16 +3229,27 @@
             r[k] = el.value === "" ? "" : Number(String(el.value).replace(/[^0-9.\-]/g, "")) || 0;
           else r[k] = el.value;
         });
-        saveDB();
+        var u = await SB.from("meisai").update(meisaiToDb(r)).eq("id", id);
+        if (u.error) {
+          cloudErr("明細更新", u.error);
+          return;
+        }
         closeModal();
         renderList();
         toast("保存しました");
       }
-      function deleteRow(id) {
+      async function deleteRow(id) {
+        // ソフト削除（deleted_atを立てる＝後で復活可能）
+        var d = await SB.from("meisai")
+          .update({ deleted_at: new Date().toISOString() })
+          .eq("id", id);
+        if (d.error) {
+          cloudErr("明細削除", d.error);
+          return;
+        }
         DB = DB.filter(function (x) {
           return x.id !== id;
         });
-        saveDB();
         closeModal();
         renderList();
         updatePayBadge();
@@ -3621,16 +3746,25 @@
         refreshCompanySelects();
         toast("会社を追加しました");
       }
-      function deleteCompany(co) {
+      async function deleteCompany(co) {
         if (!confirm(co + " をマスタから削除します。よろしいですか？（明細データは残ります）"))
           return;
+        var dbid = MASTER[co] && MASTER[co]._dbid;
+        if (dbid) {
+          var d = await SB.from("companies")
+            .update({ deleted_at: new Date().toISOString() })
+            .eq("id", dbid);
+          if (d.error) {
+            cloudErr("会社削除", d.error);
+            return;
+          }
+        }
         delete MASTER[co];
-        saveMaster();
         renderMaster();
         refreshCompanySelects();
         toast("削除しました");
       }
-      function renameCompany(oldName, newName) {
+      async function renameCompany(oldName, newName) {
         newName = (newName || "").trim();
         if (!newName || newName === oldName) {
           renderMaster();
@@ -3641,13 +3775,20 @@
           renderMaster();
           return;
         }
+        // クラウド側：会社名に紐づく明細・入金もまとめて改名（RLSで自分の分だけ）
+        var u1 = await SB.from("meisai").update({ company: newName }).eq("company", oldName);
+        var u2 = await SB.from("payments").update({ company: newName }).eq("company", oldName);
+        if ((u1 && u1.error) || (u2 && u2.error)) {
+          cloudErr("会社名変更", (u1 && u1.error) || (u2 && u2.error));
+          return;
+        }
         // MASTERの並び順を保ったままキーを差し替え
         var rebuilt = {};
         Object.keys(MASTER).forEach(function (k) {
           rebuilt[k === oldName ? newName : k] = MASTER[k];
         });
         MASTER = rebuilt;
-        // 既存明細の会社名も追従（紐付けを維持）
+        // 既存明細の会社名も追従（in-memory）
         var moved = 0;
         DB.forEach(function (r) {
           if (r.会社名 === oldName) {
@@ -3655,8 +3796,15 @@
             moved++;
           }
         });
-        saveMaster();
-        saveDB();
+        // 入金のin-memoryキーも改名
+        Object.keys(PAYMENTS).forEach(function (k) {
+          var parts = k.split("::");
+          if (parts.slice(2).join("::") === oldName) {
+            PAYMENTS[parts[0] + "::" + parts[1] + "::" + newName] = PAYMENTS[k];
+            delete PAYMENTS[k];
+          }
+        });
+        await saveMaster(); // 会社名(name)の更新をクラウドへ
         refreshCompanySelects();
         renderMaster();
         var b = document.querySelector('.master-co-body[data-co="' + CSS.escape(newName) + '"]');
@@ -4018,9 +4166,8 @@
         if (al) al.textContent = "ログイン中：" + (user.email || "");
         startApp();
       }
-      function startApp() {
-        loadAll();
-        loadIssuer();
+      async function startApp() {
+        await loadAllCloud(); // クラウドから自分のデータを一括読み込み
         refreshCompanySelects();
         showScreen("input");
         updatePayBadge();
