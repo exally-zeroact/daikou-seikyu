@@ -2063,8 +2063,10 @@
           📥 最新のExcelをダウンロード
         </button>
         <div class="exl-dlnote">
-          押す → ダウンロード →
-          開く（4シート入り）。データを足したら、また押せば最新のExcelになります。
+          押す → ダウンロード → 開く（4シート入り）。<br />
+          ※このExcelは<b>押した時点のコピー</b>です（勝手には変わりません）。データを足したら、<b>また押して新しいExcelを作って</b>ください。<br />
+          <b>“何もせず勝手に最新”にしたい場合</b
+          >は、下の「自動更新用のURL」（PCのExcelのみ）を使います。
         </div>
         <button
           class="btn btn-ghost btn-sm"
@@ -2377,6 +2379,8 @@
     <script src="hanko.js"></script>
     <!-- Supabase クライアント（クラウドDB＋ログイン） -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- JSZip：書き出したxlsxのフォントをExcel初期フォントに差し替えるのに使用 -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script>
       "use strict";
 
@@ -2707,6 +2711,26 @@
           });
         return aoa;
       }
+      // SheetJSは既定でCalibri12を埋め込む→日本語Excelの初期フォント(游ゴシック11)に差し替える。
+      // styles.xmlのfonts定義を書き換えるだけ（全セルがfontId=0を参照するので全体に効く）。
+      async function _exlFontFix(buf) {
+        var TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        if (typeof JSZip === "undefined") return new Blob([buf], { type: TYPE });
+        try {
+          var z = await JSZip.loadAsync(buf);
+          var f = z.file("xl/styles.xml");
+          if (f) {
+            var s = await f.async("string");
+            var font =
+              '<fonts count="1"><font><sz val="11"/><color theme="1"/><name val="游ゴシック"/><family val="2"/></font></fonts>';
+            s = s.replace(/<fonts count="\d+">[\s\S]*?<\/fonts>/, font);
+            z.file("xl/styles.xml", s);
+          }
+          return z.generateAsync({ type: "blob", mimeType: TYPE, compression: "DEFLATE" });
+        } catch (e) {
+          return new Blob([buf], { type: TYPE });
+        }
+      }
       async function downloadExcelWorkbook(btn) {
         if (typeof XLSX === "undefined") {
           toast("Excelライブラリの読み込み待ちです。少し待って再度押してください");
@@ -2731,10 +2755,20 @@
             ws["!cols"] = autoColWidths(sh.aoa);
             XLSX.utils.book_append_sheet(wb, ws, sh.name);
           });
+          var buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+          var blob = await _exlFontFix(buf); // フォントをExcel初期(游ゴシック)に差し替え
           var d = new Date();
           var ymd =
             d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2);
-          XLSX.writeFile(wb, "ダイコメ_Excel_" + ymd + ".xlsx");
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "ダイコメ_Excel_" + ymd + ".xlsx";
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(function () {
+            URL.revokeObjectURL(a.href);
+            a.remove();
+          }, 1500);
           toast("Excel（4シート）を書き出しました");
         } catch (e) {
           toast("作成に失敗しました：" + (e && e.message ? e.message : e));
