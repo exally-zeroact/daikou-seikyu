@@ -196,6 +196,197 @@
         margin-top: 6px;
         line-height: 1.7;
       }
+      /* ===== Excel風 絵入りガイド ===== */
+      .xl-step {
+        display: flex;
+        gap: 9px;
+        margin: 14px 0 0;
+      }
+      .xl-num {
+        flex: 0 0 auto;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #217346;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 1px;
+      }
+      .xl-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .xl-cap {
+        font-size: 12px;
+        color: #1a4a2e;
+        font-weight: 700;
+        line-height: 1.5;
+        margin-bottom: 6px;
+      }
+      .xl-cap span {
+        color: #8a9a90;
+        font-weight: 600;
+      }
+      /* 画面のスクショ風枠 */
+      .xl-shot {
+        border: 1px solid #cfd8d2;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(30, 80, 46, 0.08);
+        font-family: -apple-system, "Segoe UI", sans-serif;
+      }
+      /* Excelのリボン（上のタブ帯） */
+      .xl-ribbon {
+        display: flex;
+        gap: 2px;
+        background: #f3f5f4;
+        border-bottom: 1px solid #d8e0db;
+        padding: 5px 6px 0;
+      }
+      .xl-rtab {
+        font-size: 10.5px;
+        color: #555;
+        padding: 5px 8px;
+        border-radius: 5px 5px 0 0;
+      }
+      .xl-rtab.on {
+        background: #fff;
+        color: #217346;
+        font-weight: 800;
+        box-shadow: 0 -1px 0 #217346 inset;
+        position: relative;
+      }
+      .xl-rtab.on::after {
+        content: "👆";
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        top: 100%;
+        font-size: 12px;
+        margin-top: 1px;
+      }
+      .xl-rbody {
+        padding: 9px 9px 11px;
+      }
+      /* リボン内のボタン */
+      .xl-rbtn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #1a4a2e;
+        background: #eef6f1;
+        border: 1px solid #cfe3d7;
+        border-radius: 6px;
+        padding: 6px 9px;
+      }
+      /* ドロップダウンの選択肢リスト */
+      .xl-menu {
+        margin-top: 7px;
+        border: 1px solid #d8e0db;
+        border-radius: 6px;
+        overflow: hidden;
+        font-size: 11px;
+      }
+      .xl-mi {
+        padding: 7px 9px;
+        color: #444;
+        border-bottom: 1px solid #eef2f0;
+        background: #fff;
+      }
+      .xl-mi:last-child {
+        border-bottom: 0;
+      }
+      .xl-mi.on {
+        background: #e9f5ee;
+        color: #176b3f;
+        font-weight: 800;
+      }
+      /* 「Webから」ダイアログ窓 */
+      .xl-dialog {
+        background: #fff;
+      }
+      .xl-dtitle {
+        font-size: 11px;
+        font-weight: 700;
+        color: #333;
+        background: #f3f5f4;
+        border-bottom: 1px solid #e0e6e2;
+        padding: 7px 10px;
+      }
+      .xl-dbody {
+        padding: 11px 10px 12px;
+      }
+      .xl-flabel {
+        font-size: 10.5px;
+        color: #666;
+        margin-bottom: 4px;
+      }
+      .xl-field {
+        border: 1.5px solid #217346;
+        border-radius: 6px;
+        background: #fbfffd;
+        padding: 7px 8px;
+        font-size: 10px;
+        font-family: "DM Mono", monospace;
+        color: #1a4a2e;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .xl-paste {
+        font-size: 10px;
+        color: #217346;
+        font-weight: 700;
+        margin-top: 5px;
+      }
+      .xl-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+        margin-top: 11px;
+      }
+      .xl-okbtn {
+        font-size: 11px;
+        font-weight: 800;
+        color: #fff;
+        background: #217346;
+        border-radius: 6px;
+        padding: 6px 16px;
+      }
+      /* プレビュー表 */
+      .xl-prev {
+        font-size: 9.5px;
+        border-collapse: collapse;
+        width: 100%;
+      }
+      .xl-prev th {
+        background: #217346;
+        color: #fff;
+        font-weight: 700;
+        padding: 4px 6px;
+        text-align: left;
+        white-space: nowrap;
+      }
+      .xl-prev td {
+        border: 1px solid #e6ece9;
+        padding: 4px 6px;
+        color: #345;
+        white-space: nowrap;
+      }
+      .xl-down {
+        text-align: center;
+        color: #9bbdab;
+        font-size: 15px;
+        line-height: 1;
+        margin: 5px 0 0;
+      }
 
       .app-header {
         position: sticky;
@@ -1860,20 +2051,146 @@
           ▼ Excelへの貼り方（はじめの1回だけ）
         </button>
         <div class="exl-help" id="exlHelp" style="display: none">
-          <b>① はじめの1回（シートごとに繋ぐ）</b><br />
-          1. PCでExcelを開く → 上の「<b>データ</b>」タブ<br />
-          2.「<b>データの取得</b>」→「その他のデータソースから」→「<b>Web から</b>」<br />
-          3. 出てきた枠に <b>「明細」のURL</b> を貼って「OK」<br />
-          4. プレビューが出たら「<b>読み込む</b>」→ <b>明細シート</b>ができます<br />
-          5.「入金」「集計」「会社」も同じ手順で貼れば
-          <b>それぞれのシート</b>ができます（鍵は同じ1個・URLの末尾だけ違う）<br /><br />
-          <b>② 次からは（自動で最新に）</b><br />
-          ・Excelの「データ」→「<b>すべて更新</b>」を押すだけで最新になります<br />
-          ・もっと自動にするなら：「データ」→「クエリと接続」→ 接続を右クリック →「プロパティ」→
-          「<b>ファイルを開くときにデータを更新する</b>」にチェック → 次から<b>開くだけで自動更新</b
-          ><br /><br />
-          ※このURLは<b>あなた専用の鍵入り</b>。人に教えない・ファイルを共有しないでください。<br />
-          ※Windowsの Excel 用です（Mac版は手順が少し違います・必要なら案内します）。
+          <div style="font-weight: 800; color: #1a4a2e; font-size: 12.5px">
+            はじめの1回だけ（PCのExcelで）
+          </div>
+
+          <!-- STEP1 データタブ -->
+          <div class="xl-step">
+            <div class="xl-num">1</div>
+            <div class="xl-body">
+              <div class="xl-cap">上の「データ」タブを押す</div>
+              <div class="xl-shot">
+                <div class="xl-ribbon">
+                  <div class="xl-rtab">ファイル</div>
+                  <div class="xl-rtab">ホーム</div>
+                  <div class="xl-rtab">挿入</div>
+                  <div class="xl-rtab on">データ</div>
+                  <div class="xl-rtab">表示</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- STEP2 データの取得→Webから -->
+          <div class="xl-step">
+            <div class="xl-num">2</div>
+            <div class="xl-body">
+              <div class="xl-cap">
+                「データの取得」→ その他のデータソース →
+                <b>「Web から」</b>を選ぶ
+              </div>
+              <div class="xl-shot">
+                <div class="xl-rbody">
+                  <span class="xl-rbtn">📥 データの取得 ▾</span>
+                  <div class="xl-menu">
+                    <div class="xl-mi">ファイルから</div>
+                    <div class="xl-mi">データベースから</div>
+                    <div class="xl-mi">その他のデータソースから ▸</div>
+                    <div class="xl-mi on">🌐 Web から</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- STEP3 窓にURLを貼る -->
+          <div class="xl-step">
+            <div class="xl-num">3</div>
+            <div class="xl-body">
+              <div class="xl-cap">
+                小さい窓が出る → その枠に<b>さっきコピーしたURL</b>を貼って「OK」
+                <span>（セルじゃなく、この窓に貼る）</span>
+              </div>
+              <div class="xl-shot xl-dialog">
+                <div class="xl-dtitle">Web から</div>
+                <div class="xl-dbody">
+                  <div class="xl-flabel">URL</div>
+                  <div class="xl-field">https://….supabase.co/…/export_meisai?token=…</div>
+                  <div class="xl-paste">⌨️ 右クリック → 貼り付け（ここに貼る）</div>
+                  <div class="xl-actions">
+                    <div class="xl-okbtn">OK</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- STEP4 プレビュー→読み込む -->
+          <div class="xl-step">
+            <div class="xl-num">4</div>
+            <div class="xl-body">
+              <div class="xl-cap">
+                表のプレビューが出る → <b>「読み込む」</b>を押す
+                <span>→ Excelにシートができてデータが入る</span>
+              </div>
+              <div class="xl-shot">
+                <table class="xl-prev">
+                  <tr>
+                    <th>会社名</th>
+                    <th>日付</th>
+                    <th>行き先</th>
+                    <th>金額</th>
+                  </tr>
+                  <tr>
+                    <td>○○商事</td>
+                    <td>2026-06-01</td>
+                    <td>松山駅</td>
+                    <td>1,800</td>
+                  </tr>
+                  <tr>
+                    <td>○○商事</td>
+                    <td>2026-06-02</td>
+                    <td>道後</td>
+                    <td>2,400</td>
+                  </tr>
+                </table>
+                <div class="xl-rbody" style="padding: 8px 9px; text-align: right">
+                  <span class="xl-okbtn">読み込む</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- STEP5 残りのシート -->
+          <div class="xl-step">
+            <div class="xl-num">5</div>
+            <div class="xl-body">
+              <div class="xl-cap">
+                「入金」「集計」「会社」も同じやり方でもう1回ずつ
+                <span>→ それぞれのシートになる（鍵は同じ1個・URLの末尾だけ違う）</span>
+              </div>
+            </div>
+          </div>
+
+          <div
+            style="
+              margin-top: 16px;
+              padding-top: 12px;
+              border-top: 1px solid #e0efe7;
+              font-weight: 800;
+              color: #1a4a2e;
+              font-size: 12.5px;
+            "
+          >
+            次からは（もうURLは触らない）
+          </div>
+          <div class="xl-step">
+            <div class="xl-num">✓</div>
+            <div class="xl-body">
+              <div class="xl-cap" style="font-weight: 600">
+                「データ」→「<b>すべて更新</b>」で最新になる。<br />
+                <b>開くだけで自動</b>にするなら：「データ」→「クエリと接続」→ 接続を右クリック →
+                「プロパティ」→<b>「ファイルを開くときにデータを更新する」にチェック</b>。<br />
+                → 次からは<b>Excelを開くだけで勝手に最新</b>（更新ボタンも不要）。
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 12px; color: #9bb0a4; font-size: 10.5px; line-height: 1.7">
+            ※このURLは<b>あなた専用の鍵入り</b>。人に教えない・ファイルを共有しない。<br />
+            ※Windowsの Excel 用です（Mac版は手順が少し違う・必要なら案内します）。
+          </div>
         </div>
       </div>
 
