@@ -2062,7 +2062,7 @@
       <div class="exl-card">
         <div class="exl-title">📊 Excelに連携</div>
         <div class="exl-sub">
-          ボタン1個で、<b>明細・入金・集計・会社の4シートが入ったExcel</b>が落ちます。<b>iPhoneでもPCでも開けます</b>。これは<b>押した時点のコピー</b>＝最新にしたい時は、また押してください。
+          ボタン1個で、<b>明細・入金・集計・会社の4シートが入ったExcel</b>データをダウンロードします。
         </div>
         <button class="exl-dl" onclick="downloadExcelWorkbook(this)">📥 Excelをダウンロード</button>
         <div class="exl-dlnote">
@@ -2073,8 +2073,12 @@
           <summary>🔄 PCで自動更新したい（ダブルクリックで設定）</summary>
           <div class="exl-advbody">
             <b>下のファイルをダウンロード → ダブルクリック</b
-            >するだけで、Excelに<b>自動更新の表</b>ができます（次から「データ」→「すべて更新」で最新／「開くだけ更新」も設定可）。PCのWindows
-            Excel用・鍵入り＝<b>人に教えない</b>。
+            >すると、Excelに<b>自動更新の表</b>ができます。<br />
+            ★<b>ダブルクリックは初回だけ</b>。開いたExcelを<b>保存（Ctrl+S）</b>して、次からは<b>その保存したファイルを開く</b>→「データ」→「すべて更新」で最新（「開くだけ更新」も設定可）。<br />
+            <span style="color: #c0392b"
+              >※.iqyを毎回ダブルクリックすると別ファイルが増えます。保存したExcelを使い回してください。</span
+            ><br />
+            PCのWindows Excel用・鍵入り＝<b>人に教えない</b>。
             <div class="iqy-row">
               <button class="btn btn-ghost btn-sm" onclick="downloadIqy('meisai', '明細', this)">
                 📥 明細
