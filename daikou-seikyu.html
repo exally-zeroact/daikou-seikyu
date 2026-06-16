@@ -2055,29 +2055,29 @@
 
       <!-- Excel自動連携（個人URLをPCのExcelに1回貼るだけ→以後は自動更新） -->
       <div class="exl-card">
-        <div class="exl-title">📊 Excelに自動連携</div>
+        <div class="exl-title">📊 Excelに書き出し</div>
         <div class="exl-sub">
-          ボタン1個で、<b>明細・入金・集計・会社の4シートが入ったExcelファイル</b>が作れます（あなた専用の鍵入り）。<b>開くだけ</b>でデータが入り、<b>次からは開くたび自動で最新</b>になります。
+          ボタン1個で、<b>明細・入金・集計・会社の4シートが入ったExcel</b>が作れます。<b>iPhoneでもPCでも</b>そのまま開けます。最新にしたい時は<b>もう一度押すだけ</b>。
         </div>
         <button class="exl-dl" onclick="downloadExcelWorkbook(this)">
-          📥 Excel連携ファイルをダウンロード
+          📥 最新のExcelをダウンロード
         </button>
         <div class="exl-dlnote">
-          ダウンロード → ダブルクリックで開く → 黄色い帯が出たら「コンテンツの有効化」→ 完了。<br />
-          以後はファイルを開くだけで最新（手動なら「データ」→「すべて更新」）。
+          押す → ダウンロード →
+          開く（4シート入り）。データを足したら、また押せば最新のExcelになります。
         </div>
         <button
           class="btn btn-ghost btn-sm"
           style="margin-top: 8px; width: auto"
           onclick="toggleExlHelp(this)"
         >
-          ▼ もっと詳しく（開き方・自動更新の設定）
+          ▼ PCで自動更新したい場合（URL方式・図つき手順）
         </button>
         <details class="exl-adv">
-          <summary>URLを手で貼りたい場合（上級者向け）</summary>
+          <summary>自動更新用のURL（上級者向け・PCのExcelのみ）</summary>
           <div class="exl-advbody">
-            鍵は<b>1個（あなた専用）</b>。各ページ＝各シート。欲しいシートのURLを Excel の「Web
-            から」に貼ってもOKです。
+            PCのExcelなら、URLを貼ると<b>開くだけで自動更新</b>にできます（iPhoneのExcelは自動更新に非対応）。鍵は<b>1個（あなた専用）</b>。各ページ＝各シート。欲しいシートのURLを
+            Excel の「Web から」に貼ってもOKです。
             <div class="exl-row">
               <span class="exl-tag">明細</span>
               <input class="exl-url" id="exlMeisai" readonly value="読み込み中…" />
@@ -2377,8 +2377,6 @@
     <script src="hanko.js"></script>
     <!-- Supabase クライアント（クラウドDB＋ログイン） -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- JSZip：Excel連携ファイル(.xlsx with Power Query)をブラウザで生成 -->
-    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script>
       "use strict";
 
@@ -2637,246 +2635,81 @@
         var h = document.getElementById("exlHelp");
         var open = h.style.display !== "none";
         h.style.display = open ? "none" : "block";
-        btn.textContent = (open ? "▼" : "▲") + " もっと詳しく（開き方・自動更新の設定）";
+        btn.textContent = (open ? "▼" : "▲") + " PCで自動更新したい場合（URL方式・図つき手順）";
       }
 
       /* ===================================================================
-   Excel連携ファイル(.xlsx)生成 ─ ボタン1個で「4シート＋自動更新」つきの
-   Excelファイルを作って落とす。中身は Power Query 接続(あなたの鍵入り)。
-   各ページ＝各シート。機能が増えたら EXL_SHEETS に1行足すだけ。
+   Excel連携ファイル(.xlsx)生成 ─ ボタン1個で「4シート入りExcel」を作って落とす。
+   SheetJSで静的xlsx（全端末で確実に開ける）。明細/入金/集計/会社の4シート。
+   最新化＝もう一度ボタンを押す。PCで自動更新したい人は「上級者向けURL」を使う。
    =================================================================== */
-      var EXL_SHEETS = [
-        { q: "明細", fn: "export_meisai" },
-        { q: "入金", fn: "export_payments" },
-        { q: "集計", fn: "export_summary" },
-        { q: "会社", fn: "export_companies" },
-      ];
-      function _u32le(n) {
-        var b = new Uint8Array(4),
-          v = new DataView(b.buffer);
-        v.setUint32(0, n >>> 0, true);
-        return b;
-      }
-      function _concat(arrs) {
-        var len = arrs.reduce(function (s, a) {
-          return s + a.length;
-        }, 0);
-        var out = new Uint8Array(len),
-          off = 0;
-        arrs.forEach(function (a) {
-          out.set(a, off);
-          off += a.length;
-        });
-        return out;
-      }
-      function _b64(u8) {
-        var s = "",
-          CH = 0x8000;
-        for (var i = 0; i < u8.length; i += CH)
-          s += String.fromCharCode.apply(null, u8.subarray(i, i + CH));
-        return btoa(s);
-      }
-      function _exlSectionM(token) {
-        var m = "section Section1;\r\n";
-        EXL_SHEETS.forEach(function (sh) {
-          var url =
-            SUPABASE_URL + "/rest/v1/rpc/" + sh.fn + "?token=" + token + "&apikey=" + SUPABASE_ANON;
-          m +=
-            'shared #"' +
-            sh.q +
-            '" = let\r\n    Source = Json.Document(Web.Contents("' +
-            url +
-            '")),\r\n    ToTable = Table.FromRecords(Source)\r\n in\r\n    ToTable;\r\n';
-        });
-        return m;
-      }
-      async function _exlMashupPkg(token) {
-        var z = new JSZip();
-        z.file(
-          "[Content_Types].xml",
-          '<?xml version="1.0" encoding="utf-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="text/xml" /><Override PartName="/Formulas/Section1.m" ContentType="application/x-ms-m" /></Types>'
-        );
-        z.file(
-          "Config/Package.xml",
-          '<?xml version="1.0" encoding="utf-8"?><Package xmlns="http://schemas.microsoft.com/DataMashup/Package"><Version>2.0.0</Version></Package>'
-        );
-        z.file("Formulas/Section1.m", _exlSectionM(token));
-        return z.generateAsync({ type: "uint8array", compression: "DEFLATE" });
-      }
-      async function _exlMetaPkg() {
-        var items =
-          "<Items>" +
-          EXL_SHEETS.map(function (sh) {
-            return (
-              "<Item><ItemLocation><ItemType>Formula</ItemType><ItemPath>Section1/" +
-              sh.q +
-              "</ItemPath></ItemLocation><StableEntries /></Item>"
-            );
-          }).join("") +
-          "</Items>";
-        var z = new JSZip();
-        z.file(
-          "[Content_Types].xml",
-          '<?xml version="1.0" encoding="utf-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="text/xml" /></Types>'
-        );
-        z.file(
-          "Config/Package.xml",
-          '<?xml version="1.0" encoding="utf-8"?><Package xmlns="http://schemas.microsoft.com/DataMashup/Metadata">' +
-            items +
-            "</Package>"
-        );
-        return z.generateAsync({ type: "uint8array", compression: "DEFLATE" });
-      }
-      async function _exlDataMashupB64(token) {
-        var pkg = await _exlMashupPkg(token);
-        var perm = new TextEncoder().encode(
-          '<?xml version="1.0" encoding="utf-8"?><PermissionList xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><CanEvaluateFunctions>false</CanEvaluateFunctions><FirewallEnabled>true</FirewallEnabled><WorkbookGroupType xsi:nil="true" /></PermissionList>'
-        );
-        var metaPkg = await _exlMetaPkg();
-        var metadata = _concat([_u32le(0), metaPkg]);
-        var blob = _concat([
-          _u32le(0),
-          _u32le(pkg.length),
-          pkg,
-          _u32le(perm.length),
-          perm,
-          _u32le(metadata.length),
-          metadata,
-          _u32le(0),
-        ]);
-        return _b64(blob);
-      }
-      async function _exlBuildBlob(token) {
-        var z = new JSZip();
-        var b64 = await _exlDataMashupB64(token);
-        var ct =
-          '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/connections.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.connections+xml"/><Override PartName="/customXml/item1.xml" ContentType="application/xml"/><Override PartName="/customXml/itemProps1.xml" ContentType="application/vnd.openxmlformats-officedocument.customXmlProperties+xml"/>';
-        EXL_SHEETS.forEach(function (s, i) {
-          var n = i + 1;
-          ct +=
-            '<Override PartName="/xl/worksheets/sheet' +
-            n +
-            '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/tables/table' +
-            n +
-            '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml"/><Override PartName="/xl/queryTables/queryTable' +
-            n +
-            '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.queryTable+xml"/>';
-        });
-        ct += "</Types>";
-        z.file("[Content_Types].xml", ct);
-        z.file(
-          "_rels/.rels",
-          '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml" Target="customXml/item1.xml"/></Relationships>'
-        );
-        z.file(
-          "customXml/item1.xml",
-          '<DataMashup xmlns="http://schemas.microsoft.com/DataMashup">' + b64 + "</DataMashup>"
-        );
-        z.file(
-          "customXml/itemProps1.xml",
-          '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ds:datastoreItem ds:itemID="{F5D0D8C2-1234-4A3E-9B88-000000000001}" xmlns:ds="http://schemas.openxmlformats.org/officeDocument/2006/customXml"><ds:schemaRefs><ds:schemaRef ds:uri="http://schemas.microsoft.com/DataMashup"/></ds:schemaRefs></ds:datastoreItem>'
-        );
-        z.file(
-          "customXml/_rels/item1.xml.rels",
-          '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXmlProps" Target="itemProps1.xml"/></Relationships>'
-        );
-        var wbSheets = EXL_SHEETS.map(function (s, i) {
-          return '<sheet name="' + s.q + '" sheetId="' + (i + 1) + '" r:id="rIdS' + (i + 1) + '"/>';
-        }).join("");
-        z.file(
-          "xl/workbook.xml",
-          '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>' +
-            wbSheets +
-            "</sheets></workbook>"
-        );
-        var wbRels =
-          '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">';
-        EXL_SHEETS.forEach(function (s, i) {
-          wbRels +=
-            '<Relationship Id="rIdS' +
-            (i + 1) +
-            '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' +
-            (i + 1) +
-            '.xml"/>';
-        });
-        wbRels +=
-          '<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rIdConn" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/connections" Target="connections.xml"/></Relationships>';
-        z.file("xl/_rels/workbook.xml.rels", wbRels);
-        z.file(
-          "xl/styles.xml",
-          '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts><fills count="1"><fill><patternFill patternType="none"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="1"><xf/></cellXfs></styleSheet>'
-        );
-        var conns =
-          '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><connections xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
-        EXL_SHEETS.forEach(function (s, i) {
-          var id = i + 1;
-          conns +=
-            '<connection id="' +
-            id +
-            '" keepAlive="1" name="クエリ - ' +
-            s.q +
-            '" description="' +
-            s.q +
-            '" type="5" refreshedVersion="6" minRefreshableVersion="3" refreshOnLoad="1" background="1" saveData="1"><dbPr connection="Provider=Microsoft.Mashup.OleDb.1;Data Source=$Workbook$;Location=' +
-            s.q +
-            ';Extended Properties=&quot;&quot;" command="SELECT * FROM [' +
-            s.q +
-            ']"/></connection>';
-        });
-        conns += "</connections>";
-        z.file("xl/connections.xml", conns);
-        EXL_SHEETS.forEach(function (s, i) {
-          var n = i + 1;
-          z.file(
-            "xl/worksheets/sheet" + n + ".xml",
-            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><dimension ref="A1"/><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>' +
-              s.q +
-              'は「データ」→「すべて更新」で最新になります</t></is></c></row></sheetData><tableParts count="1"><tablePart r:id="rIdT"/></tableParts></worksheet>'
-          );
-          z.file(
-            "xl/worksheets/_rels/sheet" + n + ".xml.rels",
-            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdT" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/table" Target="../tables/table' +
-              n +
-              '.xml"/></Relationships>'
-          );
-          z.file(
-            "xl/tables/table" + n + ".xml",
-            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="' +
-              n +
-              '" name="Tbl_' +
-              s.fn +
-              '" displayName="Tbl_' +
-              s.fn +
-              '" ref="A1:A1" tableType="queryTable" totalsRowShown="0"><autoFilter ref="A1:A1"/><tableColumns count="1"><tableColumn id="1" uniqueName="1" name="' +
-              s.q +
-              '" queryTableFieldId="1"/></tableColumns><tableStyleInfo name="TableStyleMedium2" showFirstColumn="0" showLastColumn="0" showRowStripes="1" showColumnStripes="0"/></table>'
-          );
-          z.file(
-            "xl/tables/_rels/table" + n + ".xml.rels",
-            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdQ" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/queryTable" Target="../queryTables/queryTable' +
-              n +
-              '.xml"/></Relationships>'
-          );
-          z.file(
-            "xl/queryTables/queryTable" + n + ".xml",
-            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><queryTable xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" name="クエリ - ' +
-              s.q +
-              '" connectionId="' +
-              n +
-              '" autoFormatId="16" applyNumberFormats="0" applyBorderFormats="0" applyFontFormats="0" applyPatternFormats="0" applyAlignmentFormats="0" applyWidthHeightFormats="0"><queryTableRefresh nextId="2"><queryTableFields count="1"><queryTableField id="1" name="' +
-              s.q +
-              '" tableColumnId="1"/></queryTableFields></queryTableRefresh></queryTable>'
+      function _exlMeisaiAoa() {
+        var cols = ["会社名", "日付", "行き先", "金額", "備考", "距離", "人数", "名前"];
+        var nums = { 金額: 1, 距離: 1, 人数: 1 };
+        var rows = DB.filter(function (r) {
+          return r.account_id === CURRENT_ACCOUNT;
+        }).sort(function (a, b) {
+          return (
+            (a.日付 || "").localeCompare(b.日付 || "") || (a.id || "").localeCompare(b.id || "")
           );
         });
-        return z.generateAsync({
-          type: "blob",
-          mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          compression: "DEFLATE",
+        var aoa = [cols],
+          tot = 0;
+        rows.forEach(function (r) {
+          tot += Number(r.金額) || 0;
+          aoa.push(
+            cols.map(function (c) {
+              var v = r[c];
+              if (nums[c]) return v === "" || v == null ? "" : Number(v);
+              return v == null ? "" : v;
+            })
+          );
         });
+        aoa.push(["合計", "", "", tot, "", "", "", ""]);
+        return aoa;
+      }
+      function _exlSummaryRows() {
+        return summarize("").rows; // 全月・会社別（請求/入金/残/状態/入金日/メモ）
+      }
+      function _exlSummaryAoa(rows) {
+        var aoa = [["月", "会社名", "件数", "請求額", "入金額", "残額", "状態"]];
+        rows.forEach(function (x) {
+          var p = x.month.split("-");
+          aoa.push([
+            Number(p[0]) + "年" + Number(p[1]) + "月",
+            x.company,
+            x.count,
+            x.total,
+            x.paid,
+            x.rem,
+            PAY_LABEL[x.st],
+          ]);
+        });
+        return aoa;
+      }
+      function _exlPayAoa(rows) {
+        var aoa = [["月", "会社名", "入金額", "入金日", "メモ"]];
+        rows.forEach(function (x) {
+          if (!x.paid && !x.date && !x.note) return; // 入金実績のある行だけ
+          var p = x.month.split("-");
+          aoa.push([Number(p[0]) + "年" + Number(p[1]) + "月", x.company, x.paid, x.date, x.note]);
+        });
+        return aoa;
+      }
+      function _exlCompaniesAoa() {
+        var aoa = [["会社名", "使う項目"]];
+        Object.keys(MASTER)
+          .sort()
+          .forEach(function (name) {
+            var m = MASTER[name];
+            if (!m || m.deleted_at) return;
+            aoa.push([name, (m.items || []).join(" / ")]);
+          });
+        return aoa;
       }
       async function downloadExcelWorkbook(btn) {
-        if (typeof JSZip === "undefined") {
-          toast("通信を確認してください（部品の読込待ち）");
+        if (typeof XLSX === "undefined") {
+          toast("Excelライブラリの読み込み待ちです。少し待って再度押してください");
           return;
         }
         var old = btn ? btn.textContent : "";
@@ -2885,22 +2718,24 @@
           btn.textContent = "作成中…";
         }
         try {
-          var token = await ensureExportToken();
-          if (!token) {
-            toast("鍵の取得に失敗（通信を確認）");
-            return;
-          }
-          var blob = await _exlBuildBlob(token);
-          var a = document.createElement("a");
-          a.href = URL.createObjectURL(blob);
-          a.download = "ダイコメ_Excel連携.xlsx";
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(function () {
-            URL.revokeObjectURL(a.href);
-            a.remove();
-          }, 1500);
-          toast("Excel連携ファイルを保存しました");
+          var sumRows = _exlSummaryRows();
+          var sheets = [
+            { name: "明細", aoa: _exlMeisaiAoa() },
+            { name: "入金", aoa: _exlPayAoa(sumRows) },
+            { name: "集計", aoa: _exlSummaryAoa(sumRows) },
+            { name: "会社", aoa: _exlCompaniesAoa() },
+          ];
+          var wb = XLSX.utils.book_new();
+          sheets.forEach(function (sh) {
+            var ws = XLSX.utils.aoa_to_sheet(sh.aoa);
+            ws["!cols"] = autoColWidths(sh.aoa);
+            XLSX.utils.book_append_sheet(wb, ws, sh.name);
+          });
+          var d = new Date();
+          var ymd =
+            d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2);
+          XLSX.writeFile(wb, "ダイコメ_Excel_" + ymd + ".xlsx");
+          toast("Excel（4シート）を書き出しました");
         } catch (e) {
           toast("作成に失敗しました：" + (e && e.message ? e.message : e));
         } finally {
@@ -2910,6 +2745,7 @@
           }
         }
       }
+
       // ワンタップで この会社の項目順を標準（日付/行き先/金額/…）に戻す。
       function resetItemOrder(co) {
         MASTER[co].items = inputItemsOrder(MASTER[co].items);
