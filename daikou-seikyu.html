@@ -2062,38 +2062,23 @@
       <div class="exl-card">
         <div class="exl-title">📊 Excelに連携</div>
         <div class="exl-sub">
-          ボタン1個で、<b>明細・入金・集計・会社の4シートが入ったExcel</b>データをダウンロードします。
+          ボタン1個で、<b>明細・入金・集計・会社の4シートが入ったExcel</b>を作ります。<b>PCのExcelで開くと、開くたびクラウドから自動で最新</b>になります（ファイルは1個・増えません）。
         </div>
         <button class="exl-dl" onclick="downloadExcelWorkbook(this)">📥 Excelをダウンロード</button>
         <div class="exl-dlnote">
-          開く → 4シート入り。勝手には更新されません（最新が要る時は、また押す）。<br />
-          <b>“PCで勝手に最新”にしたい</b>なら ↓「自動更新」を使ってください。
+          <b>▶ PC（Windows Excel）</b>：開く → 黄色い帯「<b>コンテンツの有効化</b>」を押す →
+          4シートがクラウドの最新に。<br />
+          以降は<b>開くだけで自動更新</b>（手動なら「データ」→「すべて更新」）。<b
+            >保存して使い回してください。</b
+          ><br />
+          <b>▶ iPhone / iPad</b
+          >：開けます（中身は<b>落とした時点のデータ</b>・自動更新はPCのみ）。<br />
+          ※鍵入り＝<b>人に教えない・ファイルを共有しない</b>。
         </div>
-        <details class="exl-adv" open>
-          <summary>🔄 PCで自動更新したい（ダブルクリックで設定）</summary>
+        <details class="exl-adv">
+          <summary>うまくいかない時 / URLを手で貼る（上級者向け）</summary>
           <div class="exl-advbody">
-            <b>下のファイルをダウンロード → ダブルクリック</b
-            >すると、Excelに<b>自動更新の表</b>ができます。<br />
-            ★<b>ダブルクリックは初回だけ</b>。開いたExcelを<b>保存（Ctrl+S）</b>して、次からは<b>その保存したファイルを開く</b>→「データ」→「すべて更新」で最新（「開くだけ更新」も設定可）。<br />
-            <span style="color: #c0392b"
-              >※.iqyを毎回ダブルクリックすると別ファイルが増えます。保存したExcelを使い回してください。</span
-            ><br />
-            PCのWindows Excel用・鍵入り＝<b>人に教えない</b>。
-            <div class="iqy-row">
-              <button class="btn btn-ghost btn-sm" onclick="downloadIqy('meisai', '明細', this)">
-                📥 明細
-              </button>
-              <button class="btn btn-ghost btn-sm" onclick="downloadIqy('pay', '入金', this)">
-                📥 入金
-              </button>
-              <button class="btn btn-ghost btn-sm" onclick="downloadIqy('summary', '集計', this)">
-                📥 集計
-              </button>
-              <button class="btn btn-ghost btn-sm" onclick="downloadIqy('companies', '会社', this)">
-                📥 会社
-              </button>
-            </div>
-            <details style="margin-top: 10px">
+            <details style="margin-top: 4px" open>
               <summary style="font-size: 11px; color: #9bb0a4">
                 うまくいかない時：URLを手で貼る方法
               </summary>
@@ -2915,9 +2900,9 @@
           await fontFix(z);
           if (token) {
             try {
-              await _pqInject(z, sheets, token);
+              await _wqInject(z, sheets, token);
             } catch (e) {
-              // PQ注入で壊れたら、クリーンに作り直してフォント補正だけ＝静的Excelで落とす
+              // 注入で壊れたら、クリーンに作り直してフォント補正だけ＝静的Excelで落とす
               z = await JSZip.loadAsync(buf);
               await fontFix(z);
             }
@@ -2926,6 +2911,118 @@
         } catch (e) {
           return new Blob([buf], { type: TYPE });
         }
+      }
+      // レガシーWebクエリ(type=4)注入＝.iqyと同じエンジンを4シートに埋め込む。
+      // ListObjectテーブル/tablePartsを使わない=壊れにくい。開くだけ自動更新を狙う。
+      async function _wqInject(z, sheets, token) {
+        var wbXml = await z.file("xl/workbook.xml").async("string");
+        var wbRels = await z.file("xl/_rels/workbook.xml.rels").async("string");
+        var sheetRid = {},
+          ridTarget = {},
+          m;
+        var sre = /<sheet[^>]*name="([^"]+)"[^>]*r:id="([^"]+)"[^>]*\/>/g;
+        while ((m = sre.exec(wbXml))) sheetRid[m[1]] = m[2];
+        var rre = /<Relationship[^>]*Id="([^"]+)"[^>]*Target="([^"]+)"[^>]*\/>/g;
+        while ((m = rre.exec(wbRels))) ridTarget[m[1]] = m[2];
+
+        var conns =
+          '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><connections xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
+        var ctExtra =
+          '<Override PartName="/xl/connections.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.connections+xml"/>';
+        var definedNames = "";
+
+        for (var i = 0; i < sheets.length; i++) {
+          var sh = sheets[i],
+            n = i + 1;
+          var key = sh.fn.replace("export_", ""); // export_meisai -> meisai
+          var cols = sh.aoa[0].length,
+            rows = sh.aoa.length;
+          var url = location.origin + "/api/excel?token=" + token + "&amp;sheet=" + key;
+
+          conns +=
+            '<connection id="' +
+            n +
+            '" name="WebQuery_' +
+            key +
+            '" type="4" refreshedVersion="6" minRefreshableVersion="3" background="1" refreshOnLoad="1" saveData="1">' +
+            '<webPr sourceData="1" parsePre="0" consecutive="1" xl2000="1" url="' +
+            url +
+            '" htmlTables="1" htmlFormat="all"><tables count="1"><x v="1"/></tables></webPr></connection>';
+
+          z.file(
+            "xl/queryTables/queryTable" + n + ".xml",
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><queryTable xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" name="WebQuery_' +
+              key +
+              '" connectionId="' +
+              n +
+              '" autoFormatId="16" applyNumberFormats="0" applyBorderFormats="0" applyFontFormats="0" applyPatternFormats="0" applyAlignmentFormats="0" applyWidthHeightFormats="0"/>'
+          );
+          ctExtra +=
+            '<Override PartName="/xl/queryTables/queryTable' +
+            n +
+            '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.queryTable+xml"/>';
+
+          var sheetPath = "xl/" + ridTarget[sheetRid[sh.name]];
+          var relPath = sheetPath.replace(
+            /worksheets\/(sheet\d+)\.xml$/,
+            "worksheets/_rels/$1.xml.rels"
+          );
+          var relEntry =
+            '<Relationship Id="rIdQt' +
+            n +
+            '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/queryTable" Target="../queryTables/queryTable' +
+            n +
+            '.xml"/>';
+          var ef = z.file(relPath);
+          if (ef) {
+            var rx = await ef.async("string");
+            z.file(relPath, rx.replace("</Relationships>", relEntry + "</Relationships>"));
+          } else {
+            z.file(
+              relPath,
+              '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+                relEntry +
+                "</Relationships>"
+            );
+          }
+
+          definedNames +=
+            '<definedName name="ExternalData_' +
+            n +
+            '" localSheetId="' +
+            i +
+            '" hidden="1">' +
+            sh.name +
+            "!$A$1:$" +
+            _pqCol(cols - 1) +
+            "$" +
+            rows +
+            "</definedName>";
+        }
+        conns += "</connections>";
+        z.file("xl/connections.xml", conns);
+
+        var ct = await z.file("[Content_Types].xml").async("string");
+        z.file("[Content_Types].xml", ct.replace("</Types>", ctExtra + "</Types>"));
+
+        z.file(
+          "xl/_rels/workbook.xml.rels",
+          wbRels.replace(
+            "</Relationships>",
+            '<Relationship Id="rIdConnx" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/connections" Target="connections.xml"/></Relationships>'
+          )
+        );
+
+        var wbx = wbXml;
+        if (/<definedNames>/.test(wbx)) {
+          wbx = wbx.replace("</definedNames>", definedNames + "</definedNames>");
+        } else {
+          wbx = wbx.replace(
+            "</sheets>",
+            "</sheets><definedNames>" + definedNames + "</definedNames>"
+          );
+        }
+        z.file("xl/workbook.xml", wbx);
       }
       // zに接続・DataMashup・テーブルを注入（実データ範囲に厳密一致）
       async function _pqInject(z, sheets, token) {
@@ -3137,9 +3234,13 @@
             XLSX.utils.book_append_sheet(wb, ws, sh.name);
           });
           var buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-          // ★PQ自動更新層は実Excelで未検証(2回破損)のため当面OFF＝確実に開ける静的Excelのみ。
-          //   自動更新が要る人はカードの「URLを貼る方式」(Excel自身が正しく作る)を使う。
-          var blob = await _exlEnhance(buf, sheets, null); // フォント補正のみ(PQ注入しない)
+          // レガシーWebクエリ(.iqyと同じエンジン)を注入＝開くだけ自動更新の4シート。
+          // 取得に失敗/注入で壊れたら自動で静的Excel(確実に開ける)にフォールバック。
+          var token = null;
+          try {
+            token = await ensureExportToken();
+          } catch (e) {}
+          var blob = await _exlEnhance(buf, sheets, token);
           var d = new Date();
           var ymd =
             d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2);
