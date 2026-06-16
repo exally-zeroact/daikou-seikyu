@@ -2052,20 +2052,17 @@
       <div class="exl-card">
         <div class="exl-title">📊 Excelに連携</div>
         <div class="exl-sub">
-          ボタン1個で、<b>明細・入金・集計・会社の4シートが入ったExcel</b>が落ちます。鍵は中に入ってるので<b>あなたは何もしなくてOK</b>。<b>iPhoneでもPCでも開けます</b>。PCのExcelなら<b>「すべて更新」でクラウドから最新</b>を取れます（ファイルは増えません）。
+          ボタン1個で、<b>明細・入金・集計・会社の4シートが入ったExcel</b>が落ちます。<b>iPhoneでもPCでも開けます</b>。これは<b>押した時点のコピー</b>＝最新にしたい時は、また押してください。
         </div>
         <button class="exl-dl" onclick="downloadExcelWorkbook(this)">📥 Excelをダウンロード</button>
         <div class="exl-dlnote">
-          開く → 4シート入り。<br />
-          <b>▶ PCのExcel</b
-          >：黄色い帯「コンテンツの有効化」→「データ」→「<b>すべて更新</b>」で最新になります（「開くだけ更新」も設定できます）。<br />
-          <b>▶ iPhone / iPad</b
-          >：開けます。ただし<b>自動更新はMicrosoftの仕様で不可</b>＝最新が要る時は、また押してください。
+          開く → 4シート入り。勝手には更新されません（最新が要る時は、また押す）。<br />
+          <b>“PCで勝手に最新”にしたい</b>なら ↓「自動更新（URLを貼る）」を使ってください。
         </div>
         <details class="exl-adv">
-          <summary>うまくいかない時 / URLを手で貼る（上級者向け・PCのExcel）</summary>
+          <summary>🔄 PCで自動更新したい（URLを貼る・確実に動く方式）</summary>
           <div class="exl-advbody">
-            PCのExcelで、下のURLを「データ」→「Webから」に貼る方法もあります（シートごと・鍵入り＝<b>人に教えない</b>）。
+            PCのExcelで、下のURLを「データ」→「Webから」に貼ると、<b>開くだけで勝手に最新</b>にできます（<b>Excelが自分で取り込む方式なので確実</b>）。シートごと・鍵入り＝<b>人に教えない</b>。
             <div class="exl-row">
               <span class="exl-tag">明細</span>
               <input class="exl-url" id="exlMeisai" readonly value="ログインで表示…" />
@@ -3063,11 +3060,9 @@
             XLSX.utils.book_append_sheet(wb, ws, sh.name);
           });
           var buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-          var token = null;
-          try {
-            token = await ensureExportToken();
-          } catch (e) {}
-          var blob = await _exlEnhance(buf, sheets, token); // フォント補正＋自動更新(PQ)層
+          // ★PQ自動更新層は実Excelで未検証(2回破損)のため当面OFF＝確実に開ける静的Excelのみ。
+          //   自動更新が要る人はカードの「URLを貼る方式」(Excel自身が正しく作る)を使う。
+          var blob = await _exlEnhance(buf, sheets, null); // フォント補正のみ(PQ注入しない)
           var d = new Date();
           var ymd =
             d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2);
