@@ -1795,7 +1795,8 @@
     <section class="screen active" id="scr-input">
       <div class="scr-title">明細を入力</div>
       <div class="scr-sub">
-        会社を選ぶと、その会社に必要な項目だけ表示されます。まとめて入力 → 保存でDBに追加。
+        会社を選ぶと、その会社に必要な項目だけ表示されます。まとめて入力 →
+        保存で<b>Excel／DBに追加</b>（保存した時点でクラウドに入り、PCのExcelは開くと最新になります）。
       </div>
 
       <div class="card">
@@ -1812,7 +1813,9 @@
         <div id="entryBody"></div>
         <button class="add-line" onclick="addEntryRow()">＋ 行を追加</button>
         <div style="margin-top: 12px">
-          <button class="btn btn-primary" onclick="saveEntries()">保存する（DBに追加）</button>
+          <button class="btn btn-primary" onclick="saveEntries()">
+            保存する（Excel／DBに追加）
+          </button>
         </div>
       </div>
     </section>
@@ -1828,11 +1831,6 @@
         <select class="fselect" id="listMonth" onchange="renderList()">
           <option value="">全期間</option>
         </select>
-      </div>
-      <div class="invoice-actions">
-        <button class="btn btn-ghost btn-sm" onclick="exportListExcel()">
-          📤 いま絞り込んでる明細だけExcelに（1回ぶん）
-        </button>
       </div>
       <div class="card">
         <div id="listBody"></div>
@@ -4320,7 +4318,7 @@
         updatePayBadge();
         entryRows = [blankEntry()];
         renderEntry();
-        toast(recs.length + "件を保存しました");
+        toast(recs.length + "件を保存しました（Excel／DBに追加）");
       }
 
       /* ===================================================================
@@ -4964,8 +4962,8 @@
         document.getElementById("modalTitle").textContent = "会社を追加";
         document.getElementById("modalBody").innerHTML =
           '<div class="frow"><div class="flabel">会社名（宛名）</div><input class="finput" id="newCoName" placeholder="例：テスト物流株式会社"></div>' +
-          '<div class="scr-sub" style="margin:2px 0 10px;">追加後、設定→会社マスタで 項目・順番 を定義できます（初期＝日付/行き先/金額）。</div>' +
-          '<button class="btn btn-primary" onclick="addCompany()">追加する</button>';
+          '<div class="scr-sub" style="margin:2px 0 10px;">保存で<b>Excel／DBに追加</b>。追加後、設定→会社マスタで 項目・順番 を定義できます（初期＝日付/行き先/金額）。</div>' +
+          '<button class="btn btn-primary" onclick="addCompany()">保存する（Excel／DBに追加）</button>';
         openModal();
       }
       function addCompany() {
@@ -4991,7 +4989,7 @@
         closeModal();
         renderMaster();
         refreshCompanySelects();
-        toast("会社を追加しました");
+        toast("保存しました（Excel／DBに追加）");
       }
       async function deleteCompany(co) {
         if (!confirm(co + " をマスタから削除します。よろしいですか？（明細データは残ります）"))
