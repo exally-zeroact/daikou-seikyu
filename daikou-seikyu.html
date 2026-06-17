@@ -2763,29 +2763,33 @@
           });
         return aoa;
       }
-      // 請求書シート＝上に「目次（会社×年月）」、下に各請求書を縦に積む。
-      // 目次をタップ→その請求書へジャンプ（内部リンク・マクロ不要）。各請求書から目次へ戻るリンクも。
-      // 返り値 {aoa, links:[{indexRow,targetRow}], backs:[{row}]}（行は1始まり・呼び側でハイパーリンク設定）
+      // 請求書シート＝上に「目次（会社×年月）」、下に各請求書をアプリと同じページ割り(22行/ページ)で積む。
+      // 1請求書が複数ページなら各ページに発行者/宛名を繰り返し・最終ページに合計・ページ間で改ページ。
+      // 目次タップ→その請求書の1ページ目へ。各ページから「↩一覧へ」。
+      // 返り値 {aoa, links, backs, breaks}（行は1始まり・breaks=各ページ先頭行）
       function _exlInvoiceData() {
-        if (typeof MeisaiEngine === "undefined") return { aoa: [], links: [], backs: [] };
+        var empty = { aoa: [], links: [], backs: [], breaks: [] };
+        if (typeof MeisaiEngine === "undefined") return empty;
         var U = MeisaiEngine.utils;
+        var PER = MeisaiEngine.ROWS_PER_PAGE || 22;
         var iss = issuerForEngine();
         var invs = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, null); // 会社×月 全部
-        if (!invs.length) return { aoa: [], links: [], backs: [] };
+        if (!invs.length) return empty;
 
         var aoa = [];
         var indexRowOf = [],
-          blockRowOf = [],
-          backs = [];
+          firstPageRowOf = [],
+          backs = [],
+          breaks = [];
         // --- 目次 ---
         aoa.push(["📑 請求書（会社・年月をタップで移動）"]);
         invs.forEach(function (iv) {
-          indexRowOf.push(aoa.length + 1); // 1始まり
+          indexRowOf.push(aoa.length + 1);
           aoa.push([iv.company + "　" + iv.month]);
         });
         aoa.push([]);
         aoa.push([]);
-        // --- 各請求書 ---
+        // --- 各請求書（ページ割り） ---
         invs.forEach(function (iv) {
           var co = iv.company,
             month = iv.month;
@@ -2799,54 +2803,68 @@
             );
           });
           var mo = Number(month.split("-")[1]);
-
-          blockRowOf.push(aoa.length + 1);
-          backs.push(aoa.length + 1); // 各請求書の先頭行＝戻りリンクを置く行(列F)
-          iss.lines.forEach(function (l) {
-            aoa.push([l]);
-          });
-          aoa.push([]);
-          aoa.push(["", "", "請求書"]);
-          if (iss.showInvoiceNo)
-            aoa.push([
-              "",
-              "",
-              "請求番号: " + MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co),
-            ]);
-          aoa.push([co + "　御中"]);
-          if (m.lead) aoa.push([String(m.lead).replace(/\{月\}/g, mo)]);
-          aoa.push([m.tableTitle || "運転業務委託料"]);
-          aoa.push(items.slice());
           var total = 0;
           rows.forEach(function (r) {
             total += Number(r.金額) || 0;
-            aoa.push(
-              items.map(function (k) {
-                var v = r[k];
-                if (k === "日付") return U.mdShort(v);
-                if (k === "金額") return v === "" || v == null ? "" : Number(v);
-                return v == null ? "" : v;
-              })
-            );
           });
           var tax = U.tax10(total);
-          aoa.push([]);
-          aoa.push(["", "", "合計（税込）", total]);
-          aoa.push(["", "", "うち消費税(10%)", tax]);
-          if (iss.bank && iss.bank.length) {
-            aoa.push([]);
-            iss.bank.forEach(function (l) {
+          var pageCount = Math.max(1, Math.ceil(rows.length / PER));
+
+          for (var pi = 0; pi < pageCount; pi++) {
+            var pageRows = rows.slice(pi * PER, (pi + 1) * PER);
+            var startRow = aoa.length + 1;
+            breaks.push(startRow); // このページの先頭で改ページ
+            backs.push(startRow); // 戻りリンク
+            if (pi === 0) firstPageRowOf.push(startRow);
+            // 発行者（毎ページ）
+            iss.lines.forEach(function (l) {
               aoa.push([l]);
             });
+            aoa.push([]);
+            aoa.push(["", "", "請求書", "", "（" + (pi + 1) + "/" + pageCount + "）"]);
+            if (iss.showInvoiceNo)
+              aoa.push([
+                "",
+                "",
+                "請求番号: " + MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co),
+              ]);
+            aoa.push([co + "　御中"]);
+            if (pi === 0 && m.lead) aoa.push([String(m.lead).replace(/\{月\}/g, mo)]);
+            aoa.push([m.tableTitle || "運転業務委託料"]);
+            aoa.push(items.slice());
+            pageRows.forEach(function (r) {
+              aoa.push(
+                items.map(function (k) {
+                  var v = r[k];
+                  if (k === "日付") return U.mdShort(v);
+                  if (k === "金額") return v === "" || v == null ? "" : Number(v);
+                  return v == null ? "" : v;
+                })
+              );
+            });
+            if (pi === pageCount - 1) {
+              aoa.push([]);
+              aoa.push(["", "", "合計（税込）", total]);
+              aoa.push(["", "", "うち消費税(10%)", tax]);
+              if (iss.bank && iss.bank.length) {
+                aoa.push([]);
+                iss.bank.forEach(function (l) {
+                  aoa.push([l]);
+                });
+              }
+            } else {
+              aoa.push([]);
+              aoa.push(["", "", "次ページへ続く →"]);
+            }
+            aoa.push([]);
+            aoa.push([]);
           }
-          aoa.push([]);
-          aoa.push([]);
         });
 
         var links = invs.map(function (iv, i) {
-          return { indexRow: indexRowOf[i], targetRow: blockRowOf[i] };
+          return { indexRow: indexRowOf[i], targetRow: firstPageRowOf[i] };
         });
-        return { aoa: aoa, links: links, backs: backs };
+        return { aoa: aoa, links: links, backs: backs, breaks: breaks };
       }
       /* ===================================================================
    Excel自動更新ファイル ─ SheetJSの「開ける実データxlsx」を土台に、その上に
@@ -2966,7 +2984,38 @@
         return _pqB64(blob);
       }
       // SheetJSのxlsx(buf)にフォント補正＋PQ層注入。失敗時はフォント補正だけで返す。
-      async function _exlEnhance(buf, sheets, token) {
+      // 請求書シートにページ割りの改ページ(rowBreaks)を注入＝印刷で各ページが分かれる。
+      async function _injectRowBreaks(z, sheetName, breaks) {
+        if (!breaks || !breaks.length) return;
+        var wbXml = await z.file("xl/workbook.xml").async("string");
+        var wbRels = await z.file("xl/_rels/workbook.xml.rels").async("string");
+        var rid = (wbXml.match(
+          new RegExp('<sheet[^>]*name="' + sheetName + '"[^>]*r:id="([^"]+)"')
+        ) || [])[1];
+        if (!rid) return;
+        var target = (wbRels.match(new RegExp('Id="' + rid + '"[^>]*Target="([^"]+)"')) || [])[1];
+        if (!target) return;
+        var path = "xl/" + target.replace(/^\//, "");
+        var f = z.file(path);
+        if (!f) return;
+        var sx = await f.async("string");
+        if (/<rowBreaks/.test(sx)) return;
+        var brk = breaks
+          .map(function (r) {
+            return '<brk id="' + (r - 1) + '" max="16383" man="1"/>';
+          })
+          .join("");
+        var xml =
+          '<rowBreaks count="' +
+          breaks.length +
+          '" manualBreakCount="' +
+          breaks.length +
+          '">' +
+          brk +
+          "</rowBreaks>";
+        z.file(path, sx.replace("</worksheet>", xml + "</worksheet>"));
+      }
+      async function _exlEnhance(buf, sheets, token, invoiceBreaks) {
         var TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
         if (typeof JSZip === "undefined") return new Blob([buf], { type: TYPE });
         async function fontFix(z) {
@@ -2992,6 +3041,9 @@
               await fontFix(z);
             }
           }
+          try {
+            await _injectRowBreaks(z, "請求書", invoiceBreaks);
+          } catch (e) {}
           return z.generateAsync({ type: "blob", mimeType: TYPE, compression: "DEFLATE" });
         } catch (e) {
           return new Blob([buf], { type: TYPE });
@@ -3380,7 +3432,7 @@
           try {
             token = await ensureExportToken();
           } catch (e) {}
-          var blob = await _exlEnhance(buf, sheets, token);
+          var blob = await _exlEnhance(buf, sheets, token, hasInvoice ? invData.breaks : null);
           var d = new Date();
           var ymd =
             d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2);
