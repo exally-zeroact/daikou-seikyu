@@ -3013,7 +3013,12 @@
           '">' +
           brk +
           "</rowBreaks>";
-        z.file(path, sx.replace("</worksheet>", xml + "</worksheet>"));
+        // ★スキーマ順序★ rowBreaks は ignoredErrors/extLst より前でないとExcelが弾く（修復ダイアログ）。
+        // 末尾(</worksheet>直前)に置くとignoredErrorsの後になり順序違反→直前に挿入する。
+        var at = sx.indexOf("<ignoredErrors");
+        if (at < 0) at = sx.indexOf("<extLst");
+        if (at < 0) at = sx.indexOf("</worksheet>");
+        z.file(path, sx.slice(0, at) + xml + sx.slice(at));
       }
       async function _exlEnhance(buf, sheets, token, invoiceBreaks) {
         var TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
