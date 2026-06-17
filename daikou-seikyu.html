@@ -3016,33 +3016,9 @@
                 font: { bold: true, sz: 22 },
                 alignment: { horizontal: "left", vertical: "center" },
               });
-              // ロゴ＝右上の隅（会議：空いた右上に大きめ）。ロゴの右端を表の右端に合わせて
-              // 最大限右へ寄せる（印刷幅をはみ出すと横分割されるので表内に収める）。
-              // colOffは列内の小さい値にする必要があるため、ロゴ左端が入る列を探して配置。
-              if (iss.logo) {
-                // 列幅(EMU)＝Excelが画像配置に使う保存列幅(MDW=7)で算出。実描画は游ゴシックで
-                // やや広いので、ロゴはこの計算位置(やや内側)に収まり右マージンへはみ出さない＝分割防止。
-                var _wEmu = invCols.map(function (c) {
-                  return Math.round((c.wch || 9) * 7) * 9525;
-                });
-                var _tblRight = _wEmu.reduce(function (a, b) {
-                  return a + b;
-                }, 0);
-                var _logoWEmu = (Number(iss.logoSizeMm) || 30) * 36000;
-                var _target = Math.max(0, _tblRight - _logoWEmu - 50000); // 右端に寄せ少し内側
-                var _acc = 0,
-                  _ac = 0,
-                  _aoff = 0;
-                for (var _ci = 0; _ci < _wEmu.length; _ci++) {
-                  if (_acc + _wEmu[_ci] > _target) {
-                    _ac = _ci;
-                    _aoff = Math.round(_target - _acc);
-                    break;
-                  }
-                  _acc += _wEmu[_ci];
-                }
-                logoAnchors.push({ col: _ac, row: rmar, colOff: _aoff, rowOff: 0 });
-              }
+              // ロゴ＝右上の隅（会議：空いた右上に大きめ）。右マージンを小さくした(非対称)ので
+              // 印刷可能域が右に広がり、ロゴを右端(lastCol)に置いても横分割されない。
+              if (iss.logo) logoAnchors.push(anchorAt(lastCol, rmar, 90000, 0));
               // 請求日/No/期限（左・小・1グループ）。自社情報はここに出さず、下の宛名の高さに置く。
               var leftMeta = ["請求日　" + issDateStr(month, iss.dateEra)];
               if (iss.showInvoiceNo)
@@ -3634,15 +3610,14 @@
           .replace(/<pageMargins[^>]*\/>/g, "")
           .replace(/<pageSetup[^>]*\/>/g, "");
         // ① fitToPage は使わない（幅フィットは水平センタリングを無効化し表が左に寄る）。
-        // ② 中央寄せ＝horizontalCenteredでなく「表幅に合わせた左右対称マージン」で実現。
+        // ② 中央寄せ＝非対称マージン。左マージン=表幅に合わせた値で表を中央へ寄せ、
+        //    右マージンは小さく(0.39)して印刷可能域を右に広げる＝ロゴを右端まで置ける。
         //    （horizontalCenteredは右上ロゴ＋判子の偏りに引っ張られ表が左にズレるため不使用）。
-        var mg = sideMargin && sideMargin > 0.3 ? sideMargin.toFixed(2) : "0.39";
+        var lmg = sideMargin && sideMargin > 0.39 ? sideMargin.toFixed(2) : "0.39";
         var inject =
           '<pageMargins left="' +
-          mg +
-          '" right="' +
-          mg +
-          '" top="0.47" bottom="0.39" header="0.3" footer="0.3"/>' +
+          lmg +
+          '" right="0.39" top="0.47" bottom="0.39" header="0.3" footer="0.3"/>' +
           '<pageSetup paperSize="9" orientation="portrait"/>';
         // ★スキーマ順★ pageMargins/pageSetup は rowBreaks/ignoredErrors/extLst より前。
         var at = sx.indexOf("<rowBreaks");
