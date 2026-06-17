@@ -2383,7 +2383,8 @@
     <div class="toast" id="toast"></div>
 
     <!-- 本物の .xlsx 生成（警告なし・複数シート対応） -->
-    <script src="xlsx.full.min.js"></script>
+    <!-- スタイル対応のSheetJS派生(罫線/太字/整列でPDFっぽい請求書を作る)。APIは同じ -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
     <!-- 定義駆動 帳票エンジン（移植可能な共通モジュール／DOM非依存） -->
     <script src="meisai-engine.js"></script>
     <!-- 電子判子の画像処理（背景白抜き・透過判定／再利用モジュール） -->
@@ -2768,7 +2769,7 @@
       // 目次タップ→その請求書の1ページ目へ。各ページから「↩一覧へ」。
       // 返り値 {aoa, links, backs, breaks}（行は1始まり・breaks=各ページ先頭行）
       function _exlInvoiceData() {
-        var empty = { aoa: [], links: [], backs: [], breaks: [] };
+        var empty = { aoa: [], meta: [], links: [], backs: [], breaks: [] };
         if (typeof MeisaiEngine === "undefined") return empty;
         var U = MeisaiEngine.utils;
         var PER = MeisaiEngine.ROWS_PER_PAGE || 22;
@@ -2776,25 +2777,31 @@
         var invs = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, null); // 会社×月 全部
         if (!invs.length) return empty;
 
-        var aoa = [];
+        var aoa = [],
+          meta = []; // metaは各行のスタイル種別（罫線/太字付け用）
         var indexRowOf = [],
           firstPageRowOf = [],
           backs = [],
           breaks = [];
+        function add(row, m) {
+          aoa.push(row);
+          meta.push(m || { t: "blank" });
+        }
         // --- 目次 ---
-        aoa.push(["📑 請求書（会社・年月をタップで移動）"]);
+        add(["📑 請求書（会社・年月をタップで移動）"], { t: "idxTitle" });
         invs.forEach(function (iv) {
           indexRowOf.push(aoa.length + 1);
-          aoa.push([iv.company + "　" + iv.month]);
+          add([iv.company + "　" + iv.month], { t: "idx" });
         });
-        aoa.push([]);
-        aoa.push([]);
+        add([]);
+        add([]);
         // --- 各請求書（ページ割り） ---
         invs.forEach(function (iv) {
           var co = iv.company,
             month = iv.month;
           var m = MASTER[co] || { items: ["日付", "行き先", "金額"] };
           var items = m.items && m.items.length ? m.items : ["日付", "行き先", "金額"];
+          var amtCol = items.indexOf("金額");
           var rows = DB.filter(function (r) {
             return r.account_id === CURRENT_ACCOUNT && r.会社名 === co && U.inMonth(r.日付, month);
           }).sort(function (a, b) {
@@ -2813,58 +2820,58 @@
           for (var pi = 0; pi < pageCount; pi++) {
             var pageRows = rows.slice(pi * PER, (pi + 1) * PER);
             var startRow = aoa.length + 1;
-            breaks.push(startRow); // このページの先頭で改ページ
-            backs.push(startRow); // 戻りリンク
+            breaks.push(startRow);
+            backs.push(startRow);
             if (pi === 0) firstPageRowOf.push(startRow);
-            // 発行者（毎ページ）
             iss.lines.forEach(function (l) {
-              aoa.push([l]);
+              add([l], { t: "issuer" });
             });
-            aoa.push([]);
-            aoa.push(["", "", "請求書", "", "（" + (pi + 1) + "/" + pageCount + "）"]);
+            add([]);
+            add(["", "", "請求書", "", "（" + (pi + 1) + "/" + pageCount + "）"], { t: "title" });
             if (iss.showInvoiceNo)
-              aoa.push([
+              add([
                 "",
                 "",
                 "請求番号: " + MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co),
               ]);
-            aoa.push([co + "　御中"]);
-            if (pi === 0 && m.lead) aoa.push([String(m.lead).replace(/\{月\}/g, mo)]);
-            aoa.push([m.tableTitle || "運転業務委託料"]);
-            aoa.push(items.slice());
+            add([co + "　御中"], { t: "atesha" });
+            if (pi === 0 && m.lead) add([String(m.lead).replace(/\{月\}/g, mo)]);
+            add([m.tableTitle || "運転業務委託料"], { t: "tabletitle" });
+            add(items.slice(), { t: "thead", cols: items.length, amtCol: amtCol });
             pageRows.forEach(function (r) {
-              aoa.push(
+              add(
                 items.map(function (k) {
                   var v = r[k];
                   if (k === "日付") return U.mdShort(v);
                   if (k === "金額") return v === "" || v == null ? "" : Number(v);
                   return v == null ? "" : v;
-                })
+                }),
+                { t: "trow", cols: items.length, amtCol: amtCol }
               );
             });
             if (pi === pageCount - 1) {
-              aoa.push([]);
-              aoa.push(["", "", "合計（税込）", total]);
-              aoa.push(["", "", "うち消費税(10%)", tax]);
+              add([]);
+              add(["", "", "合計（税込）", total], { t: "totlabel" });
+              add(["", "", "うち消費税(10%)", tax], { t: "totlabel" });
               if (iss.bank && iss.bank.length) {
-                aoa.push([]);
+                add([]);
                 iss.bank.forEach(function (l) {
-                  aoa.push([l]);
+                  add([l], { t: "bank" });
                 });
               }
             } else {
-              aoa.push([]);
-              aoa.push(["", "", "次ページへ続く →"]);
+              add([]);
+              add(["", "", "次ページへ続く →"], { t: "continued" });
             }
-            aoa.push([]);
-            aoa.push([]);
+            add([]);
+            add([]);
           }
         });
 
         var links = invs.map(function (iv, i) {
           return { indexRow: indexRowOf[i], targetRow: firstPageRowOf[i] };
         });
-        return { aoa: aoa, links: links, backs: backs, breaks: breaks };
+        return { aoa: aoa, meta: meta, links: links, backs: backs, breaks: breaks };
       }
       /* ===================================================================
    Excel自動更新ファイル ─ SheetJSの「開ける実データxlsx」を土台に、その上に
@@ -3027,10 +3034,9 @@
           var f = z.file("xl/styles.xml");
           if (f) {
             var s = await f.async("string");
-            s = s.replace(
-              /<fonts count="\d+">[\s\S]*?<\/fonts>/,
-              '<fonts count="1"><font><sz val="11"/><color theme="1"/><name val="游ゴシック"/><family val="2"/></font></fonts>'
-            );
+            // 全フォントの書体名だけを游ゴシックに（太字/サイズ/索引は保持＝スタイル崩さない）
+            s = s.replace(/<name val="[^"]*"\s*\/>/g, '<name val="游ゴシック"/>');
+            if (!/<name val=/.test(s)) s = s.replace(/<font>/g, '<font><name val="游ゴシック"/>');
             z.file("xl/styles.xml", s);
           }
         }
@@ -3377,28 +3383,6 @@
           var invData = _exlInvoiceData();
           var hasInvoice = invData.aoa.length > 0;
           var wb = XLSX.utils.book_new();
-          // 1枚目＝ホーム（タップで各ページへ飛ぶボタン＝アプリの下タブの代わり・マクロ不要）
-          var navTargets = [
-            { label: "📋  明細を見る", sheet: "明細" },
-            { label: "💰  入金を見る", sheet: "入金" },
-            { label: "📊  集計を見る", sheet: "集計" },
-            { label: "🏢  会社を見る", sheet: "会社" },
-          ];
-          if (hasInvoice) navTargets.push({ label: "🧾  請求書を見る", sheet: "請求書" });
-          var homeAoa = [["📒 ダイコメ（タップで各ページへ）"], []].concat(
-            navTargets.map(function (t) {
-              return [t.label];
-            }),
-            [[], ["※下のシートのタブでも切り替えできます"]]
-          );
-          var hws = XLSX.utils.aoa_to_sheet(homeAoa);
-          hws["!cols"] = [{ wch: 34 }];
-          navTargets.forEach(function (t, i) {
-            var cell = "A" + (i + 3); // A3から
-            if (!hws[cell]) hws[cell] = { t: "s", v: t.label };
-            hws[cell].l = { Target: "#'" + t.sheet + "'!A1", Tooltip: t.sheet + "へ" };
-          });
-          XLSX.utils.book_append_sheet(wb, hws, "ホーム");
           // データ4シート（自動更新の対象）
           sheets.forEach(function (sh) {
             var ws = XLSX.utils.aoa_to_sheet(sh.aoa);
@@ -3427,6 +3411,53 @@
                 v: "↩ 一覧へ",
                 l: { Target: "#'請求書'!A1", Tooltip: "一覧へ戻る" },
               };
+            });
+            // --- スタイル付け（請求書をPDFっぽく：罫線・太字・整列） ---
+            var THIN = { style: "thin", color: { rgb: "999999" } };
+            var BOX = { top: THIN, bottom: THIN, left: THIN, right: THIN };
+            function styleCell(ci, ri, s) {
+              var ref = XLSX.utils.encode_cell({ c: ci, r: ri });
+              if (!iws[ref]) iws[ref] = { t: "s", v: "" };
+              iws[ref].s = s;
+            }
+            invData.meta.forEach(function (m, ri) {
+              if (m.t === "idxTitle") styleCell(0, ri, { font: { bold: true, sz: 13 } });
+              else if (m.t === "issuer") styleCell(0, ri, { font: { sz: 10 } });
+              else if (m.t === "title")
+                styleCell(2, ri, {
+                  font: { bold: true, sz: 20 },
+                  alignment: { horizontal: "center" },
+                });
+              else if (m.t === "atesha")
+                styleCell(0, ri, {
+                  font: { bold: true, sz: 14 },
+                  border: { bottom: { style: "medium" } },
+                });
+              else if (m.t === "tabletitle") styleCell(0, ri, { font: { bold: true } });
+              else if (m.t === "continued")
+                styleCell(2, ri, { font: { italic: true, color: { rgb: "888888" } } });
+              else if (m.t === "bank") styleCell(0, ri, { font: { sz: 10 } });
+              else if (m.t === "thead")
+                for (var c = 0; c < m.cols; c++)
+                  styleCell(c, ri, {
+                    font: { bold: true },
+                    alignment: { horizontal: "center" },
+                    fill: { fgColor: { rgb: "EFEFEF" } },
+                    border: BOX,
+                  });
+              else if (m.t === "trow")
+                for (var c2 = 0; c2 < m.cols; c2++)
+                  styleCell(
+                    c2,
+                    ri,
+                    c2 === m.amtCol
+                      ? { alignment: { horizontal: "right" }, border: BOX }
+                      : { border: BOX }
+                  );
+              else if (m.t === "totlabel") {
+                styleCell(2, ri, { font: { bold: true }, alignment: { horizontal: "right" } });
+                styleCell(3, ri, { font: { bold: true }, alignment: { horizontal: "right" } });
+              }
             });
             XLSX.utils.book_append_sheet(wb, iws, "請求書");
           }
