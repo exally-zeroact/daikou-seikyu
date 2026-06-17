@@ -2060,7 +2060,7 @@
       <div class="exl-card">
         <div class="exl-title">📊 Excelに連携</div>
         <div class="exl-sub">
-          ボタン1個で、<b>明細・入金・集計・会社の4シートが入ったExcel</b>を作ります。<b>PCのExcelで開くと、開くたびクラウドから自動で最新</b>になります（ファイルは1個・増えません）。
+          ボタン1個で、<b>明細・入金・集計・会社・請求書の5シートが入ったExcel</b>を作ります。データ4シートは<b>PCのExcelで開くと自動で最新</b>に（ファイルは1個・増えません）。<b>請求書シート</b>は会社×月ごとの請求書を読める形で並べたもの（落とした時点・印刷や送付用）。
         </div>
         <button class="exl-dl" onclick="downloadExcelWorkbook(this)">📥 Excelをダウンロード</button>
         <div class="exl-dlnote">
@@ -2761,6 +2761,70 @@
           });
         return aoa;
       }
+      // 請求書シート＝会社×月ごとに、請求書を読める形で縦に積む（発行者/宛名/明細/合計/振込先）。
+      // アプリのPDFと同じ内容を、Excelで見る・客に渡す用（静的＝落とした時点）。
+      function _exlInvoiceAoa() {
+        if (typeof MeisaiEngine === "undefined") return [];
+        var U = MeisaiEngine.utils;
+        var iss = issuerForEngine();
+        var invs = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, null); // 会社×月 全部
+        var aoa = [];
+        invs.forEach(function (iv) {
+          var co = iv.company,
+            month = iv.month;
+          var m = MASTER[co] || { items: ["日付", "行き先", "金額"] };
+          var items = m.items && m.items.length ? m.items : ["日付", "行き先", "金額"];
+          var rows = DB.filter(function (r) {
+            return r.account_id === CURRENT_ACCOUNT && r.会社名 === co && U.inMonth(r.日付, month);
+          }).sort(function (a, b) {
+            return (
+              (a.日付 || "").localeCompare(b.日付 || "") || (a.id || "").localeCompare(b.id || "")
+            );
+          });
+          var mo = Number(month.split("-")[1]);
+
+          iss.lines.forEach(function (l) {
+            aoa.push([l]);
+          });
+          aoa.push([]);
+          aoa.push(["", "", "請求書"]);
+          if (iss.showInvoiceNo)
+            aoa.push([
+              "",
+              "",
+              "請求番号: " + MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co),
+            ]);
+          aoa.push([co + "　御中"]);
+          if (m.lead) aoa.push([String(m.lead).replace(/\{月\}/g, mo)]);
+          aoa.push([m.tableTitle || "運転業務委託料"]);
+          aoa.push(items.slice());
+          var total = 0;
+          rows.forEach(function (r) {
+            total += Number(r.金額) || 0;
+            aoa.push(
+              items.map(function (k) {
+                var v = r[k];
+                if (k === "日付") return U.mdShort(v);
+                if (k === "金額") return v === "" || v == null ? "" : Number(v);
+                return v == null ? "" : v;
+              })
+            );
+          });
+          var tax = U.tax10(total);
+          aoa.push([]);
+          aoa.push(["", "", "合計（税込）", total]);
+          aoa.push(["", "", "うち消費税(10%)", tax]);
+          if (iss.bank && iss.bank.length) {
+            aoa.push([]);
+            iss.bank.forEach(function (l) {
+              aoa.push([l]);
+            });
+          }
+          aoa.push([]);
+          aoa.push([]);
+        });
+        return aoa;
+      }
       /* ===================================================================
    Excel自動更新ファイル ─ SheetJSの「開ける実データxlsx」を土台に、その上に
    Power Query層(接続+DataMashup+テーブル)を載せる。
@@ -3231,6 +3295,13 @@
             ws["!cols"] = autoColWidths(sh.aoa);
             XLSX.utils.book_append_sheet(wb, ws, sh.name);
           });
+          // 5枚目＝請求書（静的・自動更新の対象外。必ず最後に追加してsheetsの並びを崩さない）
+          var invAoa = _exlInvoiceAoa();
+          if (invAoa.length) {
+            var iws = XLSX.utils.aoa_to_sheet(invAoa);
+            iws["!cols"] = [{ wch: 12 }, { wch: 22 }, { wch: 16 }, { wch: 12 }, { wch: 10 }];
+            XLSX.utils.book_append_sheet(wb, iws, "請求書");
+          }
           var buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
           // レガシーWebクエリ(.iqyと同じエンジン)を注入＝開くだけ自動更新の4シート。
           // 取得に失敗/注入で壊れたら自動で静的Excel(確実に開ける)にフォールバック。
@@ -3251,7 +3322,7 @@
             URL.revokeObjectURL(a.href);
             a.remove();
           }, 1500);
-          toast("Excel（4シート）を書き出しました");
+          toast("Excel（5シート＝明細/入金/集計/会社/請求書）を書き出しました");
         } catch (e) {
           toast("作成に失敗しました：" + (e && e.message ? e.message : e));
         } finally {
