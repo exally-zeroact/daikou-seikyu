@@ -1060,6 +1060,81 @@
         display: block;
       }
 
+      /* ===== 請求書テンプレート ギャラリー ===== */
+      .tpl-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-top: 4px;
+      }
+      .tpl-card {
+        position: relative;
+        border: 2px solid #e3efe9;
+        border-radius: 12px;
+        overflow: hidden;
+        background: #fff;
+        padding: 0;
+        text-align: left;
+        cursor: pointer;
+        font: inherit;
+        transition:
+          border-color 0.12s,
+          box-shadow 0.12s;
+      }
+      .tpl-card.on {
+        border-color: #16a34a;
+        box-shadow: 0 0 0 1px #16a34a inset;
+      }
+      .tpl-thumb {
+        width: 100%;
+        aspect-ratio: 1 / 1.414;
+        background: #f3f4f6;
+        display: block;
+        border-bottom: 1px solid #eef3f0;
+      }
+      .tpl-meta {
+        padding: 8px 10px 10px;
+      }
+      .tpl-name {
+        font-weight: 700;
+        font-size: 13px;
+        color: #14322a;
+      }
+      .tpl-desc {
+        font-size: 11px;
+        color: #7a8e85;
+        margin-top: 2px;
+        line-height: 1.35;
+      }
+      .tpl-badge {
+        position: absolute;
+        top: 7px;
+        right: 7px;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: #16a34a;
+        color: #fff;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+      }
+      .tpl-card.on .tpl-badge {
+        display: flex;
+      }
+      .tpl-hint {
+        margin-top: 12px;
+        padding: 10px 12px;
+        background: #fff7e6;
+        border: 1px solid #ffe2a8;
+        border-radius: 10px;
+        font-size: 12px;
+        color: #8a6d3b;
+        line-height: 1.5;
+      }
+
       /* ===== ナビのバッジ（未入金件数） ===== */
       .nav-item {
         position: relative;
@@ -1847,6 +1922,9 @@
         <button class="seg-btn" data-seg="issuer" onclick="showSettingsSeg('issuer')">
           自社情報
         </button>
+        <button class="seg-btn" data-seg="template" onclick="showSettingsSeg('template')">
+          テンプレート
+        </button>
       </div>
 
       <!-- 会社マスタ -->
@@ -2122,6 +2200,18 @@
         </div>
       </div>
       <!-- /自社情報パネル -->
+
+      <!-- テンプレート選択 -->
+      <div class="seg-panel" data-seg="template">
+        <div class="scr-sub">
+          請求書の見た目を選べます。選んだテンプレートで毎月の請求書が作られます（会社名・振込先・ロゴ・判子はそのまま使われます）。
+        </div>
+        <div id="tplGallery" class="tpl-grid"></div>
+        <div id="tplLogoHint" class="tpl-hint" style="display: none">
+          このテンプレートはロゴを使います。<b>「自社情報」でロゴを登録</b>すると右上に入ります（未登録なら自動でロゴなしで出ます）。
+        </div>
+      </div>
+      <!-- /テンプレート -->
 
       <!-- Excel自動連携（個人URLをPCのExcelに1回貼るだけ→以後は自動更新） -->
       <div class="exl-card">
@@ -3018,7 +3108,9 @@
               });
               // ロゴ＝右上の隅（会議：空いた右上に大きめ）。右マージンを小さくした(非対称)ので
               // 印刷可能域が右に広がり、ロゴを右端(lastCol)に置いても横分割されない。
-              if (iss.logo) logoAnchors.push(anchorAt(lastCol, rmar, 90000, 0));
+              // テンプレが「ロゴ型(show)」かつ自社情報にロゴ登録あり のときだけ描く。
+              if (iss.logo && iss.logoMode === "show")
+                logoAnchors.push(anchorAt(lastCol, rmar, 90000, 0));
               // 請求日/No/期限（左・小・1グループ）。自社情報はここに出さず、下の宛名の高さに置く。
               var leftMeta = ["請求日　" + issDateStr(month, iss.dateEra)];
               if (iss.showInvoiceNo)
@@ -3104,7 +3196,7 @@
               S(ri0, rightStart, { font: { sz: 9 }, alignment: { horizontal: "right" } });
               // ロゴ画像＝左上角（請求日が右上・中央タイトルと衝突しない位置）。
               // 中央タイトルは中央のみ＝左端のロゴは本文と被らない。画像はあとでJSZip注入。
-              if (iss.logo) logoAnchors.push(anchorAt(0, ri0, 30000, 0));
+              if (iss.logo && iss.logoMode === "show") logoAnchors.push(anchorAt(0, ri0, 30000, 0));
               // お支払期限（テンプレ：請求日の下・右上）
               if (m.paymentDue) {
                 var rd = blank();
@@ -4452,7 +4544,86 @@
           b.classList.toggle("on", b.dataset.seg === seg);
         });
         if (seg === "master") renderMaster();
+        else if (seg === "template") renderTemplates();
         else renderIssuer();
+      }
+      // ===== テンプレートギャラリー =====
+      // サムネ＝SVGの簡易見本（A4縦比率）。ヘッダー型(A=左タイトル+右ロゴ / B=中央タイトル)を表現。
+      function tplThumbSvg(t) {
+        var A = t.headerStyle === "A";
+        var logo = t.logoMode === "show";
+        var title = A
+          ? '<text x="7" y="15" font-size="8.5" font-weight="700" fill="#14322a">請 求 書</text>'
+          : '<text x="50" y="15" font-size="8.5" font-weight="700" fill="#14322a" text-anchor="middle">請 求 書</text>';
+        var logoBox = logo
+          ? '<rect x="75" y="6" width="19" height="13" rx="2" fill="#e7eefc" stroke="#1565c0" stroke-width="0.6"/>' +
+            '<text x="84.5" y="14.5" font-size="4.5" fill="#1565c0" text-anchor="middle">LOGO</text>'
+          : "";
+        // 宛名(左)・自社情報(右揃え)
+        var ate = '<rect x="7" y="23" width="30" height="3" rx="1" fill="#9fb3aa"/>';
+        var issuer =
+          '<rect x="62" y="22" width="32" height="2" rx="1" fill="#cdd8d3"/>' +
+          '<rect x="66" y="26" width="28" height="2" rx="1" fill="#cdd8d3"/>' +
+          '<rect x="70" y="30" width="24" height="2" rx="1" fill="#cdd8d3"/>';
+        // 表ヘッダー(緑)＋行
+        var tbl =
+          '<rect x="7" y="44" width="87" height="7" fill="#dcefe6" stroke="#b9d4c8" stroke-width="0.4"/>';
+        for (var i = 0; i < 10; i++)
+          tbl +=
+            '<rect x="7" y="' +
+            (51 + i * 7) +
+            '" width="87" height="7" fill="none" stroke="#e6ece8" stroke-width="0.4"/>';
+        tbl += '<line x1="74" y1="44" x2="74" y2="121" stroke="#cdd8d3" stroke-width="0.4"/>';
+        return (
+          '<svg viewBox="0 0 100 141" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block">' +
+          '<rect width="100" height="141" fill="#fff"/>' +
+          title +
+          logoBox +
+          ate +
+          issuer +
+          tbl +
+          "</svg>"
+        );
+      }
+      function renderTemplates() {
+        var g = document.getElementById("tplGallery");
+        if (!g) return;
+        var cur = resolveTemplate().id;
+        g.innerHTML = Object.keys(INVOICE_TEMPLATES)
+          .map(function (id) {
+            var t = INVOICE_TEMPLATES[id];
+            return (
+              '<button type="button" class="tpl-card' +
+              (id === cur ? " on" : "") +
+              '" onclick="setTemplate(\'' +
+              id +
+              "')\">" +
+              '<div class="tpl-badge">✓</div>' +
+              '<div class="tpl-thumb">' +
+              tplThumbSvg(t) +
+              "</div>" +
+              '<div class="tpl-meta"><div class="tpl-name">' +
+              t.label +
+              '</div><div class="tpl-desc">' +
+              t.desc +
+              "</div></div>" +
+              "</button>"
+            );
+          })
+          .join("");
+        var hint = document.getElementById("tplLogoHint");
+        if (hint) {
+          var needLogo = resolveTemplate().logoMode === "show";
+          var hasLogo = !!currentIssuer().logo;
+          hint.style.display = needLogo && !hasLogo ? "block" : "none";
+        }
+      }
+      function setTemplate(id) {
+        if (!INVOICE_TEMPLATES[id]) return;
+        setIssuer("defaultTemplate", id);
+        setIssuer("headerStyle", INVOICE_TEMPLATES[id].headerStyle); // 旧フラグも整合（互換）
+        renderTemplates();
+        toast(INVOICE_TEMPLATES[id].label + " に設定しました");
       }
       // 入金タブの未入金バッジ（未入金＋一部入金の件数）
       function updatePayBadge() {
@@ -4792,7 +4963,8 @@
           logoRaw: "", // ロゴ元画像（再処理用）
           logoBg: "auto", // ロゴ背景白抜き: auto / on / off
           logoSizeMm: 33, // ロゴの大きさ(mm)・基本値（UIで変更可）
-          headerStyle: "A", // 請求書ヘッダー型：A=左タイトル+右上ロゴ(会議で決定)/B=中央タイトル
+          headerStyle: "A", // 旧フラグ（互換用）。実体は defaultTemplate に移行。
+          defaultTemplate: "A_logo", // 請求書テンプレ既定（INVOICE_TEMPLATES のID）
         };
       }
       function loadIssuer() {
@@ -4844,10 +5016,43 @@
           })
           .filter(Boolean);
       }
+      // ===== 請求書テンプレート（専門家会議：3〜6本に絞る／デザインとロゴ/データ違いは分離） =====
+      // テンプレ＝「ヘッダーの型(headerStyle)」＋「ロゴを使う型か(logoMode)」だけを持つ。
+      // 役職集計/源泉/繰越/税率別 等のデータ違いはテンプレにせず会社マスタの項目で吸収。
+      var INVOICE_TEMPLATES = {
+        A_logo: {
+          id: "A_logo",
+          label: "対角・ロゴあり",
+          desc: "左にタイトル、右上にロゴ。ロゴありの会社向け（標準）",
+          headerStyle: "A",
+          logoMode: "show",
+        },
+        A_plain: {
+          id: "A_plain",
+          label: "対角・ロゴなし",
+          desc: "左タイトルのままロゴを出さない。すっきり",
+          headerStyle: "A",
+          logoMode: "hide",
+        },
+        B_center: {
+          id: "B_center",
+          label: "中央タイトル",
+          desc: "タイトルを中央に。昔ながらの定番・ロゴなし向け",
+          headerStyle: "B",
+          logoMode: "hide",
+        },
+      };
+      // テンプレ解決＝アカウント既定(defaultTemplate)。旧headerStyleからの移行も吸収。
+      function resolveTemplate() {
+        var s = currentIssuer();
+        var id = s.defaultTemplate || (s.headerStyle === "B" ? "B_center" : "A_logo");
+        return INVOICE_TEMPLATES[id] || INVOICE_TEMPLATES.A_logo;
+      }
       // エンジンが受け取る形（lines/bank/hanko）へ変換。空行は自動で除外。
       function issuerForEngine() {
         var s = currentIssuer();
         var bankLines = splitLines(s.bank);
+        var tpl = resolveTemplate();
         return {
           lines: splitLines(s.issuer),
           bank: bankLines.length ? ["お振込先"].concat(bankLines) : [],
@@ -4859,7 +5064,9 @@
           hankoSizeMm: Number(s.hankoSizeMm) || 21,
           logo: s.logo || null,
           logoSizeMm: Number(s.logoSizeMm) || 33, // 専門家推奨32〜35mm（28は小さい）
-          headerStyle: s.headerStyle || "A",
+          headerStyle: tpl.headerStyle, // テンプレから導出（後方互換）
+          logoMode: tpl.logoMode, // show=ロゴ枠あり / hide=ロゴ出さない
+          templateId: tpl.id,
         };
       }
       function setAlign(field, val) {
