@@ -3016,9 +3016,33 @@
                 font: { bold: true, sz: 22 },
                 alignment: { horizontal: "left", vertical: "center" },
               });
-              // ロゴ＝右上ゾーン内（表の枠を右にはみ出さない＝中央寄せが崩れない）。
-              // 右ゾーン先頭(rightStart)に頭を合わせ「請求書」と天揃え。判子より大きめ。
-              if (iss.logo) logoAnchors.push(anchorAt(rightStart, rmar, 40000, 0));
+              // ロゴ＝右上の隅（会議：空いた右上に大きめ）。ロゴの右端を表の右端に合わせて
+              // 最大限右へ寄せる（印刷幅をはみ出すと横分割されるので表内に収める）。
+              // colOffは列内の小さい値にする必要があるため、ロゴ左端が入る列を探して配置。
+              if (iss.logo) {
+                // 列幅(EMU)＝Excelが画像配置に使う保存列幅(MDW=7)で算出。実描画は游ゴシックで
+                // やや広いので、ロゴはこの計算位置(やや内側)に収まり右マージンへはみ出さない＝分割防止。
+                var _wEmu = invCols.map(function (c) {
+                  return Math.round((c.wch || 9) * 7) * 9525;
+                });
+                var _tblRight = _wEmu.reduce(function (a, b) {
+                  return a + b;
+                }, 0);
+                var _logoWEmu = (Number(iss.logoSizeMm) || 30) * 36000;
+                var _target = Math.max(0, _tblRight - _logoWEmu - 50000); // 右端に寄せ少し内側
+                var _acc = 0,
+                  _ac = 0,
+                  _aoff = 0;
+                for (var _ci = 0; _ci < _wEmu.length; _ci++) {
+                  if (_acc + _wEmu[_ci] > _target) {
+                    _ac = _ci;
+                    _aoff = Math.round(_target - _acc);
+                    break;
+                  }
+                  _acc += _wEmu[_ci];
+                }
+                logoAnchors.push({ col: _ac, row: rmar, colOff: _aoff, rowOff: 0 });
+              }
               // 請求日/No/期限（左・小・1グループ）。自社情報はここに出さず、下の宛名の高さに置く。
               var leftMeta = ["請求日　" + issDateStr(month, iss.dateEra)];
               if (iss.showInvoiceNo)
