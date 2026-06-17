@@ -2844,7 +2844,7 @@
         var PER = 28;
         var iss = issuerForEngine();
         // ヘッダー型：A=対角(左タイトル+右ロゴ/自社情報・会計ソフト標準/専門家推奨) / B=中央タイトル(整理版)
-        var headerStyle = iss.headerStyle || "B";
+        var headerStyle = iss.headerStyle || "A";
         var invs = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, null);
         if (!invs.length) return empty;
 
@@ -2872,6 +2872,12 @@
         }
         function M(r1, c1, r2, c2) {
           merges.push({ s: { r: r1, c: c1 }, e: { r: r2, c: c2 } });
+        }
+        // 画像アンカー＝oneCellAnchor（セル基準＝改ページに正しく追従）。
+        // 表の中央寄せは horizontalCentered ではなく「表幅に合わせた左右対称マージン」で行う
+        // （horizontalCenteredは右上ロゴ＋判子の偏りに引っ張られ表が左にズレるため不使用）。
+        function anchorAt(col, rw, colOff, rowOff) {
+          return { col: col, row: rw, colOff: colOff || 0, rowOff: rowOff || 0 };
         }
 
         // ===== 目次は別シートに出す（請求書シートは請求書だけ＝印刷がきれい・見本Excel同様） =====
@@ -3010,8 +3016,9 @@
                 font: { bold: true, sz: 22 },
                 alignment: { horizontal: "left", vertical: "center" },
               });
-              // ロゴ＝右端・大きめ（判子より大）。天マージン行に頭を合わせ「請求書」と同じ高さで天揃え。
-              if (iss.logo) logoAnchors.push({ col: lastCol, row: rmar, colOff: 90000, rowOff: 0 });
+              // ロゴ＝右上ゾーン内（表の枠を右にはみ出さない＝中央寄せが崩れない）。
+              // 右ゾーン先頭(rightStart)に頭を合わせ「請求書」と天揃え。判子より大きめ。
+              if (iss.logo) logoAnchors.push(anchorAt(rightStart, rmar, 40000, 0));
               // 請求日/No/期限（左・小・1グループ）。自社情報はここに出さず、下の宛名の高さに置く。
               var leftMeta = ["請求日　" + issDateStr(month, iss.dateEra)];
               if (iss.showInvoiceNo)
@@ -3043,8 +3050,7 @@
                 font: { sz: 10 },
                 alignment: { horizontal: "right" },
               });
-              if (iss.hanko)
-                hankoAnchors.push({ col: lastCol, row: riAtA, colOff: 250000, rowOff: 0 });
+              if (iss.hanko) hankoAnchors.push(anchorAt(lastCol, riAtA, 250000, 0));
               // リード(宛名から2行下げてくっつき解消) ＋ 自社情報の続き(右) ＋ ご請求金額
               var leftLinesA = [];
               if (m.lead) leftLinesA.push(String(m.lead).replace(/\{月\}/g, mo));
@@ -3098,7 +3104,7 @@
               S(ri0, rightStart, { font: { sz: 9 }, alignment: { horizontal: "right" } });
               // ロゴ画像＝左上角（請求日が右上・中央タイトルと衝突しない位置）。
               // 中央タイトルは中央のみ＝左端のロゴは本文と被らない。画像はあとでJSZip注入。
-              if (iss.logo) logoAnchors.push({ col: 0, row: ri0, colOff: 30000, rowOff: 0 });
+              if (iss.logo) logoAnchors.push(anchorAt(0, ri0, 30000, 0));
               // お支払期限（テンプレ：請求日の下・右上）
               if (m.paymentDue) {
                 var rd = blank();
@@ -3137,13 +3143,7 @@
               });
               // 判子＝会社名（自社情報1行目）に重ねて押す＝日本の請求書の標準（角印は社名に
               // かぶせる＝偽造防止）。社名の右側に重なる位置へ。EMU: 1mm=36000。
-              if (iss.hanko)
-                hankoAnchors.push({
-                  col: lastCol, // 右端の列（社名は右揃えで右端に終わる）
-                  row: riAt, // 会社名の行に重ねる
-                  colOff: 250000, // 約7mm右へ＝社名の右側に重なる
-                  rowOff: 0,
-                });
+              if (iss.hanko) hankoAnchors.push(anchorAt(lastCol, riAt, 250000, 0));
 
               // リード／ご請求金額（左・宛名から2行下げる＝sh-leadwrapの余白）＋発行者の続き(右)
               var leftLines = [];
@@ -3416,6 +3416,13 @@
             };
           }
         }
+        // 表幅(inch)から左右対称マージンを算出＝表をA4縦の中央に置く（horizontalCentered不使用＝
+        // 右上ロゴ＋判子の偏りで中央寄せが崩れるのを回避。マージン左右同値なら必ず中央）。
+        var sumWch = (invCols || []).reduce(function (a, c) {
+          return a + (c.wch || 9);
+        }, 0);
+        var tableIn = sumWch * 0.093; // 経験係数（游ゴシック実測・分割防止に表幅をやや大きめ見積り）
+        var sideMargin = Math.max(0.3, (8.27 - tableIn) / 2); // A4縦の幅=8.27in
         return {
           aoa: aoa,
           styles: styles,
@@ -3425,6 +3432,7 @@
           index: index,
           breaks: breaks,
           hanko: hankoObj,
+          margin: sideMargin, // 請求書シートの左右マージン(inch)＝中央寄せ用
         };
       }
       /* ===================================================================
@@ -3583,7 +3591,7 @@
       }
       // 請求書シートの印刷設定をファイルに焼き込む＝ユーザーが開いて印刷してもA4縦・幅1ページに収まる。
       // (司さん指示「寸法はちゃんとA4の幅ピッタリに」)。SheetJSの既定pageMargins/pageSetupは置換。
-      async function _injectPageSetup(z, sheetName) {
+      async function _injectPageSetup(z, sheetName, sideMargin) {
         var wbXml = await z.file("xl/workbook.xml").async("string");
         var wbRels = await z.file("xl/_rels/workbook.xml.rels").async("string");
         var rid = (wbXml.match(
@@ -3601,12 +3609,16 @@
           .replace(/<printOptions[^>]*\/>/g, "")
           .replace(/<pageMargins[^>]*\/>/g, "")
           .replace(/<pageSetup[^>]*\/>/g, "");
-        // ① fitToPage は使わない＝幅フィットを有効にするとExcelが水平センタリングを無効化し、
-        //    表が左に寄る。自然な表幅のまま紙の中央に置きたいので fitToPage は付けない。
-        // ② A4縦・横1ページ・水平センタリング（本文帯を紙の中央に置く＝左右余白を均等に）
+        // ① fitToPage は使わない（幅フィットは水平センタリングを無効化し表が左に寄る）。
+        // ② 中央寄せ＝horizontalCenteredでなく「表幅に合わせた左右対称マージン」で実現。
+        //    （horizontalCenteredは右上ロゴ＋判子の偏りに引っ張られ表が左にズレるため不使用）。
+        var mg = sideMargin && sideMargin > 0.3 ? sideMargin.toFixed(2) : "0.39";
         var inject =
-          '<printOptions horizontalCentered="1"/>' +
-          '<pageMargins left="0.39" right="0.39" top="0.47" bottom="0.39" header="0.3" footer="0.3"/>' +
+          '<pageMargins left="' +
+          mg +
+          '" right="' +
+          mg +
+          '" top="0.47" bottom="0.39" header="0.3" footer="0.3"/>' +
           '<pageSetup paperSize="9" orientation="portrait"/>';
         // ★スキーマ順★ pageMargins/pageSetup は rowBreaks/ignoredErrors/extLst より前。
         var at = sx.indexOf("<rowBreaks");
@@ -3665,16 +3677,27 @@
             ext +
             '"/>';
           img.anchors.forEach(function (a) {
+            // 絶対座標(x,y)があれば absoluteAnchor＝印刷の水平センタリングが画像の偏りに
+            // 引っ張られない（oneCellAnchorだと右上ロゴ＋判子で表が左にズレる）。
+            var head =
+              a.x != null
+                ? '<xdr:absoluteAnchor><xdr:pos x="' +
+                  Math.round(a.x) +
+                  '" y="' +
+                  Math.round(a.y || 0) +
+                  '"/>'
+                : "<xdr:oneCellAnchor><xdr:from><xdr:col>" +
+                  a.col +
+                  "</xdr:col><xdr:colOff>" +
+                  (a.colOff || 0) +
+                  "</xdr:colOff><xdr:row>" +
+                  a.row +
+                  "</xdr:row><xdr:rowOff>" +
+                  (a.rowOff || 0) +
+                  "</xdr:rowOff></xdr:from>";
+            var tail = a.x != null ? "</xdr:absoluteAnchor>" : "</xdr:oneCellAnchor>";
             anch +=
-              "<xdr:oneCellAnchor><xdr:from><xdr:col>" +
-              a.col +
-              "</xdr:col><xdr:colOff>" +
-              (a.colOff || 0) +
-              "</xdr:colOff><xdr:row>" +
-              a.row +
-              "</xdr:row><xdr:rowOff>" +
-              (a.rowOff || 0) +
-              "</xdr:rowOff></xdr:from>" +
+              head +
               '<xdr:ext cx="' +
               img.w +
               '" cy="' +
@@ -3694,7 +3717,8 @@
               '" cy="' +
               img.h +
               '"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr>' +
-              "</xdr:pic><xdr:clientData/></xdr:oneCellAnchor>";
+              "</xdr:pic><xdr:clientData/>" +
+              tail;
             pid++;
           });
         });
@@ -3751,7 +3775,7 @@
         });
         if (add) z.file("[Content_Types].xml", ct.replace("</Types>", add + "</Types>"));
       }
-      async function _exlEnhance(buf, sheets, token, invoiceBreaks, invoiceHanko) {
+      async function _exlEnhance(buf, sheets, token, invoiceBreaks, invoiceHanko, invoiceMargin) {
         var TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
         if (typeof JSZip === "undefined") return new Blob([buf], { type: TYPE });
         async function fontFix(z) {
@@ -3777,7 +3801,7 @@
             }
           }
           try {
-            await _injectPageSetup(z, "請求書");
+            await _injectPageSetup(z, "請求書", invoiceMargin);
           } catch (e) {}
           try {
             await _injectRowBreaks(z, "請求書", invoiceBreaks);
@@ -4172,7 +4196,8 @@
             sheets,
             token,
             hasInvoice ? invData.breaks : null,
-            hasInvoice ? invData.hanko : null
+            hasInvoice ? invData.hanko : null,
+            hasInvoice ? invData.margin : null
           );
           var d = new Date();
           var ymd =
@@ -4768,7 +4793,7 @@
           logoRaw: "", // ロゴ元画像（再処理用）
           logoBg: "auto", // ロゴ背景白抜き: auto / on / off
           logoSizeMm: 33, // ロゴの大きさ(mm)・基本値（UIで変更可）
-          headerStyle: "B", // 請求書ヘッダー型：B=中央タイトル(ロゴ前の正)/A=左タイトル(不採用)
+          headerStyle: "A", // 請求書ヘッダー型：A=左タイトル+右上ロゴ(会議で決定)/B=中央タイトル
         };
       }
       function loadIssuer() {
@@ -4835,7 +4860,7 @@
           hankoSizeMm: Number(s.hankoSizeMm) || 21,
           logo: s.logo || null,
           logoSizeMm: Number(s.logoSizeMm) || 33, // 専門家推奨32〜35mm（28は小さい）
-          headerStyle: s.headerStyle || "B",
+          headerStyle: s.headerStyle || "A",
         };
       }
       function setAlign(field, val) {
