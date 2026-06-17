@@ -2844,7 +2844,7 @@
         var PER = 28;
         var iss = issuerForEngine();
         // ヘッダー型：A=対角(左タイトル+右ロゴ/自社情報・会計ソフト標準/専門家推奨) / B=中央タイトル(整理版)
-        var headerStyle = iss.headerStyle || "A";
+        var headerStyle = iss.headerStyle || "B";
         var invs = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, null);
         if (!invs.length) return empty;
 
@@ -2890,6 +2890,13 @@
           }
           return era === "reiwa" ? "令和" + (y - 2018) + "年" + mm + "月1日" : y + "/" + mm + "/1";
         }
+        // 全請求書で総列数を揃える＝項目が少ない請求書はテキスト列を余分に伸ばす。
+        // （列数が違うと狭い請求書に右端の空列が残り、表が左に寄って両端余白がズレる）
+        var maxItemsLen = invs.reduce(function (mx, iv) {
+          var mm = MASTER[iv.company];
+          var its = mm && mm.items && mm.items.length ? mm.items : ["日付", "行き先", "金額"];
+          return Math.max(mx, its.length);
+        }, 3);
         invs.forEach(function (iv) {
           var co = iv.company,
             month = iv.month;
@@ -2909,7 +2916,7 @@
           var spans = items.map(function () {
             return 1;
           });
-          spans[textIdx] += 2;
+          spans[textIdx] += 2 + Math.max(0, maxItemsLen - items.length);
           var colStart = [],
             acc = 0;
           items.forEach(function (k, i) {
@@ -3091,8 +3098,7 @@
               S(ri0, rightStart, { font: { sz: 9 }, alignment: { horizontal: "right" } });
               // ロゴ画像＝左上角（請求日が右上・中央タイトルと衝突しない位置）。
               // 中央タイトルは中央のみ＝左端のロゴは本文と被らない。画像はあとでJSZip注入。
-              if (iss.logo)
-                logoAnchors.push({ col: rightStart, row: ri0, colOff: 60000, rowOff: 50000 });
+              if (iss.logo) logoAnchors.push({ col: 0, row: ri0, colOff: 30000, rowOff: 0 });
               // お支払期限（テンプレ：請求日の下・右上）
               if (m.paymentDue) {
                 var rd = blank();
@@ -3595,23 +3601,13 @@
           .replace(/<printOptions[^>]*\/>/g, "")
           .replace(/<pageMargins[^>]*\/>/g, "")
           .replace(/<pageSetup[^>]*\/>/g, "");
-        // ① fitToPage を有効化（sheetPr は worksheet の先頭子要素）
-        if (/<sheetPr\b[^>]*\/>/.test(sx)) {
-          sx = sx.replace(/<sheetPr\b[^>]*\/>/, '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>');
-        } else if (/<sheetPr\b[^>]*>/.test(sx)) {
-          if (!/<pageSetUpPr/.test(sx))
-            sx = sx.replace("</sheetPr>", '<pageSetUpPr fitToPage="1"/></sheetPr>');
-        } else {
-          sx = sx.replace(
-            /(<worksheet\b[^>]*>)/,
-            '$1<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'
-          );
-        }
+        // ① fitToPage は使わない＝幅フィットを有効にするとExcelが水平センタリングを無効化し、
+        //    表が左に寄る。自然な表幅のまま紙の中央に置きたいので fitToPage は付けない。
         // ② A4縦・横1ページ・水平センタリング（本文帯を紙の中央に置く＝左右余白を均等に）
         var inject =
           '<printOptions horizontalCentered="1"/>' +
           '<pageMargins left="0.39" right="0.39" top="0.47" bottom="0.39" header="0.3" footer="0.3"/>' +
-          '<pageSetup paperSize="9" fitToWidth="1" fitToHeight="0" orientation="portrait"/>';
+          '<pageSetup paperSize="9" orientation="portrait"/>';
         // ★スキーマ順★ pageMargins/pageSetup は rowBreaks/ignoredErrors/extLst より前。
         var at = sx.indexOf("<rowBreaks");
         if (at < 0) at = sx.indexOf("<ignoredErrors");
@@ -4772,7 +4768,7 @@
           logoRaw: "", // ロゴ元画像（再処理用）
           logoBg: "auto", // ロゴ背景白抜き: auto / on / off
           logoSizeMm: 33, // ロゴの大きさ(mm)・基本値（UIで変更可）
-          headerStyle: "A", // 請求書ヘッダー型：A=左タイトル/右ロゴ(写真の正)/B=中央タイトル
+          headerStyle: "B", // 請求書ヘッダー型：B=中央タイトル(ロゴ前の正)/A=左タイトル(不採用)
         };
       }
       function loadIssuer() {
@@ -4839,7 +4835,7 @@
           hankoSizeMm: Number(s.hankoSizeMm) || 21,
           logo: s.logo || null,
           logoSizeMm: Number(s.logoSizeMm) || 33, // 専門家推奨32〜35mm（28は小さい）
-          headerStyle: s.headerStyle || "A",
+          headerStyle: s.headerStyle || "B",
         };
       }
       function setAlign(field, val) {
