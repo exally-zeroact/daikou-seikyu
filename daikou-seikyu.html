@@ -2064,6 +2064,8 @@
         </div>
         <button class="exl-dl" onclick="downloadExcelWorkbook(this)">📥 Excelをダウンロード</button>
         <div class="exl-dlnote">
+          開くと<b>「ホーム」</b>が出ます →
+          <b>タップで各ページへ</b>（アプリの下タブと同じ・下のシートタブでも切替）。<br />
           <b>▶ PC（Windows Excel）</b>：開く → 黄色い帯「<b>コンテンツの有効化</b>」を押す →
           4シートがクラウドの最新に。<br />
           以降は<b>開くだけで自動更新</b>（手動なら「データ」→「すべて更新」）。<b
@@ -2982,8 +2984,12 @@
         var sheetRid = {},
           ridTarget = {},
           m;
+        var sheetOrder = []; // workbook内の実際のシート並び（localSheetId算出用）
         var sre = /<sheet[^>]*name="([^"]+)"[^>]*r:id="([^"]+)"[^>]*\/>/g;
-        while ((m = sre.exec(wbXml))) sheetRid[m[1]] = m[2];
+        while ((m = sre.exec(wbXml))) {
+          sheetRid[m[1]] = m[2];
+          sheetOrder.push(m[1]);
+        }
         var rre = /<Relationship[^>]*Id="([^"]+)"[^>]*Target="([^"]+)"[^>]*\/>/g;
         while ((m = rre.exec(wbRels))) ridTarget[m[1]] = m[2];
 
@@ -3048,11 +3054,12 @@
             );
           }
 
+          var localId = sheetOrder.indexOf(sh.name); // 実際のシート位置（ホーム挿入等で動く）
           definedNames +=
             '<definedName name="ExternalData_' +
             n +
             '" localSheetId="' +
-            i +
+            (localId < 0 ? i : localId) +
             '" hidden="1">' +
             sh.name +
             "!$A$1:$" +
@@ -3289,15 +3296,39 @@
             { name: "集計", fn: "export_summary", aoa: _exlSummaryAoa(sumRows) },
             { name: "会社", fn: "export_companies", aoa: _exlCompaniesAoa() },
           ];
+          var invAoa = _exlInvoiceAoa();
+          var hasInvoice = invAoa.length > 0;
           var wb = XLSX.utils.book_new();
+          // 1枚目＝ホーム（タップで各ページへ飛ぶボタン＝アプリの下タブの代わり・マクロ不要）
+          var navTargets = [
+            { label: "📋  明細を見る", sheet: "明細" },
+            { label: "💰  入金を見る", sheet: "入金" },
+            { label: "📊  集計を見る", sheet: "集計" },
+            { label: "🏢  会社を見る", sheet: "会社" },
+          ];
+          if (hasInvoice) navTargets.push({ label: "🧾  請求書を見る", sheet: "請求書" });
+          var homeAoa = [["📒 ダイコメ（タップで各ページへ）"], []].concat(
+            navTargets.map(function (t) {
+              return [t.label];
+            }),
+            [[], ["※下のシートのタブでも切り替えできます"]]
+          );
+          var hws = XLSX.utils.aoa_to_sheet(homeAoa);
+          hws["!cols"] = [{ wch: 34 }];
+          navTargets.forEach(function (t, i) {
+            var cell = "A" + (i + 3); // A3から
+            if (!hws[cell]) hws[cell] = { t: "s", v: t.label };
+            hws[cell].l = { Target: "#'" + t.sheet + "'!A1", Tooltip: t.sheet + "へ" };
+          });
+          XLSX.utils.book_append_sheet(wb, hws, "ホーム");
+          // データ4シート（自動更新の対象）
           sheets.forEach(function (sh) {
             var ws = XLSX.utils.aoa_to_sheet(sh.aoa);
             ws["!cols"] = autoColWidths(sh.aoa);
             XLSX.utils.book_append_sheet(wb, ws, sh.name);
           });
-          // 5枚目＝請求書（静的・自動更新の対象外。必ず最後に追加してsheetsの並びを崩さない）
-          var invAoa = _exlInvoiceAoa();
-          if (invAoa.length) {
+          // 請求書（静的・自動更新の対象外）
+          if (hasInvoice) {
             var iws = XLSX.utils.aoa_to_sheet(invAoa);
             iws["!cols"] = [{ wch: 12 }, { wch: 22 }, { wch: 16 }, { wch: 12 }, { wch: 10 }];
             XLSX.utils.book_append_sheet(wb, iws, "請求書");
