@@ -2844,7 +2844,7 @@
         var PER = 28;
         var iss = issuerForEngine();
         // ヘッダー型：A=対角(左タイトル+右ロゴ/自社情報・会計ソフト標準/専門家推奨) / B=中央タイトル(整理版)
-        var headerStyle = iss.headerStyle || "B";
+        var headerStyle = iss.headerStyle || "A";
         var invs = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, null);
         if (!invs.length) return empty;
 
@@ -3034,7 +3034,7 @@
               S(riAtA, 0, { font: { sz: 16 } });
               S(riAtA, rightStart, {
                 font: { sz: 10 },
-                alignment: { horizontal: iss.lineAlign || "left" },
+                alignment: { horizontal: "right" },
               });
               if (iss.hanko)
                 hankoAnchors.push({ col: lastCol, row: riAtA, colOff: 250000, rowOff: 0 });
@@ -3056,7 +3056,7 @@
                   M(rria, rightStart, rria, lastCol);
                   S(rria, rightStart, {
                     font: { sz: 10 },
-                    alignment: { horizontal: iss.lineAlign || "left" },
+                    alignment: { horizontal: "right" },
                   });
                 }
                 if (liA >= 0 && liA < leftLinesA.length) {
@@ -3091,7 +3091,8 @@
               S(ri0, rightStart, { font: { sz: 9 }, alignment: { horizontal: "right" } });
               // ロゴ画像＝左上角（請求日が右上・中央タイトルと衝突しない位置）。
               // 中央タイトルは中央のみ＝左端のロゴは本文と被らない。画像はあとでJSZip注入。
-              if (iss.logo) logoAnchors.push({ col: 0, row: ri0, colOff: 30000, rowOff: 0 });
+              if (iss.logo)
+                logoAnchors.push({ col: rightStart, row: ri0, colOff: 60000, rowOff: 50000 });
               // お支払期限（テンプレ：請求日の下・右上）
               if (m.paymentDue) {
                 var rd = blank();
@@ -4771,7 +4772,7 @@
           logoRaw: "", // ロゴ元画像（再処理用）
           logoBg: "auto", // ロゴ背景白抜き: auto / on / off
           logoSizeMm: 33, // ロゴの大きさ(mm)・基本値（UIで変更可）
-          headerStyle: "B", // 請求書ヘッダー型：B=中央タイトル(司さん確定の正)/A=対角(不採用)
+          headerStyle: "A", // 請求書ヘッダー型：A=左タイトル/右ロゴ(写真の正)/B=中央タイトル
         };
       }
       function loadIssuer() {
@@ -4838,7 +4839,7 @@
           hankoSizeMm: Number(s.hankoSizeMm) || 21,
           logo: s.logo || null,
           logoSizeMm: Number(s.logoSizeMm) || 33, // 専門家推奨32〜35mm（28は小さい）
-          headerStyle: s.headerStyle || "B",
+          headerStyle: s.headerStyle || "A",
         };
       }
       function setAlign(field, val) {
