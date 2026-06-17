@@ -2763,14 +2763,29 @@
           });
         return aoa;
       }
-      // 請求書シート＝会社×月ごとに、請求書を読める形で縦に積む（発行者/宛名/明細/合計/振込先）。
-      // アプリのPDFと同じ内容を、Excelで見る・客に渡す用（静的＝落とした時点）。
-      function _exlInvoiceAoa() {
-        if (typeof MeisaiEngine === "undefined") return [];
+      // 請求書シート＝上に「目次（会社×年月）」、下に各請求書を縦に積む。
+      // 目次をタップ→その請求書へジャンプ（内部リンク・マクロ不要）。各請求書から目次へ戻るリンクも。
+      // 返り値 {aoa, links:[{indexRow,targetRow}], backs:[{row}]}（行は1始まり・呼び側でハイパーリンク設定）
+      function _exlInvoiceData() {
+        if (typeof MeisaiEngine === "undefined") return { aoa: [], links: [], backs: [] };
         var U = MeisaiEngine.utils;
         var iss = issuerForEngine();
         var invs = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, null); // 会社×月 全部
+        if (!invs.length) return { aoa: [], links: [], backs: [] };
+
         var aoa = [];
+        var indexRowOf = [],
+          blockRowOf = [],
+          backs = [];
+        // --- 目次 ---
+        aoa.push(["📑 請求書（会社・年月をタップで移動）"]);
+        invs.forEach(function (iv) {
+          indexRowOf.push(aoa.length + 1); // 1始まり
+          aoa.push([iv.company + "　" + iv.month]);
+        });
+        aoa.push([]);
+        aoa.push([]);
+        // --- 各請求書 ---
         invs.forEach(function (iv) {
           var co = iv.company,
             month = iv.month;
@@ -2785,6 +2800,8 @@
           });
           var mo = Number(month.split("-")[1]);
 
+          blockRowOf.push(aoa.length + 1);
+          backs.push(aoa.length + 1); // 各請求書の先頭行＝戻りリンクを置く行(列F)
           iss.lines.forEach(function (l) {
             aoa.push([l]);
           });
@@ -2825,7 +2842,11 @@
           aoa.push([]);
           aoa.push([]);
         });
-        return aoa;
+
+        var links = invs.map(function (iv, i) {
+          return { indexRow: indexRowOf[i], targetRow: blockRowOf[i] };
+        });
+        return { aoa: aoa, links: links, backs: backs };
       }
       /* ===================================================================
    Excel自動更新ファイル ─ SheetJSの「開ける実データxlsx」を土台に、その上に
@@ -3296,8 +3317,8 @@
             { name: "集計", fn: "export_summary", aoa: _exlSummaryAoa(sumRows) },
             { name: "会社", fn: "export_companies", aoa: _exlCompaniesAoa() },
           ];
-          var invAoa = _exlInvoiceAoa();
-          var hasInvoice = invAoa.length > 0;
+          var invData = _exlInvoiceData();
+          var hasInvoice = invData.aoa.length > 0;
           var wb = XLSX.utils.book_new();
           // 1枚目＝ホーム（タップで各ページへ飛ぶボタン＝アプリの下タブの代わり・マクロ不要）
           var navTargets = [
@@ -3327,10 +3348,29 @@
             ws["!cols"] = autoColWidths(sh.aoa);
             XLSX.utils.book_append_sheet(wb, ws, sh.name);
           });
-          // 請求書（静的・自動更新の対象外）
+          // 請求書（静的・自動更新の対象外）＋目次ジャンプ／戻りの内部リンク
           if (hasInvoice) {
-            var iws = XLSX.utils.aoa_to_sheet(invAoa);
-            iws["!cols"] = [{ wch: 12 }, { wch: 22 }, { wch: 16 }, { wch: 12 }, { wch: 10 }];
+            var iws = XLSX.utils.aoa_to_sheet(invData.aoa);
+            iws["!cols"] = [
+              { wch: 14 },
+              { wch: 22 },
+              { wch: 16 },
+              { wch: 12 },
+              { wch: 10 },
+              { wch: 10 },
+            ];
+            invData.links.forEach(function (L) {
+              var c = "A" + L.indexRow;
+              if (!iws[c]) iws[c] = { t: "s", v: "" };
+              iws[c].l = { Target: "#'請求書'!A" + L.targetRow, Tooltip: "この請求書へ" };
+            });
+            invData.backs.forEach(function (row) {
+              iws["F" + row] = {
+                t: "s",
+                v: "↩ 一覧へ",
+                l: { Target: "#'請求書'!A1", Tooltip: "一覧へ戻る" },
+              };
+            });
             XLSX.utils.book_append_sheet(wb, iws, "請求書");
           }
           var buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
