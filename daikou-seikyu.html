@@ -2053,6 +2053,73 @@
             一度入れたら保存され、毎回の請求書に自動で入ります。白い紙の判子写真でも背景を自動で透過（透過済み画像はそのまま）。
           </div>
         </div>
+        <div class="card">
+          <div class="card-label">会社ロゴ（任意）</div>
+          <div style="display: flex; align-items: center; gap: 14px">
+            <div
+              id="logoPreview"
+              style="
+                width: 96px;
+                height: 72px;
+                border: 1.5px dashed #c8ecd8;
+                border-radius: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #a9c4b6;
+                font-size: 11px;
+                text-align: center;
+                overflow: hidden;
+                flex-shrink: 0;
+              "
+            >
+              なし
+            </div>
+            <div style="flex: 1">
+              <button
+                class="btn btn-ghost btn-sm"
+                onclick="document.getElementById('logoFile').click()"
+              >
+                📷 ロゴ画像をアップロード
+              </button>
+              <button class="btn btn-danger btn-sm" style="margin-top: 6px" onclick="clearLogo()">
+                ✕ ロゴを消す
+              </button>
+              <input
+                type="file"
+                id="logoFile"
+                accept="image/*"
+                style="display: none"
+                onchange="loadLogo(event)"
+              />
+            </div>
+          </div>
+          <div class="align-row">
+            <span class="align-lbl">背景の白抜き</span>
+            <button class="align-btn" data-grp="logoBg" data-a="auto" onclick="setLogoBg('auto')">
+              自動
+            </button>
+            <button class="align-btn" data-grp="logoBg" data-a="on" onclick="setLogoBg('on')">
+              する
+            </button>
+            <button class="align-btn" data-grp="logoBg" data-a="off" onclick="setLogoBg('off')">
+              しない
+            </button>
+          </div>
+          <div class="frow" style="margin-top: 10px">
+            <div class="flabel">ロゴの大きさ（mm・基本33／お好みで変更）</div>
+            <input
+              class="finput fnum"
+              id="iss_logoSize"
+              inputmode="numeric"
+              style="max-width: 120px"
+              oninput="setLogoSize(this.value)"
+            />
+          </div>
+          <div class="scr-sub" style="margin-top: 8px">
+            請求書の右上に入ります。白背景のロゴでも自動で透過（透過済みPNGはそのまま）。大きさはmmで調整できます（専門家推奨32〜35mm）。
+          </div>
+        </div>
       </div>
       <!-- /自社情報パネル -->
 
@@ -2772,8 +2839,12 @@
         var empty = { aoa: [], styles: {}, merges: [], links: [], backs: [], breaks: [] };
         if (typeof MeisaiEngine === "undefined") return empty;
         var U = MeisaiEngine.utils;
-        var PER = MeisaiEngine.ROWS_PER_PAGE || 22;
+        // Excelの請求書はA4縦1枚を明細でいっぱいに使う＝アプリ画面プレビュー(22)より多くの
+        // 明細スロットを持たせる（司さん指示「明細を入れる行は増やして」）。A4縦1枚に収まる上限。
+        var PER = 28;
         var iss = issuerForEngine();
+        // ヘッダー型：A=対角(左タイトル+右ロゴ/自社情報・会計ソフト標準/専門家推奨) / B=中央タイトル(整理版)
+        var headerStyle = iss.headerStyle || "B";
         var invs = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, null);
         if (!invs.length) return empty;
 
@@ -2783,11 +2854,15 @@
         var YEN = '"¥"#,##0';
         var aoa = [],
           styles = {},
-          merges = [];
+          merges = [],
+          heights = {}; // 行→高さ(pt)。表/タイトル等をアプリに寄せる
         var indexRowOf = [],
           firstPageRowOf = [],
           backs = [],
-          breaks = [];
+          breaks = [],
+          invCols = null, // シート共通の列幅（最初の請求書の項目構成で決定）
+          hankoAnchors = [], // 判子の貼り位置（各請求書ページの右上）
+          logoAnchors = []; // ロゴ画像の貼り位置（各請求書ページの左上）
         function row(cells) {
           aoa.push(cells || []);
           return aoa.length - 1; // 0始まりの行index
@@ -2799,26 +2874,86 @@
           merges.push({ s: { r: r1, c: c1 }, e: { r: r2, c: c2 } });
         }
 
-        // ===== 目次 =====
-        var rT = row(["📑 請求書（会社・年月をタップで移動）"]);
-        S(rT, 0, { font: { bold: true, sz: 13 } });
-        invs.forEach(function (iv) {
-          indexRowOf.push(aoa.length + 1);
-          row([iv.company + "　" + iv.month]);
-        });
-        row([]);
-        row([]);
+        // ===== 目次は別シートに出す（請求書シートは請求書だけ＝印刷がきれい・見本Excel同様） =====
+        // ここでは目次行を作らない。各請求書の先頭行(firstPageRowOf)を目次シートのリンク先に使う。
 
-        // ===== 各請求書（PDF体裁・ページ割り） =====
+        // ===== 各請求書（PDF体裁・全幅レイアウト・ページ割り） =====
+        // 表を横幅いっぱいに：行き先(テキスト列)を複数列にまたがらせ、金額を右端に。
+        // 発行者は右上ゾーン(左揃え)、宛名/リードは左。アプリPDFに合わせる。
+        function issDateStr(month, era) {
+          var p = month.split("-"),
+            y = Number(p[0]),
+            mm = Number(p[1]) + 1;
+          if (mm > 12) {
+            mm = 1;
+            y += 1;
+          }
+          return era === "reiwa" ? "令和" + (y - 2018) + "年" + mm + "月1日" : y + "/" + mm + "/1";
+        }
         invs.forEach(function (iv) {
           var co = iv.company,
             month = iv.month;
           var m = MASTER[co] || { items: ["日付", "行き先", "金額"] };
           var items = m.items && m.items.length ? m.items : ["日付", "行き先", "金額"];
-          var nc = Math.max(items.length, 3); // 最低3列で体裁を保つ
-          var last = nc - 1;
           var amt = items.indexOf("金額");
-          if (amt < 0) amt = nc - 1;
+          if (amt < 0) amt = items.length - 1;
+          // 横幅を稼ぐテキスト列（行き先優先）を決め、+2列ぶん広げる
+          var textIdx = items.indexOf("行き先");
+          if (textIdx < 0)
+            for (var ti = 0; ti < items.length; ti++)
+              if (items[ti] !== "日付" && items[ti] !== "金額") {
+                textIdx = ti;
+                break;
+              }
+          if (textIdx < 0) textIdx = amt > 0 ? amt - 1 : 0;
+          var spans = items.map(function () {
+            return 1;
+          });
+          spans[textIdx] += 2;
+          var colStart = [],
+            acc = 0;
+          items.forEach(function (k, i) {
+            colStart.push(acc);
+            acc += spans[i];
+          });
+          var W = acc,
+            lastCol = W - 1;
+          var amtDisp = colStart[amt];
+          // ★列幅を動的計算（項目が増減しても破綻しない再利用グリッド）★
+          // 役割ごとに固定幅、伸縮するのは行き先（テキスト主役）1本だけ＝専門家③設計。
+          function roleWidth(k) {
+            if (k === "日付") return 9;
+            if (k === "金額") return 15;
+            if (k === "人数") return 8;
+            if (k === "距離") return 10;
+            if (k === "名前") return 13;
+            if (k === "行き先") return 39; // span3に分配される主役テキスト列
+            return 14; // 備考・自由項目（テキスト）
+          }
+          var colWidths = [];
+          items.forEach(function (k, ci) {
+            var span = spans[ci],
+              total = roleWidth(k);
+            for (var s = 0; s < span; s++) colWidths.push(Math.max(5, Math.round(total / span)));
+          });
+          // シートの列幅は共通＝最初の請求書の項目構成で確定（各社1ページずつ）
+          if (!invCols)
+            invCols = colWidths.map(function (w) {
+              return { wch: w };
+            });
+          // 発行者ゾーンは表の右端の2列。左ゾーン(宛名/あいさつ/ご請求金額)を広く取り文章切れを防ぐ。
+          var rightStart = Math.max(2, lastCol - 1);
+          // 縦線＝行き先より右の各列の左に入れる（距離/人数/金額…を仕切る）。本文は横線主体。
+          var vlCols = {};
+          items.forEach(function (k, ci) {
+            if (ci > textIdx) vlCols[colStart[ci]] = 1;
+          });
+          var blank = function () {
+            var a = [];
+            for (var i = 0; i < W; i++) a.push("");
+            return a;
+          };
+
           var allRows = DB.filter(function (r) {
             return r.account_id === CURRENT_ACCOUNT && r.会社名 === co && U.inMonth(r.日付, month);
           }).sort(function (a, b) {
@@ -2830,12 +2965,19 @@
           var grand = allRows.reduce(function (s, r) {
             return s + (Number(r.金額) || 0);
           }, 0);
+          // 税方式：内税(既定・金額=税込) / 外税(金額=税抜→消費税を別途加算)。会社マスタ taxMode。
+          var isSoto = m.taxMode === "外税";
+          var billTotal = isSoto ? grand + Math.round(grand * 0.1) : grand; // ご請求金額(税込)
+          // 下段が増えるテンプレ（役職集計/源泉/繰越/税率別）は明細スロットを減らしA4縦1枚に。
+          var extraFooter = 0;
+          if (m.noteSummary && (m.noteGroups || []).length) extraFooter += m.noteGroups.length + 3;
+          if (m.withholding) extraFooter += 2;
+          if (m.carryover) extraFooter += 3;
+          if (m.taxRates) extraFooter += 2;
+          if (headerStyle === "A") extraFooter += 4; // 対角ヘッダーは天マージン等で上部が高い
+          PER = Math.max(12, 28 - extraFooter);
           var pageCount = Math.max(1, Math.ceil(allRows.length / PER));
-          var blank = function () {
-            var a = [];
-            for (var i = 0; i < nc; i++) a.push("");
-            return a;
-          };
+          var GREEN = { fgColor: { rgb: "DCEFE6" } };
 
           for (var pi = 0; pi < pageCount; pi++) {
             var pageRows = allRows.slice(pi * PER, (pi + 1) * PER);
@@ -2847,140 +2989,393 @@
             backs.push(startRow);
             if (pi === 0) firstPageRowOf.push(startRow);
 
-            // 請求日 / No（右上）
-            var meta = "請求日　" + U.reiwaIssueDate(month, iss.dateEra);
-            if (iss.showInvoiceNo)
-              meta += "　　No. " + MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co);
-            var r0 = blank();
-            r0[last] = meta + "（" + (pi + 1) + "/" + pageCount + "）";
-            var ri0 = row(r0);
-            S(ri0, last, { font: { sz: 9 }, alignment: { horizontal: "right" } });
-
-            // タイトル「請求書」中央・特大（A..last 結合）
-            var rT2 = blank();
-            rT2[0] = "請求書";
-            var riT = row(rT2);
-            M(riT, 0, riT, last);
-            S(riT, 0, {
-              font: { bold: true, sz: 24 },
-              alignment: { horizontal: "center", vertical: "center" },
-            });
-            row(blank());
-
-            // 宛名(左) / 発行者(右)。発行者は右列に縦に並べる
-            var atRow = blank();
-            atRow[0] = co + "　御中";
-            var riAt = row(atRow);
-            M(riAt, 0, riAt, amt > 1 ? amt - 1 : 0);
-            S(riAt, 0, { font: { bold: true, sz: 15 }, border: { bottom: { style: "medium" } } });
-            S(riAt, last, { font: { bold: true, sz: 11 }, alignment: { horizontal: "right" } });
-            aoa[riAt][last] = (iss.lines && iss.lines[0]) || "";
-
-            // 左：リード／ご請求金額　右：発行者の続き
-            var leftLines = [];
-            if (m.lead) leftLines.push(String(m.lead).replace(/\{月\}/g, mo));
-            leftLines.push("下記の通り御請求申し上げます。");
-            var issRest = (iss.lines || []).slice(1);
-            var n = Math.max(leftLines.length + 1, issRest.length); // +1=ご請求金額行
-            for (var k = 0; k < n; k++) {
-              var rr = blank();
-              if (k < leftLines.length) rr[0] = leftLines[k];
-              if (issRest[k]) rr[last] = issRest[k];
-              var rri = row(rr);
-              if (k < leftLines.length) S(rri, 0, { font: { sz: 10 } });
-              if (issRest[k]) S(rri, last, { font: { sz: 9 }, alignment: { horizontal: "right" } });
-              // ご請求金額（税込）はリードの直後の行に
-              if (k === leftLines.length) {
-                aoa[rri][0] = "ご請求金額（税込）";
-                aoa[rri][1] = grand;
-                S(rri, 0, { font: { bold: true, sz: 12 } });
-                S(rri, 1, {
-                  font: { bold: true, sz: 14 },
-                  numFmt: YEN,
-                  border: { bottom: { style: "medium" } },
-                });
+            if (headerStyle === "A") {
+              // ===== 対角ヘッダー：左=タイトル＋請求日／右上=ロゴ（大きめ）。自社情報は宛名の高さ＝B同様 =====
+              var rmar = row(blank());
+              heights[rmar] = 12; // 天マージン（呼吸）
+              // タイトル(左・大) ＋ ロゴ(右上・大きめ＝タイトルとバランス)
+              var rTa = blank();
+              rTa[0] = "請　求　書";
+              var riTa = row(rTa);
+              M(riTa, 0, riTa, Math.max(rightStart - 1, 0));
+              heights[riTa] = 34;
+              S(riTa, 0, {
+                font: { bold: true, sz: 22 },
+                alignment: { horizontal: "left", vertical: "center" },
+              });
+              // ロゴ＝右端・大きめ（判子より大）。天マージン行に頭を合わせ「請求書」と同じ高さで天揃え。
+              if (iss.logo) logoAnchors.push({ col: lastCol, row: rmar, colOff: 90000, rowOff: 0 });
+              // 請求日/No/期限（左・小・1グループ）。自社情報はここに出さず、下の宛名の高さに置く。
+              var leftMeta = ["請求日　" + issDateStr(month, iss.dateEra)];
+              if (iss.showInvoiceNo)
+                leftMeta.push(
+                  "No. " + MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co)
+                );
+              if (m.paymentDue) leftMeta.push("お支払期限　" + m.paymentDue);
+              if (pageCount > 1) leftMeta.push("（" + (pi + 1) + "/" + pageCount + "）");
+              leftMeta.forEach(function (mt) {
+                var mrx = blank();
+                mrx[0] = mt;
+                var mri = row(mrx);
+                M(mri, 0, mri, Math.max(rightStart - 1, 0));
+                S(mri, 0, { font: { sz: 9 }, alignment: { horizontal: "left" } });
+                heights[mri] = 13;
+              });
+              var rgapA = row(blank());
+              heights[rgapA] = 10; // タイトル群と宛名の谷
+              // 宛名(左) ＋ 自社情報(右・宛名の高さから) ＝ B同様の2カラム
+              var atA = blank();
+              atA[0] = co + "　御中";
+              atA[rightStart] = (iss.lines && iss.lines[0]) || "";
+              var riAtA = row(atA);
+              heights[riAtA] = 22;
+              M(riAtA, 0, riAtA, rightStart - 1);
+              M(riAtA, rightStart, riAtA, lastCol);
+              S(riAtA, 0, { font: { sz: 16 } });
+              S(riAtA, rightStart, {
+                font: { sz: 10 },
+                alignment: { horizontal: iss.lineAlign || "left" },
+              });
+              if (iss.hanko)
+                hankoAnchors.push({ col: lastCol, row: riAtA, colOff: 250000, rowOff: 0 });
+              // リード(宛名から2行下げてくっつき解消) ＋ 自社情報の続き(右) ＋ ご請求金額
+              var leftLinesA = [];
+              if (m.lead) leftLinesA.push(String(m.lead).replace(/\{月\}/g, mo));
+              leftLinesA.push("消費税は10%となっております。");
+              leftLinesA.push("下記の通り御請求申し上げます。");
+              var issRestA = (iss.lines || []).slice(1);
+              var gapA = 2; // 宛名とリードの間隔（くっつき解消）
+              var nA = Math.max(gapA + leftLinesA.length + 1, issRestA.length);
+              for (var ka = 0; ka < nA; ka++) {
+                var liA = ka - gapA;
+                var rra = blank();
+                if (liA >= 0 && liA < leftLinesA.length) rra[0] = leftLinesA[liA];
+                if (issRestA[ka]) rra[rightStart] = issRestA[ka];
+                var rria = row(rra);
+                if (issRestA[ka]) {
+                  M(rria, rightStart, rria, lastCol);
+                  S(rria, rightStart, {
+                    font: { sz: 10 },
+                    alignment: { horizontal: iss.lineAlign || "left" },
+                  });
+                }
+                if (liA >= 0 && liA < leftLinesA.length) {
+                  M(rria, 0, rria, rightStart - 1);
+                  S(rria, 0, { font: { sz: 10 } });
+                }
+                if (liA === leftLinesA.length) {
+                  var yenA = "¥" + String(billTotal).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                  aoa[rria][0] = "ご請求金額（税込）　　" + yenA;
+                  M(rria, 0, rria, lastCol);
+                  S(rria, 0, {
+                    font: { bold: true, sz: 13 },
+                    alignment: { horizontal: "left" },
+                    border: { bottom: { style: "medium" } },
+                  });
+                  for (var uba = 1; uba <= lastCol; uba++)
+                    S(rria, uba, { border: { bottom: { style: "medium" } } });
+                }
               }
-            }
-            row(blank());
+              row(blank());
+            } else {
+              // ===== 中央タイトル型（従来＝整理版） =====
+              // 請求日（右上・西暦/令和は設定に従う）
+              var meta = "請求日　" + issDateStr(month, iss.dateEra);
+              if (iss.showInvoiceNo)
+                meta += "　No." + MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co);
+              if (pageCount > 1) meta += "（" + (pi + 1) + "/" + pageCount + "）";
+              var r0 = blank();
+              r0[rightStart] = meta;
+              var ri0 = row(r0);
+              M(ri0, rightStart, ri0, lastCol);
+              S(ri0, rightStart, { font: { sz: 9 }, alignment: { horizontal: "right" } });
+              // ロゴ画像＝左上角（請求日が右上・中央タイトルと衝突しない位置）。
+              // 中央タイトルは中央のみ＝左端のロゴは本文と被らない。画像はあとでJSZip注入。
+              if (iss.logo) logoAnchors.push({ col: 0, row: ri0, colOff: 30000, rowOff: 0 });
+              // お支払期限（テンプレ：請求日の下・右上）
+              if (m.paymentDue) {
+                var rd = blank();
+                rd[rightStart] = "お支払期限　" + m.paymentDue;
+                var rdi = row(rd);
+                M(rdi, rightStart, rdi, lastCol);
+                S(rdi, rightStart, { font: { sz: 9 }, alignment: { horizontal: "right" } });
+              }
 
-            // 表ヘッダー：運転業務委託料(金額前を結合) / 金額（税込み） / 以降
+              // タイトル「請 求 書」中央・特大
+              var rT2 = blank();
+              rT2[0] = "請　求　書";
+              var riT = row(rT2);
+              M(riT, 0, riT, lastCol);
+              heights[riT] = 28;
+              S(riT, 0, {
+                // 専門家助言：字間/サイズを締める（26→20）。太字は司さん指定で維持。
+                font: { bold: true, sz: 20 },
+                alignment: { horizontal: "center", vertical: "center" },
+              });
+              row(blank());
+
+              // 宛名(左) / 発行者(右・左揃え)
+              var atRow = blank();
+              atRow[0] = co + "　御中";
+              atRow[rightStart] = (iss.lines && iss.lines[0]) || "";
+              var riAt = row(atRow);
+              heights[riAt] = 24;
+              M(riAt, 0, riAt, rightStart - 1);
+              M(riAt, rightStart, riAt, lastCol);
+              // 見本どおり会社名は太字でない（太字はご請求金額と合計だけ）。サイズも見本に合わせる。
+              S(riAt, 0, { font: { sz: 14 } }); // 宛名 御中 sz14
+              S(riAt, rightStart, {
+                font: { sz: 10 }, // 自社情報1行目 sz10
+                alignment: { horizontal: "right" },
+              });
+              // 判子＝会社名（自社情報1行目）に重ねて押す＝日本の請求書の標準（角印は社名に
+              // かぶせる＝偽造防止）。社名の右側に重なる位置へ。EMU: 1mm=36000。
+              if (iss.hanko)
+                hankoAnchors.push({
+                  col: lastCol, // 右端の列（社名は右揃えで右端に終わる）
+                  row: riAt, // 会社名の行に重ねる
+                  colOff: 250000, // 約7mm右へ＝社名の右側に重なる
+                  rowOff: 0,
+                });
+
+              // リード／ご請求金額（左・宛名から2行下げる＝sh-leadwrapの余白）＋発行者の続き(右)
+              var leftLines = [];
+              if (m.lead) leftLines.push(String(m.lead).replace(/\{月\}/g, mo));
+              leftLines.push("消費税は10%となっております。"); // 見本どおり（ご請求金額の上）
+              leftLines.push("下記の通り御請求申し上げます。");
+              var issRest = (iss.lines || []).slice(1);
+              var gap = 2; // 宛名とリードの間隔（左だけ空ける／発行者は連続）
+              var n = Math.max(gap + leftLines.length + 1, issRest.length);
+              for (var k = 0; k < n; k++) {
+                var leftI = k - gap;
+                var rr = blank();
+                if (leftI >= 0 && leftI < leftLines.length) rr[0] = leftLines[leftI];
+                if (issRest[k]) rr[rightStart] = issRest[k];
+                var rri = row(rr);
+                if (issRest[k]) {
+                  M(rri, rightStart, rri, lastCol);
+                  S(rri, rightStart, {
+                    font: { sz: 10 }, // 見本どおり自社情報 sz10
+                    alignment: { horizontal: "right" },
+                  });
+                }
+                if (leftI >= 0 && leftI < leftLines.length) {
+                  M(rri, 0, rri, rightStart - 1);
+                  S(rri, 0, { font: { sz: 10 } }); // 見本どおりあいさつ文 sz10
+                }
+                if (leftI === leftLines.length) {
+                  // ご請求金額（税込）¥xxx ＝ ラベル＋金額を左ゾーン全幅で1セルに（切れ防止）。
+                  // 見本どおり sz13 太字・下線。左ゾーン(0..rightStart-1)に下線を引く。
+                  var yenStr = "¥" + String(billTotal).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                  aoa[rri][0] = "ご請求金額（税込）　　" + yenStr;
+                  // この行は自社情報が無いので左端〜金額列まで広く結合して切れを防ぐ。
+                  M(rri, 0, rri, lastCol);
+                  S(rri, 0, {
+                    font: { bold: true, sz: 13 },
+                    alignment: { horizontal: "left" },
+                    border: { bottom: { style: "medium" } },
+                  });
+                  for (var ub = 1; ub <= lastCol; ub++)
+                    S(rri, ub, { border: { bottom: { style: "medium" } } });
+                }
+              }
+              row(blank());
+            } // end headerStyle B
+
+            // 表ヘッダー：運転業務委託料（日付＋行き先にかける）／増えた項目は各自に見出し／金額（税込み）
             var hd = blank();
-            var leadCount = amt > 0 ? amt : 0;
-            if (leadCount > 0) hd[0] = m.tableTitle || "運転業務委託料";
-            hd[amt] = "金額（税込み）";
+            var titleEnd = colStart[textIdx] + spans[textIdx] - 1; // 行き先（説明ブロック）の右端
+            hd[0] = amt > 0 ? m.tableTitle || "運転業務委託料" : "金額（税込み）";
+            // 行き先より後・金額より前の項目（距離/人数等）＝各列に見出しを付ける
+            items.forEach(function (k2, ci) {
+              if (ci > textIdx && ci < amt) hd[colStart[ci]] = U.labelOf(m, k2);
+            });
+            hd[amtDisp] = "金額（税込み）";
             items.slice(amt + 1).forEach(function (k2, j) {
-              hd[amt + 1 + j] = U.labelOf(m, k2);
+              hd[colStart[amt + 1 + j]] = U.labelOf(m, k2);
             });
             var riHd = row(hd);
-            if (leadCount > 1) M(riHd, 0, riHd, amt - 1);
-            for (var c = 0; c < nc; c++)
+            heights[riHd] = 20;
+            if (titleEnd > 0) M(riHd, 0, riHd, titleEnd);
+            for (var c = 0; c < W; c++)
               S(riHd, c, {
-                font: { bold: true },
+                font: { bold: true, sz: 12 }, // 見本どおり表ヘッダー sz12
                 alignment: { horizontal: "center", vertical: "center" },
-                fill: { fgColor: { rgb: "EFEFEF" } },
+                fill: GREEN,
                 border: BOX,
               });
 
-            // 明細22行（空行も枠線・日付は前行と同じなら空）
+            // 明細22行（全幅・空行も枠線）
             var prevDate = null;
             for (var rr2 = 0; rr2 < PER; rr2++) {
               var src = pageRows[rr2];
               var line = blank();
               if (src) {
                 items.forEach(function (key, ci) {
+                  var dc = colStart[ci];
                   if (key === "日付") {
                     var cur = src.日付 || "";
-                    line[ci] = cur && cur !== prevDate ? U.mdShort(cur) : "";
+                    line[dc] = cur && cur !== prevDate ? U.mdShort(cur) : "";
                   } else if (key === "金額") {
-                    line[ci] = src.金額 === "" || src.金額 == null ? "" : Number(src.金額);
-                  } else line[ci] = src[key] == null ? "" : src[key];
+                    line[dc] = src.金額 === "" || src.金額 == null ? "" : Number(src.金額);
+                  } else line[dc] = src[key] == null ? "" : src[key];
                 });
                 prevDate = src.日付 || prevDate;
               }
               var riR = row(line);
-              for (var c2 = 0; c2 < nc; c2++) {
-                var base = { border: BOX, font: { sz: 10 } };
-                if (c2 === 0 && items[0] === "日付") base.alignment = { horizontal: "center" };
-                if (c2 === amt) {
-                  base.alignment = { horizontal: "right" };
-                  base.numFmt = YEN;
+              heights[riR] = 14; // 明細を多く(30行)＋お振込先/合計までA4縦1枚に収める詰め行高
+              // テキスト列はまたがり結合
+              items.forEach(function (key, ci) {
+                if (spans[ci] > 1) M(riR, colStart[ci], riR, colStart[ci] + spans[ci] - 1);
+              });
+              for (var c2 = 0; c2 < W; c2++) {
+                // 本文＝横線(上下)。外枠の左右＋金額前の縦線だけ縦線を入れる（PDF準拠）
+                var bd = { top: THIN, bottom: THIN };
+                if (c2 === 0 || vlCols[c2]) bd.left = THIN;
+                if (c2 === lastCol) bd.right = THIN;
+                var base = {
+                  border: bd,
+                  font: { sz: 11 },
+                  alignment: { horizontal: "center", vertical: "center" },
+                };
+                if (c2 === amtDisp) {
+                  // 見本どおり金額は中央揃え（右揃えにしない）。右揃えは自社情報だけ。
+                  base.alignment = { horizontal: "center", vertical: "center" };
+                  base.numFmt = "#,##0";
                 }
                 S(riR, c2, base);
               }
             }
-            row(blank());
+            // 表と下段の間は詰める（アプリ .sh-foot margin-top:8px 相当）
+            var spRi = row(blank());
+            heights[spRi] = 6;
 
-            // 下段：振込先(左) / 小計・消費税・合計の枠(右)
+            // 下段：お振込先(左) / 小計・消費税・合計(右下隅)。専門家3名合意の配置：
+            // ①合計は表の右端に右揃えで置き桁を縦に揃える ②ラベル左・金額右(中央寄せ廃止)
+            // ③合計を強調＋上に区切り線 ④役職集計は「内訳」見出しで合計と分離。最終ページのみ。
+            var showSummary = m.noteSummary && pi === pageCount - 1 && (m.noteGroups || []).length;
             var bank = (iss.bank || []).slice();
-            var tot = [
-              ["小計", pageTotal],
-              ["消費税（10%）", U.tax10(pageTotal)],
-              ["合計", pageTotal],
-            ];
+            // ===== 合計欄を動的に組む（基本/外税/税率別インボイス ＋ 源泉/繰越のテンプレ対応） =====
+            var YENNEG = '"¥"#,##0;"△¥"#,##0'; // マイナスは △¥（控除・入金を会計式に）
+            var tot = [];
+            var baseGoukei;
+            var hasRate8 =
+              m.taxRates &&
+              allRows.some(function (r) {
+                return Number(r.税率) === 8;
+              });
+            if (hasRate8) {
+              // 税率別インボイス（金額=税込/内税）：税率ごとの対価額と消費税額を明示
+              var t10s = 0,
+                t8s = 0;
+              allRows.forEach(function (r) {
+                var rt = Number(r.税率) === 8 ? 8 : 10,
+                  v = Number(r.金額) || 0;
+                if (rt === 8) t8s += v;
+                else t10s += v;
+              });
+              var b10 = Math.round(t10s / 1.1),
+                b8 = Math.round(t8s / 1.08);
+              tot.push({ l: "10%対象", v: b10 });
+              tot.push({ l: "消費税(10%)", v: t10s - b10 });
+              tot.push({ l: "8%対象", v: b8 });
+              tot.push({ l: "消費税(8%)", v: t8s - b8 });
+              baseGoukei = t10s + t8s;
+              tot.push({ l: "合計", v: baseGoukei, big: 1, line: 1 });
+            } else {
+              // 内税:小計=合計=税込/消費税=内税分。外税:小計=税抜/消費税=小計×10%/合計=税込。
+              var pTax = isSoto ? Math.round(pageTotal * 0.1) : U.tax10(pageTotal);
+              baseGoukei = isSoto ? pageTotal + pTax : pageTotal;
+              tot.push({ l: "小計", v: pageTotal });
+              tot.push({ l: isSoto ? "消費税（10%）" : "消費税", v: pTax });
+              tot.push({ l: "合計", v: baseGoukei, big: 1, line: 1 });
+            }
+            // 源泉徴収（個人宛）：税抜×10.21%を差引いてお振込金額
+            if (m.withholding) {
+              var taxBase = isSoto ? pageTotal : Math.round(pageTotal / 1.1);
+              var gensen = Math.round(taxBase * 0.1021);
+              tot.push({ l: "源泉徴収税額", v: -gensen });
+              tot.push({ l: "お振込金額", v: baseGoukei - gensen, big: 1, line: 1 });
+            }
+            // 繰越請求：前回繰越＋今回請求−入金＝今回お支払額（本番は入金管理連動・demoはマスタ値）
+            if (m.carryover) {
+              var prev = Number(m.carryoverPrev) || 0,
+                paid = Number(m.carryoverPaid) || 0;
+              tot.push({ l: "前回繰越額", v: prev });
+              tot.push({ l: "今回ご入金額", v: -paid });
+              tot.push({ l: "今回お支払額", v: baseGoukei + prev - paid, big: 1, line: 1 });
+            }
+            var amtC = lastCol; // 金額＝表の右端（右下隅・桁の縦ライン）
+            var lblC = Math.max(amtC - 1, 0); // ラベルは金額のすぐ左
             var fn = Math.max(bank.length, tot.length);
             for (var f = 0; f < fn; f++) {
               var fr = blank();
               if (bank[f]) fr[0] = bank[f];
-              if (tot[f]) {
-                fr[amt - 1 >= 0 ? amt - 1 : 0] = tot[f][0];
-                fr[amt] = tot[f][1];
+              var t = tot[f];
+              if (t) {
+                fr[lblC] = t.l;
+                fr[amtC] = t.v;
               }
               var rif = row(fr);
-              if (bank[f]) S(rif, 0, { font: { sz: 9 } });
-              if (tot[f]) {
-                var lblC = amt - 1 >= 0 ? amt - 1 : 0;
+              if (bank[f]) {
+                M(rif, 0, rif, Math.max(lblC - 1, 0));
+                S(rif, 0, { font: { sz: 11 }, alignment: { horizontal: iss.bankAlign || "left" } });
+              }
+              if (t) {
+                // 見本どおり中央揃え。強調行(big)は太字大、line指定で上に区切り線。
+                var topbd = t.line
+                  ? { top: { style: "thin", color: { rgb: "000000" } } }
+                  : undefined;
                 S(rif, lblC, {
-                  font: { bold: true },
-                  alignment: { horizontal: "right" },
-                  border: BOX,
+                  font: { bold: !!t.big, sz: t.big ? 13 : 11 },
+                  alignment: { horizontal: "center" },
+                  border: topbd,
                 });
-                S(rif, amt, {
-                  font: { bold: true },
-                  alignment: { horizontal: "right" },
-                  numFmt: YEN,
-                  border: BOX,
+                S(rif, amtC, {
+                  font: { bold: !!t.big, sz: t.big ? 13 : 11 },
+                  numFmt: YENNEG,
+                  alignment: { horizontal: "center" },
+                  border: topbd,
                 });
               }
+              heights[rif] = t && t.big ? 18 : 16;
+            }
+            // 役職集計（藤原型）＝合計の内訳。余白＋見出しで合計と分離・金額は右端右揃え。
+            if (showSummary) {
+              var rsums = {};
+              m.noteGroups.forEach(function (g) {
+                rsums[g] = 0;
+              });
+              allRows.forEach(function (x) {
+                var g = (x.備考 || "").trim();
+                if (rsums.hasOwnProperty(g)) rsums[g] += Number(x.金額) || 0;
+              });
+              var gp = row(blank());
+              heights[gp] = 5;
+              var hr = blank();
+              hr[lblC] = "内訳（役職別）";
+              var hri = row(hr);
+              if (amtC >= lblC) M(hri, lblC, hri, amtC);
+              S(hri, lblC, {
+                font: { sz: 9, color: { rgb: "666666" } },
+                alignment: { horizontal: "left" },
+              });
+              heights[hri] = 14;
+              m.noteGroups.forEach(function (g) {
+                var sr = blank();
+                sr[lblC] = g;
+                if (rsums[g]) sr[amtC] = rsums[g];
+                var sri = row(sr);
+                // 内訳も中央揃え（小計/合計と同じ＝見本準拠）・小さめ文字で従属表現
+                S(sri, lblC, { font: { sz: 10 }, alignment: { horizontal: "center" } });
+                if (rsums[g])
+                  S(sri, amtC, {
+                    font: { sz: 10 },
+                    numFmt: YEN,
+                    alignment: { horizontal: "center" },
+                  });
+                heights[sri] = 15;
+              });
             }
             if (pi < pageCount - 1) {
               var cr = blank();
@@ -2993,16 +3388,36 @@
           }
         });
 
-        var links = invs.map(function (iv, i) {
-          return { indexRow: indexRowOf[i], targetRow: firstPageRowOf[i] };
+        // 目次シート用：会社×月 → 請求書シートの先頭行（1始まり）
+        var index = invs.map(function (iv, i) {
+          return { label: iv.company + "　" + iv.month, targetRow: firstPageRowOf[i] };
         });
+        // 判子＋ロゴ（両方とも画像注入。どちらか一方でも可）
+        var hankoObj = null;
+        if ((iss.hanko && hankoAnchors.length) || (iss.logo && logoAnchors.length)) {
+          hankoObj = {};
+          if (iss.hanko && hankoAnchors.length) {
+            hankoObj.dataURL = iss.hanko;
+            hankoObj.sizeMm = Number(iss.hankoSizeMm) || 21;
+            hankoObj.anchors = hankoAnchors;
+          }
+          if (iss.logo && logoAnchors.length) {
+            hankoObj.logo = {
+              dataURL: iss.logo,
+              wMm: Number(iss.logoSizeMm) || 30,
+              anchors: logoAnchors,
+            };
+          }
+        }
         return {
           aoa: aoa,
           styles: styles,
           merges: merges,
-          links: links,
-          backs: backs,
+          heights: heights,
+          cols: invCols, // 動的列幅（項目数に応じて算出）
+          index: index,
           breaks: breaks,
+          hanko: hankoObj,
         };
       }
       /* ===================================================================
@@ -3159,7 +3574,187 @@
         if (at < 0) at = sx.indexOf("</worksheet>");
         z.file(path, sx.slice(0, at) + xml + sx.slice(at));
       }
-      async function _exlEnhance(buf, sheets, token, invoiceBreaks) {
+      // 請求書シートの印刷設定をファイルに焼き込む＝ユーザーが開いて印刷してもA4縦・幅1ページに収まる。
+      // (司さん指示「寸法はちゃんとA4の幅ピッタリに」)。SheetJSの既定pageMargins/pageSetupは置換。
+      async function _injectPageSetup(z, sheetName) {
+        var wbXml = await z.file("xl/workbook.xml").async("string");
+        var wbRels = await z.file("xl/_rels/workbook.xml.rels").async("string");
+        var rid = (wbXml.match(
+          new RegExp('<sheet[^>]*name="' + sheetName + '"[^>]*r:id="([^"]+)"')
+        ) || [])[1];
+        if (!rid) return;
+        var target = (wbRels.match(new RegExp('Id="' + rid + '"[^>]*Target="([^"]+)"')) || [])[1];
+        if (!target) return;
+        var path = "xl/" + target.replace(/^\//, "");
+        var f = z.file(path);
+        if (!f) return;
+        var sx = await f.async("string");
+        // 既存の余白/印刷設定を除去（重複防止）
+        sx = sx
+          .replace(/<printOptions[^>]*\/>/g, "")
+          .replace(/<pageMargins[^>]*\/>/g, "")
+          .replace(/<pageSetup[^>]*\/>/g, "");
+        // ① fitToPage を有効化（sheetPr は worksheet の先頭子要素）
+        if (/<sheetPr\b[^>]*\/>/.test(sx)) {
+          sx = sx.replace(/<sheetPr\b[^>]*\/>/, '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>');
+        } else if (/<sheetPr\b[^>]*>/.test(sx)) {
+          if (!/<pageSetUpPr/.test(sx))
+            sx = sx.replace("</sheetPr>", '<pageSetUpPr fitToPage="1"/></sheetPr>');
+        } else {
+          sx = sx.replace(
+            /(<worksheet\b[^>]*>)/,
+            '$1<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'
+          );
+        }
+        // ② A4縦・横1ページ・水平センタリング（本文帯を紙の中央に置く＝左右余白を均等に）
+        var inject =
+          '<printOptions horizontalCentered="1"/>' +
+          '<pageMargins left="0.39" right="0.39" top="0.47" bottom="0.39" header="0.3" footer="0.3"/>' +
+          '<pageSetup paperSize="9" fitToWidth="1" fitToHeight="0" orientation="portrait"/>';
+        // ★スキーマ順★ pageMargins/pageSetup は rowBreaks/ignoredErrors/extLst より前。
+        var at = sx.indexOf("<rowBreaks");
+        if (at < 0) at = sx.indexOf("<ignoredErrors");
+        if (at < 0) at = sx.indexOf("<extLst");
+        if (at < 0) at = sx.indexOf("</worksheet>");
+        z.file(path, sx.slice(0, at) + inject + sx.slice(at));
+      }
+      // 判子画像を請求書シートに埋め込む（各ページの発行者右上）。アプリPDFと同じ見た目に。
+      async function _injectHanko(z, sheetName, hanko) {
+        if (!hanko) return;
+        // 判子＋ロゴを同じ仕組み（複数画像）で埋め込む。imagesに正規化。
+        var images = [];
+        if (hanko.dataURL && hanko.anchors && hanko.anchors.length) {
+          var hs = Math.round((hanko.sizeMm || 21) * 36000);
+          images.push({
+            dataURL: hanko.dataURL,
+            w: hs,
+            h: hs,
+            anchors: hanko.anchors,
+            nm: "hanko",
+          });
+        }
+        if (hanko.logo && hanko.logo.dataURL && hanko.logo.anchors && hanko.logo.anchors.length) {
+          var lw = Math.round((hanko.logo.wMm || 32) * 36000);
+          var lh = Math.round((hanko.logo.hMm || hanko.logo.wMm || 32) * 36000);
+          images.push({
+            dataURL: hanko.logo.dataURL,
+            w: lw,
+            h: lh,
+            anchors: hanko.logo.anchors,
+            nm: "logo",
+          });
+        }
+        if (!images.length) return;
+        var anch = "",
+          relAll = "",
+          exts = {},
+          pid = 2;
+        images.forEach(function (img, ii) {
+          var dm = img.dataURL.match(/^data:image\/(png|jpeg|jpg|gif);base64,(.*)$/);
+          if (!dm) return;
+          var ext = dm[1] === "jpg" ? "jpeg" : dm[1];
+          exts[ext] = 1;
+          var bin = atob(dm[2]);
+          var u8 = new Uint8Array(bin.length);
+          for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+          z.file("xl/media/img" + ii + "." + ext, u8);
+          var rId = "rIdImg" + ii;
+          relAll +=
+            '<Relationship Id="' +
+            rId +
+            '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/img' +
+            ii +
+            "." +
+            ext +
+            '"/>';
+          img.anchors.forEach(function (a) {
+            anch +=
+              "<xdr:oneCellAnchor><xdr:from><xdr:col>" +
+              a.col +
+              "</xdr:col><xdr:colOff>" +
+              (a.colOff || 0) +
+              "</xdr:colOff><xdr:row>" +
+              a.row +
+              "</xdr:row><xdr:rowOff>" +
+              (a.rowOff || 0) +
+              "</xdr:rowOff></xdr:from>" +
+              '<xdr:ext cx="' +
+              img.w +
+              '" cy="' +
+              img.h +
+              '"/>' +
+              '<xdr:pic><xdr:nvPicPr><xdr:cNvPr id="' +
+              pid +
+              '" name="' +
+              img.nm +
+              pid +
+              '"/><xdr:cNvPicPr/></xdr:nvPicPr>' +
+              '<xdr:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="' +
+              rId +
+              '"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>' +
+              '<xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="' +
+              img.w +
+              '" cy="' +
+              img.h +
+              '"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr>' +
+              "</xdr:pic><xdr:clientData/></xdr:oneCellAnchor>";
+            pid++;
+          });
+        });
+        z.file(
+          "xl/drawings/drawing1.xml",
+          '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">' +
+            anch +
+            "</xdr:wsDr>"
+        );
+        z.file(
+          "xl/drawings/_rels/drawing1.xml.rels",
+          '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+            relAll +
+            "</Relationships>"
+        );
+        var ext = Object.keys(exts)[0] || "png"; // content-types用（下で全ext処理）
+        // シートに drawing 参照を追加（ignoredErrors/extLst の後＝</worksheet>直前）
+        var wbXml = await z.file("xl/workbook.xml").async("string");
+        var wbRels = await z.file("xl/_rels/workbook.xml.rels").async("string");
+        var rid = (wbXml.match(
+          new RegExp('<sheet[^>]*name="' + sheetName + '"[^>]*r:id="([^"]+)"')
+        ) || [])[1];
+        var target = (wbRels.match(new RegExp('Id="' + rid + '"[^>]*Target="([^"]+)"')) || [])[1];
+        if (!target) return;
+        var path = "xl/" + target.replace(/^\//, "");
+        var sx = await z.file(path).async("string");
+        sx = sx.replace("</worksheet>", '<drawing r:id="rIdDraw"/></worksheet>');
+        z.file(path, sx);
+        // シートrelsに drawing
+        var relPath = path.replace(/worksheets\/(sheet\d+)\.xml$/, "worksheets/_rels/$1.xml.rels");
+        var relEntry =
+          '<Relationship Id="rIdDraw" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>';
+        var ef = z.file(relPath);
+        if (ef) {
+          var rx = await ef.async("string");
+          z.file(relPath, rx.replace("</Relationships>", relEntry + "</Relationships>"));
+        } else {
+          z.file(
+            relPath,
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+              relEntry +
+              "</Relationships>"
+          );
+        }
+        // content-types：drawing override ＋ 使った全画像拡張子の default
+        var ct = await z.file("[Content_Types].xml").async("string");
+        var add = "";
+        if (!/spreadsheetDrawing/.test(ct))
+          add +=
+            '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>';
+        Object.keys(exts).forEach(function (e) {
+          if (ct.indexOf('Extension="' + e + '"') < 0 && add.indexOf('Extension="' + e + '"') < 0)
+            add += '<Default Extension="' + e + '" ContentType="image/' + e + '"/>';
+        });
+        if (add) z.file("[Content_Types].xml", ct.replace("</Types>", add + "</Types>"));
+      }
+      async function _exlEnhance(buf, sheets, token, invoiceBreaks, invoiceHanko) {
         var TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
         if (typeof JSZip === "undefined") return new Blob([buf], { type: TYPE });
         async function fontFix(z) {
@@ -3185,7 +3780,13 @@
             }
           }
           try {
+            await _injectPageSetup(z, "請求書");
+          } catch (e) {}
+          try {
             await _injectRowBreaks(z, "請求書", invoiceBreaks);
+          } catch (e) {}
+          try {
+            await _injectHanko(z, "請求書", invoiceHanko);
           } catch (e) {}
           return z.generateAsync({ type: "blob", mimeType: TYPE, compression: "DEFLATE" });
         } catch (e) {
@@ -3521,17 +4122,40 @@
             ws["!cols"] = autoColWidths(sh.aoa);
             XLSX.utils.book_append_sheet(wb, ws, sh.name);
           });
-          // 請求書（静的・自動更新の対象外）＋目次ジャンプ／戻りの内部リンク
+          // 目次シート（別シート）＝会社×月を選んでタップで請求書へ飛ぶ。請求書シートは請求書だけ。
+          if (hasInvoice && invData.index && invData.index.length) {
+            var idxAoa = [["📑 請求書（会社・年月をタップで開く）"]];
+            invData.index.forEach(function (e) {
+              idxAoa.push([e.label]);
+            });
+            var tws = XLSX.utils.aoa_to_sheet(idxAoa);
+            tws["!cols"] = [{ wch: 44 }];
+            if (tws["A1"]) tws["A1"].s = { font: { bold: true, sz: 13 } };
+            invData.index.forEach(function (e, i) {
+              var c = "A" + (i + 2); // 1行目=見出し、2行目以降=各請求書
+              if (!tws[c]) tws[c] = { t: "s", v: e.label };
+              tws[c].l = { Target: "#'請求書'!A" + e.targetRow, Tooltip: "この請求書を開く" };
+              tws[c].s = { font: { color: { rgb: "0563C1" }, underline: true } };
+            });
+            XLSX.utils.book_append_sheet(wb, tws, "目次");
+          }
+          // 請求書（静的・自動更新の対象外・請求書のみ＝印刷がきれい）
           if (hasInvoice) {
             var iws = XLSX.utils.aoa_to_sheet(invData.aoa);
-            iws["!cols"] = [{ wch: 12 }, { wch: 34 }, { wch: 16 }, { wch: 12 }, { wch: 12 }];
+            // 列幅は項目数に応じて動的算出（本文帯＝水平センタリングで紙の中央）。
+            iws["!cols"] = invData.cols || [
+              { wch: 9 },
+              { wch: 13 },
+              { wch: 13 },
+              { wch: 13 },
+              { wch: 15 },
+            ];
             iws["!merges"] = invData.merges;
-            // 目次→請求書 ／ 各請求書→目次 の内部リンク
-            invData.links.forEach(function (L) {
-              var c = "A" + L.indexRow;
-              if (!iws[c]) iws[c] = { t: "s", v: "" };
-              iws[c].l = { Target: "#'請求書'!A" + L.targetRow, Tooltip: "この請求書へ" };
+            var rws = [];
+            Object.keys(invData.heights).forEach(function (r) {
+              rws[Number(r)] = { hpt: invData.heights[r] };
             });
+            iws["!rows"] = rws;
             // 罫線・太字・整列などのスタイルを適用（_exlInvoiceDataが算出）
             Object.keys(invData.styles).forEach(function (ref) {
               if (!iws[ref]) iws[ref] = { t: "s", v: "" };
@@ -3546,7 +4170,13 @@
           try {
             token = await ensureExportToken();
           } catch (e) {}
-          var blob = await _exlEnhance(buf, sheets, token, hasInvoice ? invData.breaks : null);
+          var blob = await _exlEnhance(
+            buf,
+            sheets,
+            token,
+            hasInvoice ? invData.breaks : null,
+            hasInvoice ? invData.hanko : null
+          );
           var d = new Date();
           var ymd =
             d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2);
@@ -4137,6 +4767,11 @@
           hankoRaw: "", // 元画像（白抜きON/OFF切替時に再処理する素）
           hankoBg: "auto", // 背景白抜き: auto / on / off
           hankoSizeMm: 21, // 本物の判子サイズ(mm)
+          logo: "", // 自社ロゴ 表示・出力用（白抜き処理後）
+          logoRaw: "", // ロゴ元画像（再処理用）
+          logoBg: "auto", // ロゴ背景白抜き: auto / on / off
+          logoSizeMm: 33, // ロゴの大きさ(mm)・基本値（UIで変更可）
+          headerStyle: "B", // 請求書ヘッダー型：B=中央タイトル(司さん確定の正)/A=対角(不採用)
         };
       }
       function loadIssuer() {
@@ -4201,6 +4836,9 @@
           showInvoiceNo: !!s.showInvoiceNo,
           hanko: s.hanko || null,
           hankoSizeMm: Number(s.hankoSizeMm) || 21,
+          logo: s.logo || null,
+          logoSizeMm: Number(s.logoSizeMm) || 33, // 専門家推奨32〜35mm（28は小さい）
+          headerStyle: s.headerStyle || "B",
         };
       }
       function setAlign(field, val) {
@@ -4232,15 +4870,26 @@
         }
         // 揃え／白抜きボタンのハイライト更新
         var bg = s.hankoBg || "auto";
+        var lbg = s.logoBg || "auto";
         var era = s.dateEra || "seireki";
         document.querySelectorAll(".align-btn").forEach(function (b) {
           var grp = b.dataset.grp;
           var cur =
-            grp === "issuerAlign" ? ia : grp === "bankAlign" ? ba : grp === "hankoBg" ? bg : era;
+            grp === "issuerAlign"
+              ? ia
+              : grp === "bankAlign"
+                ? ba
+                : grp === "hankoBg"
+                  ? bg
+                  : grp === "logoBg"
+                    ? lbg
+                    : era;
           b.classList.toggle("on", b.dataset.a === cur);
         });
         var sz = document.getElementById("iss_hankoSize");
         if (sz && document.activeElement !== sz) sz.value = s.hankoSizeMm || 21;
+        var lsz = document.getElementById("iss_logoSize");
+        if (lsz && document.activeElement !== lsz) lsz.value = s.logoSizeMm || 33;
         var cn = document.getElementById("iss_showNo");
         if (cn) cn.checked = !!s.showInvoiceNo;
         var prev = document.getElementById("hankoPreview");
@@ -4249,6 +4898,15 @@
             '<img src="' + s.hanko + '" style="width:100%;height:100%;object-fit:contain;">';
         } else {
           prev.textContent = "なし";
+        }
+        var lprev = document.getElementById("logoPreview");
+        if (lprev) {
+          if (s.logo) {
+            lprev.innerHTML =
+              '<img src="' + s.logo + '" style="width:100%;height:100%;object-fit:contain;">';
+          } else {
+            lprev.textContent = "なし";
+          }
         }
       }
       function loadHanko(ev) {
@@ -4286,6 +4944,42 @@
         setIssuer("hankoRaw", "");
         renderIssuer();
         toast("判子を消しました");
+      }
+      // ===== 会社ロゴ（判子と同じ仕組み：登録→白抜き透過→サイズ調整） =====
+      function loadLogo(ev) {
+        var file = ev.target.files && ev.target.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          setIssuer("logoRaw", e.target.result); // 元画像を保持（再処理用）
+          reprocessLogo();
+        };
+        reader.readAsDataURL(file);
+        ev.target.value = "";
+      }
+      function reprocessLogo() {
+        var s = currentIssuer();
+        if (!s.logoRaw) return;
+        HankoTool.process(s.logoRaw, { mode: s.logoBg || "auto" }).then(function (r) {
+          setIssuer("logo", r.dataURL);
+          renderIssuer();
+          toast(r.kept ? "透過済みロゴをそのまま使います" : "ロゴを保存しました（背景を透過）");
+        });
+      }
+      function setLogoBg(mode) {
+        setIssuer("logoBg", mode);
+        renderIssuer();
+        reprocessLogo();
+      }
+      function setLogoSize(v) {
+        var n = Number(String(v).replace(/[^0-9.]/g, "")) || 33;
+        setIssuer("logoSizeMm", n);
+      }
+      function clearLogo() {
+        setIssuer("logo", "");
+        setIssuer("logoRaw", "");
+        renderIssuer();
+        toast("ロゴを消しました");
       }
 
       /* ===================================================================
