@@ -3532,12 +3532,14 @@
           }
           if (iss.logo && logoAnchors.length) {
             hankoObj.logo = {
-              // ★Excelのロゴは右端(lastCol)から右へ伸びるアンカーで、右マージン0.39inに合わせて
-              //   ≤30mm前提で調律済み(恒久ルール)。アプリ表示の基本40mmとは別系統。
-              //   共有のlogoSizeMm(既定40)をそのまま使うと右端をはみ出す/横ページ分割の恐れ→30mmで上限クランプ。
-              //   Excelで40mmにするにはアンカー再調律＋実Excel描画での検証が必要。
+              // ★アプリ表示とExcelでロゴを一致させる★：アプリと同じ「箱に収める」モデル。
+              //   箱＝幅最大 logoSizeMm(既定40mm) × 高さ最大26mm、アスペクト比維持(object-fit:contain相当)。
+              //   実寸(wMm/hMm)は書き出し時に画像の自然比から算出して上書きする(downloadExcelWorkbook)。
+              //   検証済み：40mm幅でも右端=6.93in<印刷可能域7.88in＝はみ出さない(EMU実測)。
               dataURL: iss.logo,
-              wMm: Math.min(Number(iss.logoSizeMm) || 30, 30),
+              wMm: Number(iss.logoSizeMm) || 40, // 暫定(箱の幅上限)。書き出し時にcontain実寸へ上書き。
+              boxMaxWmm: Number(iss.logoSizeMm) || 40,
+              boxMaxHmm: 26,
               anchors: logoAnchors,
             };
           }
@@ -4241,6 +4243,45 @@
             )
           );
       }
+      // ロゴ画像を「箱(幅max×高max mm)」にアスペクト比維持で収めた実寸(mm)を返す＝アプリのobject-fit:containと同じ。
+      // ★必ずresolveする★：読込失敗/タイムアウトでも箱の既定値を返す＝書き出しがハングしない＆正方形化に戻らない。
+      function _containLogoMm(dataURL, maxWmm, maxHmm) {
+        return new Promise(function (resolve) {
+          var done = false;
+          // 失敗時の安全既定＝正方形でなく「箱」(縦は箱の高さ上限まで)。force-square回帰を防ぐ。
+          var box = { wMm: maxWmm, hMm: Math.min(maxWmm, maxHmm) };
+          function settle(v) {
+            if (done) return;
+            done = true;
+            clearTimeout(t);
+            resolve(v);
+          }
+          var t = setTimeout(function () {
+            settle(box);
+          }, 3000); // 画像が永遠に読めない時のハング防止
+          var im = new Image();
+          im.onload = function () {
+            var w = im.naturalWidth || im.width,
+              h = im.naturalHeight || im.height;
+            if (!w || !h) {
+              settle(box);
+              return;
+            }
+            var asp = w / h, // 幅/高
+              wMm = maxWmm,
+              hMm = maxWmm / asp; // まず幅を箱幅に合わせる
+            if (hMm > maxHmm) {
+              hMm = maxHmm;
+              wMm = maxHmm * asp;
+            } // 高さがはみ出すなら高さ基準に切替
+            settle({ wMm: Math.round(wMm * 100) / 100, hMm: Math.round(hMm * 100) / 100 });
+          };
+          im.onerror = function () {
+            settle(box);
+          };
+          im.src = dataURL;
+        });
+      }
       async function downloadExcelWorkbook(btn) {
         if (typeof XLSX === "undefined") {
           toast("Excelライブラリの読み込み待ちです。少し待って再度押してください");
@@ -4260,6 +4301,23 @@
             { name: "会社", fn: "export_companies", aoa: _exlCompaniesAoa() },
           ];
           var invData = _exlInvoiceData();
+          // ロゴをアプリ表示と一致させる：自然なアスペクト比で「箱(幅max×高max26mm)」に収めた実寸を算出。
+          // これで Excel の force-square(正方形化)バグを解消し、アプリと同じ大きさ・形にする。
+          if (invData.hanko && invData.hanko.logo && invData.hanko.logo.dataURL) {
+            try {
+              var _lg = invData.hanko.logo;
+              var _dim = await _containLogoMm(
+                _lg.dataURL,
+                _lg.boxMaxWmm || 40,
+                _lg.boxMaxHmm || 26
+              );
+              _lg.wMm = _dim.wMm;
+              _lg.hMm = _dim.hMm;
+            } catch (e) {
+              // _containLogoMmは必ずresolveするのでここは通常来ないが、念のため非正方形の箱で埋める
+              _lg.hMm = Math.min(_lg.boxMaxWmm || 40, _lg.boxMaxHmm || 26);
+            }
+          }
           var hasInvoice = invData.aoa.length > 0;
           var wb = XLSX.utils.book_new();
           // データ4シート（自動更新の対象）
