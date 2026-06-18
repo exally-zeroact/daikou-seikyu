@@ -395,9 +395,9 @@
       sy -= 16;
       T(page, font, "消費税（10%）", bx + 10, sy, 9.5, { color: MUTED });
       T(page, font, yen(tax10(grand)), rx - 10, sy, 9.5, { color: TEXT, align: "right" });
-      sy -= 8;
+      sy -= 14; // ★線を消費税の文字／数字と重ねない（下げる）★
       line(page, bx + 8, sy, rx, sy, MINT, 0.8); // 合計の上に1本（アプリと同じ）
-      sy -= 16;
+      sy -= 15;
       T(page, font, "合計", bx + 10, sy, 12, { color: TEXT });
       T(page, font, yen(grand), rx - 10, sy - 1, 14, { color: TEXT, align: "right" });
       sy -= 20;
@@ -425,55 +425,56 @@
       return sy;
     }
 
-    // ---- フッター（区切り線＋エンブレム＋会社情報を中央寄せ＋判子＋ページ番号） ----
-    //   下に張り付きすぎないよう全体を少し上げる（FOOT 基準）。
+    // ---- フッター：長い緑の線＋そのすぐ下に「振込先(左)」「自社情報(右)」、ロゴありは自社情報の右に大きく ----
+    //   多行（〜Email/登録番号）でもブロックが下マージンより上に収まるよう線を自動で上げる。
     function drawFooter(page) {
-      // ★自社情報が多行（会社名/部署/〒/住所/TEL/FAX/Email/登録番号…）でも下端からあふれない★
-      //   最下行が下マージン(約40pt)より上に来るよう、行数に応じてフッター全体を上げる。
       var nL = iLines.length || 1;
-      var IY = Math.max(78, 53 + (nL - 2) * 10); // 会社情報の先頭y（多行ほど上げる）
-      var FOOT = IY + 54; // 区切り線のy
-      var EM = FOOT - 16; // エンブレム基準
-      line(page, M, FOOT, RXp, FOOT, BORDER, 0.6);
-      // エンブレム＝ロゴ画像があるときだけ。ロゴ無し（plain）は何も描かない
-      // （頭文字の丸＝意味不明と司さん指摘のため廃止）。
-      if (showLogo) {
-        var ew = 34,
-          asp = logo.width / logo.height,
-          eh = ew / asp;
-        if (eh > 26) {
-          eh = 26;
-          ew = eh * asp;
-        }
-        page.drawImage(logo, { x: CX - ew / 2, y: EM - eh, width: ew, height: eh });
+      var issH = nL > 0 ? 13 + (nL - 1) * 10 : 0; // 自社情報ブロック高さ
+      var bankH = bank.length * 10;
+      var blockH = Math.max(issH, bankH, 20);
+      var FOOT = 80 + blockH; // 線のy（ブロック＋下マージン80の上）。多行ほど上がる＝あふれない
+      line(page, M, FOOT, RXp, FOOT, MINT, 0.9); // 下の長い緑の線
+      var y0 = FOOT - 16; // 線のすぐ下＝振込先/自社情報の先頭
+      // 振込先（左・線のすぐ下）
+      if (bank.length) {
+        var by = y0;
+        bank.forEach(function (ln) {
+          T(page, font, ln, M, by, 8, { color: MUTED });
+          by -= 10;
+        });
       }
-      // 会社情報（中央寄せ）
-      var fy = IY;
+      // ロゴ（自社情報の右・大きく）。ロゴ画像があるときだけ。
+      var rightEdge = RXp; // 自社情報の右端
+      if (showLogo) {
+        var lw = Math.min((Number(iss && iss.logoSizeMm) || 40) * MM, 130),
+          asp = logo.width / logo.height,
+          lh = lw / asp;
+        if (lh > 46) {
+          lh = 46;
+          lw = lh * asp;
+        }
+        var logoY = y0 - issH / 2 + lh / 2; // 自社情報ブロックの縦中央に合わせる
+        page.drawImage(logo, { x: RXp - lw, y: logoY - lh, width: lw, height: lh });
+        rightEdge = RXp - lw - 16; // 自社情報はロゴの左
+      }
+      // 自社情報（右寄せ・線のすぐ下・ロゴの左）
+      var fy = y0;
       iLines.forEach(function (ln, idx) {
-        T(page, font, ln, CX, fy, idx === 0 ? 11 : 8, {
-          align: "center",
+        T(page, font, ln, rightEdge, fy, idx === 0 ? 11 : 8, {
+          align: "right",
           color: idx === 0 ? TEXT : MUTED,
         });
         fy -= idx === 0 ? 13 : 10;
       });
-      // 判子（社名の右に重ね＝角印標準）
+      // 判子（社名に重ね＝角印標準。社名の右端あたり）
       if (hanko) {
         var hs = (Number(iss && iss.hankoSizeMm) || 20) * MM * 0.8;
-        var nameW = font.widthOfTextAtSize(_sanitize(iLines[0] || ""), 11);
         page.drawImage(hanko, {
-          x: CX + nameW / 2 + 4,
-          y: IY - hs + 9,
+          x: rightEdge - hs + 6,
+          y: y0 - hs + 9,
           width: hs,
           height: hs,
           opacity: 0.95,
-        });
-      }
-      // 振込先（左下・小さく）
-      if (bank.length) {
-        var by = IY;
-        bank.forEach(function (ln) {
-          T(page, font, ln, M, by, 7.5, { color: MUTED });
-          by -= 10;
         });
       }
       pageNum += 1;
