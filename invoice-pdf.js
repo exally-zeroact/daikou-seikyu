@@ -240,7 +240,9 @@
     var noteN = m.noteSummary && (m.noteGroups || []).length ? m.noteGroups.length : 0;
 
     // ---- ページ分割：単ページに収まるか／収まらなければ明細ページ＋サマリーページ ----
-    var capSingle = Math.max(8, 17 - noteN); // 単ページ（御請求金額＋合計＋役職）の明細上限
+    // 自社情報が多行のときはフッターが高くなるぶん、単ページの明細上限を減らして合計と被らせない。
+    var issTall = Math.max(0, (iLines.length || 1) - 4);
+    var capSingle = Math.max(8, 17 - noteN - issTall); // 単ページ（御請求金額＋合計＋役職）の明細上限
     var capDetail = 22; // 明細ページ（総額なし）の明細上限
     var multi = rows.length > capSingle;
     var detailPages = [];
@@ -281,6 +283,19 @@
       });
       if (iss && iss.showInvoiceNo && invoiceNo)
         T(page, font, "No.　" + invoiceNo, RXp, A4.h - 64, 9, { align: "right", color: MUTED });
+      if (m.paymentDue)
+        T(
+          page,
+          font,
+          "お支払期限　" + m.paymentDue,
+          RXp,
+          A4.h - (iss && iss.showInvoiceNo && invoiceNo ? 76 : 64),
+          9,
+          {
+            align: "right",
+            color: MUTED,
+          }
+        );
       cy -= 30;
       flourish(page, cy - 4);
       cy -= 26;
@@ -413,9 +428,12 @@
     // ---- フッター（区切り線＋エンブレム＋会社情報を中央寄せ＋判子＋ページ番号） ----
     //   下に張り付きすぎないよう全体を少し上げる（FOOT 基準）。
     function drawFooter(page) {
-      var FOOT = 132; // 区切り線のy（従来100→上げて下に余白を残す）
+      // ★自社情報が多行（会社名/部署/〒/住所/TEL/FAX/Email/登録番号…）でも下端からあふれない★
+      //   最下行が下マージン(約40pt)より上に来るよう、行数に応じてフッター全体を上げる。
+      var nL = iLines.length || 1;
+      var IY = Math.max(78, 53 + (nL - 2) * 10); // 会社情報の先頭y（多行ほど上げる）
+      var FOOT = IY + 54; // 区切り線のy
       var EM = FOOT - 16; // エンブレム基準
-      var IY = FOOT - 54; // 会社情報の先頭y
       line(page, M, FOOT, RXp, FOOT, BORDER, 0.6);
       // エンブレム＝ロゴ画像があるときだけ。ロゴ無し（plain）は何も描かない
       // （頭文字の丸＝意味不明と司さん指摘のため廃止）。
@@ -574,12 +592,24 @@
         T(page, font, "請　求　書", M, cy, 22);
         cy -= 30;
         T(page, font, dateStr + (noStr ? "　　" + noStr : ""), M, cy, 10, { color: DARK });
-        cy -= 32; // ★黄色＝請求日/No→御中の隙間を少し広げる★
+        cy -= 14;
+        if (m.paymentDue) {
+          T(page, font, "お支払期限　" + m.paymentDue, M, cy, 10, { color: DARK });
+          cy -= 14;
+        }
+        cy -= 18; // ★黄色＝請求日/No→御中の隙間を少し広げる★
       } else {
         T(page, font, dateStr, M + CW, cy, 9.5, { align: "right", color: DARK });
         cy -= 13;
         if (noStr) {
           T(page, font, noStr, M + CW, cy, 9.5, { align: "right", color: DARK });
+          cy -= 13;
+        }
+        if (m.paymentDue) {
+          T(page, font, "お支払期限　" + m.paymentDue, M + CW, cy, 9.5, {
+            align: "right",
+            color: DARK,
+          });
           cy -= 13;
         }
         cy -= 6;
