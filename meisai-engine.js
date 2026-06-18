@@ -238,18 +238,38 @@
         .join("") +
       "</div>";
 
-    // 請求日・請求書No は最上部の右端（タイトルの上）に置く
-    var metaHtml =
-      '<div class="sh-meta">' +
-      "<div>請求日　" +
-      esc(issueDateStr(ctx.month, iss.dateEra)) +
-      "</div>" +
-      (iss.showInvoiceNo && ctx.invoiceNo ? "<div>No.　" + esc(ctx.invoiceNo) + "</div>" : "") +
-      "</div>";
+    // ===== テンプレ別ヘッダー =====
+    // A（A_logo / A_plain）= タイトル左寄せ・請求日も左・ロゴは右上の角（logoMode=show時）。
+    // B（B_center）       = タイトル中央・請求日/Noは右上メタ（従来）。
+    var style = iss.headerStyle === "A" ? "A" : "B";
+    var dateStr = esc(issueDateStr(ctx.month, iss.dateEra));
+    var noStr = iss.showInvoiceNo && ctx.invoiceNo ? esc(ctx.invoiceNo) : "";
+    var wantLogo = iss.logoMode === "show" && iss.logo;
+    var logoMm = Number(iss.logoSizeMm) || 33;
+    var logoHtml = wantLogo
+      ? '<img class="sh-logo" src="' + iss.logo + '" style="max-width:' + logoMm + 'mm;">'
+      : "";
+    var headerHtml;
+    if (style === "A") {
+      headerHtml =
+        logoHtml +
+        '<div class="sh-title sh-title-l">請求書</div>' +
+        '<div class="sh-date-l">請求日　' +
+        dateStr +
+        (noStr ? '<span class="sh-no-inl">No.　' + noStr + "</span>" : "") +
+        "</div>";
+    } else {
+      headerHtml =
+        '<div class="sh-meta"><div>請求日　' +
+        dateStr +
+        "</div>" +
+        (noStr ? "<div>No.　" + noStr + "</div>" : "") +
+        "</div>" +
+        '<div class="sh-title">請求書</div>';
+    }
     return (
       '<div class="sheet">' +
-      metaHtml +
-      '<div class="sh-title">請求書</div>' +
+      headerHtml +
       '<div class="sh-top">' +
       '<div class="sh-left">' +
       '<div class="sh-client">' +
