@@ -2401,11 +2401,13 @@
             </button>
           </div>
           <div class="frow" style="margin-top: 10px">
-            <div class="flabel">ロゴの大きさ（mm・基本40／お好みで変更）</div>
+            <div class="flabel">ロゴの大きさ（mm・10〜60／基本40）</div>
             <input
               class="finput fnum"
               id="iss_logoSize"
               inputmode="numeric"
+              min="10"
+              max="60"
               style="max-width: 120px"
               oninput="setLogoSize(this.value)"
             />
@@ -6127,6 +6129,7 @@
       }
       function setLogoSize(v) {
         var n = Number(String(v).replace(/[^0-9.]/g, "")) || 40;
+        n = Math.max(10, Math.min(60, n)); // 下限10mm・上限60mm（描画はエレガント約46mm/クラシック約32mmで頭打ち）
         setIssuer("logoSizeMm", n);
         renderIssuer(); // プレビューを実サイズで更新（大小が見える）
         generateInvoices(); // 請求書プレビュー（実PDF）も更新
