@@ -2668,29 +2668,37 @@
             <option value="">全社</option>
           </select>
         </div>
-        <!-- お支払期限（毎回変わるので請求タブで設定。空欄なら出ない） -->
+        <!-- お支払期限（毎回変わるので請求タブで設定。ON/OFFボタンでONの時だけ日付を出す） -->
         <div class="inv-toolbar2 no-print">
           <div class="itb-group">
             <span class="itb-lbl">お支払期限</span>
-            <input
-              type="date"
-              id="invDueDate"
-              class="fselect"
-              style="width: auto; min-width: 150px"
-              onchange="setInvoiceDue(this.value)"
-            />
-            <button
-              class="itb-chip"
-              data-grp="dueEra"
-              data-a="seireki"
-              onclick="setDueEra('seireki')"
-            >
-              西暦
-            </button>
-            <button class="itb-chip" data-grp="dueEra" data-a="reiwa" onclick="setDueEra('reiwa')">
-              令和
-            </button>
-            <span class="itb-lbl" style="font-weight: 400">空欄なら出ません</span>
+            <button class="itb-chip" id="invDueOff" onclick="toggleInvoiceDue(false)">なし</button>
+            <button class="itb-chip" id="invDueOn" onclick="toggleInvoiceDue(true)">あり</button>
+            <span id="invDueControls" style="display: none; align-items: center; gap: 6px">
+              <input
+                type="date"
+                id="invDueDate"
+                class="fselect"
+                style="width: auto; min-width: 150px"
+                onchange="setInvoiceDue(this.value)"
+              />
+              <button
+                class="itb-chip"
+                data-grp="dueEra"
+                data-a="seireki"
+                onclick="setDueEra('seireki')"
+              >
+                西暦
+              </button>
+              <button
+                class="itb-chip"
+                data-grp="dueEra"
+                data-a="reiwa"
+                onclick="setDueEra('reiwa')"
+              >
+                令和
+              </button>
+            </span>
           </div>
         </div>
         <!-- テンプレ＆書体をその場で切替（リアルタイム反映） -->
@@ -5400,8 +5408,15 @@
         var nm = document.getElementById("invFontName");
         if (nm) nm.textContent = fn;
         applyPreviewFont(fn, false); // 初期はDLしない（既ロードなら反映）
-        // お支払期限（日付＋和暦/西暦）の同期
+        // お支払期限（ON/OFF＋日付＋和暦/西暦）の同期
         var s = currentIssuer();
+        var dueOn = !!s.showPaymentDue;
+        var bOn = document.getElementById("invDueOn"),
+          bOff = document.getElementById("invDueOff"),
+          ctrls = document.getElementById("invDueControls");
+        if (bOn) bOn.classList.toggle("on", dueOn);
+        if (bOff) bOff.classList.toggle("on", !dueOn);
+        if (ctrls) ctrls.style.display = dueOn ? "inline-flex" : "none";
         var dd = document.getElementById("invDueDate");
         if (dd && document.activeElement !== dd) dd.value = s.paymentDue || "";
         document
@@ -5410,7 +5425,14 @@
             b.classList.toggle("on", b.dataset.a === (s.paymentDueEra || "seireki"));
           });
       }
-      // 請求タブ：お支払期限の日付（毎回設定）。空欄なら出ない。
+      // 請求タブ：お支払期限 ON/OFF。ONで日付入力が出る。
+      function toggleInvoiceDue(on) {
+        setIssuer("showPaymentDue", on);
+        syncInvoiceToolbar();
+        generateInvoices();
+        toast(on ? "お支払期限：あり" : "お支払期限：なし");
+      }
+      // 請求タブ：お支払期限の日付（毎回設定）。
       function setInvoiceDue(v) {
         setIssuer("paymentDue", v || "");
         syncInvoiceToolbar();
@@ -5922,7 +5944,10 @@
           bankAlign: s.bankAlign || "left",
           dateEra: s.dateEra || "seireki",
           showInvoiceNo: !!s.showInvoiceNo,
-          paymentDue: s.paymentDue ? fmtDueDate(s.paymentDue, s.paymentDueEra || "seireki") : "",
+          paymentDue:
+            s.showPaymentDue && s.paymentDue
+              ? fmtDueDate(s.paymentDue, s.paymentDueEra || "seireki")
+              : "",
           hanko: s.hanko || null,
           hankoSizeMm: Number(s.hankoSizeMm) || 21,
           logo: s.logo || null,
