@@ -283,25 +283,27 @@
       });
       if (iss && iss.showInvoiceNo && invoiceNo)
         T(page, font, "No.　" + invoiceNo, RXp, A4.h - 64, 9, { align: "right", color: MUTED });
-      if (m.paymentDue)
-        T(
-          page,
-          font,
-          "お支払期限　" + m.paymentDue,
-          RXp,
-          A4.h - (iss && iss.showInvoiceNo && invoiceNo ? 76 : 64),
-          9,
-          {
-            align: "right",
-            color: MUTED,
-          }
-        );
       cy -= 30;
       flourish(page, cy - 4);
       cy -= 26;
-      // 宛名
-      var aw = T(page, font, co + "　御中", M, cy, 17, { color: TEXT, maxW: CW * 0.62 });
-      line(page, M, cy - 21, M + Math.min(aw + 10, CW * 0.62), cy - 21, BORDER, 0.6);
+      // 宛名（右の期限＋振込先ブロックと被らないよう幅を抑える）
+      var aw = T(page, font, co + "　御中", M, cy, 17, { color: TEXT, maxW: CW * 0.5 });
+      line(page, M, cy - 21, M + Math.min(aw + 10, CW * 0.5), cy - 21, BORDER, 0.6);
+      // ★右ブロック（赤丸の位置）：お支払期限＋振込先を一塊で右上に★
+      var ry = cy + 2;
+      if (m.paymentDue) {
+        T(page, font, "お支払期限　" + m.paymentDue, RXp, ry, 10, { align: "right", color: TEXT });
+        ry -= 16;
+      }
+      if (bank.length) {
+        bank.forEach(function (ln, i) {
+          T(page, font, ln, RXp, ry, i === 0 ? 9.5 : 9, {
+            align: "right",
+            color: i === 0 ? TEXT : MUTED,
+          });
+          ry -= i === 0 ? 13 : 11;
+        });
+      }
       cy -= 34;
       // あいさつ
       var lead = ((m.lead || "{月}月のご利用分です。") + "").replace("{月}", monthNum);
@@ -425,24 +427,15 @@
       return sy;
     }
 
-    // ---- フッター：長い緑の線＋そのすぐ下に「振込先(左)」「自社情報(右)」、ロゴありは自社情報の右に大きく ----
-    //   多行（〜Email/登録番号）でもブロックが下マージンより上に収まるよう線を自動で上げる。
+    // ---- フッター：長い緑の線＋そのすぐ下に「自社情報(右)」、ロゴありは自社情報の右に大きく ----
+    //   振込先はヘッダー右ブロック（お支払期限と一塊）へ移動済み。多行でも線が自動で上がりあふれない。
     function drawFooter(page) {
       var nL = iLines.length || 1;
       var issH = nL > 0 ? 13 + (nL - 1) * 10 : 0; // 自社情報ブロック高さ
-      var bankH = bank.length * 10;
-      var blockH = Math.max(issH, bankH, 20);
+      var blockH = Math.max(issH, 20);
       var FOOT = 80 + blockH; // 線のy（ブロック＋下マージン80の上）。多行ほど上がる＝あふれない
       line(page, M, FOOT, RXp, FOOT, MINT, 0.9); // 下の長い緑の線
-      var y0 = FOOT - 16; // 線のすぐ下＝振込先/自社情報の先頭
-      // 振込先（左・線のすぐ下）
-      if (bank.length) {
-        var by = y0;
-        bank.forEach(function (ln) {
-          T(page, font, ln, M, by, 8, { color: MUTED });
-          by -= 10;
-        });
-      }
+      var y0 = FOOT - 16; // 線のすぐ下＝自社情報の先頭
       // ロゴ（自社情報の右・大きく）。ロゴ画像があるときだけ。
       var rightEdge = RXp; // 自社情報の右端
       if (showLogo) {
