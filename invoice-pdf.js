@@ -436,14 +436,7 @@
       var FOOT = 80 + blockH; // 線のy（ブロック＋下マージン80の上）。多行ほど上がる＝あふれない
       line(page, M, FOOT, RXp, FOOT, MINT, 0.9); // 下の長い緑の線
       var y0 = FOOT - 16; // 線のすぐ下＝自社情報の先頭
-      // 自社情報の最大幅（中央寄せの基準）
-      var maxLineW = 0;
-      iLines.forEach(function (ln, idx) {
-        var w = font.widthOfTextAtSize(_sanitize(ln), idx === 0 ? 11 : 8);
-        if (w > maxLineW) maxLineW = w;
-      });
-      // ロゴあり＝（自社情報＋ロゴ）のグループを中央に。ロゴは自社情報の右。
-      var textCX = CX; // 自社情報の中心x
+      // ロゴ＝右端に固定（位置は動かさない）。ロゴ画像があるときだけ。
       if (showLogo) {
         var lw = Math.min((Number(iss && iss.logoSizeMm) || 40) * MM, 130),
           asp = logo.width / logo.height,
@@ -452,32 +445,24 @@
           lh = 46;
           lw = lh * asp;
         }
-        var gap = 16;
-        var groupLeft = CX - (maxLineW + gap + lw) / 2;
-        textCX = groupLeft + maxLineW / 2;
         var logoY = y0 - issH / 2 + lh / 2;
-        page.drawImage(logo, {
-          x: groupLeft + maxLineW + gap,
-          y: logoY - lh,
-          width: lw,
-          height: lh,
-        });
+        page.drawImage(logo, { x: RXp - lw, y: logoY - lh, width: lw, height: lh });
       }
-      // 自社情報（中央揃え・線のすぐ下）
+      // 自社情報（中央揃え・ページ中央・線のすぐ下）
       var fy = y0;
       iLines.forEach(function (ln, idx) {
-        T(page, font, ln, textCX, fy, idx === 0 ? 11 : 8, {
+        T(page, font, ln, CX, fy, idx === 0 ? 11 : 8, {
           align: "center",
           color: idx === 0 ? TEXT : MUTED,
         });
         fy -= idx === 0 ? 13 : 10;
       });
-      // 判子（社名に重ね＝角印標準。中央寄せ社名の右端あたり）
+      // 判子（中央寄せ社名に重ね＝角印標準。社名の右端あたり）
       if (hanko) {
         var hs = (Number(iss && iss.hankoSizeMm) || 20) * MM * 0.8;
         var nameW = font.widthOfTextAtSize(_sanitize(iLines[0] || ""), 11);
         page.drawImage(hanko, {
-          x: textCX + nameW / 2 + 2,
+          x: CX + nameW / 2 + 2,
           y: y0 - hs + 9,
           width: hs,
           height: hs,
