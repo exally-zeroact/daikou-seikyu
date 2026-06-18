@@ -427,7 +427,7 @@
       return sy;
     }
 
-    // ---- フッター：長い緑の線＋そのすぐ下に「自社情報(右)」、ロゴありは自社情報の右に大きく ----
+    // ---- フッター：長い緑の線＋そのすぐ下に「自社情報(中央揃え・真ん中)」。ロゴありは自社情報の右に大きく。 ----
     //   振込先はヘッダー右ブロック（お支払期限と一塊）へ移動済み。多行でも線が自動で上がりあふれない。
     function drawFooter(page) {
       var nL = iLines.length || 1;
@@ -436,8 +436,14 @@
       var FOOT = 80 + blockH; // 線のy（ブロック＋下マージン80の上）。多行ほど上がる＝あふれない
       line(page, M, FOOT, RXp, FOOT, MINT, 0.9); // 下の長い緑の線
       var y0 = FOOT - 16; // 線のすぐ下＝自社情報の先頭
-      // ロゴ（自社情報の右・大きく）。ロゴ画像があるときだけ。
-      var rightEdge = RXp; // 自社情報の右端
+      // 自社情報の最大幅（中央寄せの基準）
+      var maxLineW = 0;
+      iLines.forEach(function (ln, idx) {
+        var w = font.widthOfTextAtSize(_sanitize(ln), idx === 0 ? 11 : 8);
+        if (w > maxLineW) maxLineW = w;
+      });
+      // ロゴあり＝（自社情報＋ロゴ）のグループを中央に。ロゴは自社情報の右。
+      var textCX = CX; // 自社情報の中心x
       if (showLogo) {
         var lw = Math.min((Number(iss && iss.logoSizeMm) || 40) * MM, 130),
           asp = logo.width / logo.height,
@@ -446,24 +452,32 @@
           lh = 46;
           lw = lh * asp;
         }
-        var logoY = y0 - issH / 2 + lh / 2; // 自社情報ブロックの縦中央に合わせる
-        page.drawImage(logo, { x: RXp - lw, y: logoY - lh, width: lw, height: lh });
-        rightEdge = RXp - lw - 16; // 自社情報はロゴの左
+        var gap = 16;
+        var groupLeft = CX - (maxLineW + gap + lw) / 2;
+        textCX = groupLeft + maxLineW / 2;
+        var logoY = y0 - issH / 2 + lh / 2;
+        page.drawImage(logo, {
+          x: groupLeft + maxLineW + gap,
+          y: logoY - lh,
+          width: lw,
+          height: lh,
+        });
       }
-      // 自社情報（右寄せ・線のすぐ下・ロゴの左）
+      // 自社情報（中央揃え・線のすぐ下）
       var fy = y0;
       iLines.forEach(function (ln, idx) {
-        T(page, font, ln, rightEdge, fy, idx === 0 ? 11 : 8, {
-          align: "right",
+        T(page, font, ln, textCX, fy, idx === 0 ? 11 : 8, {
+          align: "center",
           color: idx === 0 ? TEXT : MUTED,
         });
         fy -= idx === 0 ? 13 : 10;
       });
-      // 判子（社名に重ね＝角印標準。社名の右端あたり）
+      // 判子（社名に重ね＝角印標準。中央寄せ社名の右端あたり）
       if (hanko) {
         var hs = (Number(iss && iss.hankoSizeMm) || 20) * MM * 0.8;
+        var nameW = font.widthOfTextAtSize(_sanitize(iLines[0] || ""), 11);
         page.drawImage(hanko, {
-          x: rightEdge - hs + 6,
+          x: textCX + nameW / 2 + 2,
           y: y0 - hs + 9,
           width: hs,
           height: hs,
