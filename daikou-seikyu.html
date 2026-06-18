@@ -1135,6 +1135,113 @@
         color: #1a4a2e;
         line-height: 1.5;
       }
+      .doc-mode.on {
+        background: #3d9e72;
+        color: #fff;
+        border-color: #3d9e72;
+      }
+
+      /* ===== 領収書 ===== */
+      .rcpt-sheet {
+        width: 720px;
+        background: #fff;
+        padding: 50px 58px 56px;
+        box-sizing: border-box;
+        color: #1a1a1a;
+        font-family: "Noto Sans JP", sans-serif;
+        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
+      }
+      .rcpt-row1 {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+      }
+      .rcpt-title {
+        font-size: 34px;
+        font-weight: 700;
+        letter-spacing: 12px;
+      }
+      .rcpt-date {
+        font-size: 13px;
+        color: #444;
+      }
+      .rcpt-toline {
+        margin-top: 36px;
+      }
+      .rcpt-to {
+        font-size: 21px;
+        border-bottom: 1.5px solid #1a4a2e;
+        padding: 0 36px 5px 2px;
+      }
+      .rcpt-amt {
+        font-size: 42px;
+        font-weight: 700;
+        text-align: center;
+        letter-spacing: 2px;
+        margin: 34px 0 0;
+        padding: 16px 0 12px;
+        border-top: 2px solid #1a1a1a;
+        border-bottom: 2px solid #1a1a1a;
+      }
+      .rcpt-amt span {
+        font-size: 16px;
+        font-weight: 500;
+      }
+      .rcpt-tadashi {
+        font-size: 16px;
+        margin-top: 22px;
+        border-bottom: 1px solid #d6ddd9;
+        padding-bottom: 7px;
+      }
+      .rcpt-uketori {
+        font-size: 13px;
+        color: #444;
+        margin-top: 22px;
+      }
+      .rcpt-breakdown {
+        font-size: 12px;
+        color: #6b7d74;
+        margin-top: 6px;
+      }
+      .rcpt-foot {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        margin-top: 44px;
+      }
+      .rcpt-inshi {
+        width: 92px;
+        height: 92px;
+        border: 1.5px dashed #b9c4be;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        color: #8a9a90;
+        text-align: center;
+      }
+      .rcpt-inshi span {
+        font-size: 10px;
+      }
+      .rcpt-inshi-none {
+        width: 92px;
+      }
+      .rcpt-issuer {
+        position: relative;
+        text-align: right;
+        font-size: 13px;
+        line-height: 1.75;
+        color: #222;
+      }
+      .rcpt-hanko {
+        position: absolute;
+        right: -4px;
+        top: -6px;
+        width: 62px;
+        height: 62px;
+        opacity: 0.95;
+      }
 
       /* ===== ナビのバッジ（未入金件数） ===== */
       .nav-item {
@@ -2453,6 +2560,20 @@
           </select>
         </div>
         <div class="invoice-actions no-print">
+          <button
+            class="btn btn-ghost btn-sm doc-mode on"
+            id="modeInvoice"
+            onclick="setPreviewMode('invoice')"
+          >
+            請求書
+          </button>
+          <button
+            class="btn btn-ghost btn-sm doc-mode"
+            id="modeReceipt"
+            onclick="setPreviewMode('receipt')"
+          >
+            領収書
+          </button>
           <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 印刷 / PDF</button>
         </div>
         <div id="invoiceOut" class="sheet-scale"></div>
@@ -4686,6 +4807,18 @@
         }
         var iss = issuerForEngine();
         var html;
+        // 領収書モード＝請求書の代わりに領収書を同じプレビューに出す（印刷/PDFは共通）
+        if (typeof previewMode !== "undefined" && previewMode === "receipt") {
+          html = buildReceiptsHTML(month, onlyCo, iss);
+          if (!html) {
+            out.innerHTML = '<div class="li-empty">該当する明細がありません</div>';
+            out.style.height = "";
+            return;
+          }
+          out.innerHTML = '<div id="invScaleInner">' + html + "</div>";
+          fitInvoice();
+          return;
+        }
         if (onlyCo) {
           var rows = DB.filter(function (r) {
             return (
@@ -4726,6 +4859,88 @@
         var s = Math.min(1, out.clientWidth / 720);
         inner.style.transform = "scale(" + s + ")";
         out.style.height = inner.offsetHeight * s + "px";
+      }
+      // ===== 領収書（請求書プレビューと同じ枠に出す＝印刷/PDFは共通） =====
+      var previewMode = "invoice"; // invoice / receipt
+      function setPreviewMode(m) {
+        previewMode = m;
+        var bi = document.getElementById("modeInvoice"),
+          br = document.getElementById("modeReceipt");
+        if (bi) bi.classList.toggle("on", m === "invoice");
+        if (br) br.classList.toggle("on", m === "receipt");
+        generateInvoices();
+      }
+      function rcptYen(n) {
+        return "¥" + String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      }
+      function rcptMonthTotal(co, month) {
+        return DB.filter(function (r) {
+          return r.account_id === CURRENT_ACCOUNT && r.会社名 === co && inMonth(r.日付, month);
+        }).reduce(function (s, r) {
+          return s + (Number(r.金額) || 0);
+        }, 0);
+      }
+      function buildReceiptsHTML(month, onlyCo, iss) {
+        var cos;
+        if (onlyCo) cos = [onlyCo];
+        else {
+          var set = {};
+          DB.forEach(function (r) {
+            if (r.account_id === CURRENT_ACCOUNT && inMonth(r.日付, month) && r.会社名)
+              set[r.会社名] = 1;
+          });
+          cos = Object.keys(set).sort();
+        }
+        var parts = cos
+          .map(function (co) {
+            var total = rcptMonthTotal(co, month);
+            return total > 0 ? buildReceiptHTML(co, month, total, iss) : "";
+          })
+          .filter(Boolean);
+        return parts.join('<div style="height:28px"></div>');
+      }
+      function buildReceiptHTML(co, month, total, iss) {
+        var net = Math.round(total / 1.1); // 内税10%（代行）
+        var tax = total - net;
+        var d = new Date();
+        var dateStr = d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate();
+        var issuerLines = (iss.lines || [])
+          .map(function (l) {
+            return esc(l);
+          })
+          .join("<br>");
+        var stampBox =
+          total >= 50000
+            ? '<div class="rcpt-inshi">収入印紙<br><span>（5万円以上）</span></div>'
+            : '<div class="rcpt-inshi-none"></div>';
+        var hanko = iss.hanko ? '<img class="rcpt-hanko" src="' + iss.hanko + '" alt="印" />' : "";
+        return (
+          '<div class="rcpt-sheet">' +
+          '<div class="rcpt-row1"><div class="rcpt-title">領　収　書</div>' +
+          '<div class="rcpt-date">発行日　' +
+          dateStr +
+          "</div></div>" +
+          '<div class="rcpt-toline"><span class="rcpt-to">' +
+          esc(co) +
+          "　御中</span></div>" +
+          '<div class="rcpt-amt">' +
+          rcptYen(total) +
+          " <span>（税込）</span></div>" +
+          '<div class="rcpt-tadashi">但　運転代行料として</div>' +
+          '<div class="rcpt-uketori">上記正に領収いたしました。</div>' +
+          '<div class="rcpt-breakdown">税抜金額　' +
+          rcptYen(net) +
+          "　／　消費税(10%)　" +
+          rcptYen(tax) +
+          "</div>" +
+          '<div class="rcpt-foot">' +
+          stampBox +
+          '<div class="rcpt-issuer">' +
+          issuerLines +
+          hanko +
+          "</div></div>" +
+          "</div>"
+        );
       }
 
       /* ===================================================================
