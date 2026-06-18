@@ -1493,7 +1493,7 @@
         display: block;
         flex: 0 0 auto;
         margin-left: 16px;
-        max-height: 20mm;
+        max-height: 26mm;
         object-fit: contain;
       }
       .sh-top {
@@ -2215,7 +2215,7 @@
             </button>
           </div>
           <div class="frow" style="margin-top: 10px">
-            <div class="flabel">ロゴの大きさ（mm・基本33／お好みで変更）</div>
+            <div class="flabel">ロゴの大きさ（mm・基本40／お好みで変更）</div>
             <input
               class="finput fnum"
               id="iss_logoSize"
@@ -3532,8 +3532,12 @@
           }
           if (iss.logo && logoAnchors.length) {
             hankoObj.logo = {
+              // ★Excelのロゴは右端(lastCol)から右へ伸びるアンカーで、右マージン0.39inに合わせて
+              //   ≤30mm前提で調律済み(恒久ルール)。アプリ表示の基本40mmとは別系統。
+              //   共有のlogoSizeMm(既定40)をそのまま使うと右端をはみ出す/横ページ分割の恐れ→30mmで上限クランプ。
+              //   Excelで40mmにするにはアンカー再調律＋実Excel描画での検証が必要。
               dataURL: iss.logo,
-              wMm: Number(iss.logoSizeMm) || 30,
+              wMm: Math.min(Number(iss.logoSizeMm) || 30, 30),
               anchors: logoAnchors,
             };
           }
@@ -4994,7 +4998,7 @@
           logo: "", // 自社ロゴ 表示・出力用（白抜き処理後）
           logoRaw: "", // ロゴ元画像（再処理用）
           logoBg: "auto", // ロゴ背景白抜き: auto / on / off
-          logoSizeMm: 33, // ロゴの大きさ(mm)・基本値（UIで変更可）
+          logoSizeMm: 40, // ロゴの大きさ(mm)・基本値（UIで変更可）
           headerStyle: "A", // 旧フラグ（互換用）。実体は defaultTemplate に移行。
           defaultTemplate: "A_logo", // 請求書テンプレ既定（INVOICE_TEMPLATES のID）
         };
@@ -5095,7 +5099,7 @@
           hanko: s.hanko || null,
           hankoSizeMm: Number(s.hankoSizeMm) || 21,
           logo: s.logo || null,
-          logoSizeMm: Number(s.logoSizeMm) || 33, // 専門家推奨32〜35mm（28は小さい）
+          logoSizeMm: Number(s.logoSizeMm) || 40, // 基本40mm（司さん指定で大きめ）
           headerStyle: tpl.headerStyle, // テンプレから導出（後方互換）
           logoMode: tpl.logoMode, // show=ロゴ枠あり / hide=ロゴ出さない
           templateId: tpl.id,
@@ -5149,7 +5153,7 @@
         var sz = document.getElementById("iss_hankoSize");
         if (sz && document.activeElement !== sz) sz.value = s.hankoSizeMm || 21;
         var lsz = document.getElementById("iss_logoSize");
-        if (lsz && document.activeElement !== lsz) lsz.value = s.logoSizeMm || 33;
+        if (lsz && document.activeElement !== lsz) lsz.value = s.logoSizeMm || 40;
         var cn = document.getElementById("iss_showNo");
         if (cn) cn.checked = !!s.showInvoiceNo;
         var prev = document.getElementById("hankoPreview");
@@ -5232,7 +5236,7 @@
         reprocessLogo();
       }
       function setLogoSize(v) {
-        var n = Number(String(v).replace(/[^0-9.]/g, "")) || 33;
+        var n = Number(String(v).replace(/[^0-9.]/g, "")) || 40;
         setIssuer("logoSizeMm", n);
       }
       function clearLogo() {

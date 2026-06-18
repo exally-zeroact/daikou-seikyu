@@ -245,7 +245,7 @@
     var dateStr = esc(issueDateStr(ctx.month, iss.dateEra));
     var noStr = iss.showInvoiceNo && ctx.invoiceNo ? esc(ctx.invoiceNo) : "";
     var wantLogo = iss.logoMode === "show" && iss.logo;
-    var logoMm = Number(iss.logoSizeMm) || 33;
+    var logoMm = Number(iss.logoSizeMm) || 40;
     // ロゴは「絶対配置でpx」だと画面(padding38px)と印刷(padding0+@page余白)でズレる。
     // フレックスの行に流し込んで“内容の右端”に揃える＝画面でも印刷でも同じ位置。
     // インラインstyleで書くのは、古いCSSがキャッシュされた端末でも正しく出すため。
@@ -254,7 +254,7 @@
         esc(iss.logo) +
         '" style="display:block;flex:0 0 auto;margin-left:16px;max-width:' +
         logoMm +
-        'mm;max-height:20mm;object-fit:contain;">'
+        'mm;max-height:26mm;object-fit:contain;">'
       : "";
     var headerHtml;
     if (style === "A") {
@@ -298,6 +298,8 @@
       "</div>" +
       '<div class="sh-right" style="text-align:' +
       issuerAlign +
+      // テンプレAは自社情報を少し下げてロゴと間を空ける（バランス）
+      (style === "A" ? ";margin-top:18px" : "") +
       '">' +
       issuer +
       "</div>" +
