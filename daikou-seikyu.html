@@ -3147,7 +3147,7 @@
               // リード(宛名から2行下げてくっつき解消) ＋ 自社情報の続き(右) ＋ ご請求金額
               var leftLinesA = [];
               if (m.lead) leftLinesA.push(String(m.lead).replace(/\{月\}/g, mo));
-              leftLinesA.push("消費税は10%となっております。");
+              // 「消費税は10%…」は下段の消費税内訳と重複＋税率混在で不正確なので出さない。
               leftLinesA.push("下記の通り御請求申し上げます。");
               var issRestA = (iss.lines || []).slice(1);
               var gapA = 2; // 宛名とリードの間隔（くっつき解消）
@@ -3241,7 +3241,7 @@
               // リード／ご請求金額（左・宛名から2行下げる＝sh-leadwrapの余白）＋発行者の続き(右)
               var leftLines = [];
               if (m.lead) leftLines.push(String(m.lead).replace(/\{月\}/g, mo));
-              leftLines.push("消費税は10%となっております。"); // 見本どおり（ご請求金額の上）
+              // 「消費税は10%…」は下段の消費税内訳と重複＋税率混在で不正確なので出さない。
               leftLines.push("下記の通り御請求申し上げます。");
               var issRest = (iss.lines || []).slice(1);
               var gap = 2; // 宛名とリードの間隔（左だけ空ける／発行者は連続）
