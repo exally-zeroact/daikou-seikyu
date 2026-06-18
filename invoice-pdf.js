@@ -293,8 +293,15 @@
       T(page, font, lead, M, cy, 9.5, { color: DARK });
       cy -= 16;
       T(page, font, "下記の通り御請求申し上げます。", M, cy, 9.5, { color: DARK });
-      cy -= 20;
-      // ★合計は最終ページ下段に「ご請求金額」を目立つ枠で1回だけ（途中ページは出さない）★
+      cy -= 22;
+      // ご請求金額（税込）＝いつもの位置（上部・宛名の下）に目立たせて出す
+      var gLabel = "ご請求金額（税込）";
+      var lw = T(page, font, gLabel, M, cy, 12);
+      var gv = yen(grand);
+      T(page, font, gv, M + lw + 60, cy, 13);
+      var gTextW = lw + 60 + font.widthOfTextAtSize(gv, 13);
+      line(page, M, cy - 17, M + gTextW + 6, cy - 17, BLACK, 1.3);
+      cy -= 30;
 
       // ===== 明細テーブル =====
       var tableTop = cy;
@@ -381,7 +388,7 @@
         line(page, vx, tableTop, vx, tableBottom, GREY, 0.6);
       });
 
-      // ===== 下段（最終ページ＝ご請求金額の強調枠を1回／途中ページ＝続く） =====
+      // ===== 下段（最終ページ＝小計/消費税/合計の枠／途中ページ＝続く） =====
       var footTop = tableBottom - 16;
       if (isLast) {
         // 振込先（左）
@@ -391,31 +398,20 @@
           T(page, font, ln, M, by, 9, { color: DARK });
           by -= 14;
         });
-        // 合計（右）：小計／消費税／【ご請求金額】を1回だけ・目立つ枠で「全部でいくら」を明確に
-        var boxW = 238,
-          boxX = M + CW - boxW,
-          RX = M + CW;
+        // 合計ボックス（右・いつも通りの内訳）
+        var boxX = M + CW - 200;
+        var RX = M + CW;
         var sy = footTop;
-        T(page, font, "小計", boxX, sy, 9.5, { color: DARK });
-        T(page, font, yen(grand), RX, sy, 9.5, { align: "right" });
-        sy -= 15;
-        T(page, font, "消費税（10%・内税）", boxX, sy, 9.5, { color: DARK });
-        T(page, font, yen(tax10(grand)), RX, sy, 9.5, { align: "right" });
-        sy -= 21;
-        // ご請求金額の強調枠（薄緑塗り＋黒枠・大きめ）＝この請求書の総額
-        var gH = 30;
-        rect(page, boxX, sy, boxW, gH, GREEN);
-        page.drawRectangle({
-          x: boxX,
-          y: sy - gH,
-          width: boxW,
-          height: gH,
-          borderColor: BLACK,
-          borderWidth: 1.3,
-        });
-        T(page, font, "ご請求金額（税込）", boxX + 9, sy - 11, 11);
-        T(page, font, yen(grand), RX - 9, sy - 12, 16, { align: "right" });
-        sy -= gH + 8;
+        function totRow(lbl, val, big) {
+          T(page, font, lbl, boxX, sy, big ? 11 : 9.5, { color: DARK });
+          T(page, font, val, RX, sy, big ? 12 : 9.5, { align: "right" });
+          sy -= big ? 18 : 15;
+        }
+        totRow("小計", yen(grand));
+        totRow("消費税（10%・内税）", yen(tax10(grand)));
+        line(page, boxX, sy + 3, RX, sy + 3, DARK, 0.8);
+        sy -= 2;
+        totRow("合計", yen(grand), true);
 
         // 役職集計（noteSummary）
         if (m.noteSummary && (m.noteGroups || []).length) {
