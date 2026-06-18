@@ -294,13 +294,18 @@
       cy -= 16;
       T(page, font, "下記の通り御請求申し上げます。", M, cy, 9.5, { color: DARK });
       cy -= 22;
-      // ご請求金額（税込）＝いつもの位置（上部・宛名の下）に目立たせて出す
-      var gLabel = "ご請求金額（税込）";
-      var lw = T(page, font, gLabel, M, cy, 12);
-      var gv = yen(grand);
-      T(page, font, gv, M + lw + 60, cy, 13);
-      var gTextW = lw + 60 + font.widthOfTextAtSize(gv, 13);
-      line(page, M, cy - 17, M + gTextW + 6, cy - 17, BLACK, 1.3);
+      // ご請求金額（税込）＝上部・宛名の下のいつもの位置。ただし★最終ページのみ★に出す。
+      // 途中ページに総額を出すと「まだ続くのに総額が出て取引先が混乱する」ため出さない
+      // （会計慣習・主要ソフト・インボイス法すべてで最終ページ集約が標準/適法）。
+      // レイアウトを全ページで揃えるため、途中ページでも同じ高さの余白は確保する。
+      if (isLast) {
+        var gLabel = "ご請求金額（税込）";
+        var lw = T(page, font, gLabel, M, cy, 12);
+        var gv = yen(grand);
+        T(page, font, gv, M + lw + 60, cy, 13);
+        var gTextW = lw + 60 + font.widthOfTextAtSize(gv, 13);
+        line(page, M, cy - 17, M + gTextW + 6, cy - 17, BLACK, 1.3);
+      }
       cy -= 30;
 
       // ===== 明細テーブル =====
@@ -436,8 +441,18 @@
           });
         }
       } else {
-        // 途中ページは合計を出さず「続く」だけ＝per-page合計の混乱を避ける
-        T(page, font, "次ページへ続く →", M + CW, footTop, 10, { align: "right", color: DARK });
+        // 途中ページ：総額は出さず「このページの小計」だけ（会計慣習で各ページ小計が推奨）
+        // ＋「次ページへ続く」。総額＝最終ページに集約＝取引先の混乱を防ぐ。
+        var pageTotal = pageRows.reduce(function (s, x) {
+          return s + (Number(x.金額) || 0);
+        }, 0);
+        var pbX = M + CW - 200;
+        T(page, font, "このページの小計", pbX, footTop, 9.5, { color: DARK });
+        T(page, font, yen(pageTotal), M + CW, footTop, 9.5, { align: "right" });
+        T(page, font, "次ページへ続く →", M + CW, footTop - 16, 10, {
+          align: "right",
+          color: DARK,
+        });
       }
 
       // ページ番号
