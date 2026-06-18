@@ -2279,82 +2279,6 @@
               令和
             </button>
           </div>
-          <!-- お支払期限（有効期限）：表示ON/OFF＋日付＋和暦/西暦 -->
-          <div style="margin-top: 14px; border-top: 1px solid #e6f0ea; padding-top: 12px">
-            <label
-              style="
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                font-size: 13px;
-                color: #1a4a2e;
-                cursor: pointer;
-              "
-            >
-              <input
-                type="checkbox"
-                id="iss_showDue"
-                style="width: 18px; height: 18px; accent-color: #52b788"
-                onchange="
-                  setIssuer('showPaymentDue', this.checked);
-                  generateInvoices();
-                  toast(
-                    this.checked ? 'お支払期限を表示にしました' : 'お支払期限を非表示にしました'
-                  );
-                "
-              />
-              お支払期限（有効期限）を表示する
-            </label>
-            <div
-              style="
-                margin-top: 8px;
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                flex-wrap: wrap;
-              "
-            >
-              <input
-                type="date"
-                id="iss_dueDate"
-                style="
-                  font-size: 14px;
-                  padding: 6px 10px;
-                  border: 1px solid #c8ecd8;
-                  border-radius: 8px;
-                  font-family: inherit;
-                  color: #1a4a2e;
-                "
-                onchange="
-                  setIssuer('paymentDue', this.value);
-                  generateInvoices();
-                  toast('お支払期限を設定しました');
-                "
-              />
-              <div class="align-row" style="margin: 0">
-                <span class="align-lbl">表記</span>
-                <button
-                  class="align-btn"
-                  data-grp="dueEra"
-                  data-a="seireki"
-                  onclick="setDueEra('seireki')"
-                >
-                  西暦
-                </button>
-                <button
-                  class="align-btn"
-                  data-grp="dueEra"
-                  data-a="reiwa"
-                  onclick="setDueEra('reiwa')"
-                >
-                  令和
-                </button>
-              </div>
-            </div>
-            <div class="scr-sub" style="margin-top: 6px">
-              ※請求日の近く（エレガント＝右上、クラシック＝請求日の下）に出ます。空欄/OFFなら出ません。
-            </div>
-          </div>
         </div>
         <div class="card">
           <div class="card-label">電子判子（任意）</div>
@@ -2743,6 +2667,31 @@
           <select class="fselect" id="invCompany" onchange="generateInvoices()">
             <option value="">全社</option>
           </select>
+        </div>
+        <!-- お支払期限（毎回変わるので請求タブで設定。空欄なら出ない） -->
+        <div class="inv-toolbar2 no-print">
+          <div class="itb-group">
+            <span class="itb-lbl">お支払期限</span>
+            <input
+              type="date"
+              id="invDueDate"
+              class="fselect"
+              style="width: auto; min-width: 150px"
+              onchange="setInvoiceDue(this.value)"
+            />
+            <button
+              class="itb-chip"
+              data-grp="dueEra"
+              data-a="seireki"
+              onclick="setDueEra('seireki')"
+            >
+              西暦
+            </button>
+            <button class="itb-chip" data-grp="dueEra" data-a="reiwa" onclick="setDueEra('reiwa')">
+              令和
+            </button>
+            <span class="itb-lbl" style="font-weight: 400">空欄なら出ません</span>
+          </div>
         </div>
         <!-- テンプレ＆書体をその場で切替（リアルタイム反映） -->
         <div class="inv-toolbar2 no-print">
@@ -5451,6 +5400,22 @@
         var nm = document.getElementById("invFontName");
         if (nm) nm.textContent = fn;
         applyPreviewFont(fn, false); // 初期はDLしない（既ロードなら反映）
+        // お支払期限（日付＋和暦/西暦）の同期
+        var s = currentIssuer();
+        var dd = document.getElementById("invDueDate");
+        if (dd && document.activeElement !== dd) dd.value = s.paymentDue || "";
+        document
+          .querySelectorAll('#scr-billing .itb-chip[data-grp="dueEra"]')
+          .forEach(function (b) {
+            b.classList.toggle("on", b.dataset.a === (s.paymentDueEra || "seireki"));
+          });
+      }
+      // 請求タブ：お支払期限の日付（毎回設定）。空欄なら出ない。
+      function setInvoiceDue(v) {
+        setIssuer("paymentDue", v || "");
+        syncInvoiceToolbar();
+        generateInvoices();
+        toast(v ? "お支払期限を設定しました" : "お支払期限を空欄にしました");
       }
       function toggleFontList() {
         var pop = document.getElementById("invFontPop");
@@ -5957,10 +5922,7 @@
           bankAlign: s.bankAlign || "left",
           dateEra: s.dateEra || "seireki",
           showInvoiceNo: !!s.showInvoiceNo,
-          paymentDue:
-            s.showPaymentDue && s.paymentDue
-              ? fmtDueDate(s.paymentDue, s.paymentDueEra || "seireki")
-              : "",
+          paymentDue: s.paymentDue ? fmtDueDate(s.paymentDue, s.paymentDueEra || "seireki") : "",
           hanko: s.hanko || null,
           hankoSizeMm: Number(s.hankoSizeMm) || 21,
           logo: s.logo || null,
@@ -5992,7 +5954,7 @@
       }
       function setDueEra(val) {
         setIssuer("paymentDueEra", val);
-        renderIssuer();
+        if (typeof syncInvoiceToolbar === "function") syncInvoiceToolbar();
         generateInvoices();
         toast("お支払期限を" + (val === "reiwa" ? "令和" : "西暦") + "表記にしました");
       }
@@ -6041,10 +6003,6 @@
         if (lsz && document.activeElement !== lsz) lsz.value = s.logoSizeMm || 40;
         var cn = document.getElementById("iss_showNo");
         if (cn) cn.checked = !!s.showInvoiceNo;
-        var cdue = document.getElementById("iss_showDue");
-        if (cdue) cdue.checked = !!s.showPaymentDue;
-        var ddue = document.getElementById("iss_dueDate");
-        if (ddue && document.activeElement !== ddue) ddue.value = s.paymentDue || "";
         // プレビューは選んだmmサイズに比例して大小を表示＝サイズ変更が目で見える(共通 約1.6px/mm)。
         var prev = document.getElementById("hankoPreview");
         if (s.hanko) {
