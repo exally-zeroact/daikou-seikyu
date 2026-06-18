@@ -577,11 +577,12 @@
       var cy = A4.h - M;
       var dateStr = "請求日　" + issueDateStr(month, iss && iss.dateEra);
       var noStr = iss && iss.showInvoiceNo && invoiceNo ? "No.　" + invoiceNo : "";
+      var logoBottom = null; // ロゴ下端（自社情報を被らせないため後段で使う）
       if (style === "A" && logo && iss && iss.logoMode === "show") {
         // ★ロゴは「請求書」タイトルと上端を揃えて右上に置く（ロゴの一番上＝タイトルの一番上）。
-        //   高さ上限21mm：この真下に自社情報ブロックが来るため、これ以上大きくすると被る（クラシックの実質最大）。
-        var maxW = (Number(iss.logoSizeMm) || 40) * MM * 1.2,
-          maxH = 21 * MM;
+        //   高さ上限はエレガントと同じ46mm。大きくして自社情報に掛かる分は、下の塊ごと下げて被りを防ぐ。
+        var maxW = Math.min((Number(iss.logoSizeMm) || 40) * MM * 1.2, 210),
+          maxH = 46 * MM;
         var asp = logo.width / logo.height;
         var lw0 = maxW,
           lh0 = maxW / asp;
@@ -591,6 +592,7 @@
         }
         var titleTop = cy + 1; // 「請求書」タイトルの視覚的な上端
         page.drawImage(logo, { x: M + CW - lw0, y: titleTop - lh0, width: lw0, height: lh0 });
+        logoBottom = titleTop - lh0;
       }
       if (style === "A") {
         T(page, font, "請　求　書", M, cy, 22);
@@ -621,6 +623,8 @@
         cy -= 42; // ★黄色相当＝タイトル→御中の隙間（2枚目もバランス統一）★
       }
       var topRow = bodyTop != null ? bodyTop : cy;
+      // ★ロゴが大きく自社情報（右・1行目=topRow-6）に掛かる場合は、本文の塊ごと下げて被りを防ぐ。
+      if (logoBottom != null && topRow - 6 > logoBottom - 10) topRow = logoBottom - 4;
       T(page, font, co + "　御中", M, topRow, 15, { maxW: CW * 0.6 });
       var iy = style === "A" ? topRow - 6 : topRow;
       iLines.forEach(function (ln, idx) {

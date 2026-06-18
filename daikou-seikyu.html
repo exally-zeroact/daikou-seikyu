@@ -2410,6 +2410,7 @@
               max="60"
               style="max-width: 120px"
               oninput="setLogoSize(this.value)"
+              onchange="this.value = setLogoSize(this.value)"
             />
           </div>
           <div class="scr-sub" style="margin-top: 8px">
@@ -6129,11 +6130,12 @@
       }
       function setLogoSize(v) {
         var n = Number(String(v).replace(/[^0-9.]/g, "")) || 40;
-        n = Math.max(10, Math.min(60, n)); // 下限10mm・上限60mm（描画はエレガント約46mm/クラシック約32mmで頭打ち）
+        n = Math.max(10, Math.min(60, n)); // 下限10mm・上限60mm（範囲外は確定時に強制クランプ）
         setIssuer("logoSizeMm", n);
         renderIssuer(); // プレビューを実サイズで更新（大小が見える）
         generateInvoices(); // 請求書プレビュー（実PDF）も更新
         toastDebounced("ロゴの大きさを " + n + "mm にしました（請求書に反映）");
+        return n; // onchange でクランプ後の値を入力欄へ書き戻す
       }
       function clearLogo() {
         setIssuer("logo", "");
