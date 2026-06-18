@@ -413,7 +413,8 @@
     // ---- フッター（区切り線＋エンブレム＋会社情報を中央寄せ＋判子＋ページ番号） ----
     function drawFooter(page) {
       line(page, M, 100, RXp, 100, BORDER, 0.6);
-      // エンブレム（ロゴ画像 or 円）
+      // エンブレム＝ロゴ画像があるときだけ。ロゴ無し（plain）は何も描かない
+      // （頭文字の丸＝意味不明と司さん指摘のため廃止）。
       var emY = 84;
       if (showLogo) {
         var ew = 34,
@@ -424,17 +425,6 @@
           ew = eh * asp;
         }
         page.drawImage(logo, { x: CX - ew / 2, y: emY - eh, width: ew, height: eh });
-      } else {
-        page.drawCircle({
-          x: CX,
-          y: emY - 12,
-          size: 13,
-          borderColor: MINT,
-          borderWidth: 1,
-          color: MINTBG,
-        });
-        var ini = (iLines[0] || "E").slice(0, 1);
-        T(page, font, ini, CX, emY - 5, 11, { align: "center", color: MINTD });
       }
       // 会社情報（中央寄せ）
       var fy = 46;

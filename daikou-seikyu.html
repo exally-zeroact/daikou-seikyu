@@ -1577,11 +1577,13 @@
         overflow: hidden;
         padding-bottom: 8px;
       }
-      /* WYSIWYGプレビュー：実PDFを描いた canvas（1ページ=1枚） */
-      .sheet-pdf {
+      /* WYSIWYGプレビュー：実PDFを描いた canvas（1ページ=1枚）。
+         .sheet.sheet-pdf＝二重クラスで基本 .sheet の padding/min-height/border を確実に上書き */
+      .sheet.sheet-pdf {
         width: 720px;
         min-height: 0;
         padding: 0;
+        border: none;
         overflow: hidden;
         background: #fff;
       }
@@ -2698,7 +2700,7 @@
           <button class="btn btn-primary btn-sm" onclick="exportInvoicePDF(this)">
             📄 PDFで保存 / 送る
           </button>
-          <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 印刷</button>
+          <button class="btn btn-ghost btn-sm" onclick="printInvoicePDF(this)">🖨 印刷</button>
         </div>
         <div id="invoiceOut" class="sheet-scale"></div>
         <details class="scr-sub no-print" style="margin-top: 8px">
@@ -4976,9 +4978,13 @@
               v.key +
               "')\">" +
               '<div class="tpl-badge">✓</div>' +
-              '<div class="tpl-thumb">' +
-              tplThumbSvg(design, v) +
-              "</div>" +
+              '<img class="tpl-thumb" src="tpl_' +
+              design +
+              "_" +
+              v.key +
+              '.png" loading="lazy" alt="' +
+              v.label +
+              ' サンプル" />' +
               '<div class="tpl-meta"><div class="tpl-name">' +
               v.label +
               '</div><div class="tpl-desc">' +
@@ -5174,66 +5180,109 @@
         out.appendChild(inner);
         fitInvoice();
       }
+      // 請求書PDFのbytes生成（保存/印刷で共有）。該当なし等は toast して null を返す。
+      async function _buildInvoiceBytes() {
+        var month = document.getElementById("invMonth").value;
+        if (!month) {
+          toast("月を選んでください");
+          return null;
+        }
+        var onlyCo = document.getElementById("invCompany").value;
+        var iss = issuerForEngine();
+        var bytes, fname;
+        if (onlyCo) {
+          var rows = DB.filter(function (r) {
+            return (
+              r.account_id === CURRENT_ACCOUNT && r.会社名 === onlyCo && inMonth(r.日付, month)
+            );
+          }).sort(function (a, b) {
+            return (
+              (a.日付 || "").localeCompare(b.日付 || "") || (a.id || "").localeCompare(b.id || "")
+            );
+          });
+          if (!rows.length) {
+            toast("該当する明細がありません");
+            return null;
+          }
+          bytes = await InvoicePDF.buildOne(
+            MASTER,
+            onlyCo,
+            rows,
+            month,
+            iss,
+            MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, onlyCo)
+          );
+          fname = "請求書_" + month + "_" + onlyCo + ".pdf";
+        } else {
+          bytes = await InvoicePDF.buildMonth(MASTER, DB, month, CURRENT_ACCOUNT, iss);
+          if (!bytes) {
+            toast("該当する明細がありません");
+            return null;
+          }
+          fname = "請求書_" + month + "_全社.pdf";
+        }
+        return { bytes: bytes, fname: fname };
+      }
       // 請求書をクリーンなPDF（ブラウザのURL足跡なし・日本語埋込・複数ページ）で保存/共有。
       async function exportInvoicePDF(btn) {
         if (typeof InvoicePDF === "undefined") {
           toast("PDFモジュールの読み込み待ちです。少し待って再度押してください");
           return;
         }
-        var month = document.getElementById("invMonth").value;
-        if (!month) {
-          toast("月を選んでください");
-          return;
-        }
-        var onlyCo = document.getElementById("invCompany").value;
-        var iss = issuerForEngine();
         var old = btn ? btn.textContent : "";
         if (btn) {
           btn.disabled = true;
           btn.textContent = "PDF作成中…";
         }
         try {
-          var bytes, fname;
-          if (onlyCo) {
-            var rows = DB.filter(function (r) {
-              return (
-                r.account_id === CURRENT_ACCOUNT && r.会社名 === onlyCo && inMonth(r.日付, month)
-              );
-            }).sort(function (a, b) {
-              return (
-                (a.日付 || "").localeCompare(b.日付 || "") || (a.id || "").localeCompare(b.id || "")
-              );
-            });
-            if (!rows.length) {
-              toast("該当する明細がありません");
-              return;
-            }
-            bytes = await InvoicePDF.buildOne(
-              MASTER,
-              onlyCo,
-              rows,
-              month,
-              iss,
-              MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, onlyCo)
-            );
-            fname = "請求書_" + month + "_" + onlyCo + ".pdf";
-          } else {
-            bytes = await InvoicePDF.buildMonth(MASTER, DB, month, CURRENT_ACCOUNT, iss);
-            if (!bytes) {
-              toast("該当する明細がありません");
-              return;
-            }
-            fname = "請求書_" + month + "_全社.pdf";
-          }
+          var r = await _buildInvoiceBytes();
+          if (!r) return;
           var miss = InvoicePDF.lastMissing();
-          InvoicePDF.save(bytes, fname);
-          if (miss.length) {
-            toast("PDFを作成（注意：この字は出せず〓表示→ " + miss.join(" ") + "）");
-          } else {
-            toast("PDFを作成しました");
-          }
+          InvoicePDF.save(r.bytes, r.fname);
+          toast(
+            miss.length
+              ? "PDFを作成（注意：この字は出せず〓表示→ " + miss.join(" ") + "）"
+              : "PDFを作成しました"
+          );
         } catch (e) {
           toast("PDF作成に失敗：" + (e && e.message ? e.message : e));
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = old;
+          }
+        }
+      }
+      // ★印刷＝自前PDFを開いてそこから印刷する。window.print()だとブラウザが
+      //   ページ最下部にURL＋日付フッターを足してしまう（自前PDFで消した足跡）ため。
+      async function printInvoicePDF(btn) {
+        if (typeof InvoicePDF === "undefined") {
+          toast("PDFモジュールの読み込み待ちです。少し待って再度押してください");
+          return;
+        }
+        var old = btn ? btn.textContent : "";
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = "PDF準備中…";
+        }
+        try {
+          var r = await _buildInvoiceBytes();
+          if (!r) return;
+          var blob = new Blob([r.bytes], { type: "application/pdf" });
+          var url = URL.createObjectURL(blob);
+          var w = window.open(url, "_blank");
+          if (!w) {
+            // ポップアップブロック時は保存にフォールバック
+            InvoicePDF.save(r.bytes, r.fname);
+            toast("PDFを保存しました。開いて印刷してください（フッター無し）");
+          } else {
+            toast("PDFを開きました。共有／プリントから印刷を（URLフッター無し）");
+          }
+          setTimeout(function () {
+            URL.revokeObjectURL(url);
+          }, 60000);
+        } catch (e) {
+          toast("印刷用PDF作成に失敗：" + (e && e.message ? e.message : e));
         } finally {
           if (btn) {
             btn.disabled = false;
