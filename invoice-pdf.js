@@ -20,11 +20,14 @@
 
   var MM = 72 / 25.4; // mm → pt
   var A4 = { w: 595.28, h: 841.89 };
-  var M = 48; // 余白(pt)＝約17mm（上品な余白）
+  var M = 64; // 余白(pt)＝約22.6mm（エレガント版より左右を少し詰めて幅を抑える）
   var CW = A4.w - M * 2; // 本文幅
   var ROWS_PER_PAGE = 22; // 1ページの明細スロット数（HTML/Excelと同じ）
   // Exallyブランドのミント配色（参考の上品レイアウト×アプリの色で統一）
   var MINT, MINTD, MINTBG, BORDER, RULE, TEXT, MUTED, BLACK;
+  // クラシック（前テンプレ＝緑ヘッダー帯＋罫線）の配色
+  var GREEN, GREY, DARK;
+  var _defColor = null; // T() の既定文字色（テーマ別に drawCompany 先頭で設定）
   // フォントが持たない字（例：髙﨑邉などの異体字）の検出。描画時に〓へ置換し、利用者に知らせる。
   var _cov = null; // { fk: fontkitフォント, missing: Set }
   var _lastMissing = [];
@@ -131,6 +134,10 @@
     TEXT = rgb(0.102, 0.29, 0.18); // #1a4a2e 本文・金額
     MUTED = rgb(0.478, 0.627, 0.549); // #7aa08c 補助文
     BLACK = rgb(0, 0, 0);
+    // クラシック用
+    GREEN = rgb(220 / 255, 239 / 255, 230 / 255); // 緑ヘッダー帯
+    GREY = rgb(0.5, 0.5, 0.5); // 罫線
+    DARK = rgb(0.13, 0.13, 0.13); // 本文
     return ctx;
   }
 
@@ -153,7 +160,7 @@
       y: top - size * 0.82, // top基準→ベースライン
       size: size,
       font: font,
-      color: opts.color || TEXT,
+      color: opts.color || _defColor || TEXT,
     });
     return w;
   }
@@ -198,8 +205,18 @@
     });
   }
 
-  // 1社ぶんを描画して doc にページ追加。（参考のエレガントなレイアウト × Exallyミント配色）
+  // ★テーマ振り分け：iss.pdfDesign==="classic" で前テンプレ（緑）、それ以外はエレガント。★
   async function drawCompany(ctx, master, co, rows, month, iss, invoiceNo) {
+    if (iss && iss.pdfDesign === "classic") {
+      _defColor = BLACK;
+      return drawCompanyClassic(ctx, master, co, rows, month, iss, invoiceNo);
+    }
+    _defColor = TEXT;
+    return drawCompanyElegant(ctx, master, co, rows, month, iss, invoiceNo);
+  }
+
+  // 1社ぶんを描画して doc にページ追加。（参考のエレガントなレイアウト × Exallyミント配色）
+  async function drawCompanyElegant(ctx, master, co, rows, month, iss, invoiceNo) {
     var doc = ctx.doc,
       font = ctx.font;
     var m = master[co] || { items: ["日付", "行き先", "金額"], widths: {} };
@@ -281,13 +298,21 @@
     }
 
     // ---- 御請求金額（枠なし＝アプリ統一）。ラベル＋大きい金額＋下にミント線。戻り=次のy ----
+    //   ★太字（微小ずらし重ね描き＝疑似ボールド）★
     function drawGrandBox(page, topY) {
       var by = topY;
+      var gBold = function (str, x, size, color) {
+        var o = size * 0.025;
+        T(page, font, str, x, by, size, { color: color });
+        T(page, font, str, x + o, by, size, { color: color });
+        T(page, font, str, x + o * 2, by, size, { color: color });
+        return font.widthOfTextAtSize(_sanitize(str), size);
+      };
       var lbl = "御請求金額（税込）";
-      var lw = T(page, font, lbl, M, by, 12, { color: MINTD });
+      var lw = gBold(lbl, M, 12, MINTD);
       var gv = yen(grand);
-      T(page, font, gv, M + lw + 50, by, 20, { color: TEXT });
-      var gw = lw + 50 + font.widthOfTextAtSize(gv, 20);
+      gBold(gv, M + lw + 50, 20, TEXT);
+      var gw = lw + 50 + font.widthOfTextAtSize(_sanitize(gv), 20);
       line(page, M, by - 25, M + Math.min(gw + 10, 330), by - 25, MINT, 1.2); // 下線
       return by - 25 - 16;
     }
@@ -495,6 +520,305 @@
       line(spage, M, sBottom, RXp, sBottom, MINT, 0.75);
       drawTotals(spage, sBottom - 18);
       drawFooter(spage);
+    }
+  }
+
+  // =====================================================================
+  // クラシック（前テンプレ）：緑ヘッダー帯＋罫線の伝統的レイアウト。
+  //   style A=左タイトル＋右上ロゴ／style B=中央タイトル（テンプレ差がはっきり出る）。
+  //   幅はエレガントと同じ本文幅フル。行き先は左寄せ、最終ページは塊を下げてバランス。
+  // =====================================================================
+  async function drawCompanyClassic(ctx, master, co, rows, month, iss, invoiceNo) {
+    var doc = ctx.doc,
+      font = ctx.font;
+    var m = master[co] || { items: ["日付", "行き先", "金額"], widths: {} };
+    var items = m.items;
+    var amtIdx = items.indexOf("金額");
+    var cw = colWidths(items, m.widths);
+    var grand = rows.reduce(function (s, r) {
+      return s + (Number(r.金額) || 0);
+    }, 0);
+    var style = (iss && iss.headerStyle) === "A" ? "A" : "B";
+    var logo = ctx.logoImg,
+      hanko = ctx.hankoImg;
+    var monthNum = Number(month.split("-")[1]);
+    var bank = (iss && iss.bank) || [];
+    var iLines = (iss && iss.lines) || [];
+    var rowH = 17,
+      headH = 19;
+    var footExtra = m.noteSummary && (m.noteGroups || []).length ? m.noteGroups.length + 2 : 0;
+    var rpp = Math.max(12, ROWS_PER_PAGE - footExtra);
+    var detailPages = [];
+    for (var i = 0; i < rows.length; i += rpp) detailPages.push(rows.slice(i, i + rpp));
+    if (!detailPages.length) detailPages.push([]);
+    var pageSubtotals = detailPages.map(function (pr) {
+      return pr.reduce(function (s, x) {
+        return s + (Number(x.金額) || 0);
+      }, 0);
+    });
+    var multi = detailPages.length > 1;
+    var totalPages = multi ? detailPages.length + 1 : 1;
+    var pageNum = 0;
+
+    // ---- 共通ヘッダー。bodyTop で「請求書」より下を塊ごと下げられる（最終ページ用）。----
+    function drawHeader(page, showGrand, bodyTop) {
+      var cy = A4.h - M;
+      var dateStr = "請求日　" + issueDateStr(month, iss && iss.dateEra);
+      var noStr = iss && iss.showInvoiceNo && invoiceNo ? "No.　" + invoiceNo : "";
+      if (style === "A" && logo && iss && iss.logoMode === "show") {
+        var maxW = (Number(iss.logoSizeMm) || 40) * MM,
+          maxH = 26 * MM;
+        var asp = logo.width / logo.height;
+        var lw0 = maxW,
+          lh0 = maxW / asp;
+        if (lh0 > maxH) {
+          lh0 = maxH;
+          lw0 = maxH * asp;
+        }
+        page.drawImage(logo, { x: M + CW - lw0, y: cy - lh0, width: lw0, height: lh0 });
+      }
+      if (style === "A") {
+        T(page, font, "請　求　書", M, cy, 22);
+        cy -= 30;
+        T(page, font, dateStr + (noStr ? "　　" + noStr : ""), M, cy, 10, { color: DARK });
+        cy -= 32; // ★黄色＝請求日/No→御中の隙間を少し広げる★
+      } else {
+        T(page, font, dateStr, M + CW, cy, 9.5, { align: "right", color: DARK });
+        cy -= 13;
+        if (noStr) {
+          T(page, font, noStr, M + CW, cy, 9.5, { align: "right", color: DARK });
+          cy -= 13;
+        }
+        cy -= 6;
+        T(page, font, "請　求　書", M + CW / 2, cy, 22, { align: "center" });
+        cy -= 42; // ★黄色相当＝タイトル→御中の隙間（2枚目もバランス統一）★
+      }
+      var topRow = bodyTop != null ? bodyTop : cy;
+      T(page, font, co + "　御中", M, topRow, 15, { maxW: CW * 0.6 });
+      var iy = style === "A" ? topRow - 6 : topRow;
+      iLines.forEach(function (ln, idx) {
+        T(page, font, ln, M + CW, iy, idx === 0 ? 11 : 9.5, { align: "right", color: DARK });
+        iy -= idx === 0 ? 15 : 13;
+      });
+      if (hanko) {
+        var hs = (Number(iss && iss.hankoSizeMm) || 21) * MM;
+        page.drawImage(hanko, {
+          x: M + CW - hs + 2,
+          y: topRow - hs + 4,
+          width: hs,
+          height: hs,
+          opacity: 0.95,
+        });
+      }
+      cy = topRow - 40;
+      var lead = ((m.lead || "{月}月のご利用分です。") + "").replace("{月}", monthNum);
+      T(page, font, lead, M, cy, 9.5, { color: DARK });
+      cy -= 16;
+      T(page, font, "下記の通り御請求申し上げます。", M, cy, 9.5, { color: DARK });
+      cy -= 22;
+      if (showGrand) {
+        // ★ご請求金額：ラベルと数字を同じ大きさに統一＋太字（微小ずらし重ね描き＝疑似ボールド）★
+        //   緑＝下線→表の隙間は黄色の約2倍。
+        var gSize = 16;
+        var gBold = function (str, x) {
+          var o = gSize * 0.025; // ずらし幅（疑似ボールド）
+          T(page, font, str, x, cy, gSize, { color: BLACK });
+          T(page, font, str, x + o, cy, gSize, { color: BLACK });
+          T(page, font, str, x + o * 2, cy, gSize, { color: BLACK });
+          return font.widthOfTextAtSize(_sanitize(str), gSize);
+        };
+        var gLabel = "ご請求金額（税込）";
+        var glw = gBold(gLabel, M);
+        var gv = yen(grand);
+        gBold(gv, M + glw + 40);
+        var gTextW = glw + 40 + font.widthOfTextAtSize(_sanitize(gv), gSize);
+        line(page, M, cy - 22, M + gTextW + 8, cy - 22, BLACK, 1.4);
+        return cy - 22 - 56; // 緑の隙間≈黄色(約28)の2倍
+      }
+      return cy - 30;
+    }
+
+    // ---- 合計フッター（左=振込先／右=小計・消費税・合計＋役職集計）。本文幅フルなので左右並びでOK。----
+    function drawTotalsFooter(page, footTop) {
+      var by = footTop;
+      bank.forEach(function (ln) {
+        T(page, font, ln, M, by, 9, { color: DARK });
+        by -= 14;
+      });
+      var boxX = M + CW - 200,
+        RX = M + CW,
+        sy = footTop;
+      function totRow(lbl, val, big) {
+        T(page, font, lbl, boxX, sy, big ? 11 : 9.5, { color: DARK });
+        T(page, font, val, RX, sy, big ? 12 : 9.5, { align: "right" });
+        sy -= big ? 18 : 15;
+      }
+      totRow("小計", yen(grand));
+      totRow("消費税（10%・内税）", yen(tax10(grand)));
+      line(page, boxX, sy + 3, RX, sy + 3, DARK, 0.8);
+      sy -= 2;
+      totRow("合計", yen(grand), true);
+      if (m.noteSummary && (m.noteGroups || []).length) {
+        var sums = {};
+        (m.noteGroups || []).forEach(function (g) {
+          sums[g] = 0;
+        });
+        rows.forEach(function (x) {
+          var g = (x.備考 || "").trim();
+          if (sums.hasOwnProperty(g)) sums[g] += Number(x.金額) || 0;
+        });
+        var ny = sy - 4;
+        T(page, font, "（内訳）", boxX, ny, 9, { color: DARK });
+        ny -= 14;
+        (m.noteGroups || []).forEach(function (g) {
+          T(page, font, g, boxX, ny, 9, { color: DARK });
+          T(page, font, sums[g] ? yen(sums[g]) : "", RX, ny, 9, { align: "right", color: DARK });
+          ny -= 13;
+        });
+      }
+    }
+
+    // ---- 明細テーブル（緑ヘッダー＋縦罫・件数ぶんだけ・行き先は左寄せ）。戻り=tableBottom ----
+    function drawDetailTable(page, topY, pageRows) {
+      var tableTop = topY;
+      var colX = [M];
+      for (var c = 0; c < cw.length; c++) colX.push(colX[c] + cw[c]);
+      var tableRight = M + CW;
+      rect(page, M, tableTop, CW, headH, GREEN);
+      var leadCount = amtIdx >= 0 ? amtIdx : items.length;
+      if (leadCount > 0) {
+        T(
+          page,
+          font,
+          m.tableTitle || "運転業務委託料",
+          M + (colX[leadCount] - M) / 2,
+          tableTop - 3,
+          9.5,
+          {
+            align: "center",
+          }
+        );
+      }
+      if (amtIdx >= 0) {
+        T(page, font, "金額（税込み）", (colX[amtIdx] + colX[amtIdx + 1]) / 2, tableTop - 3, 9.5, {
+          align: "center",
+        });
+        items.slice(amtIdx + 1).forEach(function (k, j) {
+          var ci = amtIdx + 1 + j;
+          T(
+            page,
+            font,
+            (m.labels && m.labels[k]) || k,
+            (colX[ci] + colX[ci + 1]) / 2,
+            tableTop - 3,
+            9.5,
+            {
+              align: "center",
+            }
+          );
+        });
+      }
+      line(page, M, tableTop, tableRight, tableTop, GREY, 0.8);
+      line(page, M, tableTop - headH, tableRight, tableTop - headH, GREY, 0.8);
+      var prevDate = null;
+      var bodyTop = tableTop - headH;
+      var n = pageRows.length; // 件数ぶんだけ（空行で埋めない）
+      for (var r = 0; r < n; r++) {
+        var yTop = bodyTop - r * rowH;
+        var row = pageRows[r];
+        items.forEach(function (k, ci) {
+          var cx0 = colX[ci],
+            cx1 = colX[ci + 1],
+            pad = 6;
+          if (k === "日付") {
+            var cur = row.日付 || "";
+            var val = cur && cur !== prevDate ? mdShort(cur) : "";
+            T(page, font, val, (cx0 + cx1) / 2, yTop - 2.5, 9, { align: "center" });
+          } else if (k === "金額") {
+            T(page, font, comma(row.金額), cx1 - 5, yTop - 2.5, 9, {
+              align: "right",
+              maxW: cx1 - cx0 - pad,
+            });
+          } else {
+            T(page, font, row[k], cx0 + 8, yTop - 2.5, 9, {
+              align: "left",
+              maxW: cx1 - cx0 - 14,
+            });
+          }
+        });
+        if (row.日付) prevDate = row.日付;
+        if (r < n - 1) line(page, M, yTop - rowH, tableRight, yTop - rowH, GREY, 0.5); // 行間（最終行の下は引かない）
+      }
+      var tableBottom = bodyTop - n * rowH;
+      // ★縦罫は引かない（エレガントと同じ横罫だけ＝見やすく）。表を締める下線のみ。★
+      line(page, M, tableBottom, tableRight, tableBottom, GREY, 0.8);
+      return tableBottom;
+    }
+
+    // ---- ページ別サマリーテーブル（最終ページ・件数ぶんだけ）----
+    function drawSummaryTable(page, topY, subs) {
+      var tableTop = topY;
+      var amtW = 130,
+        splitX = M + CW - amtW,
+        tableRight = M + CW;
+      rect(page, M, tableTop, CW, headH, GREEN);
+      T(page, font, "内容（ページ別）", (M + splitX) / 2, tableTop - 3, 9.5, { align: "center" });
+      T(page, font, "金額（税込み）", (splitX + tableRight) / 2, tableTop - 3, 9.5, {
+        align: "center",
+      });
+      line(page, M, tableTop, tableRight, tableTop, GREY, 0.8);
+      line(page, M, tableTop - headH, tableRight, tableTop - headH, GREY, 0.8);
+      var bodyTop = tableTop - headH;
+      var n = subs.length;
+      for (var r = 0; r < n; r++) {
+        var yTop = bodyTop - r * rowH;
+        T(page, font, r + 1 + "ページ目", M + 12, yTop - 2.5, 9.5, { align: "left" });
+        T(page, font, comma(subs[r]), tableRight - 8, yTop - 2.5, 9.5, { align: "right" });
+        if (r < n - 1) line(page, M, yTop - rowH, tableRight, yTop - rowH, GREY, 0.5);
+      }
+      var tableBottom = bodyTop - n * rowH;
+      // ★縦罫は引かない（横罫だけ）。表を締める下線のみ。★
+      line(page, M, tableBottom, tableRight, tableBottom, GREY, 0.8);
+      return tableBottom;
+    }
+
+    function drawPageNo(page) {
+      pageNum += 1;
+      if (totalPages > 1) {
+        T(page, font, pageNum + " / " + totalPages, M + CW, M - 4, 8, {
+          align: "right",
+          color: GREY,
+        });
+      }
+    }
+
+    // ===== 明細ページ =====
+    detailPages.forEach(function (pageRows, pi) {
+      var page = doc.addPage([A4.w, A4.h]);
+      var cy = drawHeader(page, !multi);
+      var tableBottom = drawDetailTable(page, cy, pageRows);
+      var footTop = tableBottom - 16;
+      if (!multi) {
+        drawTotalsFooter(page, footTop);
+      } else {
+        T(page, font, "このページの小計", M + CW - 200, footTop, 9.5, { color: DARK });
+        T(page, font, yen(pageSubtotals[pi]), M + CW, footTop, 9.5, { align: "right" });
+        T(page, font, "次ページへ続く →", M + CW, footTop - 16, 10, {
+          align: "right",
+          color: DARK,
+        });
+      }
+      drawPageNo(page);
+    });
+
+    // ===== ページ別サマリー（複数ページ時のみ・最終ページ） =====
+    //  ★請求書→御中の隙間も1枚目と統一＝通常ヘッダー（130pt落としは廃止）。★
+    if (multi) {
+      var spage = doc.addPage([A4.w, A4.h]);
+      var scy = drawHeader(spage, true); // 1枚目と同じ間隔
+      var sBottom = drawSummaryTable(spage, scy, pageSubtotals);
+      drawTotalsFooter(spage, sBottom - 16);
+      drawPageNo(spage);
     }
   }
 

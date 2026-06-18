@@ -658,6 +658,65 @@
         color: #fff;
         font-weight: 700;
       }
+      /* デザイン/種類セレクタ（請求タブ） */
+      .itb-seg,
+      .itb-chips {
+        display: inline-flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .itb-chip {
+        font-size: 12px;
+        padding: 5px 10px;
+        border: 1px solid #c8ecd8;
+        border-radius: 14px;
+        background: #fff;
+        color: #1a4a2e;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .itb-chip.on {
+        background: #1a4a2e;
+        border-color: #1a4a2e;
+        color: #fff;
+        font-weight: 700;
+      }
+      .inv-override {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 12px;
+        margin: 0 0 10px;
+        padding: 8px 12px;
+        background: #fff8e1;
+        border: 1px solid #f0d98a;
+        border-radius: 8px;
+        font-size: 12px;
+        color: #8a6d00;
+      }
+      /* 設定タブ：デザイン切替セグメント */
+      .design-seg {
+        display: flex;
+        gap: 8px;
+        margin: 4px 0 12px;
+      }
+      .dseg-btn {
+        flex: 1;
+        padding: 10px 12px;
+        border: 1.5px solid #c8ecd8;
+        border-radius: 10px;
+        background: #fff;
+        color: #1a4a2e;
+        font-weight: 700;
+        font-size: 14px;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .dseg-btn.on {
+        background: #52b788;
+        border-color: #52b788;
+        color: #fff;
+      }
       .itb-font {
         display: inline-flex;
         align-items: center;
@@ -1518,6 +1577,35 @@
         overflow: hidden;
         padding-bottom: 8px;
       }
+      /* WYSIWYGプレビュー：実PDFを描いた canvas（1ページ=1枚） */
+      .sheet-pdf {
+        width: 720px;
+        min-height: 0;
+        padding: 0;
+        overflow: hidden;
+        background: #fff;
+      }
+      .inv-pdf-canvas {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+      .sheet-scale.inv-loading {
+        position: relative;
+      }
+      .sheet-scale.inv-loading::after {
+        content: "プレビュー作成中…";
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.62);
+        color: #1a4a2e;
+        font-weight: 700;
+        font-size: 14px;
+        z-index: 5;
+      }
       /* 720pxのA4シートをスマホ幅に縮小して全体を見せる */
       #invScaleInner {
         width: 720px;
@@ -1920,9 +2008,17 @@
         .sheet:last-child {
           page-break-after: auto;
         }
+        /* PDF canvas は1ページ＝1枚。実寸でページいっぱいに（PDF自身が余白を持つ） */
+        .sheet-pdf {
+          width: 100% !important;
+        }
+        .inv-pdf-canvas {
+          width: 100% !important;
+          height: auto !important;
+        }
         @page {
           size: A4 portrait;
-          margin: 12mm;
+          margin: 0;
         }
       }
     </style>
@@ -2318,8 +2414,9 @@
       <!-- テンプレート選択 -->
       <div class="seg-panel" data-seg="template">
         <div class="scr-sub">
-          請求書の見た目を選べます。選んだテンプレートで毎月の請求書が作られます（会社名・振込先・ロゴ・判子はそのまま使われます）。
+          請求書の見た目（<b>デザイン</b>＋<b>種類</b>）を選べます。ここで選んだものが<b>毎月の既定</b>になります（会社名・振込先・ロゴ・判子はそのまま使われます）。請求タブで「その回だけ」変えることもできます。
         </div>
+        <div id="designSeg" class="design-seg"></div>
         <div id="tplGallery" class="tpl-grid"></div>
         <div id="tplLogoHint" class="tpl-hint" style="display: none">
           このテンプレートはロゴを使います。<b>「自社情報」でロゴを登録</b>すると右上に入ります（未登録なら自動でロゴなしで出ます）。
@@ -2568,16 +2665,12 @@
         <!-- テンプレ＆書体をその場で切替（リアルタイム反映） -->
         <div class="inv-toolbar2 no-print">
           <div class="itb-group">
-            <span class="itb-lbl">テンプレ</span>
-            <button class="itb-btn" data-tpl="A_logo" onclick="setInvoiceTemplate('A_logo')">
-              ロゴあり
-            </button>
-            <button class="itb-btn" data-tpl="A_plain" onclick="setInvoiceTemplate('A_plain')">
-              ロゴなし
-            </button>
-            <button class="itb-btn" data-tpl="B_center" onclick="setInvoiceTemplate('B_center')">
-              中央
-            </button>
+            <span class="itb-lbl">デザイン</span>
+            <span id="invDesignSeg" class="itb-seg"></span>
+          </div>
+          <div class="itb-group">
+            <span class="itb-lbl">種類</span>
+            <span id="invVariantChips" class="itb-chips"></span>
           </div>
           <div class="itb-group" style="position: relative">
             <span class="itb-lbl">書体</span>
@@ -2595,6 +2688,12 @@
             </div>
           </div>
         </div>
+        <div id="invOverrideNote" class="inv-override no-print" style="display: none">
+          <span>★この回だけの見た目です（毎月の既定は「設定→デザイン」で）</span>
+          <button class="btn btn-ghost btn-sm" onclick="makeInvoiceDefault()">
+            この見た目を既定にする
+          </button>
+        </div>
         <div class="invoice-actions no-print">
           <button class="btn btn-primary btn-sm" onclick="exportInvoicePDF(this)">
             📄 PDFで保存 / 送る
@@ -2602,13 +2701,24 @@
           <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 印刷</button>
         </div>
         <div id="invoiceOut" class="sheet-scale"></div>
+        <details class="scr-sub no-print" style="margin-top: 8px">
+          <summary style="cursor: pointer; font-weight: 700">
+            📖 ページが複数枚になったときは？
+          </summary>
+          <div style="margin-top: 6px">
+            同じ会社・同じ月で明細が1ページに収まらないときは、<b>明細を複数ページに分けて</b>出します。各明細ページの下には<b
+              >「このページの小計」＋「次ページへ続く →」</b
+            >を表示し、<b>最後のページに「ページ別の内訳一覧」と総合計（ご請求金額・合計）をまとめます</b>。取引先が混乱しないよう、途中ページには総額を出しません。<br />
+            ※エレガント＝「ページ別 内訳」／クラシック＝「内容（ページ別）」という表で集約します。
+          </div>
+        </details>
         <div class="scr-sub no-print" style="margin-top: 8px">
           📋
           <b>列の順番（日付・行き先・金額…）は「設定 → 会社マスタ」の『順番』で変えられます</b
           >（取っ手⠿を長押しでドラッグ／「↩標準の順に戻す」ボタンあり）。
         </div>
-        <div class="scr-sub no-print" style="margin-top: 4px; color: #c0392b">
-          ※プレビューは“見た目の確認用”。明細データのExcel書き出しは「一覧」タブにあります。
+        <div class="scr-sub no-print" style="margin-top: 4px">
+          ※このプレビューは<b>実際に保存・送るPDFそのもの</b>です（デザイン／種類は上で切替え。明細データのExcel書き出しは「一覧」タブ）。
         </div>
       </div>
 
@@ -3230,6 +3340,10 @@
           PER = Math.max(12, 28 - extraFooter);
           var pageCount = Math.max(1, Math.ceil(allRows.length / PER));
           var GREEN = { fgColor: { rgb: "DCEFE6" } };
+          // ★デザイン分岐：elegant＝淡ミント＋横罫だけ／classic＝緑＋#808080全罫（PDFと一致）★
+          var isElegant = (iss.pdfDesign || "elegant") === "elegant";
+          var HDR_FILL = isElegant ? { fgColor: { rgb: "EAF7F0" } } : GREEN;
+          var HRULE = { style: "thin", color: { rgb: isElegant ? "DCE8E2" : "808080" } };
 
           for (var pi = 0; pi < pageCount; pi++) {
             var pageRows = allRows.slice(pi * PER, (pi + 1) * PER);
@@ -3449,8 +3563,8 @@
               S(riHd, c, {
                 font: { bold: true, sz: 12 }, // 見本どおり表ヘッダー sz12
                 alignment: { horizontal: "center", vertical: "center" },
-                fill: GREEN,
-                border: BOX,
+                fill: HDR_FILL,
+                border: isElegant ? { bottom: { style: "thin", color: { rgb: "52B788" } } } : BOX,
               });
 
             // 明細22行（全幅・空行も枠線）
@@ -3477,10 +3591,15 @@
                 if (spans[ci] > 1) M(riR, colStart[ci], riR, colStart[ci] + spans[ci] - 1);
               });
               for (var c2 = 0; c2 < W; c2++) {
-                // 本文＝横線(上下)。外枠の左右＋金額前の縦線だけ縦線を入れる（PDF準拠）
-                var bd = { top: THIN, bottom: THIN };
-                if (c2 === 0 || vlCols[c2]) bd.left = THIN;
-                if (c2 === lastCol) bd.right = THIN;
+                // 本文：elegant＝横罫だけ／classic＝上下＋外枠左右＋金額前の縦線（PDF準拠）
+                var bd;
+                if (isElegant) {
+                  bd = { bottom: HRULE };
+                } else {
+                  bd = { top: THIN, bottom: THIN };
+                  if (c2 === 0 || vlCols[c2]) bd.left = THIN;
+                  if (c2 === lastCol) bd.right = THIN;
+                }
                 var base = {
                   border: bd,
                   font: { sz: 11 },
@@ -4767,67 +4886,103 @@
         else if (seg === "template") renderTemplates();
         else renderIssuer();
       }
-      // ===== テンプレートギャラリー =====
-      // サムネ＝SVGの簡易見本（A4縦比率）。ヘッダー型(A=左タイトル+右ロゴ / B=中央タイトル)を表現。
-      function tplThumbSvg(t) {
-        var A = t.headerStyle === "A";
-        var logo = t.logoMode === "show";
-        var title = A
-          ? '<text x="7" y="15" font-size="8.5" font-weight="700" fill="#14322a">請 求 書</text>'
-          : '<text x="50" y="15" font-size="8.5" font-weight="700" fill="#14322a" text-anchor="middle">請 求 書</text>';
-        var logoBox = logo
-          ? '<rect x="75" y="6" width="19" height="13" rx="2" fill="#e7eefc" stroke="#1565c0" stroke-width="0.6"/>' +
-            '<text x="84.5" y="14.5" font-size="4.5" fill="#1565c0" text-anchor="middle">LOGO</text>'
-          : "";
-        // 宛名(左)・自社情報(右揃え)
-        var ate = '<rect x="7" y="23" width="30" height="3" rx="1" fill="#9fb3aa"/>';
-        var issuer =
-          '<rect x="62" y="22" width="32" height="2" rx="1" fill="#cdd8d3"/>' +
-          '<rect x="66" y="26" width="28" height="2" rx="1" fill="#cdd8d3"/>' +
-          '<rect x="70" y="30" width="24" height="2" rx="1" fill="#cdd8d3"/>';
-        // 表ヘッダー(緑)＋行
-        var tbl =
-          '<rect x="7" y="44" width="87" height="7" fill="#dcefe6" stroke="#b9d4c8" stroke-width="0.4"/>';
-        for (var i = 0; i < 10; i++)
-          tbl +=
-            '<rect x="7" y="' +
-            (51 + i * 7) +
-            '" width="87" height="7" fill="none" stroke="#e6ece8" stroke-width="0.4"/>';
-        tbl += '<line x1="74" y1="44" x2="74" y2="121" stroke="#cdd8d3" stroke-width="0.4"/>';
+      // ===== デザイン×種類ギャラリー（サムネ＝デザイン別SVG・サンプル固定でテナント安全） =====
+      function tplThumbSvg(design, v) {
+        var els = '<rect width="100" height="141" fill="#fff"/>';
+        if (design === "elegant") {
+          els +=
+            '<text x="50" y="14" font-size="8" font-weight="700" fill="#1a4a2e" text-anchor="middle">請 求 書</text>';
+          els +=
+            '<line x1="8" y1="18" x2="44" y2="18" stroke="#52b788" stroke-width="0.5"/><line x1="56" y1="18" x2="92" y2="18" stroke="#52b788" stroke-width="0.5"/>';
+          els +=
+            '<path d="M50 16 L52 18 L50 20 L48 18 Z" fill="none" stroke="#52b788" stroke-width="0.5"/>';
+          els += '<rect x="8" y="26" width="34" height="3" rx="1" fill="#1a4a2e"/>';
+          els +=
+            '<rect x="8" y="34" width="20" height="2.6" rx="1" fill="#3d9e72"/><rect x="40" y="33.4" width="22" height="3.6" rx="1" fill="#1a4a2e"/><line x1="8" y1="39.5" x2="62" y2="39.5" stroke="#52b788" stroke-width="0.8"/>';
+          els += '<rect x="8" y="44" width="84" height="6" fill="#eaf7f0"/>';
+          for (var i = 0; i < 8; i++)
+            els +=
+              '<line x1="8" y1="' +
+              (50 + i * 6) +
+              '" x2="92" y2="' +
+              (50 + i * 6) +
+              '" stroke="#e3ede8" stroke-width="0.4"/>';
+          if (v.logoMode === "show")
+            els += '<rect x="42" y="124" width="16" height="8" rx="1.5" fill="#52b788"/>';
+          else
+            els +=
+              '<circle cx="50" cy="126" r="4" fill="none" stroke="#52b788" stroke-width="0.6"/>';
+          els += '<rect x="38" y="135" width="24" height="2" rx="1" fill="#9fb3aa"/>';
+        } else {
+          var A = v.headerStyle === "A";
+          if (A) {
+            els += '<text x="8" y="14" font-size="8" font-weight="700" fill="#111">請 求 書</text>';
+            if (v.logoMode === "show")
+              els += '<rect x="74" y="6" width="18" height="11" rx="1.5" fill="#52b788"/>';
+          } else {
+            els +=
+              '<text x="50" y="14" font-size="8" font-weight="700" fill="#111" text-anchor="middle">請 求 書</text>';
+          }
+          els += '<rect x="8" y="24" width="30" height="3" rx="1" fill="#222"/>';
+          els +=
+            '<rect x="64" y="23" width="28" height="2" rx="1" fill="#bbb"/><rect x="68" y="27" width="24" height="2" rx="1" fill="#bbb"/>';
+          els +=
+            '<rect x="8" y="34" width="40" height="3" rx="1" fill="#111"/><line x1="8" y1="39.5" x2="60" y2="39.5" stroke="#111" stroke-width="0.8"/>';
+          els += '<rect x="8" y="44" width="84" height="6" fill="#dcefe6"/>';
+          for (var j = 0; j < 8; j++)
+            els +=
+              '<line x1="8" y1="' +
+              (50 + j * 6) +
+              '" x2="92" y2="' +
+              (50 + j * 6) +
+              '" stroke="#ccc" stroke-width="0.4"/>';
+        }
         return (
           '<svg viewBox="0 0 100 141" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block">' +
-          '<rect width="100" height="141" fill="#fff"/>' +
-          title +
-          logoBox +
-          ate +
-          issuer +
-          tbl +
+          els +
           "</svg>"
         );
       }
       function renderTemplates() {
         var g = document.getElementById("tplGallery");
         if (!g) return;
-        var cur = resolveTemplate().id;
-        g.innerHTML = Object.keys(INVOICE_TEMPLATES)
-          .map(function (id) {
-            var t = INVOICE_TEMPLATES[id];
+        var s = currentIssuer();
+        var design = s.pdfDesign || "elegant";
+        var curVar =
+          design === "classic" ? s.classicVariant || "diag_logo" : s.elegantVariant || "logo";
+        var seg = document.getElementById("designSeg");
+        if (seg)
+          seg.innerHTML = Object.keys(DESIGN_LABELS)
+            .map(function (d) {
+              return (
+                '<button type="button" class="dseg-btn' +
+                (d === design ? " on" : "") +
+                '" onclick="setDesignDefault(\'' +
+                d +
+                "')\">" +
+                DESIGN_LABELS[d] +
+                "</button>"
+              );
+            })
+            .join("");
+        g.innerHTML = designVariants(design)
+          .map(function (v) {
             return (
               '<button type="button" class="tpl-card' +
-              (id === cur ? " on" : "") +
-              '" onclick="setTemplate(\'' +
-              id +
+              (v.key === curVar ? " on" : "") +
+              '" onclick="setVariantDefault(\'' +
+              design +
+              "','" +
+              v.key +
               "')\">" +
               '<div class="tpl-badge">✓</div>' +
-              '<img class="tpl-thumb" src="tpl_' +
-              id +
-              '.png" alt="' +
-              t.label +
-              ' のサンプル" loading="lazy" />' +
+              '<div class="tpl-thumb">' +
+              tplThumbSvg(design, v) +
+              "</div>" +
               '<div class="tpl-meta"><div class="tpl-name">' +
-              t.label +
+              v.label +
               '</div><div class="tpl-desc">' +
-              t.desc +
+              v.desc +
               "</div></div>" +
               "</button>"
             );
@@ -4835,17 +4990,33 @@
           .join("");
         var hint = document.getElementById("tplLogoHint");
         if (hint) {
-          var needLogo = resolveTemplate().logoMode === "show";
-          var hasLogo = !!currentIssuer().logo;
-          hint.style.display = needLogo && !hasLogo ? "block" : "none";
+          var needLogo =
+            designVariants(design).filter(function (x) {
+              return x.key === curVar;
+            })[0].logoMode === "show";
+          hint.style.display = needLogo && !currentIssuer().logo ? "block" : "none";
         }
       }
-      function setTemplate(id) {
-        if (!INVOICE_TEMPLATES[id]) return;
-        setIssuer("defaultTemplate", id);
-        setIssuer("headerStyle", INVOICE_TEMPLATES[id].headerStyle); // 旧フラグも整合（互換）
+      function setDesignDefault(design) {
+        if (!DESIGN_VARIANTS[design]) return;
+        setIssuer("pdfDesign", design);
         renderTemplates();
-        toast(INVOICE_TEMPLATES[id].label + " に設定しました");
+        toast(DESIGN_LABELS[design] + " に設定しました");
+      }
+      function setVariantDefault(design, key) {
+        if (
+          !designVariants(design).some(function (v) {
+            return v.key === key;
+          })
+        )
+          return;
+        setIssuer("pdfDesign", design);
+        setIssuer(design === "classic" ? "classicVariant" : "elegantVariant", key);
+        renderTemplates();
+        var v = designVariants(design).filter(function (x) {
+          return x.key === key;
+        })[0];
+        toast(DESIGN_LABELS[design] + "・" + (v ? v.label : key) + " に設定しました");
       }
       // 入金タブの未入金バッジ（未入金＋一部入金の件数）
       function updatePayBadge() {
@@ -4895,46 +5066,112 @@
             .join("");
         if (names.indexOf(keepC) >= 0 || keepC === "") cs.value = keepC;
       }
+      // ===== 請求タブ プレビュー＝実PDFをそのまま描画（WYSIWYG・選んだデザインがそのまま見える） =====
+      // pdf.js は vendor から遅延ロード（CDN不使用＝オフラインOK）。
+      var _pdfjsReady = null;
+      function ensurePdfjs() {
+        if (_pdfjsReady) return _pdfjsReady;
+        _pdfjsReady = new Promise(function (res, rej) {
+          if (window.pdfjsLib) return res(window.pdfjsLib);
+          var s = document.createElement("script");
+          s.src = "vendor/pdf.min.js";
+          s.onload = function () {
+            res(window.pdfjsLib);
+          };
+          s.onerror = function () {
+            rej(new Error("pdf.js読込失敗"));
+          };
+          document.head.appendChild(s);
+        }).then(function (lib) {
+          lib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";
+          return lib;
+        });
+        return _pdfjsReady;
+      }
+      var _invSeq = 0;
+      var _invGenTimer = null;
       function generateInvoices() {
+        // 0.6s のPDF生成があるので連続変更はまとめる（debounce）
+        if (_invGenTimer) clearTimeout(_invGenTimer);
+        _invGenTimer = setTimeout(_doGenerateInvoices, 220);
+      }
+      function _invEmpty(out, msg, seq) {
+        if (seq !== _invSeq) return;
+        out.classList.remove("inv-loading");
+        out.innerHTML = '<div class="li-empty">' + msg + "</div>";
+        out.style.height = "";
+      }
+      async function _doGenerateInvoices() {
         var out = document.getElementById("invoiceOut");
+        if (!out) return;
         var month = document.getElementById("invMonth").value;
         var onlyCo = document.getElementById("invCompany").value;
-        if (!month) {
-          out.innerHTML = '<div class="li-empty">月を選んでください</div>';
-          return;
-        }
+        var seq = ++_invSeq;
+        if (!month) return _invEmpty(out, "月を選んでください", seq);
+        if (typeof InvoicePDF === "undefined")
+          return _invEmpty(out, "PDFモジュール読み込み中…少し待って操作してください", seq);
         var iss = issuerForEngine();
-        var html;
-        if (onlyCo) {
-          var rows = DB.filter(function (r) {
-            return (
-              r.account_id === CURRENT_ACCOUNT && r.会社名 === onlyCo && inMonth(r.日付, month)
+        out.classList.add("inv-loading"); // 既存プレビューの上に「作成中」を重ねる（チラつき防止）
+        try {
+          var bytes;
+          if (onlyCo) {
+            var rows = DB.filter(function (r) {
+              return (
+                r.account_id === CURRENT_ACCOUNT && r.会社名 === onlyCo && inMonth(r.日付, month)
+              );
+            }).sort(function (a, b) {
+              return (
+                (a.日付 || "").localeCompare(b.日付 || "") || (a.id || "").localeCompare(b.id || "")
+              );
+            });
+            if (!rows.length) return _invEmpty(out, "該当する明細がありません", seq);
+            bytes = await InvoicePDF.buildOne(
+              MASTER,
+              onlyCo,
+              rows,
+              month,
+              iss,
+              MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, onlyCo)
             );
-          }).sort(function (a, b) {
-            return (
-              (a.日付 || "").localeCompare(b.日付 || "") || (a.id || "").localeCompare(b.id || "")
-            );
-          });
-          html = rows.length
-            ? MeisaiEngine.buildInvoiceHTML(
-                MASTER,
-                onlyCo,
-                rows,
-                month,
-                iss,
-                MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, onlyCo)
-              )
-            : "";
-        } else {
-          var res = MeisaiEngine.buildMonth(MASTER, DB, month, CURRENT_ACCOUNT, iss);
-          html = res.produced ? res.html : "";
+          } else {
+            bytes = await InvoicePDF.buildMonth(MASTER, DB, month, CURRENT_ACCOUNT, iss);
+            if (!bytes) return _invEmpty(out, "該当する明細がありません", seq);
+          }
+          if (seq !== _invSeq) return; // 新しい要求が来ていたら破棄
+          await renderInvoicePreviewPDF(bytes, seq);
+        } catch (e) {
+          if (seq === _invSeq)
+            _invEmpty(out, "プレビュー作成に失敗：" + (e && e.message ? e.message : e), seq);
+        } finally {
+          if (seq === _invSeq) out.classList.remove("inv-loading");
         }
-        if (!html) {
-          out.innerHTML = '<div class="li-empty">該当する明細がありません</div>';
-          out.style.height = "";
-          return;
+      }
+      // PDF bytes を pdf.js で 1ページ=1枚の canvas に描画（.sheet 包み＝印刷もページ送り維持）。
+      async function renderInvoicePreviewPDF(bytes, seq) {
+        var out = document.getElementById("invoiceOut");
+        var pdfjs = await ensurePdfjs();
+        if (seq !== _invSeq) return;
+        // pdf.js は渡した配列を detach するのでコピーを渡す
+        var pdf = await pdfjs.getDocument({ data: bytes.slice(0) }).promise;
+        if (seq !== _invSeq) return;
+        var inner = document.createElement("div");
+        inner.id = "invScaleInner";
+        for (var p = 1; p <= pdf.numPages; p++) {
+          var pg = await pdf.getPage(p);
+          var vp = pg.getViewport({ scale: 2 }); // 高解像度＝印刷でもくっきり
+          var cv = document.createElement("canvas");
+          cv.width = vp.width;
+          cv.height = vp.height;
+          cv.className = "inv-pdf-canvas";
+          var sheet = document.createElement("div");
+          sheet.className = "sheet sheet-pdf";
+          sheet.appendChild(cv);
+          inner.appendChild(sheet);
+          await pg.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise;
+          if (seq !== _invSeq) return;
         }
-        out.innerHTML = '<div id="invScaleInner">' + html + "</div>";
+        out.innerHTML = "";
+        out.appendChild(inner);
         fitInvoice();
       }
       // 請求書をクリーンなPDF（ブラウザのURL足跡なし・日本語埋込・複数ページ）で保存/共有。
@@ -5014,16 +5251,71 @@
         out.style.height = inner.offsetHeight * s + "px";
       }
       // ===== 請求タブ：テンプレ＆書体をその場で切替（リアルタイム反映） =====
-      function setInvoiceTemplate(id) {
-        setTemplate(id); // 設定のテンプレ確定と同じ（アカウント既定を更新）
+      // 請求タブ：デザイン切替＝その回だけの一時上書き（INV_OVERRIDE・保存しない）。
+      function setInvoiceDesign(design) {
+        if (!DESIGN_VARIANTS[design]) return;
+        INV_OVERRIDE = { pdfDesign: design, variant: activeVariantKey(design) };
         syncInvoiceToolbar();
         generateInvoices();
       }
+      function setInvoiceVariant(key) {
+        var d = activeDesign();
+        if (
+          !designVariants(d).some(function (v) {
+            return v.key === key;
+          })
+        )
+          return;
+        INV_OVERRIDE = { pdfDesign: d, variant: key };
+        syncInvoiceToolbar();
+        generateInvoices();
+      }
+      // 「既定にする」＝今の見た目(一時上書き or 既定)をアカウント既定として保存。
+      function makeInvoiceDefault() {
+        var dv = resolveDesignVariant();
+        setIssuer("pdfDesign", dv.design);
+        setIssuer(dv.design === "classic" ? "classicVariant" : "elegantVariant", dv.variant.key);
+        INV_OVERRIDE = null; // 既定になったので一時上書き解除
+        syncInvoiceToolbar();
+        toast(DESIGN_LABELS[dv.design] + "・" + dv.variant.label + " を既定にしました");
+      }
       function syncInvoiceToolbar() {
-        var cur = resolveTemplate().id;
-        document.querySelectorAll("#scr-billing .itb-btn").forEach(function (b) {
-          b.classList.toggle("on", b.dataset.tpl === cur);
-        });
+        var dv = resolveDesignVariant();
+        // デザイン seg
+        var seg = document.getElementById("invDesignSeg");
+        if (seg)
+          seg.innerHTML = Object.keys(DESIGN_LABELS)
+            .map(function (d) {
+              return (
+                '<button type="button" class="itb-btn' +
+                (d === dv.design ? " on" : "") +
+                '" onclick="setInvoiceDesign(\'' +
+                d +
+                "')\">" +
+                DESIGN_LABELS[d] +
+                "</button>"
+              );
+            })
+            .join("");
+        // 種類 chips（選んだデザインの種類だけ）
+        var chips = document.getElementById("invVariantChips");
+        if (chips)
+          chips.innerHTML = designVariants(dv.design)
+            .map(function (v) {
+              return (
+                '<button type="button" class="itb-chip' +
+                (v.key === dv.variant.key ? " on" : "") +
+                '" onclick="setInvoiceVariant(\'' +
+                v.key +
+                "')\">" +
+                v.label +
+                "</button>"
+              );
+            })
+            .join("");
+        // 一時上書き中の表示＋「既定にする」
+        var note = document.getElementById("invOverrideNote");
+        if (note) note.style.display = INV_OVERRIDE ? "flex" : "none";
         var fn = currentIssuer().pdfFont || "BIZ UDPゴシック";
         var nm = document.getElementById("invFontName");
         if (nm) nm.textContent = fn;
@@ -5351,8 +5643,10 @@
           logoBg: "auto", // ロゴ背景白抜き: auto / on / off
           logoSizeMm: 40, // ロゴの大きさ(mm)・基本値（UIで変更可）
           pdfFont: "BIZ UDPゴシック", // 請求書PDFの書体（Excel同梱のBIZ UD系から選択）
-          headerStyle: "A", // 旧フラグ（互換用）。実体は defaultTemplate に移行。
-          defaultTemplate: "A_logo", // 請求書テンプレ既定（INVOICE_TEMPLATES のID）
+          pdfDesign: "elegant", // 請求書デザイン（elegant / classic）
+          elegantVariant: "logo", // エレガント時の種類（logo / plain）
+          classicVariant: "diag_logo", // クラシック時の種類（diag_logo / diag_plain / center）
+          headerStyle: "A", // 旧フラグ（互換用）
         };
       }
       function loadIssuer() {
@@ -5364,11 +5658,28 @@
         if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
         migrateIssuer();
       }
-      // 旧「固定8項目」形式があれば自由行形式へ変換
+      // 旧「固定8項目」形式があれば自由行形式へ変換／デザイン項目の補完
       function migrateIssuer() {
         var changed = false;
         Object.keys(ISSUER_SETTINGS).forEach(function (acc) {
           var s = ISSUER_SETTINGS[acc];
+          if (!s) return;
+          // デザイン2軸の補完（旧データに無ければ既定を焼く）。旧 defaultTemplate からも吸収。
+          if (s.pdfDesign === undefined) {
+            s.pdfDesign = "elegant";
+            changed = true;
+          }
+          if (s.elegantVariant === undefined) {
+            s.elegantVariant = "logo";
+            changed = true;
+          }
+          if (s.classicVariant === undefined) {
+            // 旧 defaultTemplate(A_logo/A_plain/B_center) を classic 種類へ移行
+            var dt = s.defaultTemplate;
+            s.classicVariant =
+              dt === "B_center" ? "center" : dt === "A_plain" ? "diag_plain" : "diag_logo";
+            changed = true;
+          }
           if (s && s.name1 !== undefined && s.issuer === undefined) {
             s.issuer = [s.name1, s.name2, s.zip, s.addr, s.tel, s.regno].filter(Boolean).join("\n");
             s.bank = [s.bank, s.holder].filter(Boolean).join("\n");
@@ -5404,43 +5715,96 @@
           })
           .filter(Boolean);
       }
-      // ===== 請求書テンプレート（専門家会議：3〜6本に絞る／デザインとロゴ/データ違いは分離） =====
-      // テンプレ＝「ヘッダーの型(headerStyle)」＋「ロゴを使う型か(logoMode)」だけを持つ。
-      // 役職集計/源泉/繰越/税率別 等のデータ違いはテンプレにせず会社マスタの項目で吸収。
-      var INVOICE_TEMPLATES = {
-        A_logo: {
-          id: "A_logo",
-          label: "対角・ロゴあり",
-          desc: "左にタイトル、右上にロゴ。ロゴありの会社向け（標準）",
-          headerStyle: "A",
-          logoMode: "show",
-        },
-        A_plain: {
-          id: "A_plain",
-          label: "対角・ロゴなし",
-          desc: "左タイトルのままロゴを出さない。すっきり",
-          headerStyle: "A",
-          logoMode: "hide",
-        },
-        B_center: {
-          id: "B_center",
-          label: "中央タイトル",
-          desc: "タイトルを中央に。昔ながらの定番・ロゴなし向け",
-          headerStyle: "B",
-          logoMode: "hide",
-        },
+      // ===== 請求書デザイン（2軸）：pdfDesign(elegant/classic) × variant（種類） =====
+      //  ・elegant＝中央タイトル＋ひし形・淡ミント表。種類はロゴ有/無の2つ（headerStyleは無視される設計）。
+      //  ・classic＝緑ヘッダー帯＋横罫の伝統型。種類は対角ロゴ有/対角ロゴ無/中央の3つ。
+      //  状態は (pdfDesign, elegantVariant, classicVariant) の2次元で持つ＝デザインを跨いでも化けない。
+      var DESIGN_LABELS = { elegant: "エレガント", classic: "クラシック" };
+      var DESIGN_VARIANTS = {
+        elegant: [
+          {
+            key: "logo",
+            label: "ロゴあり",
+            desc: "中央タイトル＋ロゴ（下中央）",
+            logoMode: "show",
+            headerStyle: "B",
+          },
+          {
+            key: "plain",
+            label: "ロゴなし",
+            desc: "頭文字の丸で締める",
+            logoMode: "hide",
+            headerStyle: "B",
+          },
+        ],
+        classic: [
+          {
+            key: "diag_logo",
+            label: "対角・ロゴあり",
+            desc: "左タイトル＋右上ロゴ",
+            logoMode: "show",
+            headerStyle: "A",
+          },
+          {
+            key: "diag_plain",
+            label: "対角・ロゴなし",
+            desc: "左タイトル・ロゴなし",
+            logoMode: "hide",
+            headerStyle: "A",
+          },
+          {
+            key: "center",
+            label: "中央タイトル",
+            desc: "昔ながらの定番",
+            logoMode: "hide",
+            headerStyle: "B",
+          },
+        ],
       };
-      // テンプレ解決＝アカウント既定(defaultTemplate)。旧headerStyleからの移行も吸収。
-      function resolveTemplate() {
+      // 請求タブの「その回だけ」一時上書き（保存しない）。{pdfDesign, variant} or null。
+      var INV_OVERRIDE = null;
+      function designVariants(design) {
+        return DESIGN_VARIANTS[design] || DESIGN_VARIANTS.elegant;
+      }
+      function activeDesign() {
+        if (INV_OVERRIDE && INV_OVERRIDE.pdfDesign) return INV_OVERRIDE.pdfDesign;
+        return currentIssuer().pdfDesign || "elegant";
+      }
+      function activeVariantKey(design) {
+        if (INV_OVERRIDE && INV_OVERRIDE.pdfDesign === design && INV_OVERRIDE.variant)
+          return INV_OVERRIDE.variant;
         var s = currentIssuer();
-        var id = s.defaultTemplate || (s.headerStyle === "B" ? "B_center" : "A_logo");
-        return INVOICE_TEMPLATES[id] || INVOICE_TEMPLATES.A_logo;
+        var stored = design === "classic" ? s.classicVariant : s.elegantVariant;
+        var list = designVariants(design);
+        return list.some(function (v) {
+          return v.key === stored;
+        })
+          ? stored
+          : list[0].key;
+      }
+      function resolveDesignVariant() {
+        var d = activeDesign();
+        var vk = activeVariantKey(d);
+        var v =
+          designVariants(d).filter(function (x) {
+            return x.key === vk;
+          })[0] || designVariants(d)[0];
+        return { design: d, variant: v };
+      }
+      // 互換：旧resolveTemplate（headerStyle/logoMode/id）を新モデルから導出。
+      function resolveTemplate() {
+        var dv = resolveDesignVariant();
+        return {
+          id: dv.design + "_" + dv.variant.key,
+          headerStyle: dv.variant.headerStyle,
+          logoMode: dv.variant.logoMode,
+        };
       }
       // エンジンが受け取る形（lines/bank/hanko）へ変換。空行は自動で除外。
       function issuerForEngine() {
         var s = currentIssuer();
         var bankLines = splitLines(s.bank);
-        var tpl = resolveTemplate();
+        var dv = resolveDesignVariant(); // ★pdfDesign×variant（請求タブ一時上書きも反映）★
         return {
           lines: splitLines(s.issuer),
           bank: bankLines.length ? ["お振込先"].concat(bankLines) : [],
@@ -5452,9 +5816,10 @@
           hankoSizeMm: Number(s.hankoSizeMm) || 21,
           logo: s.logo || null,
           logoSizeMm: Number(s.logoSizeMm) || 40, // 基本40mm（司さん指定で大きめ）
-          headerStyle: tpl.headerStyle, // テンプレから導出（後方互換）
-          logoMode: tpl.logoMode, // show=ロゴ枠あり / hide=ロゴ出さない
-          templateId: tpl.id,
+          pdfDesign: dv.design, // ★これが無いと classic に到達できない（監査B-1）★
+          headerStyle: dv.variant.headerStyle, // デザイン×種類から導出
+          logoMode: dv.variant.logoMode, // show=ロゴ枠あり / hide=ロゴ出さない
+          templateId: dv.design + "_" + dv.variant.key,
           pdfFont: s.pdfFont || "BIZ UDPゴシック", // PDFの書体
         };
       }
