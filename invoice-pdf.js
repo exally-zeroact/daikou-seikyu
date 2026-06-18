@@ -578,9 +578,10 @@
       var dateStr = "請求日　" + issueDateStr(month, iss && iss.dateEra);
       var noStr = iss && iss.showInvoiceNo && invoiceNo ? "No.　" + invoiceNo : "";
       if (style === "A" && logo && iss && iss.logoMode === "show") {
-        // クラシックの基準＝右上ロゴを大きめに（logoSizeMm を1.25倍・高さ上限40mm）
-        var maxW = (Number(iss.logoSizeMm) || 40) * MM * 1.25,
-          maxH = 40 * MM;
+        // ★ロゴは「請求書」タイトルと同じ高さで右上に（上の余白も使って縦中央を合わせる＝左右バランス）。
+        //   高さ上限32mm（自社情報に被らない範囲で大きめ）。
+        var maxW = (Number(iss.logoSizeMm) || 40) * MM * 1.2,
+          maxH = 32 * MM;
         var asp = logo.width / logo.height;
         var lw0 = maxW,
           lh0 = maxW / asp;
@@ -588,7 +589,8 @@
           lh0 = maxH;
           lw0 = maxH * asp;
         }
-        page.drawImage(logo, { x: M + CW - lw0, y: cy - lh0, width: lw0, height: lh0 });
+        var titleMid = cy - 10; // 請求書タイトル(size22)の視覚的な縦中央
+        page.drawImage(logo, { x: M + CW - lw0, y: titleMid - lh0 / 2, width: lw0, height: lh0 });
       }
       if (style === "A") {
         T(page, font, "請　求　書", M, cy, 22);
