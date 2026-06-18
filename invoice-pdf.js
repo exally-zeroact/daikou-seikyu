@@ -432,24 +432,28 @@
     function drawFooter(page) {
       var nL = iLines.length || 1;
       var issH = nL > 0 ? 13 + (nL - 1) * 10 : 0; // 自社情報ブロック高さ
-      var blockH = Math.max(issH, 20);
-      var FOOT = 80 + blockH; // 線のy（ブロック＋下マージン80の上）。多行ほど上がる＝あふれない
-      line(page, M, FOOT, RXp, FOOT, MINT, 0.9); // 下の長い緑の線
-      var y0 = FOOT - 16; // 線のすぐ下＝自社情報の先頭
-      // ロゴ＝右端に固定（位置は動かさない）。ロゴ画像があるときだけ。
+      // ロゴ寸法（エレガントの基準＝大きめ。logoSizeMm を 1.3倍で効かせ、上限も大きく）。
+      var logoW = 0,
+        logoH = 0;
       if (showLogo) {
-        var lw = Math.min((Number(iss && iss.logoSizeMm) || 40) * MM, 130),
-          asp = logo.width / logo.height,
-          lh = lw / asp;
-        if (lh > 46) {
-          lh = 46;
-          lw = lh * asp;
+        var asp = logo.width / logo.height;
+        logoW = Math.min((Number(iss && iss.logoSizeMm) || 40) * MM * 1.3, 165);
+        logoH = logoW / asp;
+        if (logoH > 74) {
+          logoH = 74;
+          logoW = logoH * asp;
         }
-        var logoY = y0 - issH / 2 + lh / 2;
-        page.drawImage(logo, { x: RXp - lw, y: logoY - lh, width: lw, height: lh });
       }
-      // 自社情報（中央揃え・ページ中央・線のすぐ下）
-      var fy = y0;
+      var blockH = Math.max(issH, logoH, 20);
+      var FOOT = 78 + blockH; // 線のy（ブロック＋下マージンの上）。ロゴ/多行ほど上がる＝あふれない
+      line(page, M, FOOT, RXp, FOOT, MINT, 0.9); // 下の長い緑の線
+      var topY = FOOT - 16; // 線のすぐ下
+      // ロゴ＝右端固定・上端を線のすぐ下から（大きく）
+      if (showLogo)
+        page.drawImage(logo, { x: RXp - logoW, y: topY - logoH, width: logoW, height: logoH });
+      // 自社情報（中央揃え・ページ中央）＝ブロック内で縦中央に
+      var textTop = topY - Math.max(0, (blockH - issH) / 2);
+      var fy = textTop;
       iLines.forEach(function (ln, idx) {
         T(page, font, ln, CX, fy, idx === 0 ? 11 : 8, {
           align: "center",
@@ -463,7 +467,7 @@
         var nameW = font.widthOfTextAtSize(_sanitize(iLines[0] || ""), 11);
         page.drawImage(hanko, {
           x: CX + nameW / 2 - hs * 0.45, // 社名末尾に重なる
-          y: y0 - hs + 9,
+          y: textTop - hs + 9,
           width: hs,
           height: hs,
           opacity: 0.95,
@@ -570,8 +574,9 @@
       var dateStr = "請求日　" + issueDateStr(month, iss && iss.dateEra);
       var noStr = iss && iss.showInvoiceNo && invoiceNo ? "No.　" + invoiceNo : "";
       if (style === "A" && logo && iss && iss.logoMode === "show") {
-        var maxW = (Number(iss.logoSizeMm) || 40) * MM,
-          maxH = 26 * MM;
+        // クラシックの基準＝右上ロゴをやや大きめに（logoSizeMm を1.15倍・高さ上限32mm）
+        var maxW = (Number(iss.logoSizeMm) || 40) * MM * 1.15,
+          maxH = 32 * MM;
         var asp = logo.width / logo.height;
         var lw0 = maxW,
           lh0 = maxW / asp;
