@@ -207,42 +207,44 @@
     var style = (iss && iss.headerStyle) === "A" ? "A" : "B";
     var logo = ctx.logoImg,
       hanko = ctx.hankoImg;
-    // 役職集計が付く時は、その行数ぶん1ページの明細を減らして下にはみ出さないようにする
-    // （A4は固定高。HTMLはスクロールするがPDFは溢れるため）。
+    var monthNum = Number(month.split("-")[1]);
+    var bank = (iss && iss.bank) || [];
+    var iLines = (iss && iss.lines) || [];
+    var rowH = 17,
+      headH = 19;
+    // 役職集計が付く時は、その行数ぶん1ページの明細を減らして下にはみ出さないように
     var footExtra = m.noteSummary && (m.noteGroups || []).length ? m.noteGroups.length + 2 : 0;
     var rpp = Math.max(12, ROWS_PER_PAGE - footExtra);
-    var pages = [];
-    for (var i = 0; i < rows.length; i += rpp) pages.push(rows.slice(i, i + rpp));
-    if (!pages.length) pages.push([]);
-    var monthNum = Number(month.split("-")[1]);
+    var detailPages = [];
+    for (var i = 0; i < rows.length; i += rpp) detailPages.push(rows.slice(i, i + rpp));
+    if (!detailPages.length) detailPages.push([]);
+    var pageSubtotals = detailPages.map(function (pr) {
+      return pr.reduce(function (s, x) {
+        return s + (Number(x.金額) || 0);
+      }, 0);
+    });
+    // ★複数ページの時だけ最後に「ページ別サマリー」ページを足す（最終ページに総額を集約）。
+    //   単ページの時は従来通り（上部に総額＋下部に内訳）。
+    var multi = detailPages.length > 1;
+    var totalPages = multi ? detailPages.length + 1 : 1;
+    var pageNum = 0;
 
-    pages.forEach(function (pageRows, pi) {
-      var isLast = pi === pages.length - 1;
-      var page = doc.addPage([A4.w, A4.h]);
-      var cy = A4.h - M; // 上端カーソル(top)
-
-      // ===== ヘッダー =====
+    // ---- 共通ヘッダー（タイトル〜あいさつ。showGrandで上部に「ご請求金額」）。戻り=テーブル開始y ----
+    function drawHeader(page, showGrand) {
+      var cy = A4.h - M;
       var dateStr = "請求日　" + issueDateStr(month, iss && iss.dateEra);
       var noStr = iss && iss.showInvoiceNo && invoiceNo ? "No.　" + invoiceNo : "";
-      // ロゴ（テンプレA・logoMode=show時）。内容右端に上揃えで。箱=幅 logoSizeMm × 高26mm contain。
-      var logoBoxW = 0,
-        logoBoxH = 0;
       if (style === "A" && logo && iss && iss.logoMode === "show") {
         var maxW = (Number(iss.logoSizeMm) || 40) * MM,
           maxH = 26 * MM;
         var asp = logo.width / logo.height;
-        logoBoxW = maxW;
-        logoBoxH = maxW / asp;
-        if (logoBoxH > maxH) {
-          logoBoxH = maxH;
-          logoBoxW = maxH * asp;
+        var lw0 = maxW,
+          lh0 = maxW / asp;
+        if (lh0 > maxH) {
+          lh0 = maxH;
+          lw0 = maxH * asp;
         }
-        page.drawImage(logo, {
-          x: M + CW - logoBoxW,
-          y: cy - logoBoxH,
-          width: logoBoxW,
-          height: logoBoxH,
-        });
+        page.drawImage(logo, { x: M + CW - lw0, y: cy - lh0, width: lw0, height: lh0 });
       }
       if (style === "A") {
         T(page, font, "請　求　書", M, cy, 22);
@@ -250,7 +252,6 @@
         T(page, font, dateStr + (noStr ? "　　" + noStr : ""), M, cy, 10, { color: DARK });
         cy -= 22;
       } else {
-        // B：請求日/Noは右上、タイトル中央
         T(page, font, dateStr, M + CW, cy, 9.5, { align: "right", color: DARK });
         cy -= 13;
         if (noStr) {
@@ -261,23 +262,15 @@
         T(page, font, "請　求　書", M + CW / 2, cy, 22, { align: "center" });
         cy -= 34;
       }
-
-      // 宛名(左) ＋ 自社情報(右)
       var topRow = cy;
       T(page, font, co + "　御中", M, topRow, 15, { maxW: CW * 0.6 });
-      // 自社情報（右・1行目少し大きめ）＋ 判子（社名に重ね）
-      var iLines = (iss && iss.lines) || [];
-      var iy = style === "A" ? topRow - 6 : topRow; // テンプレAは少し下げてロゴと間
-      var firstLineW = 0;
+      var iy = style === "A" ? topRow - 6 : topRow;
       iLines.forEach(function (ln, idx) {
-        var sz = idx === 0 ? 11 : 9.5;
-        var w = T(page, font, ln, M + CW, iy, sz, { align: "right", color: DARK });
-        if (idx === 0) firstLineW = w;
+        T(page, font, ln, M + CW, iy, idx === 0 ? 11 : 9.5, { align: "right", color: DARK });
         iy -= idx === 0 ? 15 : 13;
       });
       if (hanko) {
         var hs = (Number(iss && iss.hankoSizeMm) || 21) * MM;
-        // 1行目(社名)の右側に重ねる（角印標準）
         page.drawImage(hanko, {
           x: M + CW - hs + 2,
           y: topRow - hs + 4,
@@ -286,45 +279,83 @@
           opacity: 0.95,
         });
       }
-
-      // あいさつ＋ご請求金額（左カラム、宛名の下）
       cy = topRow - 40;
       var lead = ((m.lead || "{月}月のご利用分です。") + "").replace("{月}", monthNum);
       T(page, font, lead, M, cy, 9.5, { color: DARK });
       cy -= 16;
       T(page, font, "下記の通り御請求申し上げます。", M, cy, 9.5, { color: DARK });
       cy -= 22;
-      // ご請求金額（税込）＝上部・宛名の下のいつもの位置。ただし★最終ページのみ★に出す。
-      // 途中ページに総額を出すと「まだ続くのに総額が出て取引先が混乱する」ため出さない
-      // （会計慣習・主要ソフト・インボイス法すべてで最終ページ集約が標準/適法）。
-      // レイアウトを全ページで揃えるため、途中ページでも同じ高さの余白は確保する。
-      if (isLast) {
+      if (showGrand) {
         var gLabel = "ご請求金額（税込）";
-        var lw = T(page, font, gLabel, M, cy, 12);
+        var glw = T(page, font, gLabel, M, cy, 12);
         var gv = yen(grand);
-        T(page, font, gv, M + lw + 60, cy, 13);
-        var gTextW = lw + 60 + font.widthOfTextAtSize(gv, 13);
+        T(page, font, gv, M + glw + 60, cy, 13);
+        var gTextW = glw + 60 + font.widthOfTextAtSize(gv, 13);
         line(page, M, cy - 17, M + gTextW + 6, cy - 17, BLACK, 1.3);
       }
-      cy -= 30;
+      return cy - 30;
+    }
 
-      // ===== 明細テーブル =====
-      var tableTop = cy;
-      var rowH = 17;
-      var headH = 19;
-      // 列の左端x
+    // ---- 合計フッター（振込先＋小計/消費税/合計＋役職集計）。最終/サマリーページ用 ----
+    function drawTotalsFooter(page, footTop) {
+      var by = footTop;
+      bank.forEach(function (ln) {
+        T(page, font, ln, M, by, 9, { color: DARK });
+        by -= 14;
+      });
+      var boxX = M + CW - 200,
+        RX = M + CW,
+        sy = footTop;
+      function totRow(lbl, val, big) {
+        T(page, font, lbl, boxX, sy, big ? 11 : 9.5, { color: DARK });
+        T(page, font, val, RX, sy, big ? 12 : 9.5, { align: "right" });
+        sy -= big ? 18 : 15;
+      }
+      totRow("小計", yen(grand));
+      totRow("消費税（10%・内税）", yen(tax10(grand)));
+      line(page, boxX, sy + 3, RX, sy + 3, DARK, 0.8);
+      sy -= 2;
+      totRow("合計", yen(grand), true);
+      if (m.noteSummary && (m.noteGroups || []).length) {
+        var sums = {};
+        (m.noteGroups || []).forEach(function (g) {
+          sums[g] = 0;
+        });
+        rows.forEach(function (x) {
+          var g = (x.備考 || "").trim();
+          if (sums.hasOwnProperty(g)) sums[g] += Number(x.金額) || 0;
+        });
+        var ny = sy - 4;
+        T(page, font, "（内訳）", boxX, ny, 9, { color: DARK });
+        ny -= 14;
+        (m.noteGroups || []).forEach(function (g) {
+          T(page, font, g, boxX, ny, 9, { color: DARK });
+          T(page, font, sums[g] ? yen(sums[g]) : "", RX, ny, 9, { align: "right", color: DARK });
+          ny -= 13;
+        });
+      }
+    }
+
+    // ---- 明細テーブル（会社の項目列）。戻り=tableBottom ----
+    function drawDetailTable(page, topY, pageRows) {
+      var tableTop = topY;
       var colX = [M];
       for (var c = 0; c < cw.length; c++) colX.push(colX[c] + cw[c]);
       var tableRight = M + CW;
-      // ヘッダー（緑帯）
       rect(page, M, tableTop, CW, headH, GREEN);
-      // 見出し：金額より前を tableTitle で結合、金額=金額（税込み）、以降は項目名
       var leadCount = amtIdx >= 0 ? amtIdx : items.length;
       if (leadCount > 0) {
-        var mergeW = colX[leadCount] - M;
-        T(page, font, m.tableTitle || "運転業務委託料", M + mergeW / 2, tableTop - 3, 9.5, {
-          align: "center",
-        });
+        T(
+          page,
+          font,
+          m.tableTitle || "運転業務委託料",
+          M + (colX[leadCount] - M) / 2,
+          tableTop - 3,
+          9.5,
+          {
+            align: "center",
+          }
+        );
       }
       if (amtIdx >= 0) {
         T(page, font, "金額（税込み）", (colX[amtIdx] + colX[amtIdx + 1]) / 2, tableTop - 3, 9.5, {
@@ -339,15 +370,14 @@
             (colX[ci] + colX[ci + 1]) / 2,
             tableTop - 3,
             9.5,
-            { align: "center" }
+            {
+              align: "center",
+            }
           );
         });
       }
-      // ヘッダー上下線
       line(page, M, tableTop, tableRight, tableTop, GREY, 0.8);
       line(page, M, tableTop - headH, tableRight, tableTop - headH, GREY, 0.8);
-
-      // 本文行
       var prevDate = null;
       var bodyTop = tableTop - headH;
       for (var r = 0; r < rpp; r++) {
@@ -356,8 +386,8 @@
         if (row) {
           items.forEach(function (k, ci) {
             var cx0 = colX[ci],
-              cx1 = colX[ci + 1];
-            var pad = 6;
+              cx1 = colX[ci + 1],
+              pad = 6;
             if (k === "日付") {
               var cur = row.日付 || "";
               var val = cur && cur !== prevDate ? mdShort(cur) : "";
@@ -376,93 +406,90 @@
           });
           if (row.日付) prevDate = row.日付;
         }
-        // 行の下線（全行・空行も）
         line(page, M, yTop - rowH, tableRight, yTop - rowH, GREY, 0.6);
       }
       var tableBottom = bodyTop - rpp * rowH;
-      // 縦線：外枠左／金額の前／金額の後（=外枠右 か 備考前）／外枠右。日付↔行き先は線なし。
       var vlines = [M, tableRight];
       if (amtIdx >= 0) {
-        vlines.push(colX[amtIdx]); // 金額の前
-        vlines.push(colX[amtIdx + 1]); // 金額の後
+        vlines.push(colX[amtIdx], colX[amtIdx + 1]);
         items.slice(amtIdx + 1).forEach(function (k, j) {
-          vlines.push(colX[amtIdx + 2 + j]); // 以降の各列の前
+          vlines.push(colX[amtIdx + 2 + j]);
         });
       }
       vlines.forEach(function (vx) {
         line(page, vx, tableTop, vx, tableBottom, GREY, 0.6);
       });
+      return tableBottom;
+    }
 
-      // ===== 下段（最終ページ＝小計/消費税/合計の枠／途中ページ＝続く） =====
-      var footTop = tableBottom - 16;
-      if (isLast) {
-        // 振込先（左）
-        var bank = (iss && iss.bank) || [];
-        var by = footTop;
-        bank.forEach(function (ln) {
-          T(page, font, ln, M, by, 9, { color: DARK });
-          by -= 14;
+    // ---- ページ別サマリーテーブル（最終サマリーページ）[内容 | 金額（税込み）]・明細ページと同じ体裁 ----
+    function drawSummaryTable(page, topY, subs) {
+      var tableTop = topY;
+      var amtW = 130,
+        splitX = M + CW - amtW,
+        tableRight = M + CW;
+      rect(page, M, tableTop, CW, headH, GREEN);
+      T(page, font, "内容（ページ別）", (M + splitX) / 2, tableTop - 3, 9.5, { align: "center" });
+      T(page, font, "金額（税込み）", (splitX + tableRight) / 2, tableTop - 3, 9.5, {
+        align: "center",
+      });
+      line(page, M, tableTop, tableRight, tableTop, GREY, 0.8);
+      line(page, M, tableTop - headH, tableRight, tableTop - headH, GREY, 0.8);
+      var bodyTop = tableTop - headH;
+      for (var r = 0; r < rpp; r++) {
+        var yTop = bodyTop - r * rowH;
+        if (r < subs.length) {
+          T(page, font, r + 1 + "ページ目", M + 12, yTop - 2.5, 9.5, { align: "left" });
+          T(page, font, comma(subs[r]), tableRight - 5, yTop - 2.5, 9.5, { align: "right" });
+        }
+        line(page, M, yTop - rowH, tableRight, yTop - rowH, GREY, 0.6);
+      }
+      var tableBottom = bodyTop - rpp * rowH;
+      [M, splitX, tableRight].forEach(function (vx) {
+        line(page, vx, tableTop, vx, tableBottom, GREY, 0.6);
+      });
+      return tableBottom;
+    }
+
+    function drawPageNo(page) {
+      pageNum += 1;
+      if (totalPages > 1) {
+        T(page, font, pageNum + " / " + totalPages, M + CW, M - 4, 8, {
+          align: "right",
+          color: GREY,
         });
-        // 合計ボックス（右・いつも通りの内訳）
-        var boxX = M + CW - 200;
-        var RX = M + CW;
-        var sy = footTop;
-        function totRow(lbl, val, big) {
-          T(page, font, lbl, boxX, sy, big ? 11 : 9.5, { color: DARK });
-          T(page, font, val, RX, sy, big ? 12 : 9.5, { align: "right" });
-          sy -= big ? 18 : 15;
-        }
-        totRow("小計", yen(grand));
-        totRow("消費税（10%・内税）", yen(tax10(grand)));
-        line(page, boxX, sy + 3, RX, sy + 3, DARK, 0.8);
-        sy -= 2;
-        totRow("合計", yen(grand), true);
+      }
+    }
 
-        // 役職集計（noteSummary）
-        if (m.noteSummary && (m.noteGroups || []).length) {
-          var sums = {};
-          (m.noteGroups || []).forEach(function (g) {
-            sums[g] = 0;
-          });
-          rows.forEach(function (x) {
-            var g = (x.備考 || "").trim();
-            if (sums.hasOwnProperty(g)) sums[g] += Number(x.金額) || 0;
-          });
-          var ny = sy - 4;
-          T(page, font, "（内訳）", boxX, ny, 9, { color: DARK });
-          ny -= 14;
-          (m.noteGroups || []).forEach(function (g) {
-            T(page, font, g, boxX, ny, 9, { align: "left", color: DARK });
-            T(page, font, sums[g] ? yen(sums[g]) : "", RX, ny, 9, {
-              align: "right",
-              color: DARK,
-            });
-            ny -= 13;
-          });
-        }
+    // ===== 明細ページ =====
+    detailPages.forEach(function (pageRows, pi) {
+      var page = doc.addPage([A4.w, A4.h]);
+      // 単ページ(=最終)のみ上部に総額。複数ページの明細ページには総額を出さない。
+      var cy = drawHeader(page, !multi);
+      var tableBottom = drawDetailTable(page, cy, pageRows);
+      var footTop = tableBottom - 16;
+      if (!multi) {
+        drawTotalsFooter(page, footTop);
       } else {
-        // 途中ページ：総額は出さず「このページの小計」だけ（会計慣習で各ページ小計が推奨）
-        // ＋「次ページへ続く」。総額＝最終ページに集約＝取引先の混乱を防ぐ。
-        var pageTotal = pageRows.reduce(function (s, x) {
-          return s + (Number(x.金額) || 0);
-        }, 0);
-        var pbX = M + CW - 200;
-        T(page, font, "このページの小計", pbX, footTop, 9.5, { color: DARK });
-        T(page, font, yen(pageTotal), M + CW, footTop, 9.5, { align: "right" });
+        // 明細ページ：このページの小計＋「次ページへ続く」（総額は最終サマリーに集約）
+        T(page, font, "このページの小計", M + CW - 200, footTop, 9.5, { color: DARK });
+        T(page, font, yen(pageSubtotals[pi]), M + CW, footTop, 9.5, { align: "right" });
         T(page, font, "次ページへ続く →", M + CW, footTop - 16, 10, {
           align: "right",
           color: DARK,
         });
       }
-
-      // ページ番号
-      if (pages.length > 1) {
-        T(page, font, pi + 1 + " / " + pages.length, M + CW, M - 4, 8, {
-          align: "right",
-          color: GREY,
-        });
-      }
+      drawPageNo(page);
     });
+
+    // ===== ページ別サマリー（複数ページ時のみ・最終ページ） =====
+    if (multi) {
+      var spage = doc.addPage([A4.w, A4.h]);
+      var scy = drawHeader(spage, true); // 上部にご請求金額（総額）
+      var sBottom = drawSummaryTable(spage, scy, pageSubtotals);
+      drawTotalsFooter(spage, sBottom - 16);
+      drawPageNo(spage);
+    }
   }
 
   // ---- 公開: 1社 ----
