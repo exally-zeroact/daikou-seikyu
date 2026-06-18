@@ -623,6 +623,88 @@
       .invoice-actions .btn {
         flex: 1;
       }
+      /* ===== 請求タブ：テンプレ＆書体 切替バー ===== */
+      .inv-toolbar2 {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 18px;
+        align-items: center;
+        margin: 2px 0 12px;
+      }
+      .itb-group {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .itb-lbl {
+        font-size: 11px;
+        color: #7aa08c;
+        font-weight: 700;
+      }
+      .itb-btn,
+      .itb-font {
+        font-size: 12.5px;
+        padding: 6px 11px;
+        border: 1px solid #c8ecd8;
+        border-radius: 8px;
+        background: #fff;
+        color: #1a4a2e;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .itb-btn.on {
+        background: #52b788;
+        border-color: #52b788;
+        color: #fff;
+        font-weight: 700;
+      }
+      .itb-font {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 150px;
+        justify-content: space-between;
+        background: #f0faf4;
+      }
+      .itb-caret {
+        color: #7aa08c;
+      }
+      .itb-fontpop {
+        position: absolute;
+        top: 38px;
+        left: 34px;
+        z-index: 50;
+        width: 230px;
+        background: #fff;
+        border: 1px solid #c8ecd8;
+        border-radius: 10px;
+        box-shadow: 0 6px 20px rgba(30, 80, 46, 0.16);
+        padding: 8px;
+      }
+      .itb-fontsearch {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 7px 9px;
+        border: 1px solid #c8ecd8;
+        border-radius: 7px;
+        font-size: 12.5px;
+        margin-bottom: 6px;
+        font-family: inherit;
+      }
+      .itb-fopt {
+        padding: 8px 9px;
+        border-radius: 7px;
+        font-size: 13px;
+        color: #1a4a2e;
+        cursor: pointer;
+      }
+      .itb-fopt:hover {
+        background: #f0faf4;
+      }
+      .itb-fopt.on {
+        background: #c8ecd8;
+        font-weight: 700;
+      }
 
       /* ===== LIST SCOPE (期間表示) ===== */
       .list-scope {
@@ -2482,6 +2564,36 @@
           <select class="fselect" id="invCompany" onchange="generateInvoices()">
             <option value="">全社</option>
           </select>
+        </div>
+        <!-- テンプレ＆書体をその場で切替（リアルタイム反映） -->
+        <div class="inv-toolbar2 no-print">
+          <div class="itb-group">
+            <span class="itb-lbl">テンプレ</span>
+            <button class="itb-btn" data-tpl="A_logo" onclick="setInvoiceTemplate('A_logo')">
+              ロゴあり
+            </button>
+            <button class="itb-btn" data-tpl="A_plain" onclick="setInvoiceTemplate('A_plain')">
+              ロゴなし
+            </button>
+            <button class="itb-btn" data-tpl="B_center" onclick="setInvoiceTemplate('B_center')">
+              中央
+            </button>
+          </div>
+          <div class="itb-group" style="position: relative">
+            <span class="itb-lbl">書体</span>
+            <button class="itb-font" id="invFontBox" onclick="toggleFontList()">
+              <span id="invFontName">BIZ UDPゴシック</span><span class="itb-caret">▾</span>
+            </button>
+            <div class="itb-fontpop" id="invFontPop" style="display: none">
+              <input
+                class="itb-fontsearch"
+                id="invFontSearch"
+                placeholder="フォントを検索…"
+                oninput="renderFontList(this.value)"
+              />
+              <div id="invFontList"></div>
+            </div>
+          </div>
         </div>
         <div class="invoice-actions no-print">
           <button class="btn btn-primary btn-sm" onclick="exportInvoicePDF(this)">
@@ -4637,6 +4749,7 @@
         });
         if (seg === "invoice") {
           refreshInvoiceSelects();
+          syncInvoiceToolbar(); // テンプレ強調＋書体名＋プレビュー書体を現在値に
           generateInvoices();
         } else {
           renderReport();
@@ -4900,6 +5013,104 @@
         inner.style.transform = "scale(" + s + ")";
         out.style.height = inner.offsetHeight * s + "px";
       }
+      // ===== 請求タブ：テンプレ＆書体をその場で切替（リアルタイム反映） =====
+      function setInvoiceTemplate(id) {
+        setTemplate(id); // 設定のテンプレ確定と同じ（アカウント既定を更新）
+        syncInvoiceToolbar();
+        generateInvoices();
+      }
+      function syncInvoiceToolbar() {
+        var cur = resolveTemplate().id;
+        document.querySelectorAll("#scr-billing .itb-btn").forEach(function (b) {
+          b.classList.toggle("on", b.dataset.tpl === cur);
+        });
+        var fn = currentIssuer().pdfFont || "BIZ UDPゴシック";
+        var nm = document.getElementById("invFontName");
+        if (nm) nm.textContent = fn;
+        applyPreviewFont(fn, false); // 初期はDLしない（既ロードなら反映）
+      }
+      function toggleFontList() {
+        var pop = document.getElementById("invFontPop");
+        if (!pop) return;
+        var show = pop.style.display === "none";
+        pop.style.display = show ? "block" : "none";
+        if (show) {
+          renderFontList("");
+          var s = document.getElementById("invFontSearch");
+          if (s) {
+            s.value = "";
+            s.focus();
+          }
+        }
+      }
+      function renderFontList(q) {
+        if (typeof InvoicePDF === "undefined") return;
+        q = (q || "").trim();
+        var cur = currentIssuer().pdfFont || "BIZ UDPゴシック";
+        var list = InvoicePDF.fonts().filter(function (f) {
+          return !q || f.indexOf(q) >= 0;
+        });
+        document.getElementById("invFontList").innerHTML =
+          list
+            .map(function (f) {
+              return (
+                '<div class="itb-fopt' +
+                (f === cur ? " on" : "") +
+                '" onclick="setInvoiceFont(\'' +
+                f +
+                "')\">" +
+                f +
+                "</div>"
+              );
+            })
+            .join("") || '<div class="itb-fopt">該当なし</div>';
+      }
+      function setInvoiceFont(name) {
+        setIssuer("pdfFont", name);
+        var nm = document.getElementById("invFontName");
+        if (nm) nm.textContent = name;
+        var pop = document.getElementById("invFontPop");
+        if (pop) pop.style.display = "none";
+        applyPreviewFont(name, true); // 選んだ時はDLして即反映
+        toast("書体を「" + name + "」にしました（請求書・PDFに反映）");
+      }
+      // 選んだ書体を画面プレビューにも反映（BIZ UDのTTFをWebフォントとして遅延ロード）
+      var _previewFonts = {};
+      // doLoad=false のときは未ロードのフォントを取りに行かない（請求タブを開くだけで
+      // 4.6MBのフォントDLが走るのを防ぐ）。書体を実際に選んだ時だけ doLoad=true でロード。
+      function applyPreviewFont(name, doLoad) {
+        var out = document.getElementById("invoiceOut");
+        if (!out || typeof InvoicePDF === "undefined") return;
+        var file = InvoicePDF.fontFile(name);
+        if (!file) return;
+        // ファイル名から一意なCSSフォント名を作る（書体名は日本語＝英数字除去だと衝突するため）
+        var fam = "invfont_" + file.replace(/.*\//, "").replace(/[^A-Za-z0-9]/g, "");
+        if (!_previewFonts[name]) {
+          if (!doLoad) return; // 初期表示では読み込まず既定フォントのまま
+          _previewFonts[name] = fam;
+          try {
+            var ff = new FontFace(fam, 'url("' + file + '")');
+            ff.load()
+              .then(function (f) {
+                document.fonts.add(f);
+              })
+              .catch(function () {});
+          } catch (e) {}
+        }
+        out.style.fontFamily = '"' + fam + '", "Noto Sans JP", sans-serif';
+      }
+      // 書体ポップは外側クリックで閉じる
+      document.addEventListener("click", function (e) {
+        var pop = document.getElementById("invFontPop");
+        var box = document.getElementById("invFontBox");
+        if (!pop || pop.style.display === "none") return;
+        if (
+          e.target.closest &&
+          (e.target.closest("#invFontPop") || e.target.closest("#invFontBox"))
+        )
+          return;
+        pop.style.display = "none";
+      });
 
       /* ===================================================================
    入金管理（請求＝会社×月 ごとに 入金額／残額／状態を記録）
@@ -5139,6 +5350,7 @@
           logoRaw: "", // ロゴ元画像（再処理用）
           logoBg: "auto", // ロゴ背景白抜き: auto / on / off
           logoSizeMm: 40, // ロゴの大きさ(mm)・基本値（UIで変更可）
+          pdfFont: "BIZ UDPゴシック", // 請求書PDFの書体（Excel同梱のBIZ UD系から選択）
           headerStyle: "A", // 旧フラグ（互換用）。実体は defaultTemplate に移行。
           defaultTemplate: "A_logo", // 請求書テンプレ既定（INVOICE_TEMPLATES のID）
         };
@@ -5243,6 +5455,7 @@
           headerStyle: tpl.headerStyle, // テンプレから導出（後方互換）
           logoMode: tpl.logoMode, // show=ロゴ枠あり / hide=ロゴ出さない
           templateId: tpl.id,
+          pdfFont: s.pdfFont || "BIZ UDPゴシック", // PDFの書体
         };
       }
       function setAlign(field, val) {
