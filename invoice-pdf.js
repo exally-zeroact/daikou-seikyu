@@ -457,12 +457,12 @@
         });
         fy -= idx === 0 ? 13 : 10;
       });
-      // 判子（中央寄せ社名に重ね＝角印標準。社名の右端あたり）
+      // 判子（中央寄せ社名の右端に“重ねて”押す＝角印標準）。左側が社名末尾に被る位置へ。
       if (hanko) {
         var hs = (Number(iss && iss.hankoSizeMm) || 20) * MM * 0.8;
         var nameW = font.widthOfTextAtSize(_sanitize(iLines[0] || ""), 11);
         page.drawImage(hanko, {
-          x: CX + nameW / 2 + 2,
+          x: CX + nameW / 2 - hs * 0.45, // 社名末尾に重なる
           y: y0 - hs + 9,
           width: hs,
           height: hs,
