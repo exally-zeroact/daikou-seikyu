@@ -1461,7 +1461,6 @@
         box-shadow: 0 4px 16px rgba(30, 80, 46, 0.1);
         color: #000000;
         font-size: 12px;
-        position: relative;
       }
       .sh-title {
         text-align: center;
@@ -1471,7 +1470,12 @@
         margin: 2px 0 14px;
         padding-left: 10px;
       }
-      /* テンプレA：タイトル左寄せ＋請求日も左、ロゴは右上の角 */
+      /* テンプレA：タイトル左寄せ＋請求日も左、ロゴは右上（フレックスで内容右端に揃える＝印刷でもズレない） */
+      .sh-headA {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
       .sh-title-l {
         text-align: left;
         padding-left: 0;
@@ -1486,9 +1490,9 @@
         color: #444444;
       }
       .sh-logo {
-        position: absolute;
-        top: 30px;
-        right: 38px;
+        display: block;
+        flex: 0 0 auto;
+        margin-left: 16px;
         max-height: 20mm;
         object-fit: contain;
       }

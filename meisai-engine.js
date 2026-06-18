@@ -246,24 +246,30 @@
     var noStr = iss.showInvoiceNo && ctx.invoiceNo ? esc(ctx.invoiceNo) : "";
     var wantLogo = iss.logoMode === "show" && iss.logo;
     var logoMm = Number(iss.logoSizeMm) || 33;
-    // インラインstyleで自己完結させる（古いCSSがキャッシュされた端末でも正しく出す／印刷・他ホストでも同じ）
+    // ロゴは「絶対配置でpx」だと画面(padding38px)と印刷(padding0+@page余白)でズレる。
+    // フレックスの行に流し込んで“内容の右端”に揃える＝画面でも印刷でも同じ位置。
+    // インラインstyleで書くのは、古いCSSがキャッシュされた端末でも正しく出すため。
     var logoHtml = wantLogo
       ? '<img class="sh-logo" src="' +
-        iss.logo +
-        '" style="position:absolute;top:30px;right:38px;max-width:' +
+        esc(iss.logo) +
+        '" style="display:block;flex:0 0 auto;margin-left:16px;max-width:' +
         logoMm +
         'mm;max-height:20mm;object-fit:contain;">'
       : "";
     var headerHtml;
     if (style === "A") {
       headerHtml =
-        logoHtml +
+        '<div class="sh-headA" style="display:flex;justify-content:space-between;align-items:flex-start;">' +
+        "<div>" +
         '<div class="sh-title sh-title-l" style="text-align:left;padding-left:0;margin:2px 0 2px;">請求書</div>' +
         '<div class="sh-date-l" style="text-align:left;font-size:12px;margin:0 0 10px;">請求日　' +
         dateStr +
         (noStr
           ? '<span class="sh-no-inl" style="margin-left:16px;color:#444;">No.　' + noStr + "</span>"
           : "") +
+        "</div>" +
+        "</div>" +
+        logoHtml +
         "</div>";
     } else {
       headerHtml =
@@ -275,7 +281,7 @@
         '<div class="sh-title">請求書</div>';
     }
     return (
-      '<div class="sheet" style="position:relative;">' +
+      '<div class="sheet">' +
       headerHtml +
       '<div class="sh-top">' +
       '<div class="sh-left">' +
