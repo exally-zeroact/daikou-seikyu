@@ -411,11 +411,14 @@
     }
 
     // ---- フッター（区切り線＋エンブレム＋会社情報を中央寄せ＋判子＋ページ番号） ----
+    //   下に張り付きすぎないよう全体を少し上げる（FOOT 基準）。
     function drawFooter(page) {
-      line(page, M, 100, RXp, 100, BORDER, 0.6);
+      var FOOT = 132; // 区切り線のy（従来100→上げて下に余白を残す）
+      var EM = FOOT - 16; // エンブレム基準
+      var IY = FOOT - 54; // 会社情報の先頭y
+      line(page, M, FOOT, RXp, FOOT, BORDER, 0.6);
       // エンブレム＝ロゴ画像があるときだけ。ロゴ無し（plain）は何も描かない
       // （頭文字の丸＝意味不明と司さん指摘のため廃止）。
-      var emY = 84;
       if (showLogo) {
         var ew = 34,
           asp = logo.width / logo.height,
@@ -424,10 +427,10 @@
           eh = 26;
           ew = eh * asp;
         }
-        page.drawImage(logo, { x: CX - ew / 2, y: emY - eh, width: ew, height: eh });
+        page.drawImage(logo, { x: CX - ew / 2, y: EM - eh, width: ew, height: eh });
       }
       // 会社情報（中央寄せ）
-      var fy = 46;
+      var fy = IY;
       iLines.forEach(function (ln, idx) {
         T(page, font, ln, CX, fy, idx === 0 ? 11 : 8, {
           align: "center",
@@ -441,7 +444,7 @@
         var nameW = font.widthOfTextAtSize(_sanitize(iLines[0] || ""), 11);
         page.drawImage(hanko, {
           x: CX + nameW / 2 + 4,
-          y: 46 - hs + 9,
+          y: IY - hs + 9,
           width: hs,
           height: hs,
           opacity: 0.95,
@@ -449,7 +452,7 @@
       }
       // 振込先（左下・小さく）
       if (bank.length) {
-        var by = 46;
+        var by = IY;
         bank.forEach(function (ln) {
           T(page, font, ln, M, by, 7.5, { color: MUTED });
           by -= 10;
@@ -457,7 +460,7 @@
       }
       pageNum += 1;
       if (totalPages > 1)
-        T(page, font, pageNum + " / " + totalPages, RXp, 22, 8, { align: "right", color: MUTED });
+        T(page, font, pageNum + " / " + totalPages, RXp, 24, 8, { align: "right", color: MUTED });
     }
 
     // ===== 明細ページ =====
