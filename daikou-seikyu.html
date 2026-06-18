@@ -2484,7 +2484,10 @@
           </select>
         </div>
         <div class="invoice-actions no-print">
-          <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 印刷 / PDF</button>
+          <button class="btn btn-primary btn-sm" onclick="exportInvoicePDF(this)">
+            📄 PDFで保存 / 送る
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 印刷</button>
         </div>
         <div id="invoiceOut" class="sheet-scale"></div>
         <div class="scr-sub no-print" style="margin-top: 8px">
@@ -2576,6 +2579,8 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
     <!-- 定義駆動 帳票エンジン（移植可能な共通モジュール／DOM非依存） -->
     <script src="meisai-engine.js"></script>
+    <!-- 請求書のクリーンなベクターPDF出力（日本語フォント埋込・複数ページ／pdf-lib等は初回PDF時のみ遅延ロード） -->
+    <script src="invoice-pdf.js"></script>
     <!-- 電子判子の画像処理（背景白抜き・透過判定／再利用モジュール） -->
     <script src="hanko.js"></script>
     <!-- Supabase クライアント（クラウドDB＋ログイン） -->
@@ -4818,6 +4823,73 @@
         }
         out.innerHTML = '<div id="invScaleInner">' + html + "</div>";
         fitInvoice();
+      }
+      // 請求書をクリーンなPDF（ブラウザのURL足跡なし・日本語埋込・複数ページ）で保存/共有。
+      async function exportInvoicePDF(btn) {
+        if (typeof InvoicePDF === "undefined") {
+          toast("PDFモジュールの読み込み待ちです。少し待って再度押してください");
+          return;
+        }
+        var month = document.getElementById("invMonth").value;
+        if (!month) {
+          toast("月を選んでください");
+          return;
+        }
+        var onlyCo = document.getElementById("invCompany").value;
+        var iss = issuerForEngine();
+        var old = btn ? btn.textContent : "";
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = "PDF作成中…";
+        }
+        try {
+          var bytes, fname;
+          if (onlyCo) {
+            var rows = DB.filter(function (r) {
+              return (
+                r.account_id === CURRENT_ACCOUNT && r.会社名 === onlyCo && inMonth(r.日付, month)
+              );
+            }).sort(function (a, b) {
+              return (
+                (a.日付 || "").localeCompare(b.日付 || "") || (a.id || "").localeCompare(b.id || "")
+              );
+            });
+            if (!rows.length) {
+              toast("該当する明細がありません");
+              return;
+            }
+            bytes = await InvoicePDF.buildOne(
+              MASTER,
+              onlyCo,
+              rows,
+              month,
+              iss,
+              MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, onlyCo)
+            );
+            fname = "請求書_" + month + "_" + onlyCo + ".pdf";
+          } else {
+            bytes = await InvoicePDF.buildMonth(MASTER, DB, month, CURRENT_ACCOUNT, iss);
+            if (!bytes) {
+              toast("該当する明細がありません");
+              return;
+            }
+            fname = "請求書_" + month + "_全社.pdf";
+          }
+          var miss = InvoicePDF.lastMissing();
+          InvoicePDF.save(bytes, fname);
+          if (miss.length) {
+            toast("PDFを作成（注意：この字は出せず〓表示→ " + miss.join(" ") + "）");
+          } else {
+            toast("PDFを作成しました");
+          }
+        } catch (e) {
+          toast("PDF作成に失敗：" + (e && e.message ? e.message : e));
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = old;
+          }
+        }
       }
       // 720pxのA4シートをスマホ画面幅に縮小して全体を見せる
       function fitInvoice() {
