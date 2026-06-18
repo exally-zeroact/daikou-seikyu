@@ -45,7 +45,6 @@
   }
 
   // ---- 遅延ロード（libs＋フォント。初回だけ） ----
-  var _assets = null;
   function _script(src, globalName) {
     return new Promise(function (res, rej) {
       if (global[globalName]) return res();
@@ -58,17 +57,29 @@
       document.head.appendChild(s);
     });
   }
-  // フォント＝BIZ UDPGothic（Officeに同梱の無料UD書体／OFL）。Excelの見た目に寄せる狙い。
-  // ★全字形(異体字 髙﨑邉/記号 ㈱№℡㊞ 含む13,932字)。pdf-lib のサブセッタは大きい
-  //   フォントで字を落とすバグがあるため subset:false で全埋め込み（その代わりPDFは約3MB）。
-  var FONT_PATH = "vendor/fonts/BIZUDPGothic-Regular.ttf";
-  async function loadAssets() {
-    if (_assets) return _assets;
+  // フォント＝Office同梱の無料UD書体(BIZ UD・OFL)に絞る＝Excelと書体を揃える。
+  // ★全字形(異体字 髙﨑邉/記号 ㈱№℡㊞)。pdf-libのサブセッタは大きいフォントで字を落とす
+  //   バグがあるため subset:false で全埋め込み（PDFは約3MB）。
+  var FONT_FILES = {
+    "BIZ UDPゴシック": "vendor/fonts/BIZUDPGothic-Regular.ttf",
+    "BIZ UDゴシック": "vendor/fonts/BIZUDGothic-Regular.ttf",
+    "BIZ UD明朝": "vendor/fonts/BIZUDMincho-Regular.ttf",
+    "BIZ UDP明朝": "vendor/fonts/BIZUDPMincho-Regular.ttf",
+  };
+  var DEFAULT_FONT = "BIZ UDPゴシック";
+  var _assetsCache = {}; // フォント名 → {PDFLib, fontkit, fontBytes}（フォント別にキャッシュ）
+  async function loadAssets(fontKey) {
+    fontKey = FONT_FILES[fontKey] ? fontKey : DEFAULT_FONT;
+    if (_assetsCache[fontKey]) return _assetsCache[fontKey];
     await _script("vendor/pdf-lib.min.js", "PDFLib");
     await _script("vendor/fontkit.umd.min.js", "fontkit");
-    var fontBytes = new Uint8Array(await (await fetch(FONT_PATH)).arrayBuffer());
-    _assets = { PDFLib: global.PDFLib, fontkit: global.fontkit, fontBytes: fontBytes };
-    return _assets;
+    var fontBytes = new Uint8Array(await (await fetch(FONT_FILES[fontKey])).arrayBuffer());
+    _assetsCache[fontKey] = {
+      PDFLib: global.PDFLib,
+      fontkit: global.fontkit,
+      fontBytes: fontBytes,
+    };
+    return _assetsCache[fontKey];
   }
 
   // ---- ユーティリティ ----
@@ -282,15 +293,8 @@
       T(page, font, lead, M, cy, 9.5, { color: DARK });
       cy -= 16;
       T(page, font, "下記の通り御請求申し上げます。", M, cy, 9.5, { color: DARK });
-      cy -= 22;
-      // ご請求金額（税込）＋下線
-      var gLabel = "ご請求金額（税込）";
-      var lw = T(page, font, gLabel, M, cy, 12);
-      var gv = yen(grand);
-      T(page, font, gv, M + lw + 60, cy, 13);
-      var gTextW = lw + 60 + font.widthOfTextAtSize(gv, 13);
-      line(page, M, cy - 17, M + gTextW + 6, cy - 17, BLACK, 1.3);
-      cy -= 30;
+      cy -= 20;
+      // ★合計は最終ページ下段に「ご請求金額」を目立つ枠で1回だけ（途中ページは出さない）★
 
       // ===== 明細テーブル =====
       var tableTop = cy;
@@ -377,7 +381,7 @@
         line(page, vx, tableTop, vx, tableBottom, GREY, 0.6);
       });
 
-      // ===== 下段（最終ページ＝合計枠／途中ページ＝続く） =====
+      // ===== 下段（最終ページ＝ご請求金額の強調枠を1回／途中ページ＝続く） =====
       var footTop = tableBottom - 16;
       if (isLast) {
         // 振込先（左）
@@ -387,19 +391,31 @@
           T(page, font, ln, M, by, 9, { color: DARK });
           by -= 14;
         });
-        // 合計ボックス（右）
-        var boxX = M + CW - 200;
+        // 合計（右）：小計／消費税／【ご請求金額】を1回だけ・目立つ枠で「全部でいくら」を明確に
+        var boxW = 238,
+          boxX = M + CW - boxW,
+          RX = M + CW;
         var sy = footTop;
-        function totRow(lbl, val, big) {
-          T(page, font, lbl, boxX, sy, big ? 11 : 9.5, { color: DARK });
-          T(page, font, val, M + CW, sy, big ? 12 : 9.5, { align: "right" });
-          sy -= big ? 18 : 15;
-        }
-        totRow("小計", yen(grand));
-        totRow("消費税（10%）", yen(tax10(grand)));
-        line(page, boxX, sy + 3, M + CW, sy + 3, DARK, 0.8);
-        sy -= 2;
-        totRow("合計", yen(grand), true);
+        T(page, font, "小計", boxX, sy, 9.5, { color: DARK });
+        T(page, font, yen(grand), RX, sy, 9.5, { align: "right" });
+        sy -= 15;
+        T(page, font, "消費税（10%・内税）", boxX, sy, 9.5, { color: DARK });
+        T(page, font, yen(tax10(grand)), RX, sy, 9.5, { align: "right" });
+        sy -= 21;
+        // ご請求金額の強調枠（薄緑塗り＋黒枠・大きめ）＝この請求書の総額
+        var gH = 30;
+        rect(page, boxX, sy, boxW, gH, GREEN);
+        page.drawRectangle({
+          x: boxX,
+          y: sy - gH,
+          width: boxW,
+          height: gH,
+          borderColor: BLACK,
+          borderWidth: 1.3,
+        });
+        T(page, font, "ご請求金額（税込）", boxX + 9, sy - 11, 11);
+        T(page, font, yen(grand), RX - 9, sy - 12, 16, { align: "right" });
+        sy -= gH + 8;
 
         // 役職集計（noteSummary）
         if (m.noteSummary && (m.noteGroups || []).length) {
@@ -411,12 +427,12 @@
             var g = (x.備考 || "").trim();
             if (sums.hasOwnProperty(g)) sums[g] += Number(x.金額) || 0;
           });
-          var ny = sy - 8;
+          var ny = sy - 4;
           T(page, font, "（内訳）", boxX, ny, 9, { color: DARK });
           ny -= 14;
           (m.noteGroups || []).forEach(function (g) {
             T(page, font, g, boxX, ny, 9, { align: "left", color: DARK });
-            T(page, font, sums[g] ? yen(sums[g]) : "", M + CW, ny, 9, {
+            T(page, font, sums[g] ? yen(sums[g]) : "", RX, ny, 9, {
               align: "right",
               color: DARK,
             });
@@ -424,7 +440,8 @@
           });
         }
       } else {
-        T(page, font, "次ページへ続く →", M, footTop, 9, { color: GREY });
+        // 途中ページは合計を出さず「続く」だけ＝per-page合計の混乱を避ける
+        T(page, font, "次ページへ続く →", M + CW, footTop, 10, { align: "right", color: DARK });
       }
 
       // ページ番号
@@ -439,7 +456,7 @@
 
   // ---- 公開: 1社 ----
   async function buildOne(master, co, rows, month, iss, invoiceNo) {
-    var a = await loadAssets();
+    var a = await loadAssets(iss && iss.pdfFont);
     var doc = await a.PDFLib.PDFDocument.create();
     doc.registerFontkit(a.fontkit);
     var font = await doc.embedFont(a.fontBytes, { subset: false });
@@ -462,7 +479,7 @@
 
   // ---- 公開: 月内の全社（1つのPDFに連結） ----
   async function buildMonth(master, db, month, accountId, iss) {
-    var a = await loadAssets();
+    var a = await loadAssets(iss && iss.pdfFont);
     var doc = await a.PDFLib.PDFDocument.create();
     doc.registerFontkit(a.fontkit);
     var font = await doc.embedFont(a.fontBytes, { subset: false });
@@ -526,6 +543,12 @@
     buildOne: buildOne,
     buildMonth: buildMonth,
     save: save,
+    fonts: function () {
+      return Object.keys(FONT_FILES);
+    },
+    fontFile: function (name) {
+      return FONT_FILES[name] || FONT_FILES[DEFAULT_FONT];
+    },
     lastMissing: function () {
       return _lastMissing.slice();
     },
