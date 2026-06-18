@@ -241,9 +241,10 @@
     var noteN = m.noteSummary && (m.noteGroups || []).length ? m.noteGroups.length : 0;
 
     // ---- ページ分割：単ページに収まるか／収まらなければ明細ページ＋サマリーページ ----
-    // 自社情報が多行のときはフッターが高くなるぶん、単ページの明細上限を減らして合計と被らせない。
+    // 自社情報が多行/大きいロゴのときはフッターが高くなるぶん、単ページの明細上限を減らして合計と被らせない。
     var issTall = Math.max(0, (iLines.length || 1) - 4);
-    var capSingle = Math.max(8, 17 - noteN - issTall); // 単ページ（御請求金額＋合計＋役職）の明細上限
+    var logoTall = showLogo ? 3 : 0; // 大きいロゴぶんフッターが高い→3行ぶん減らす
+    var capSingle = Math.max(8, 17 - noteN - issTall - logoTall); // 単ページの明細上限
     var capDetail = 22; // 明細ページ（総額なし）の明細上限
     var multi = rows.length > capSingle;
     var detailPages = [];
@@ -433,15 +434,16 @@
     function drawFooter(page) {
       var nL = iLines.length || 1;
       var issH = nL > 0 ? 13 + (nL - 1) * 10 : 0; // 自社情報ブロック高さ
-      // ロゴ寸法（エレガントの基準＝大きめ。logoSizeMm を 1.3倍で効かせ、上限も大きく）。
+      // ロゴ寸法（エレガント基準＝大きめ＋スライダーで効く。高さ上限を大きくして
+      //   正方形ロゴでも logoSizeMm を上げたら大きくなるように）。
       var logoW = 0,
         logoH = 0;
       if (showLogo) {
         var asp = logo.width / logo.height;
-        logoW = Math.min((Number(iss && iss.logoSizeMm) || 40) * MM * 1.3, 165);
+        logoW = Math.min((Number(iss && iss.logoSizeMm) || 40) * MM * 1.2, 210);
         logoH = logoW / asp;
-        if (logoH > 74) {
-          logoH = 74;
+        if (logoH > 130) {
+          logoH = 130; // 高さ上限46mm（フッターに収まる範囲で大きく）
           logoW = logoH * asp;
         }
       }
@@ -576,9 +578,9 @@
       var dateStr = "請求日　" + issueDateStr(month, iss && iss.dateEra);
       var noStr = iss && iss.showInvoiceNo && invoiceNo ? "No.　" + invoiceNo : "";
       if (style === "A" && logo && iss && iss.logoMode === "show") {
-        // クラシックの基準＝右上ロゴをやや大きめに（logoSizeMm を1.15倍・高さ上限32mm）
-        var maxW = (Number(iss.logoSizeMm) || 40) * MM * 1.15,
-          maxH = 32 * MM;
+        // クラシックの基準＝右上ロゴを大きめに（logoSizeMm を1.25倍・高さ上限40mm）
+        var maxW = (Number(iss.logoSizeMm) || 40) * MM * 1.25,
+          maxH = 40 * MM;
         var asp = logo.width / logo.height;
         var lw0 = maxW,
           lh0 = maxW / asp;

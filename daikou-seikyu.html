@@ -2252,7 +2252,11 @@
               type="checkbox"
               id="iss_showNo"
               style="width: 18px; height: 18px; accent-color: #52b788"
-              onchange="setIssuer('showInvoiceNo', this.checked)"
+              onchange="
+                setIssuer('showInvoiceNo', this.checked);
+                generateInvoices();
+                toast(this.checked ? '請求書番号を表示にしました' : '請求書番号を非表示にしました');
+              "
             />
             請求書番号を表示する（例：2026-06-02／会社ごとに自動採番）
           </label>
@@ -2294,6 +2298,9 @@
                 onchange="
                   setIssuer('showPaymentDue', this.checked);
                   generateInvoices();
+                  toast(
+                    this.checked ? 'お支払期限を表示にしました' : 'お支払期限を非表示にしました'
+                  );
                 "
               />
               お支払期限（有効期限）を表示する
@@ -2321,6 +2328,7 @@
                 onchange="
                   setIssuer('paymentDue', this.value);
                   generateInvoices();
+                  toast('お支払期限を設定しました');
                 "
               />
               <div class="align-row" style="margin: 0">
@@ -5380,18 +5388,18 @@
         INV_OVERRIDE = { pdfDesign: design, variant: activeVariantKey(design) };
         syncInvoiceToolbar();
         generateInvoices();
+        toast(DESIGN_LABELS[design] + " に切替えました（この回だけ）");
       }
       function setInvoiceVariant(key) {
         var d = activeDesign();
-        if (
-          !designVariants(d).some(function (v) {
-            return v.key === key;
-          })
-        )
-          return;
+        var v = designVariants(d).filter(function (x) {
+          return x.key === key;
+        })[0];
+        if (!v) return;
         INV_OVERRIDE = { pdfDesign: d, variant: key };
         syncInvoiceToolbar();
         generateInvoices();
+        toast(v.label + " に切替えました（この回だけ）");
       }
       // 「既定にする」＝今の見た目(一時上書き or 既定)をアカウント既定として保存。
       function makeInvoiceDefault() {
@@ -5967,15 +5975,26 @@
       function setAlign(field, val) {
         setIssuer(field, val);
         renderIssuer();
+        generateInvoices();
+        toast(
+          val === "left"
+            ? "左揃えにしました"
+            : val === "center"
+              ? "中央揃えにしました"
+              : "右揃えにしました"
+        );
       }
       function setDateEra(val) {
         setIssuer("dateEra", val);
         renderIssuer();
+        generateInvoices();
+        toast("日付を" + (val === "reiwa" ? "令和" : "西暦") + "表記にしました");
       }
       function setDueEra(val) {
         setIssuer("paymentDueEra", val);
         renderIssuer();
         generateInvoices();
+        toast("お支払期限を" + (val === "reiwa" ? "令和" : "西暦") + "表記にしました");
       }
       function setIssuer(field, value) {
         if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
@@ -6088,6 +6107,7 @@
         var n = Number(String(v).replace(/[^0-9.]/g, "")) || 21;
         setIssuer("hankoSizeMm", n);
         renderIssuer(); // プレビューを実サイズで更新（大小が見える）
+        generateInvoices(); // 請求書プレビュー（実PDF）も更新
         toastDebounced("判子の大きさを " + n + "mm にしました（請求書に反映）");
       }
       function clearHanko() {
@@ -6126,6 +6146,7 @@
         var n = Number(String(v).replace(/[^0-9.]/g, "")) || 40;
         setIssuer("logoSizeMm", n);
         renderIssuer(); // プレビューを実サイズで更新（大小が見える）
+        generateInvoices(); // 請求書プレビュー（実PDF）も更新
         toastDebounced("ロゴの大きさを " + n + "mm にしました（請求書に反映）");
       }
       function clearLogo() {
