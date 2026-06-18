@@ -1982,6 +1982,7 @@
               rows="6"
               style="resize: vertical; line-height: 1.8"
               oninput="setIssuer('issuer', this.value)"
+              onchange="toast('発行者を保存しました（請求書に反映）')"
             ></textarea>
             <div class="align-row">
               <span class="align-lbl">文字揃え</span>
@@ -2024,6 +2025,7 @@
               rows="3"
               style="resize: vertical; line-height: 1.8"
               oninput="setIssuer('bank', this.value)"
+              onchange="toast('振込先を保存しました（請求書に反映）')"
             ></textarea>
             <div class="align-row">
               <span class="align-lbl">文字揃え</span>
@@ -4581,6 +4583,14 @@
           t.classList.remove("show");
         }, 1700);
       }
+      // 連続入力(oninput等)で1回だけ出す保存トースト。入力が止まってからまとめて確認を出す。
+      var _toastDebT = null;
+      function toastDebounced(msg) {
+        clearTimeout(_toastDebT);
+        _toastDebT = setTimeout(function () {
+          toast(msg);
+        }, 450);
+      }
 
       /* ===================================================================
    画面切替
@@ -5214,18 +5224,33 @@
         if (lsz && document.activeElement !== lsz) lsz.value = s.logoSizeMm || 40;
         var cn = document.getElementById("iss_showNo");
         if (cn) cn.checked = !!s.showInvoiceNo;
+        // プレビューは選んだmmサイズに比例して大小を表示＝サイズ変更が目で見える(共通 約1.6px/mm)。
         var prev = document.getElementById("hankoPreview");
         if (s.hanko) {
+          var hmm = Number(s.hankoSizeMm) || 21;
+          var hpx = Math.max(16, Math.min(72, Math.round(hmm * 1.6)));
           prev.innerHTML =
-            '<img src="' + s.hanko + '" style="width:100%;height:100%;object-fit:contain;">';
+            '<img src="' +
+            s.hanko +
+            '" style="width:' +
+            hpx +
+            "px;height:" +
+            hpx +
+            'px;object-fit:contain;display:block;margin:auto;">';
         } else {
           prev.textContent = "なし";
         }
         var lprev = document.getElementById("logoPreview");
         if (lprev) {
           if (s.logo) {
+            var lmm = Number(s.logoSizeMm) || 40;
+            var lpx = Math.max(24, Math.min(96, Math.round(lmm * 1.6)));
             lprev.innerHTML =
-              '<img src="' + s.logo + '" style="width:100%;height:100%;object-fit:contain;">';
+              '<img src="' +
+              s.logo +
+              '" style="width:' +
+              lpx +
+              'px;max-height:100%;object-fit:contain;display:block;margin:auto;">';
           } else {
             lprev.textContent = "なし";
           }
@@ -5260,6 +5285,8 @@
       function setHankoSize(v) {
         var n = Number(String(v).replace(/[^0-9.]/g, "")) || 21;
         setIssuer("hankoSizeMm", n);
+        renderIssuer(); // プレビューを実サイズで更新（大小が見える）
+        toastDebounced("判子の大きさを " + n + "mm にしました（請求書に反映）");
       }
       function clearHanko() {
         setIssuer("hanko", "");
@@ -5296,6 +5323,8 @@
       function setLogoSize(v) {
         var n = Number(String(v).replace(/[^0-9.]/g, "")) || 40;
         setIssuer("logoSizeMm", n);
+        renderIssuer(); // プレビューを実サイズで更新（大小が見える）
+        toastDebounced("ロゴの大きさを " + n + "mm にしました（請求書に反映）");
       }
       function clearLogo() {
         setIssuer("logo", "");
@@ -6236,11 +6265,13 @@
         if (m.labels) delete m.labels[key];
         saveMaster();
         reopen(co);
+        toast("項目「" + key + "」を削除しました");
       }
       function setMasterField(co, field, v) {
         MASTER[co][field] = v;
         saveMaster();
         if (field === "noteSummary") reopen(co);
+        else toastDebounced("保存しました（請求書に反映）");
       }
       function setNoteGroups(co, v) {
         MASTER[co].noteGroups = v
@@ -6250,6 +6281,7 @@
           })
           .filter(Boolean);
         saveMaster();
+        toastDebounced("集計の並びを保存しました");
       }
       // drag & drop reorder
       var _drag = { co: null, key: null };
