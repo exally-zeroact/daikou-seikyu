@@ -222,6 +222,7 @@
     var m = master[co] || { items: ["日付", "行き先", "金額"], widths: {} };
     var items = m.items;
     var amtIdx = items.indexOf("金額");
+    var pDue = (iss && iss.paymentDue) || m.paymentDue; // お支払期限（自社情報優先・会社マスタfallback）
     var cw = colWidths(items, m.widths);
     var grand = rows.reduce(function (s, r) {
       return s + (Number(r.金額) || 0);
@@ -291,8 +292,8 @@
       line(page, M, cy - 21, M + Math.min(aw + 10, CW * 0.5), cy - 21, BORDER, 0.6);
       // ★右ブロック（赤丸の位置）：お支払期限＋振込先を一塊で右上に★
       var ry = cy + 2;
-      if (m.paymentDue) {
-        T(page, font, "お支払期限　" + m.paymentDue, RXp, ry, 10, { align: "right", color: TEXT });
+      if (pDue) {
+        T(page, font, "お支払期限　" + pDue, RXp, ry, 10, { align: "right", color: TEXT });
         ry -= 16;
       }
       if (bank.length) {
@@ -542,6 +543,7 @@
     var m = master[co] || { items: ["日付", "行き先", "金額"], widths: {} };
     var items = m.items;
     var amtIdx = items.indexOf("金額");
+    var pDue = (iss && iss.paymentDue) || m.paymentDue; // お支払期限（自社情報優先・会社マスタfallback）
     var cw = colWidths(items, m.widths);
     var grand = rows.reduce(function (s, r) {
       return s + (Number(r.金額) || 0);
@@ -591,8 +593,8 @@
         cy -= 30;
         T(page, font, dateStr + (noStr ? "　　" + noStr : ""), M, cy, 10, { color: DARK });
         cy -= 14;
-        if (m.paymentDue) {
-          T(page, font, "お支払期限　" + m.paymentDue, M, cy, 10, { color: DARK });
+        if (pDue) {
+          T(page, font, "お支払期限　" + pDue, M, cy, 10, { color: DARK });
           cy -= 14;
         }
         cy -= 18; // ★黄色＝請求日/No→御中の隙間を少し広げる★
@@ -603,8 +605,8 @@
           T(page, font, noStr, M + CW, cy, 9.5, { align: "right", color: DARK });
           cy -= 13;
         }
-        if (m.paymentDue) {
-          T(page, font, "お支払期限　" + m.paymentDue, M + CW, cy, 9.5, {
+        if (pDue) {
+          T(page, font, "お支払期限　" + pDue, M + CW, cy, 9.5, {
             align: "right",
             color: DARK,
           });

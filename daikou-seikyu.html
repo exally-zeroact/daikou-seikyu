@@ -2275,6 +2275,78 @@
               令和
             </button>
           </div>
+          <!-- お支払期限（有効期限）：表示ON/OFF＋日付＋和暦/西暦 -->
+          <div style="margin-top: 14px; border-top: 1px solid #e6f0ea; padding-top: 12px">
+            <label
+              style="
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 13px;
+                color: #1a4a2e;
+                cursor: pointer;
+              "
+            >
+              <input
+                type="checkbox"
+                id="iss_showDue"
+                style="width: 18px; height: 18px; accent-color: #52b788"
+                onchange="
+                  setIssuer('showPaymentDue', this.checked);
+                  generateInvoices();
+                "
+              />
+              お支払期限（有効期限）を表示する
+            </label>
+            <div
+              style="
+                margin-top: 8px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                flex-wrap: wrap;
+              "
+            >
+              <input
+                type="date"
+                id="iss_dueDate"
+                style="
+                  font-size: 14px;
+                  padding: 6px 10px;
+                  border: 1px solid #c8ecd8;
+                  border-radius: 8px;
+                  font-family: inherit;
+                  color: #1a4a2e;
+                "
+                onchange="
+                  setIssuer('paymentDue', this.value);
+                  generateInvoices();
+                "
+              />
+              <div class="align-row" style="margin: 0">
+                <span class="align-lbl">表記</span>
+                <button
+                  class="align-btn"
+                  data-grp="dueEra"
+                  data-a="seireki"
+                  onclick="setDueEra('seireki')"
+                >
+                  西暦
+                </button>
+                <button
+                  class="align-btn"
+                  data-grp="dueEra"
+                  data-a="reiwa"
+                  onclick="setDueEra('reiwa')"
+                >
+                  令和
+                </button>
+              </div>
+            </div>
+            <div class="scr-sub" style="margin-top: 6px">
+              ※請求日の近く（エレガント＝右上、クラシック＝請求日の下）に出ます。空欄/OFFなら出ません。
+            </div>
+          </div>
         </div>
         <div class="card">
           <div class="card-label">電子判子（任意）</div>
@@ -3382,7 +3454,8 @@
                 leftMeta.push(
                   "No. " + MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co)
                 );
-              if (m.paymentDue) leftMeta.push("お支払期限　" + m.paymentDue);
+              var _pdueA = iss.paymentDue || m.paymentDue;
+              if (_pdueA) leftMeta.push("お支払期限　" + _pdueA);
               if (pageCount > 1) leftMeta.push("（" + (pi + 1) + "/" + pageCount + "）");
               leftMeta.forEach(function (mt) {
                 var mrx = blank();
@@ -3462,10 +3535,11 @@
               // ロゴ画像＝左上角（請求日が右上・中央タイトルと衝突しない位置）。
               // 中央タイトルは中央のみ＝左端のロゴは本文と被らない。画像はあとでJSZip注入。
               if (iss.logo && iss.logoMode === "show") logoAnchors.push(anchorAt(0, ri0, 30000, 0));
-              // お支払期限（テンプレ：請求日の下・右上）
-              if (m.paymentDue) {
+              // お支払期限（自社情報優先・会社マスタfallback。請求日の下・右上）
+              var _pdueB = iss.paymentDue || m.paymentDue;
+              if (_pdueB) {
                 var rd = blank();
-                rd[rightStart] = "お支払期限　" + m.paymentDue;
+                rd[rightStart] = "お支払期限　" + _pdueB;
                 var rdi = row(rd);
                 M(rdi, rightStart, rdi, lastCol);
                 S(rdi, rightStart, { font: { sz: 9 }, alignment: { horizontal: "right" } });
@@ -5683,6 +5757,9 @@
           bankAlign: "left",
           dateEra: "seireki", // 日付の表記: seireki(2026/2/1) / reiwa(令和8年2月1日)
           showInvoiceNo: false, // 請求書番号を表示するか
+          showPaymentDue: false, // お支払期限（有効期限）を表示するか
+          paymentDue: "", // お支払期限の日付（ISO "2026-06-30"）
+          paymentDueEra: "seireki", // お支払期限の表記: seireki / reiwa
           hanko: "", // 表示・出力用（白抜き処理後）
           hankoRaw: "", // 元画像（白抜きON/OFF切替時に再処理する素）
           hankoBg: "auto", // 背景白抜き: auto / on / off
@@ -5849,6 +5926,17 @@
           logoMode: dv.variant.logoMode,
         };
       }
+      // お支払期限のISO日付を和暦/西暦の表示文字列へ。
+      function fmtDueDate(iso, era) {
+        if (!iso) return "";
+        var p = String(iso).split("-");
+        if (p.length < 3) return iso;
+        var y = Number(p[0]),
+          mo = Number(p[1]),
+          d = Number(p[2]);
+        if (era === "reiwa") return "令和" + (y - 2018) + "年" + mo + "月" + d + "日";
+        return y + "/" + mo + "/" + d;
+      }
       // エンジンが受け取る形（lines/bank/hanko）へ変換。空行は自動で除外。
       function issuerForEngine() {
         var s = currentIssuer();
@@ -5861,6 +5949,10 @@
           bankAlign: s.bankAlign || "left",
           dateEra: s.dateEra || "seireki",
           showInvoiceNo: !!s.showInvoiceNo,
+          paymentDue:
+            s.showPaymentDue && s.paymentDue
+              ? fmtDueDate(s.paymentDue, s.paymentDueEra || "seireki")
+              : "",
           hanko: s.hanko || null,
           hankoSizeMm: Number(s.hankoSizeMm) || 21,
           logo: s.logo || null,
@@ -5879,6 +5971,11 @@
       function setDateEra(val) {
         setIssuer("dateEra", val);
         renderIssuer();
+      }
+      function setDueEra(val) {
+        setIssuer("paymentDueEra", val);
+        renderIssuer();
+        generateInvoices();
       }
       function setIssuer(field, value) {
         if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
@@ -5914,7 +6011,9 @@
                   ? bg
                   : grp === "logoBg"
                     ? lbg
-                    : era;
+                    : grp === "dueEra"
+                      ? s.paymentDueEra || "seireki"
+                      : era;
           b.classList.toggle("on", b.dataset.a === cur);
         });
         var sz = document.getElementById("iss_hankoSize");
@@ -5923,6 +6022,10 @@
         if (lsz && document.activeElement !== lsz) lsz.value = s.logoSizeMm || 40;
         var cn = document.getElementById("iss_showNo");
         if (cn) cn.checked = !!s.showInvoiceNo;
+        var cdue = document.getElementById("iss_showDue");
+        if (cdue) cdue.checked = !!s.showPaymentDue;
+        var ddue = document.getElementById("iss_dueDate");
+        if (ddue && document.activeElement !== ddue) ddue.value = s.paymentDue || "";
         // プレビューは選んだmmサイズに比例して大小を表示＝サイズ変更が目で見える(共通 約1.6px/mm)。
         var prev = document.getElementById("hankoPreview");
         if (s.hanko) {
