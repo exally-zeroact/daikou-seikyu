@@ -1641,18 +1641,30 @@
       .sheet-scale.inv-loading {
         position: relative;
       }
-      .sheet-scale.inv-loading::after {
-        content: "プレビュー作成中…";
+      /* 既存プレビューを薄く覆って「更新中」を示す背景 */
+      .sheet-scale.inv-loading::before {
+        content: "";
         position: absolute;
         inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(255, 255, 255, 0.62);
-        color: #1a4a2e;
-        font-weight: 700;
-        font-size: 14px;
+        background: rgba(255, 255, 255, 0.55);
         z-index: 5;
+      }
+      /* 「プレビュー作成中…」は縦長プレビューの上部に固定して必ず見える濃いバッジで出す */
+      .sheet-scale.inv-loading::after {
+        content: "⏳ プレビュー作成中…";
+        position: absolute;
+        top: 14px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 9px 18px;
+        background: #1a4a2e;
+        color: #fff;
+        font-weight: 700;
+        font-size: 13.5px;
+        border-radius: 999px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.28);
+        white-space: nowrap;
+        z-index: 6;
       }
       /* 720pxのA4シートをスマホ幅に縮小して全体を見せる */
       #invScaleInner {
