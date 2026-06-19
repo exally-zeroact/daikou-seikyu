@@ -6104,7 +6104,7 @@
       //   画面がガクガク動く(司さん指摘)ため固定化。値は研究の標準点(画面の約50%＝見ながら触るの業界標準
       //   Apple medium detent/Material halfExpandedRatio=0.50)に合わせ 0.52。動かない＝うざくない。
       function _editCapRatio() {
-        return 0.52;
+        return 0.44;
       }
       function fitInvoice() {
         document.querySelectorAll(".inv-out").forEach(function (out) {
@@ -6117,20 +6117,33 @@
           if (!out.classList.contains("edit-prev")) {
             out.style.height = sh + "px"; // 請求タブ：内容に合わせる
           } else {
-            // ★編集プレビュー：閲覧中は全体表示(0.66)、編集モード(チップ/道具選択中)はコンパクト(0.35)。
-            //   transform:scale は原寸(720×H)の箱を残すので、負マージンで縦横の余白を畳む＝
-            //   横スクロール消滅＋縦スクロール時に下へ空白が出ない（実際の請求書ぶんだけスクロール）。
-            var capPx = Math.round(window.innerHeight * _editCapRatio());
+            // ★編集プレビュー：高さを「合計(小計/消費税/合計)の下端」までに自動で詰める＝
+            //   短い請求書で下に出る空白を切り、その分 下の操作エリアを広く使う（司さん案）。
+            //   transform:scale は原寸(720×H)の箱を残すので、負マージンで縦横の余白を畳む(横スクロール消滅)。
             inner.style.marginRight = -Math.round(720 * (1 - s)) + "px";
             inner.style.marginBottom = -Math.round(inner.offsetHeight * (1 - s)) + "px";
             out.style.overflowX = "hidden"; // 横スクロールは常に無し
-            if (sh <= capPx + 2) {
-              out.style.height = sh + "px";
-              out.style.overflowY = "hidden";
+            var maxH = Math.round(window.innerHeight * 0.6); // 上限
+            var minH = Math.round(window.innerHeight * 0.3); // 下限
+            out.style.height = maxH + "px"; // 測定用に一旦上限へ
+            out.style.overflowY = "auto";
+            out.scrollTop = 0;
+            // 合計ブロックの下端まで＝紙の空白を切る。無ければご請求金額→比率0.48でフォールバック。
+            var endBox =
+              out.querySelector('.hit-box[data-key="totals"]') ||
+              out.querySelector('.hit-box[data-key="grand"]');
+            var targetH;
+            if (endBox) {
+              var or = out.getBoundingClientRect();
+              var br = endBox.getBoundingClientRect();
+              targetH = Math.round(br.bottom - or.top + 12); // 合計の下端＋少し余白
             } else {
-              out.style.height = capPx + "px";
-              out.style.overflowY = "auto"; // 縦だけ（実際の請求書ぶんだけ）
+              targetH = Math.round(window.innerHeight * 0.48);
             }
+            targetH = Math.max(minH, Math.min(maxH, targetH));
+            out.style.height = targetH + "px";
+            // 全体(フッター含む)はこれより高いので縦スクロールは残す（チップ選択で各範囲へ飛べる）。
+            out.style.overflowY = sh <= targetH + 2 ? "hidden" : "auto";
           }
         });
       }
