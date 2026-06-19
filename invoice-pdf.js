@@ -278,12 +278,14 @@
     function drawTop(page) {
       var cy = A4.h - 50;
       T(page, font, "請　求　書", CX, cy, 26, { align: "center", color: TEXT });
-      // 請求日 / No.（右上・控えめ）
-      T(page, font, "請求日　" + issueDateStr(month, iss && iss.dateEra), RXp, A4.h - 52, 9, {
+      // 請求日 / No.（右上・控えめ）。No.なしのときは請求日を緑の線のすぐ上まで下げて空白を作らない。
+      var showNo = iss && iss.showInvoiceNo && invoiceNo;
+      var dateY = showNo ? A4.h - 52 : A4.h - 70;
+      T(page, font, "請求日　" + issueDateStr(month, iss && iss.dateEra), RXp, dateY, 9, {
         align: "right",
         color: MUTED,
       });
-      if (iss && iss.showInvoiceNo && invoiceNo)
+      if (showNo)
         T(page, font, "No.　" + invoiceNo, RXp, A4.h - 64, 9, { align: "right", color: MUTED });
       cy -= 30;
       flourish(page, cy - 4);
