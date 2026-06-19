@@ -456,22 +456,27 @@
       // ロゴ＝右端固定・上端を線のすぐ下から（大きく）
       if (showLogo)
         page.drawImage(logo, { x: RXp - logoW, y: topY - logoH, width: logoW, height: logoH });
-      // 自社情報（中央揃え・ページ中央）＝ブロック内で縦中央に
+      // 自社情報：ロゴありは中央揃え（中央）、ロゴなしは右揃え（右端＝ロゴがあった位置）。
+      var infoAlign = showLogo ? "center" : "right";
+      var infoAnchorX = showLogo ? CX : RXp;
       var textTop = topY - Math.max(0, (blockH - issH) / 2);
       var fy = textTop;
       iLines.forEach(function (ln, idx) {
-        T(page, font, ln, CX, fy, idx === 0 ? 11 : 8, {
-          align: "center",
+        T(page, font, ln, infoAnchorX, fy, idx === 0 ? 11 : 8, {
+          align: infoAlign,
           color: idx === 0 ? TEXT : MUTED,
         });
         fy -= idx === 0 ? 13 : 10;
       });
-      // 判子（中央寄せ社名の右端に“重ねて”押す＝角印標準）。左側が社名末尾に被る位置へ。
+      // 判子（社名の右端に“重ねて”押す＝角印標準）。中央揃え/右揃えで社名末尾の位置が変わる。
       if (hanko) {
         var hs = (Number(iss && iss.hankoSizeMm) || 20) * MM * 0.8;
         var nameW = font.widthOfTextAtSize(_sanitize(iLines[0] || ""), 11);
+        var nameRight = showLogo ? CX + nameW / 2 : RXp; // 社名の右端
+        var hankoX = nameRight - hs * 0.45; // 社名末尾に重なる
+        if (hankoX + hs > RXp) hankoX = RXp - hs; // 緑の線の右端からはみ出さない
         page.drawImage(hanko, {
-          x: CX + nameW / 2 - hs * 0.45, // 社名末尾に重なる
+          x: hankoX,
           y: textTop - hs + 9,
           width: hs,
           height: hs,
