@@ -591,15 +591,14 @@
           lw0 = maxH * asp;
         }
         var titleTop = cy + 1; // 「請求書」タイトルの視覚的な上端
-        // ★ロゴは真下の自社情報ブロック（右寄せ）の横中心に合わせる＝ロゴと自社情報が中央そろえの塊になる。
-        var infoW = 0;
-        iLines.forEach(function (ln, idx) {
-          var w = font.widthOfTextAtSize(String(ln == null ? "" : ln), idx === 0 ? 11 : 9.5);
-          if (w > infoW) infoW = w;
-        });
-        var infoCenter = M + CW - infoW / 2; // 右端に右寄せした自社情報ブロックの横中心
-        var logoX = infoW > 0 ? infoCenter - lw0 / 2 : M + CW - lw0;
-        if (logoX + lw0 > M + CW) logoX = M + CW - lw0; // 右マージンをはみ出さない
+        // ★ロゴは真下の「会社名（自社情報1行目）」の横中心に合わせる＝ロゴと社名が縦に中央そろえ。
+        var nameW = iLines.length
+          ? font.widthOfTextAtSize(String(iLines[0] == null ? "" : iLines[0]), 11)
+          : 0;
+        var nameCenter = M + CW - nameW / 2; // 右寄せした会社名の横中心
+        var logoX = nameW > 0 ? nameCenter - lw0 / 2 : M + CW - lw0;
+        if (logoX + lw0 > A4.w - 8) logoX = A4.w - 8 - lw0; // ページ右端からはみ出さない
+        if (logoX < M) logoX = M; // 左マージンより内側に
         page.drawImage(logo, { x: logoX, y: titleTop - lh0, width: lw0, height: lh0 });
         logoBottom = titleTop - lh0;
       }
