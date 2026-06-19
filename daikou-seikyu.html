@@ -644,14 +644,15 @@
       }
       .itb-btn,
       .itb-font {
-        font-size: 12.5px;
-        padding: 6px 11px;
+        font-size: 12px;
+        padding: 5px 10px; /* チップと同じ縦幅に統一（行の高さを揃える） */
         border: 1px solid #c8ecd8;
         border-radius: 8px;
         background: #fff;
         color: #1a4a2e;
         cursor: pointer;
         font-family: inherit;
+        white-space: nowrap;
       }
       .itb-btn.on {
         background: #52b788;
@@ -2451,6 +2452,10 @@
               class="finput fnum"
               id="iss_logoSize"
               inputmode="numeric"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
               min="10"
               max="46"
               style="max-width: 120px"
@@ -7755,6 +7760,15 @@
           document.getElementById("loginOverlay").classList.add("on"); // 初回＝ログイン画面
         }
       }
+      // ★数字入力欄(.fnum)に予測変換・オートフィルで文章が混入するのを防ぐ：
+      //   入力されるたびに数字と小数点以外を即座に取り除く（iOSの予測バー対策）。
+      document.addEventListener("input", function (e) {
+        var t = e.target;
+        if (t && t.classList && t.classList.contains("fnum")) {
+          var clean = String(t.value).replace(/[^0-9.]/g, "");
+          if (clean !== t.value) t.value = clean;
+        }
+      });
       boot();
     </script>
   </body>
