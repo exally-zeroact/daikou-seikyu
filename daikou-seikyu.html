@@ -1746,8 +1746,8 @@
       }
       /* ===== 編集タブ ===== */
       .edit-prev {
-        max-height: 52vh; /* コンパクト化で空いた分プレビューを広く（編集中の請求書を大きく見せる） */
-        overflow: auto;
+        /* 高さは fitInvoice が内容に合わせて設定（単ページ＝スクロールなしで全体表示）。 */
+        overflow: hidden;
         background: #fff;
         border: 1px solid #e3eee8;
         border-radius: 12px;
@@ -1779,6 +1779,8 @@
         border-radius: 8px;
         padding: 2px 7px;
         font-size: 10px;
+        white-space: nowrap;
+        flex: none;
       }
       .edit-tools {
         display: flex;
@@ -1820,6 +1822,20 @@
         background: #eaf7f0;
         color: #2f9e6f;
         font-weight: 800;
+      }
+      /* 見出し「編集すると即ここが変わる」の横に置く小さな初期化ボタン（確認ダイアログあり）。 */
+      .edit-reset-sm {
+        flex: none;
+        padding: 3px 9px;
+        border-radius: 999px;
+        border: 1px solid #e0d3c0;
+        background: #fff;
+        color: #a8855f;
+        font-family: inherit;
+        font-size: 11px;
+        font-weight: 700;
+        white-space: nowrap;
+        cursor: pointer;
       }
       .edit-panel {
         background: #fff;
@@ -3160,14 +3176,16 @@
     <section class="screen" id="scr-edit">
       <div class="edit-stickytop">
         <div class="edit-live">
-          👁 プレビュー <span class="b">編集すると即ここが変わる</span>
+          <span class="b">編集すると即変わる</span>
+          <button class="edit-reset-sm" onclick="editResetDesign()">↩ 初期に戻す</button>
           <select
             class="fselect"
             id="editCompany"
             style="
               margin-left: auto;
               width: auto;
-              min-width: 120px;
+              min-width: 92px;
+              max-width: 44%;
               padding: 4px 8px;
               font-size: 12px;
             "
@@ -3208,20 +3226,16 @@
           <button class="echip" data-blk="hanko" onclick="editSelectBlock('hanko')">はんこ</button>
         </div>
       </div>
-      <!-- 全体の設定（特定の塊に紐づかない）。塊ごとの調整は上の「どこを直す？」チップから。 -->
+      <!-- 全体の設定（デザイン／No.・有効期限）。範囲ごとの調整は上のチップ・初期化は上の見出し横。 -->
       <div class="edit-tools" id="editTools">
-        <span class="etool-lbl">全体</span>
         <button class="etool" data-tool="tpl" onclick="editTool('tpl')">
           <span class="ic">🎨</span>デザイン
         </button>
         <button class="etool" data-tool="meta" onclick="editTool('meta')">
-          <span class="ic">🔢</span>番号/期限
+          <span class="ic">🔢</span>No./有効期限
         </button>
       </div>
       <div class="edit-panel" id="editPanel"></div>
-      <button class="ep-reset" style="margin-top: 8px" onclick="editResetDesign()">
-        ↩ 初期設定に戻す
-      </button>
     </section>
 
     <!-- ===== BOTTOM NAV ===== -->
@@ -6044,9 +6058,21 @@
           if (out.clientWidth <= 0) return; // 非表示中は scale(0) を当てない
           var s = Math.min(1, out.clientWidth / 720);
           inner.style.transform = "scale(" + s + ")";
-          // 編集タブ枠は max-height で内部スクロール。請求タブは高さを内容に合わせる。
-          if (!out.classList.contains("edit-prev"))
-            out.style.height = inner.offsetHeight * s + "px";
+          var sh = inner.offsetHeight * s; // 縮小後の見た目の高さ（transformは原寸のままなので s を掛ける）
+          if (!out.classList.contains("edit-prev")) {
+            out.style.height = sh + "px"; // 請求タブ：内容に合わせる
+          } else {
+            // ★編集プレビュー：単ページは縮小後の高さに合わせてクリップ＝スクロールなしで全体が見える。
+            //   高すぎる(複数ページ)時だけ上限でスクロール。原寸レイアウト箱の余白は overflow:hidden で隠す。
+            var capPx = Math.round(window.innerHeight * 0.66);
+            if (sh <= capPx + 2) {
+              out.style.height = sh + "px";
+              out.style.overflow = "hidden";
+            } else {
+              out.style.height = capPx + "px";
+              out.style.overflow = "auto";
+            }
+          }
         });
       }
 
