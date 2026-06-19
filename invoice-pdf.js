@@ -110,19 +110,21 @@
     "BIZ UDP明朝": "vendor/fonts/BIZUDPMincho-Regular.ttf",
   };
   var DEFAULT_FONT = "BIZ UDPゴシック";
-  var _assetsCache = {}; // フォント名 → {PDFLib, fontkit, fontBytes}（フォント別にキャッシュ）
-  async function loadAssets(fontKey) {
+  var _assetsCache = {}; // フォント名 → Promise<{PDFLib, fontkit, fontBytes}>（★Promiseでキャッシュ＝先読みとビルドの二重fetch防止★）
+  function loadAssets(fontKey) {
     fontKey = FONT_FILES[fontKey] ? fontKey : DEFAULT_FONT;
     if (_assetsCache[fontKey]) return _assetsCache[fontKey];
-    await _script("vendor/pdf-lib.min.js", "PDFLib");
-    await _script("vendor/fontkit.umd.min.js", "fontkit");
-    var fontBytes = new Uint8Array(await (await fetch(FONT_FILES[fontKey])).arrayBuffer());
-    _assetsCache[fontKey] = {
-      PDFLib: global.PDFLib,
-      fontkit: global.fontkit,
-      fontBytes: fontBytes,
-    };
-    return _assetsCache[fontKey];
+    var p = (async function () {
+      await _script("vendor/pdf-lib.min.js", "PDFLib");
+      await _script("vendor/fontkit.umd.min.js", "fontkit");
+      var fontBytes = new Uint8Array(await (await fetch(FONT_FILES[fontKey])).arrayBuffer());
+      return { PDFLib: global.PDFLib, fontkit: global.fontkit, fontBytes: fontBytes };
+    })();
+    _assetsCache[fontKey] = p;
+    p.catch(function () {
+      delete _assetsCache[fontKey]; // 失敗は次回再試行できるようキャッシュから外す
+    });
+    return p;
   }
 
   // ---- ユーティリティ ----
@@ -1104,6 +1106,18 @@
     save: save,
     fonts: function () {
       return Object.keys(FONT_FILES);
+    },
+    // ★先読み：pdf-lib/fontkit/フォント(約3MB)を裏で取得して温める（初回プレビューを速く）。
+    //   ログイン直後に呼ぶと、編集/請求タブを開いた時にはロード済み＝待ちが消える。
+    warmup: function (fontKey) {
+      return loadAssets(fontKey).then(
+        function () {
+          return true;
+        },
+        function () {
+          return false;
+        }
+      );
     },
     fontFile: function (name) {
       return FONT_FILES[name] || FONT_FILES[DEFAULT_FONT];

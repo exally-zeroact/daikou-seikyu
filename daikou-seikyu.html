@@ -1640,6 +1640,7 @@
       }
       .sheet-scale.inv-loading {
         position: relative;
+        min-height: 150px; /* 空のまま読み込み中でも「作成中」バッジが見える高さを確保（白画面でバグに見えない） */
       }
       /* 既存プレビューを薄く覆って「更新中」を示す背景 */
       .sheet-scale.inv-loading::before {
@@ -5315,7 +5316,7 @@
         if (seg === "invoice") {
           refreshInvoiceSelects();
           syncInvoiceToolbar(); // テンプレ強調＋書体名＋プレビュー書体を現在値に
-          generateInvoices();
+          generateInvoices(true); // 画面入場＝即ビルド（debounce無し）
         } else {
           renderReport();
         }
@@ -5540,10 +5541,17 @@
       }
       var _invSeq = 0;
       var _invGenTimer = null;
-      function generateInvoices() {
-        // 0.6s のPDF生成があるので連続変更はまとめる（debounce）
+      // immediate=true（画面入場時）は debounce を挟まず即ビルド＋即「作成中」表示＝待ち感ゼロ。
+      // 引数なし（連続編集）は従来どおり 220ms でまとめる。
+      function generateInvoices(immediate) {
         if (_invGenTimer) clearTimeout(_invGenTimer);
-        _invGenTimer = setTimeout(_doGenerateInvoices, 220);
+        if (immediate) {
+          var out = activeInvOut();
+          if (out) out.classList.add("inv-loading"); // 空白白画面でなく即「作成中」を出す
+          _invGenTimer = setTimeout(_doGenerateInvoices, 0);
+        } else {
+          _invGenTimer = setTimeout(_doGenerateInvoices, 220); // 0.6sのPDF生成を連続変更でまとめる
+        }
       }
       function _invEmpty(out, msg, seq) {
         if (seq !== _invSeq) return;
@@ -5953,7 +5961,7 @@
           cos[0] ||
           "";
         editTool(_editTool);
-        generateInvoices();
+        generateInvoices(true); // 画面入場＝即ビルド（debounce無し）
       }
       function editPickCompany() {
         generateInvoices();
@@ -8660,6 +8668,20 @@
         refreshCompanySelects();
         showScreen("input");
         updatePayBadge();
+        // ★プレビュー資産(pdf-lib/fontkit/フォント約3MB/pdf.js)を裏で先読み＝編集/請求を開いた時に待たせない。
+        //   入力画面が見えてから少し遅らせて開始（初期描画と競合させない）。
+        setTimeout(warmPreviewAssets, 60);
+      }
+      var _previewAssetsWarmed = false;
+      function warmPreviewAssets() {
+        if (_previewAssetsWarmed) return;
+        _previewAssetsWarmed = true;
+        try {
+          var f =
+            typeof currentIssuer === "function" && currentIssuer() ? currentIssuer().pdfFont : null;
+          if (window.InvoicePDF && InvoicePDF.warmup) InvoicePDF.warmup(f); // フォント＋libを温める
+          if (typeof ensurePdfjs === "function") ensurePdfjs(); // pdf.jsも温める
+        } catch (e) {}
       }
       async function boot() {
         var sess = await SB.auth.getSession();
