@@ -5785,7 +5785,7 @@
         out.innerHTML = "";
         out.appendChild(inner);
         fitInvoice();
-        if (typeof _editSelBlock !== "undefined" && _editSelBlock) _applyBlockSelection(); // 選択を再適用
+        if (typeof _editSelBlock !== "undefined" && _editSelBlock) _applyBlockSelection(false); // 再描画＝ハイライトのみ（寄せない＝勝手にスクロールしない）
       }
       // 塊(ブロック)の当たり判定divを canvas の上に重ねる。
       //   PDF空間(y-up)の矩形 → pdf.js viewport.convertToViewportPoint で canvas px へ。
@@ -5908,15 +5908,17 @@
           // 揃え系(info/grand/lead)は「その範囲の揃えだけ」を出す（_alignFilter）。
           editTool(tool, tool === "align" ? key : null);
         }
-        _applyBlockSelection(); // 上のプレビューで範囲を光らせて中央へ寄せる
+        _applyBlockSelection(true); // 範囲を光らせる＋(複数ページで窓外の時だけ)寄せる
       }
       // 「お支払期限」チップは、お支払期限がONの時だけ出す（OFFなら請求書に無い＝選べない）。
       function refreshDueChip() {
         var c = document.querySelector('#editChips .echip[data-blk="due"]');
         if (c) c.style.display = currentIssuer().showPaymentDue ? "" : "none";
       }
-      // 選択中の塊にミント枠を付け、プレビュー窓の中央へスクロール。再描画後も呼ぶ。
-      function _applyBlockSelection() {
+      // 選択中の範囲にミント枠を付ける。doScroll=true かつ プレビューが実際にスクロール可能な時だけ寄せる。
+      //   ★全体が見えている(単ページ＝overflow:hidden)時は寄せない＝勝手にスクロールして うざいのを防ぐ。
+      //   再描画のたびに寄せると動きまくるので、再描画時はハイライトのみ(doScroll=false)。
+      function _applyBlockSelection(doScroll) {
         var out = activeInvOut();
         if (!out) return;
         var sel = null;
@@ -5925,10 +5927,14 @@
           d.classList.toggle("sel", on);
           if (on && !sel) sel = d;
         });
-        if (sel) _scrollBlockIntoView(out, sel);
+        if (sel && doScroll && _isPrevScrollable(out)) _scrollBlockIntoView(out, sel);
       }
-      // 選択塊が編集プレビュー窓(.edit-prev・overflow:auto)の中央に来るようスクロール。
-      //   getBoundingClientRect なら transform(scale)込みの実描画位置で計算できる。
+      // 実際にスクロールできる時だけ true（overflow:hidden=全体表示 や 収まってる時は false）。
+      function _isPrevScrollable(out) {
+        if (getComputedStyle(out).overflow === "hidden") return false;
+        return out.scrollHeight > out.clientHeight + 4;
+      }
+      // 選択範囲が編集プレビュー窓の中央に来るようスクロール（複数ページで範囲が窓外の時のみ）。
       function _scrollBlockIntoView(out, el) {
         var er = el.getBoundingClientRect();
         var or = out.getBoundingClientRect();
