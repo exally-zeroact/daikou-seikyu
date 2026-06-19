@@ -6095,15 +6095,19 @@
           if (!out.classList.contains("edit-prev")) {
             out.style.height = sh + "px"; // 請求タブ：内容に合わせる
           } else {
-            // ★編集プレビュー：閲覧中は全体表示(0.66)、編集モード(チップ/道具選択中)はコンパクト(0.40)＝
-            //   下の操作パネルがすぐ使える。単ページは縮小後の高さに合わせてクリップ、収まらなければ上限でスクロール。
-            var capPx = Math.round(window.innerHeight * (_editFocusActive ? 0.4 : 0.66));
+            // ★編集プレビュー：閲覧中は全体表示(0.66)、編集モード(チップ/道具選択中)はコンパクト(0.35)。
+            //   transform:scale は原寸(720×H)の箱を残すので、負マージンで縦横の余白を畳む＝
+            //   横スクロール消滅＋縦スクロール時に下へ空白が出ない（実際の請求書ぶんだけスクロール）。
+            var capPx = Math.round(window.innerHeight * (_editFocusActive ? 0.35 : 0.66));
+            inner.style.marginRight = -Math.round(720 * (1 - s)) + "px";
+            inner.style.marginBottom = -Math.round(inner.offsetHeight * (1 - s)) + "px";
+            out.style.overflowX = "hidden"; // 横スクロールは常に無し
             if (sh <= capPx + 2) {
               out.style.height = sh + "px";
-              out.style.overflow = "hidden";
+              out.style.overflowY = "hidden";
             } else {
               out.style.height = capPx + "px";
-              out.style.overflow = "auto";
+              out.style.overflowY = "auto"; // 縦だけ（実際の請求書ぶんだけ）
             }
           }
         });
