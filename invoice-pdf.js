@@ -346,11 +346,18 @@
         return font.widthOfTextAtSize(_sanitize(str), size);
       };
       var lbl = "御請求金額（税込）";
-      var lw = gBold(lbl, M, 12, MINTD);
       var gv = yen(grand);
-      gBold(gv, M + lw + 50, 20, TEXT);
-      var gw = lw + 50 + font.widthOfTextAtSize(_sanitize(gv), 20);
-      line(page, M, by - 25, M + Math.min(gw + 10, 330), by - 25, MINT, 1.2); // 下線
+      var lblW = font.widthOfTextAtSize(_sanitize(lbl), 12);
+      var gvW = font.widthOfTextAtSize(_sanitize(gv), 20);
+      var gw = lblW + 50 + gvW;
+      // 位置揃え（既定 left=従来どおり左端 M）。塊ごと左/中/右へ。
+      var gpos = blkAlignOf(iss, "posGrand", "left");
+      var gL = gpos === "center" ? CX - gw / 2 : gpos === "right" ? RXp - gw : M;
+      if (gL + gw > RXp) gL = RXp - gw;
+      if (gL < M) gL = M;
+      gBold(lbl, gL, 12, MINTD);
+      gBold(gv, gL + lblW + 50, 20, TEXT);
+      line(page, gL, by - 25, gL + Math.min(gw + 10, 330), by - 25, MINT, 1.2); // 下線
       return by - 25 - 16;
     }
 
@@ -712,11 +719,18 @@
           return font.widthOfTextAtSize(_sanitize(str), gSize);
         };
         var gLabel = "ご請求金額（税込）";
-        var glw = gBold(gLabel, M);
         var gv = yen(grand);
-        gBold(gv, M + glw + 40);
+        var glw = font.widthOfTextAtSize(_sanitize(gLabel), gSize);
         var gTextW = glw + 40 + font.widthOfTextAtSize(_sanitize(gv), gSize);
-        line(page, M, cy - 22, M + gTextW + 8, cy - 22, BLACK, 1.4);
+        // 位置揃え（既定 left=従来どおり左端 M）。
+        var gpos = blkAlignOf(iss, "posGrand", "left");
+        var gL =
+          gpos === "center" ? M + CW / 2 - gTextW / 2 : gpos === "right" ? M + CW - gTextW : M;
+        if (gL + gTextW > M + CW) gL = M + CW - gTextW;
+        if (gL < M) gL = M;
+        gBold(gLabel, gL);
+        gBold(gv, gL + glw + 40);
+        line(page, gL, cy - 22, gL + gTextW + 8, cy - 22, BLACK, 1.4);
         return cy - 22 - 56; // 緑の隙間≈黄色(約28)の2倍
       }
       return cy - 30;
