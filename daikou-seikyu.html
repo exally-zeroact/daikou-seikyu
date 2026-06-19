@@ -1693,34 +1693,28 @@
         box-sizing: border-box;
         border-radius: 3px;
       }
-      /* 「直す範囲を選ぶ」見出し＋範囲チップ横帯（横スクロール・親指で押せる大きさ）。 */
+      /* 「直す範囲を選ぶ」見出し＋範囲チップ（★折り返して複数行＝横スクロールせず全部見える★）。 */
       .edit-chips-lbl {
-        font-size: 11px;
+        font-size: 10.5px;
         font-weight: 800;
         color: #2f7d5b;
-        margin: 2px 2px 2px;
+        margin: 0 2px 3px;
       }
       .edit-chips {
         display: flex;
-        gap: 6px;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        padding: 6px 0 8px;
-        scrollbar-width: none;
-      }
-      .edit-chips::-webkit-scrollbar {
-        display: none;
+        flex-wrap: wrap;
+        gap: 5px;
+        padding: 0 0 6px;
       }
       .echip {
         flex: 0 0 auto;
-        min-height: 34px;
-        padding: 7px 13px;
+        padding: 4px 8px;
         border-radius: 999px;
         border: 1px solid #cfe6da;
         background: #fff;
         color: #2f7d5b;
         font-family: inherit;
-        font-size: 12.5px;
+        font-size: 11.5px;
         font-weight: 700;
         white-space: nowrap;
         cursor: pointer;
@@ -1752,14 +1746,14 @@
       }
       /* ===== 編集タブ ===== */
       .edit-prev {
-        max-height: 44vh;
+        max-height: 42vh;
         overflow: auto;
         background: #fff;
         border: 1px solid #e3eee8;
         border-radius: 12px;
-        padding: 10px;
+        padding: 8px;
         box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-        margin-bottom: 10px;
+        margin-bottom: 6px;
       }
       /* プレビューを上部に固定＝道具を触っても請求書が見える（見ながら編集） */
       .edit-stickytop {
@@ -1774,7 +1768,7 @@
         font-size: 11px;
         font-weight: 800;
         color: #2f9e6f;
-        margin: 2px 2px 8px;
+        margin: 0 2px 5px;
         display: flex;
         align-items: center;
         gap: 6px;
@@ -1793,8 +1787,8 @@
         background: #fff;
         border: 1px solid #e6f0ea;
         border-radius: 12px;
-        padding: 6px 6px;
-        margin-bottom: 10px;
+        padding: 4px 6px;
+        margin-bottom: 6px;
       }
       .etool-lbl {
         flex: none;
@@ -1830,8 +1824,8 @@
         background: #fff;
         border: 1px solid #dcefe3;
         border-radius: 12px;
-        padding: 14px;
-        min-height: 60px;
+        padding: 10px 12px;
+        min-height: 48px;
       }
       .edit-panel .ph {
         font-size: 12.5px;
@@ -1848,7 +1842,7 @@
         display: flex;
         align-items: center;
         gap: 12px;
-        padding: 7px 0;
+        padding: 5px 0;
       }
       .ep-row .l {
         min-width: 58px;
@@ -3195,10 +3189,8 @@
           >
             お支払期限
           </button>
-          <button class="echip" data-blk="bank" onclick="editSelectBlock('bank')">お振込先</button>
-          <button class="echip" data-blk="lead" onclick="editSelectBlock('lead')">
-            あいさつ文
-          </button>
+          <button class="echip" data-blk="bank" onclick="editSelectBlock('bank')">振込先</button>
+          <button class="echip" data-blk="lead" onclick="editSelectBlock('lead')">あいさつ</button>
           <button class="echip" data-blk="grand" onclick="editSelectBlock('grand')">
             ご請求金額
           </button>
@@ -3226,7 +3218,7 @@
         </button>
       </div>
       <div class="edit-panel" id="editPanel"></div>
-      <button class="ep-reset" style="margin-top: 12px" onclick="editResetDesign()">
+      <button class="ep-reset" style="margin-top: 8px" onclick="editResetDesign()">
         ↩ 初期設定に戻す
       </button>
     </section>
