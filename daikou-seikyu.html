@@ -5203,6 +5203,7 @@
       async function _doGenerateInvoices() {
         var out = document.getElementById("invoiceOut");
         if (!out) return;
+        ensureLogoTrimmed(); // 既存ロゴの余白を一度だけ自動トリミング（揃え）
         var month = document.getElementById("invMonth").value;
         var onlyCo = document.getElementById("invCompany").value;
         var seq = ++_invSeq;
@@ -5817,6 +5818,7 @@
           hankoSizeMm: 21, // 本物の判子サイズ(mm)
           logo: "", // 自社ロゴ 表示・出力用（白抜き処理後）
           logoRaw: "", // ロゴ元画像（再処理用）
+          logoTrimmed: false, // 透明余白トリミング済みか（一度だけ実行）
           logoBg: "auto", // ロゴ背景白抜き: auto / on / off
           logoSizeMm: 40, // ロゴの大きさ(mm)・基本値（UIで変更可）
           pdfFont: "BIZ UDPゴシック", // 請求書PDFの書体（Excel同梱のBIZ UD系から選択）
@@ -6046,6 +6048,7 @@
       }
       function renderIssuer() {
         var s = currentIssuer();
+        ensureLogoTrimmed(); // 既存ロゴの余白を一度だけ自動トリミング（揃え）
         var ti = document.getElementById("iss_issuer");
         var tb = document.getElementById("iss_bank");
         var ia = s.issuerAlign || "left";
@@ -6171,9 +6174,83 @@
         var s = currentIssuer();
         if (!s.logoRaw) return;
         HankoTool.process(s.logoRaw, { mode: s.logoBg || "auto" }).then(function (r) {
-          setIssuer("logo", r.dataURL);
-          renderIssuer();
-          toast(r.kept ? "透過済みロゴをそのまま使います" : "ロゴを保存しました（背景を透過）");
+          // ★透明余白を自動で詰める＝ロゴの「見えてる上端」が請求書タイトルの上端にピタッと揃う。
+          trimTransparentPNG(r.dataURL).then(function (trimmed) {
+            setIssuer("logo", trimmed);
+            setIssuer("logoTrimmed", true);
+            renderIssuer();
+            generateInvoices();
+            toast(r.kept ? "透過済みロゴをそのまま使います" : "ロゴを保存しました（背景を透過）");
+          });
+        });
+      }
+      // PNGの周囲の透明部分を切り落として返す（不透明な絵柄だけにする）。失敗時は元のまま。
+      function trimTransparentPNG(dataURL) {
+        return new Promise(function (resolve) {
+          if (!dataURL || dataURL.indexOf("data:image/png") !== 0) return resolve(dataURL);
+          var img = new Image();
+          img.onload = function () {
+            var w = img.naturalWidth,
+              h = img.naturalHeight;
+            if (!w || !h) return resolve(dataURL);
+            var cv = document.createElement("canvas");
+            cv.width = w;
+            cv.height = h;
+            var cx = cv.getContext("2d");
+            cx.drawImage(img, 0, 0);
+            var data;
+            try {
+              data = cx.getImageData(0, 0, w, h).data;
+            } catch (e) {
+              return resolve(dataURL);
+            }
+            var minX = w,
+              minY = h,
+              maxX = -1,
+              maxY = -1,
+              A = 10; // アルファ閾値
+            for (var y = 0; y < h; y++) {
+              for (var x = 0; x < w; x++) {
+                if (data[(y * w + x) * 4 + 3] > A) {
+                  if (x < minX) minX = x;
+                  if (x > maxX) maxX = x;
+                  if (y < minY) minY = y;
+                  if (y > maxY) maxY = y;
+                }
+              }
+            }
+            if (maxX < minX || maxY < minY) return resolve(dataURL); // 全部透明
+            var pad = 1;
+            minX = Math.max(0, minX - pad);
+            minY = Math.max(0, minY - pad);
+            maxX = Math.min(w - 1, maxX + pad);
+            maxY = Math.min(h - 1, maxY + pad);
+            var tw = maxX - minX + 1,
+              th = maxY - minY + 1;
+            if (tw >= w && th >= h) return resolve(dataURL); // 詰める余地なし
+            var oc = document.createElement("canvas");
+            oc.width = tw;
+            oc.height = th;
+            oc.getContext("2d").drawImage(cv, minX, minY, tw, th, 0, 0, tw, th);
+            resolve(oc.toDataURL("image/png"));
+          };
+          img.onerror = function () {
+            resolve(dataURL);
+          };
+          img.src = dataURL;
+        });
+      }
+      // 既存ロゴ（過去にアップ済み）も一度だけ余白トリミングして揃える（再アップ不要の自己修復）。
+      function ensureLogoTrimmed() {
+        var s = currentIssuer();
+        if (!s.logo || s.logoTrimmed) return;
+        setIssuer("logoTrimmed", true); // 多重実行防止に先にフラグ
+        trimTransparentPNG(s.logo).then(function (trimmed) {
+          if (trimmed && trimmed !== s.logo) {
+            setIssuer("logo", trimmed);
+            renderIssuer();
+            generateInvoices();
+          }
         });
       }
       function setLogoBg(mode) {

@@ -632,7 +632,8 @@
       }
       var topRow = bodyTop != null ? bodyTop : cy;
       // ★ロゴが大きく自社情報（右・1行目=topRow-6）に掛かる場合は、本文の塊ごと下げて被りを防ぐ。
-      if (logoBottom != null && topRow - 6 > logoBottom - 10) topRow = logoBottom - 4;
+      //   ロゴ下端から18ptの余白を空けて自社情報1行目を置く（topRow-6 = logoBottom-18）。
+      if (logoBottom != null && topRow - 6 > logoBottom - 18) topRow = logoBottom - 12;
       T(page, font, co + "　御中", M, topRow, 15, { maxW: CW * 0.6 });
       var iy = style === "A" ? topRow - 6 : topRow;
       iLines.forEach(function (ln, idx) {
