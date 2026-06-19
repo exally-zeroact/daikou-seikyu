@@ -469,26 +469,48 @@
       // ロゴ＝右端固定・上端を線のすぐ下から（大きく）
       if (showLogo)
         page.drawImage(logo, { x: RXp - logoW, y: topY - logoH, width: logoW, height: logoH });
-      // 自社情報の揃え：ユーザー設定(alignIssuer)優先。"auto"はロゴ有=中央/無=右の既定。
-      var infoAlign = blkAlignOf(iss, "alignIssuer", showLogo ? "center" : "right");
-      var infoAnchorX = infoAlign === "left" ? M : infoAlign === "center" ? CX : RXp;
+      // 自社情報の揃え＝2軸：塊の位置(alignIssuer) × 行の並び(lineIssuer)。
+      //   位置 auto=ロゴ有中央/無右。行の並び auto=位置と同じ（＝従来どおり連動）。
+      var infoPos = blkAlignOf(iss, "alignIssuer", showLogo ? "center" : "right");
+      var infoLine = blkAlignOf(iss, "lineIssuer", infoPos);
+      var infoMaxW = 0;
+      iLines.forEach(function (ln, idx) {
+        var wln = font.widthOfTextAtSize(_sanitize(ln), idx === 0 ? 11 : 8);
+        if (wln > infoMaxW) infoMaxW = wln;
+      });
+      // 自社情報の右限＝ロゴがあればロゴの左（重なり防止）、無ければ右端 RXp。
+      var infoRB = showLogo ? RXp - logoW - 8 : RXp;
+      // 塊の左端（位置で決まる）。中央は従来どおりページ中央(CX)基準＝既存の見た目を維持。
+      var boxLeft =
+        infoPos === "left" ? M : infoPos === "center" ? CX - infoMaxW / 2 : infoRB - infoMaxW;
+      // バンド[M, infoRB]内に収める（中央でロゴに掛かる時だけ左へ寄せる）。
+      if (boxLeft + infoMaxW > infoRB) boxLeft = infoRB - infoMaxW;
+      if (boxLeft < M) boxLeft = M;
+      // 行の並びで各行の基準x（塊内）。
+      var lineX =
+        infoLine === "left"
+          ? boxLeft
+          : infoLine === "center"
+            ? boxLeft + infoMaxW / 2
+            : boxLeft + infoMaxW;
       var textTop = topY - Math.max(0, (blockH - issH) / 2);
       var fy = textTop;
       iLines.forEach(function (ln, idx) {
-        T(page, font, ln, infoAnchorX, fy, idx === 0 ? 11 : 8, {
-          align: infoAlign,
+        T(page, font, ln, lineX, fy, idx === 0 ? 11 : 8, {
+          align: infoLine,
           color: idx === 0 ? TEXT : MUTED,
+          maxW: infoRB - boxLeft, // ロゴへ食い込まない（長文は…詰め）
         });
         fy -= idx === 0 ? 13 : 10;
       });
-      // 判子（社名の右端に“重ねて”押す＝角印標準）。揃えで社名末尾の位置が変わる。
+      // 判子（社名＝1行目の右端に“重ねて”押す＝角印標準）。2軸の並びで末尾位置が変わる。
       if (hanko) {
         var hs = (Number(iss && iss.hankoSizeMm) || 20) * MM * 0.8;
         var nameW = font.widthOfTextAtSize(_sanitize(iLines[0] || ""), 11);
         var nameRight =
-          infoAlign === "left" ? M + nameW : infoAlign === "center" ? CX + nameW / 2 : RXp; // 社名の右端
+          infoLine === "left" ? lineX + nameW : infoLine === "center" ? lineX + nameW / 2 : lineX; // 社名の右端
         var hankoX = nameRight - hs * 0.45; // 社名末尾に重なる
-        if (hankoX + hs > RXp) hankoX = RXp - hs; // 緑の線の右端からはみ出さない
+        if (hankoX + hs > infoRB) hankoX = infoRB - hs; // 自社情報の右限（ロゴの左）を越えない
         if (hankoX < M) hankoX = M; // 左マージンより内側に
         page.drawImage(hanko, {
           x: hankoX,

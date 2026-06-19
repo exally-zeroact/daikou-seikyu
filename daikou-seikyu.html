@@ -5867,36 +5867,40 @@
           }
         } else if (tool === "align") {
           var isEle = s.pdfDesign !== "classic";
+          var _av = function (v) {
+            return v === "left" || v === "center" || v === "right" ? v : "";
+          };
+          var _algGroup = function (label, cur, fn) {
+            var html =
+              '<div class="ep-row"><span class="l">' + label + '</span><div class="ep-alg">';
+            [
+              ["left", "左"],
+              ["center", "中"],
+              ["right", "右"],
+            ].forEach(function (e) {
+              html +=
+                '<button class="' +
+                (cur === e[0] ? "on" : "") +
+                '" onclick="' +
+                fn +
+                "('" +
+                e[0] +
+                "')\">" +
+                e[1] +
+                "</button>";
+            });
+            return html + "</div></div>";
+          };
           h =
-            '<div class="ph">↔️ 揃え（文章ブロック）</div>' +
-            '<div class="note">自社情報の揃えを 左／中／右。' +
-            (isEle
-              ? "エレガントのフッターに反映"
-              : "※クラシックは自社情報が右固定の設計。エレガントで反映") +
+            '<div class="ph">↔️ 揃え（自社情報）</div>' +
+            '<div class="note">「塊の位置」と「行の並び」を別々に。' +
+            (isEle ? "エレガントのフッターに反映" : "※クラシックは右固定。エレガントで反映") +
             "（Excel書き出しは右）。</div>";
-          var ai =
-            s.alignIssuer === "left" || s.alignIssuer === "center" || s.alignIssuer === "right"
-              ? s.alignIssuer
-              : "";
-          h += '<div class="ep-row"><span class="l">自社情報</span><div class="ep-alg">';
-          [
-            ["left", "左"],
-            ["center", "中"],
-            ["right", "右"],
-          ].forEach(function (e) {
+          h += _algGroup("塊の位置", _av(s.alignIssuer), "editSetIssuerAlign");
+          h += _algGroup("行の並び", _av(s.lineIssuer), "editSetIssuerLine");
+          if (!_av(s.alignIssuer) && !_av(s.lineIssuer))
             h +=
-              '<button class="' +
-              (ai === e[0] ? "on" : "") +
-              '" onclick="editSetIssuerAlign(\'' +
-              e[0] +
-              "')\">" +
-              e[1] +
-              "</button>";
-          });
-          h += "</div></div>";
-          if (!ai)
-            h +=
-              '<div class="note" style="margin-top:2px">いまは自動（テンプレ既定）。タップで固定。</div>';
+              '<div class="note" style="margin-top:2px">いまは自動（テンプレ既定で連動）。タップで固定。</div>';
         }
         el.innerHTML = h;
       }
@@ -5993,6 +5997,11 @@
         generateInvoices();
         renderEditPanel("align");
       }
+      function editSetIssuerLine(a) {
+        setIssuer("lineIssuer", a);
+        generateInvoices();
+        renderEditPanel("align");
+      }
       function editToggleDue() {
         toggleInvoiceDue(); // 既存（保存＋即反映）
         renderEditPanel("meta");
@@ -6020,6 +6029,7 @@
           "issuerAlign",
           "bankAlign",
           "alignIssuer",
+          "lineIssuer",
           "dateEra",
           "paymentDueEra",
         ].forEach(function (k) {
@@ -6452,7 +6462,8 @@
           bank: "伊予銀行　今治支店　普通　4160657\nド）ゼロアクト",
           issuerAlign: "left",
           bankAlign: "left",
-          alignIssuer: "auto", // 自社情報ブロックの揃え（編集タブで設定・auto=テンプレ既定）
+          alignIssuer: "auto", // 自社情報ブロックの位置（編集タブ・auto=テンプレ既定）
+          lineIssuer: "auto", // 自社情報の行の並び（auto=位置と同じ）
           dateEra: "seireki", // 日付の表記: seireki(2026/2/1) / reiwa(令和8年2月1日)
           showInvoiceNo: false, // 請求書番号を表示するか
           showPaymentDue: false, // お支払期限（有効期限）を表示するか
@@ -6646,7 +6657,8 @@
           bank: bankLines.length ? ["お振込先"].concat(bankLines) : [],
           lineAlign: s.issuerAlign || "left",
           bankAlign: s.bankAlign || "left",
-          alignIssuer: s.alignIssuer || "auto", // 自社情報ブロックの揃え（編集タブ）
+          alignIssuer: s.alignIssuer || "auto", // 自社情報ブロックの位置（編集タブ）
+          lineIssuer: s.lineIssuer || "auto", // 自社情報の行の並び（編集タブ）
           dateEra: s.dateEra || "seireki",
           showInvoiceNo: !!s.showInvoiceNo,
           paymentDue:
