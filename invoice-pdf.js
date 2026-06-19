@@ -31,6 +31,45 @@
   // フォントが持たない字（例：髙﨑邉などの異体字）の検出。描画時に〓へ置換し、利用者に知らせる。
   var _cov = null; // { fk: fontkitフォント, missing: Set }
   var _lastMissing = [];
+
+  // ★編集タブ用「塊(ブロック)の位置」公開（描画は一切変えない＝バイト不変）。
+  //   描画プリミティブ T()/line()/rect()/drawImage が呼ばれるたび、現在の塊名 _curBlk の
+  //   外接矩形(min/max)を _blkRecs に積む。塊の開始でセクション名をセットするだけ。
+  //   座標は PDF空間(y-up・原点左下)。公開時に y=塊の上端(yTop)・正のw/hに整形。
+  var _curBlk = null; // 今描いている塊の名前（null=非対象＝装飾線等は無視）
+  var _blkRecs = []; // [{key,pageObj,minX,maxX,yTop,yBot}]
+  var _lastDoc = null; // 直近に描いた doc（pageObj→ページ番号の解決用）
+  function _blkReset(doc) {
+    _curBlk = null;
+    _blkRecs = [];
+    _lastDoc = doc || null;
+  }
+  // primitive が描いた矩形[left,right]×[bot,top](y-up)を現在の塊に取り込む。
+  function _accBox(pageObj, left, right, top, bot) {
+    if (!_curBlk || !pageObj) return;
+    var rec = null;
+    for (var i = 0; i < _blkRecs.length; i++) {
+      if (_blkRecs[i].key === _curBlk && _blkRecs[i].pageObj === pageObj) {
+        rec = _blkRecs[i];
+        break;
+      }
+    }
+    if (!rec) {
+      _blkRecs.push({
+        key: _curBlk,
+        pageObj: pageObj,
+        minX: left,
+        maxX: right,
+        yTop: top,
+        yBot: bot,
+      });
+    } else {
+      if (left < rec.minX) rec.minX = left;
+      if (right > rec.maxX) rec.maxX = right;
+      if (top > rec.yTop) rec.yTop = top;
+      if (bot < rec.yBot) rec.yBot = bot;
+    }
+  }
   function _sanitize(str) {
     if (!_cov || !_cov.fk) return str;
     var out = "";
@@ -162,6 +201,7 @@
       font: font,
       color: opts.color || _defColor || TEXT,
     });
+    _accBox(page, x + dx, x + dx + w, top + size * 0.18, top - size * 0.85); // 塊の外接矩形に取り込む
     return w;
   }
   function line(page, x1, y1, x2, y2, color, thick) {
@@ -171,9 +211,11 @@
       thickness: thick || 0.7,
       color: color || RULE,
     });
+    _accBox(page, Math.min(x1, x2), Math.max(x1, x2), Math.max(y1, y2), Math.min(y1, y2));
   }
   function rect(page, x, yTop, w, h, color) {
     page.drawRectangle({ x: x, y: yTop - h, width: w, height: h, color: color });
+    _accBox(page, x, x + w, yTop, yTop - h);
   }
 
   // dataURL → 埋め込み画像（png/jpeg）。失敗時 null。
@@ -293,8 +335,10 @@
     // ---- ヘッダー上部（タイトル・装飾・請求日No・宛名・あいさつ）。戻り=本文開始y ----
     function drawTop(page) {
       var cy = A4.h - 50;
+      _curBlk = "title";
       T(page, font, "請　求　書", CX, cy, 26, { align: "center", color: TEXT });
       // 請求日 / No.（右上・控えめ）。No.なしのときは請求日を緑の線のすぐ上まで下げて空白を作らない。
+      _curBlk = "meta";
       var showNo = iss && iss.showInvoiceNo && invoiceNo;
       var dateY = showNo ? A4.h - 52 : A4.h - 70;
       T(page, font, "請求日　" + issueDateStr(month, iss && iss.dateEra), RXp, dateY, 9, {
@@ -303,13 +347,16 @@
       });
       if (showNo)
         T(page, font, "No.　" + invoiceNo, RXp, A4.h - 64, 9, { align: "right", color: MUTED });
+      _curBlk = null; // 装飾区切り（ひし形）は塊に含めない
       cy -= 30;
       flourish(page, cy - 4);
       cy -= 26;
       // 宛名（右の期限＋振込先ブロックと被らないよう幅を抑える）
+      _curBlk = "aite";
       var aw = T(page, font, co + "　御中", M, cy, 17, { color: TEXT, maxW: CW * 0.5 });
       line(page, M, cy - 21, M + Math.min(aw + 10, CW * 0.5), cy - 21, BORDER, 0.6);
       // ★右ブロック（赤丸の位置）：お支払期限＋振込先を一塊で右上に★
+      _curBlk = "bankDue";
       var ry = cy + 2;
       if (pDue) {
         T(page, font, "お支払期限　" + pDue, RXp, ry, 10, { align: "right", color: TEXT });
@@ -326,6 +373,7 @@
       }
       cy -= 34;
       // あいさつ（説明文）。位置揃え（既定 left）。
+      _curBlk = "lead";
       var lead = ((m.lead || "{月}月のご利用分です。") + "").replace("{月}", monthNum);
       var lpos = blkAlignOf(iss, "posLead", "left");
       var lx = lpos === "center" ? CX : lpos === "right" ? RXp : M;
@@ -333,12 +381,14 @@
       cy -= 14;
       T(page, font, "下記の通り御請求申し上げます。", lx, cy, 9.5, { color: MUTED, align: lpos });
       cy -= 20;
+      _curBlk = null;
       return cy;
     }
 
     // ---- 御請求金額（枠なし＝アプリ統一）。ラベル＋大きい金額＋下にミント線。戻り=次のy ----
     //   ★太字（微小ずらし重ね描き＝疑似ボールド）★
     function drawGrandBox(page, topY) {
+      _curBlk = "grand";
       var by = topY;
       var gBold = function (str, x, size, color) {
         var o = size * 0.025;
@@ -360,11 +410,13 @@
       gBold(lbl, gL, 12, MINTD);
       gBold(gv, gL + lblW + 50, 20, TEXT);
       line(page, gL, by - 25, gL + Math.min(gw + 10, 330), by - 25, MINT, 1.2); // 下線
+      _curBlk = null;
       return by - 25 - 16;
     }
 
     // ---- 明細テーブル（縦罫なし・薄ミントヘッダー・件数ぶんだけ）。戻り=tableBottom ----
     function drawTable(page, topY, pageRows) {
+      _curBlk = "table";
       var tableTop = topY;
       var colX = [M];
       for (var c = 0; c < cw.length; c++) colX.push(colX[c] + cw[c]);
@@ -409,11 +461,13 @@
       }
       var tableBottom = bodyTop - n * rowH;
       line(page, M, tableBottom, RXp, tableBottom, MINT, 0.75); // 表を締めるミント線
+      _curBlk = null;
       return tableBottom;
     }
 
     // ---- 小計/消費税/合計（右下・アプリと統一＝枠なし・合計の上に線＋太字）。戻り=次のy ----
     function drawTotals(page, topY) {
+      _curBlk = "totals";
       var bw = 230,
         bx = RXp - bw,
         rx = RXp,
@@ -450,6 +504,7 @@
           sy -= 12;
         });
       }
+      _curBlk = null;
       return sy;
     }
 
@@ -473,11 +528,16 @@
       }
       var blockH = Math.max(issH, logoH, 20);
       var FOOT = 78 + blockH; // 線のy（ブロック＋下マージンの上）。ロゴ/多行ほど上がる＝あふれない
+      _curBlk = null; // 下の長い緑線は装飾＝塊に含めない
       line(page, M, FOOT, RXp, FOOT, MINT, 0.9); // 下の長い緑の線
       var topY = FOOT - 16; // 線のすぐ下
       // ロゴ＝右端固定・上端を線のすぐ下から（大きく）
-      if (showLogo)
+      if (showLogo) {
+        _curBlk = "logo";
         page.drawImage(logo, { x: RXp - logoW, y: topY - logoH, width: logoW, height: logoH });
+        _accBox(page, RXp - logoW, RXp, topY, topY - logoH);
+        _curBlk = null;
+      }
       // 自社情報の揃え＝2軸：塊の位置(alignIssuer) × 行の並び(lineIssuer)。
       //   位置 auto=ロゴ有中央/無右。行の並び auto=位置と同じ（＝従来どおり連動）。
       var infoPos = blkAlignOf(iss, "alignIssuer", showLogo ? "center" : "right");
@@ -504,6 +564,7 @@
             : boxLeft + infoMaxW;
       var textTop = topY - Math.max(0, (blockH - issH) / 2);
       var fy = textTop;
+      _curBlk = "info";
       iLines.forEach(function (ln, idx) {
         T(page, font, ln, lineX, fy, idx === 0 ? 11 : 8, {
           align: infoLine,
@@ -512,8 +573,10 @@
         });
         fy -= idx === 0 ? 13 : 10;
       });
+      _curBlk = null;
       // 判子（社名＝1行目の右端に“重ねて”押す＝角印標準）。2軸の並びで末尾位置が変わる。
       if (hanko) {
+        _curBlk = "hanko";
         var hs = (Number(iss && iss.hankoSizeMm) || 20) * MM * 0.8;
         var nameW = font.widthOfTextAtSize(_sanitize(iLines[0] || ""), 11);
         var nameRight =
@@ -528,6 +591,8 @@
           height: hs,
           opacity: 0.95,
         });
+        _accBox(page, hankoX, hankoX + hs, textTop + 9, textTop - hs + 9);
+        _curBlk = null;
       }
       pageNum += 1;
       if (totalPages > 1)
@@ -652,20 +717,27 @@
         var logoX = nameW > 0 ? nameCenter - lw0 / 2 : M + CW - lw0;
         if (logoX + lw0 > A4.w - 8) logoX = A4.w - 8 - lw0; // ページ右端からはみ出さない
         if (logoX < M) logoX = M; // 左マージンより内側に
+        _curBlk = "logo";
         page.drawImage(logo, { x: logoX, y: titleTop - lh0, width: lw0, height: lh0 });
+        _accBox(page, logoX, logoX + lw0, titleTop, titleTop - lh0);
+        _curBlk = null;
         logoBottom = titleTop - lh0;
       }
       if (style === "A") {
+        _curBlk = "title";
         T(page, font, "請　求　書", M, cy, 22);
         cy -= 30;
+        _curBlk = "meta";
         T(page, font, dateStr + (noStr ? "　　" + noStr : ""), M, cy, 10, { color: DARK });
         cy -= 14;
         if (pDue) {
           T(page, font, "お支払期限　" + pDue, M, cy, 10, { color: DARK });
           cy -= 14;
         }
+        _curBlk = null;
         cy -= 18; // ★黄色＝請求日/No→御中の隙間を少し広げる★
       } else {
+        _curBlk = "meta";
         T(page, font, dateStr, M + CW, cy, 9.5, { align: "right", color: DARK });
         cy -= 13;
         if (noStr) {
@@ -679,21 +751,28 @@
           });
           cy -= 13;
         }
+        _curBlk = null;
         cy -= 6;
+        _curBlk = "title";
         T(page, font, "請　求　書", M + CW / 2, cy, 22, { align: "center" });
+        _curBlk = null;
         cy -= 42; // ★黄色相当＝タイトル→御中の隙間（2枚目もバランス統一）★
       }
       var topRow = bodyTop != null ? bodyTop : cy;
       // ★ロゴが大きく自社情報（右・1行目=topRow-6）に掛かる場合は、本文の塊ごと下げて被りを防ぐ。
       //   ロゴ下端から18ptの余白を空けて自社情報1行目を置く（topRow-6 = logoBottom-18）。
       if (logoBottom != null && topRow - 6 > logoBottom - 18) topRow = logoBottom - 12;
+      _curBlk = "aite";
       T(page, font, co + "　御中", M, topRow, 15, { maxW: CW * 0.6 });
+      _curBlk = "info";
       var iy = style === "A" ? topRow - 6 : topRow;
       iLines.forEach(function (ln, idx) {
         T(page, font, ln, M + CW, iy, idx === 0 ? 11 : 9.5, { align: "right", color: DARK });
         iy -= idx === 0 ? 15 : 13;
       });
+      _curBlk = null;
       if (hanko) {
+        _curBlk = "hanko";
         var hs = (Number(iss && iss.hankoSizeMm) || 21) * MM;
         page.drawImage(hanko, {
           x: M + CW - hs + 2,
@@ -702,8 +781,11 @@
           height: hs,
           opacity: 0.95,
         });
+        _accBox(page, M + CW - hs + 2, M + CW + 2, topRow + 4, topRow - hs + 4);
+        _curBlk = null;
       }
       cy = topRow - 40;
+      _curBlk = "lead";
       var lead = ((m.lead || "{月}月のご利用分です。") + "").replace("{月}", monthNum);
       var lpos = blkAlignOf(iss, "posLead", "left");
       var lx = lpos === "center" ? M + CW / 2 : lpos === "right" ? M + CW : M;
@@ -711,7 +793,9 @@
       cy -= 16;
       T(page, font, "下記の通り御請求申し上げます。", lx, cy, 9.5, { color: DARK, align: lpos });
       cy -= 22;
+      _curBlk = null;
       if (showGrand) {
+        _curBlk = "grand";
         // ★ご請求金額：ラベルと数字を同じ大きさに統一＋太字（微小ずらし重ね描き＝疑似ボールド）★
         //   緑＝下線→表の隙間は黄色の約2倍。
         var gSize = 16;
@@ -735,6 +819,7 @@
         gBold(gLabel, gL);
         gBold(gv, gL + glw + 40);
         line(page, gL, cy - 22, gL + gTextW + 8, cy - 22, BLACK, 1.4);
+        _curBlk = null;
         return cy - 22 - 56; // 緑の隙間≈黄色(約28)の2倍
       }
       return cy - 30;
@@ -743,10 +828,12 @@
     // ---- 合計フッター（左=振込先／右=小計・消費税・合計＋役職集計）。本文幅フルなので左右並びでOK。----
     function drawTotalsFooter(page, footTop) {
       var by = footTop;
+      _curBlk = "bankDue";
       bank.forEach(function (ln) {
         T(page, font, ln, M, by, 9, { color: DARK });
         by -= 14;
       });
+      _curBlk = "totals";
       var boxX = M + CW - 200,
         RX = M + CW,
         sy = footTop;
@@ -778,10 +865,12 @@
           ny -= 13;
         });
       }
+      _curBlk = null;
     }
 
     // ---- 明細テーブル（緑ヘッダー＋縦罫・件数ぶんだけ・行き先は左寄せ）。戻り=tableBottom ----
     function drawDetailTable(page, topY, pageRows) {
+      _curBlk = "table";
       var tableTop = topY;
       var colX = [M];
       for (var c = 0; c < cw.length; c++) colX.push(colX[c] + cw[c]);
@@ -851,6 +940,7 @@
       var tableBottom = bodyTop - n * rowH;
       // ★縦罫は引かない（エレガントと同じ横罫だけ＝見やすく）。表を締める下線のみ。★
       line(page, M, tableBottom, tableRight, tableBottom, GREY, 0.8);
+      _curBlk = null;
       return tableBottom;
     }
 
@@ -925,6 +1015,7 @@
   async function buildOne(master, co, rows, month, iss, invoiceNo) {
     var a = await loadAssets(iss && iss.pdfFont);
     var doc = await a.PDFLib.PDFDocument.create();
+    _blkReset(doc); // 塊位置の集計をリセット（このdocで描く塊を記録）
     doc.registerFontkit(a.fontkit);
     var font = await doc.embedFont(a.fontBytes, { subset: false });
     _cov = { fk: a.fontkit.create(a.fontBytes), missing: new Set() };
@@ -948,6 +1039,7 @@
   async function buildMonth(master, db, month, accountId, iss) {
     var a = await loadAssets(iss && iss.pdfFont);
     var doc = await a.PDFLib.PDFDocument.create();
+    _blkReset(doc); // 塊位置の集計をリセット（このdocで描く塊を記録）
     doc.registerFontkit(a.fontkit);
     var font = await doc.embedFont(a.fontBytes, { subset: false });
     _cov = { fk: a.fontkit.create(a.fontBytes), missing: new Set() };
@@ -1018,6 +1110,24 @@
     },
     lastMissing: function () {
       return _lastMissing.slice();
+    },
+    // ★直近に描いた請求書の「塊(ブロック)」位置を返す（編集タブの直接タップ用）。
+    //   各要素 {key, page(0始まり), x, y, w, h} は PDF空間(y-up・原点左下)・y=塊の上端。
+    //   HTML側で pdf.js viewport.convertToViewportPoint() で canvas座標へ変換して使う。
+    lastBlocks: function () {
+      if (!_lastDoc) return [];
+      var pages = _lastDoc.getPages();
+      return _blkRecs.map(function (r) {
+        var pi = pages.indexOf(r.pageObj);
+        return {
+          key: r.key,
+          page: pi < 0 ? 0 : pi,
+          x: r.minX,
+          y: r.yTop,
+          w: Math.max(0, r.maxX - r.minX),
+          h: Math.max(0, r.yTop - r.yBot),
+        };
+      });
     },
   };
 })(window);

@@ -1671,6 +1671,40 @@
         width: 720px;
         transform-origin: top left;
       }
+      /* ===== 塊(ブロック)の当たり判定オーバーレイ ===== */
+      /* canvas を内包する .sheet を基準に絶対配置。既定は透明＋操作を邪魔しない。 */
+      .sheet.sheet-pdf {
+        position: relative;
+      }
+      .hit-layer {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      .hit-box {
+        position: absolute;
+        pointer-events: none;
+      }
+      /* debug（位置検証）時のみ可視＋タップ可能。 */
+      .hit-box.dbg {
+        pointer-events: auto;
+        cursor: pointer;
+        outline: 1.5px solid rgba(225, 29, 72, 0.85);
+        background: rgba(225, 29, 72, 0.1);
+        box-sizing: border-box;
+      }
+      .hit-box.dbg::after {
+        content: attr(data-key);
+        position: absolute;
+        top: 0;
+        left: 0;
+        font-size: 9px;
+        line-height: 1.2;
+        padding: 0 3px;
+        color: #fff;
+        background: rgba(225, 29, 72, 0.85);
+        white-space: nowrap;
+      }
       /* ===== 編集タブ ===== */
       .edit-prev {
         max-height: 44vh;
@@ -5536,6 +5570,8 @@
         if (seq !== _invSeq) return;
         var inner = document.createElement("div");
         inner.className = "invScaleInner";
+        // ★塊(ブロック)の位置（編集タブの直接タップ用）。描画した請求書から取得。
+        var blocks = window.InvoicePDF && InvoicePDF.lastBlocks ? InvoicePDF.lastBlocks() : [];
         for (var p = 1; p <= pdf.numPages; p++) {
           var pg = await pdf.getPage(p);
           var vp = pg.getViewport({ scale: 2 }); // 高解像度＝印刷でもくっきり
@@ -5546,6 +5582,7 @@
           var sheet = document.createElement("div");
           sheet.className = "sheet sheet-pdf";
           sheet.appendChild(cv);
+          _overlayHitBlocks(sheet, vp, blocks, p - 1); // 当たり判定divを重ねる（debug時のみ可視）
           inner.appendChild(sheet);
           await pg.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise;
           if (seq !== _invSeq) return;
@@ -5553,6 +5590,80 @@
         out.innerHTML = "";
         out.appendChild(inner);
         fitInvoice();
+      }
+      // 塊(ブロック)の当たり判定divを canvas の上に重ねる。
+      //   PDF空間(y-up)の矩形 → pdf.js viewport.convertToViewportPoint で canvas px へ。
+      //   .sheet(720px) はcanvasと同じ縮尺、かつ親 .invScaleInner の scale(s) を継承するので、
+      //   ここでは viewport→sheet(720px幅) の一様縮尺だけ掛ければ位置が一致する（手計算のscale不要）。
+      //   既定は透明（pointer-events:none で操作を邪魔しない）。debug時だけ枠線＋タップを有効化。
+      var _blkLabelJa = {
+        title: "タイトル（請求書）",
+        meta: "請求日・No.",
+        aite: "宛名（御中）",
+        bankDue: "お支払期限・振込先",
+        lead: "あいさつ文",
+        grand: "ご請求金額",
+        table: "明細の表",
+        totals: "合計（小計・消費税・合計）",
+        info: "会社名・住所（自社）",
+        logo: "ロゴ",
+        hanko: "はんこ",
+      };
+      function _editHitDebug() {
+        // ★スマホでも一発でON/OFFできるよう URL の #hittest を見る（コンソール不要）。
+        //   ON: …/daikou-seikyu.html#hittest  ／ OFF: …#hittest=0
+        try {
+          var hash = String(location.hash || "");
+          if (/hittest=0/.test(hash)) {
+            try {
+              localStorage.removeItem("daiko_hittest");
+            } catch (e2) {}
+            return false;
+          }
+          if (/(^|[#&])hittest(=1)?($|[&])/.test(hash)) {
+            try {
+              localStorage.setItem("daiko_hittest", "1"); // 開き直しても続くよう記憶
+            } catch (e3) {}
+            return true;
+          }
+          return !!(
+            window.__EDIT_HITTEST ||
+            (window.localStorage && localStorage.getItem("daiko_hittest") === "1")
+          );
+        } catch (e) {
+          return !!window.__EDIT_HITTEST;
+        }
+      }
+      function _overlayHitBlocks(sheet, vp, blocks, pageIdx) {
+        if (!blocks || !blocks.length) return;
+        var SHEET_W = 720; // .sheet.sheet-pdf の幅
+        var sc = SHEET_W / vp.width; // viewport(px) → sheet(px) の一様縮尺
+        var layer = document.createElement("div");
+        layer.className = "hit-layer";
+        var dbg = _editHitDebug();
+        blocks.forEach(function (b) {
+          if (b.page !== pageIdx) return;
+          // PDF空間の矩形4隅 → viewport(px)。convertToViewportPoint が y反転も処理。
+          var a = vp.convertToViewportPoint(b.x, b.y); // 左上(yは上端)
+          var c = vp.convertToViewportPoint(b.x + b.w, b.y - b.h); // 右下
+          var left = Math.min(a[0], c[0]) * sc;
+          var top = Math.min(a[1], c[1]) * sc;
+          var w = Math.abs(c[0] - a[0]) * sc;
+          var h = Math.abs(c[1] - a[1]) * sc;
+          var d = document.createElement("div");
+          d.className = "hit-box" + (dbg ? " dbg" : "");
+          d.dataset.key = b.key;
+          d.style.cssText =
+            "left:" + left + "px;top:" + top + "px;width:" + w + "px;height:" + h + "px;";
+          if (dbg) {
+            d.title = _blkLabelJa[b.key] || b.key;
+            d.addEventListener("click", function () {
+              toast("塊: " + (_blkLabelJa[b.key] || b.key) + " (" + b.key + ")");
+            });
+          }
+          layer.appendChild(d);
+        });
+        sheet.appendChild(layer);
       }
       // 請求書PDFのbytes生成（保存/印刷で共有）。該当なし等は toast して null を返す。
       async function _buildInvoiceBytes() {
