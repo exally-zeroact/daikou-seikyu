@@ -1805,6 +1805,32 @@
         font-size: 13px;
         font-weight: 800;
       }
+      .ep-alg {
+        display: inline-flex;
+        margin-left: auto;
+        border: 1px solid #c8ecd8;
+        border-radius: 8px;
+        overflow: hidden;
+        flex: none;
+      }
+      .ep-alg button {
+        width: 32px;
+        height: 30px;
+        border: none;
+        background: #fff;
+        color: #6f9685;
+        font-size: 12px;
+        border-left: 1px solid #e3f1ea;
+        font-family: inherit;
+      }
+      .ep-alg button:first-child {
+        border-left: none;
+      }
+      .ep-alg button.on {
+        background: #1a4a2e;
+        color: #fff;
+        font-weight: 700;
+      }
       .ep-switch {
         width: 44px;
         height: 24px;
@@ -3266,6 +3292,7 @@
           items: m.items || [],
           config: {
             widths: m.widths || {},
+            aligns: m.aligns || {},
             lead: m.lead || "",
             tableTitle: m.tableTitle || "",
             noteSummary: !!m.noteSummary,
@@ -3297,6 +3324,7 @@
               account_id: r.user_id,
               items: r.items || [],
               widths: cf.widths || {},
+              aligns: cf.aligns || {},
               lead: cf.lead || "",
               tableTitle: cf.tableTitle || "",
               noteSummary: !!cf.noteSummary,
@@ -5742,12 +5770,17 @@
             _eh(co || "—") +
             "）</div>" +
             '<div class="note">列ごとに幅を調整。広げると他の列が縮みます（合計幅は一定）。プレビューに即反映。</div>';
+          h +=
+            '<div class="note" style="margin-top:-4px">幅＝−＋／揃え＝左・中・右（金額は既定で右）。</div>';
           items.forEach(function (col) {
             var w = (m.widths && m.widths[col]) || COLBASE[col] || 80;
             var label =
               window.MeisaiEngine && MeisaiEngine.utils && MeisaiEngine.utils.labelOf
                 ? MeisaiEngine.utils.labelOf(m, col)
                 : col;
+            var ca =
+              (m.aligns && m.aligns[col]) ||
+              (col === "金額" ? "right" : col === "日付" ? "center" : "left");
             h +=
               '<div class="ep-row"><span class="l">' +
               _eh(label) +
@@ -5760,7 +5793,12 @@
               "</span>" +
               "<button onclick=\"editColWidth('" +
               _eh(col) +
-              "', 20)\">＋</button></div></div>";
+              "', 20)\">＋</button></div>" +
+              '<div class="ep-alg">' +
+              _algBtn(col, "left", ca, "左") +
+              _algBtn(col, "center", ca, "中") +
+              _algBtn(col, "right", ca, "右") +
+              "</div></div>";
           });
         } else if (tool === "logo") {
           h = '<div class="ph">🖼 ロゴ</div>';
@@ -5876,6 +5914,30 @@
         generateInvoices();
         renderEditPanel("cols");
       }
+      // 列ごとの揃えボタン1個分のHTML（cur が a と一致なら on）。
+      function _algBtn(col, a, cur, ic) {
+        return (
+          '<button class="' +
+          (cur === a ? "on" : "") +
+          '" onclick="editColAlign(\'' +
+          _eh(col) +
+          "','" +
+          a +
+          "')\">" +
+          ic +
+          "</button>"
+        );
+      }
+      function editColAlign(col, a) {
+        var co = editCurrentCo();
+        var m = MASTER[co];
+        if (!m) return;
+        m.aligns = m.aligns || {};
+        m.aligns[col] = a;
+        saveMasterSoon();
+        generateInvoices();
+        renderEditPanel("cols");
+      }
       function editLogoSize(delta) {
         if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
         var s = ISSUER_SETTINGS[CURRENT_ACCOUNT];
@@ -5952,6 +6014,7 @@
         var co = editCurrentCo();
         if (MASTER[co]) {
           MASTER[co].widths = {};
+          MASTER[co].aligns = {};
           saveMaster();
         }
         INV_OVERRIDE = null;

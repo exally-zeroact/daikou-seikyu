@@ -205,6 +205,17 @@
     });
   }
 
+  // 列の揃え。会社マスタ m.aligns[列] が優先。無ければ役割の既定（金額=右・日付=中央・他=左）。
+  function colAlign(m, k) {
+    var def = k === "金額" ? "right" : k === "日付" ? "center" : "left";
+    var a = m && m.aligns && m.aligns[k];
+    return a === "left" || a === "center" || a === "right" ? a : def;
+  }
+  // align に応じたセル内 x（左=左端+pad / 中央=中点 / 右=右端-pad）。
+  function colCellX(al, cx0, cx1, pad) {
+    return al === "right" ? cx1 - pad : al === "center" ? (cx0 + cx1) / 2 : cx0 + pad;
+  }
+
   // ★テーマ振り分け：iss.pdfDesign==="classic" で前テンプレ（緑）、それ以外はエレガント。★
   async function drawCompany(ctx, master, co, rows, month, iss, invoiceNo) {
     if (iss && iss.pdfDesign === "classic") {
@@ -349,8 +360,8 @@
         var cx0 = colX[ci],
           cx1 = colX[ci + 1];
         var label = k === "金額" ? "金額（税込）" : (m.labels && m.labels[k]) || k;
-        var al = k === "金額" ? "right" : k === "日付" ? "center" : "left";
-        var tx = al === "right" ? cx1 - 8 : al === "center" ? (cx0 + cx1) / 2 : cx0 + 8;
+        var al = colAlign(m, k);
+        var tx = colCellX(al, cx0, cx1, 8);
         T(page, font, label, tx, tableTop - 5, 9, { align: al, color: MINTD });
       });
       line(page, M, tableTop, RXp, tableTop, BORDER, 0.5); // 帯の上
@@ -366,21 +377,18 @@
           var cx0 = colX[ci],
             cx1 = colX[ci + 1],
             pad = 9;
+          var al = colAlign(m, k);
+          var tx = colCellX(al, cx0, cx1, pad);
+          var val;
           if (k === "日付") {
             var cur = row.日付 || "";
-            var val = cur && cur !== prevDate ? mdShort(cur) : "";
-            T(page, font, val, (cx0 + cx1) / 2, yTop - 4, 9.5, { align: "center" });
+            val = cur && cur !== prevDate ? mdShort(cur) : "";
           } else if (k === "金額") {
-            T(page, font, comma(row.金額), cx1 - pad, yTop - 4, 9.5, {
-              align: "right",
-              maxW: cx1 - cx0 - pad * 2,
-            });
+            val = comma(row.金額);
           } else {
-            T(page, font, row[k], cx0 + pad, yTop - 4, 9.5, {
-              align: "left",
-              maxW: cx1 - cx0 - pad * 2,
-            });
+            val = row[k];
           }
+          T(page, font, val, tx, yTop - 4, 9.5, { align: al, maxW: cx1 - cx0 - pad * 2 });
         });
         if (row.日付) prevDate = row.日付;
         if (r < n - 1) line(page, M, yTop - rowH, RXp, yTop - rowH, RULE, 0.5); // 行間（薄グレー）
@@ -775,23 +783,20 @@
         var row = pageRows[r];
         items.forEach(function (k, ci) {
           var cx0 = colX[ci],
-            cx1 = colX[ci + 1],
-            pad = 6;
+            cx1 = colX[ci + 1];
+          var al = colAlign(m, k);
+          var pad = al === "left" ? 8 : al === "right" ? 5 : 0;
+          var tx = colCellX(al, cx0, cx1, pad);
+          var val;
           if (k === "日付") {
             var cur = row.日付 || "";
-            var val = cur && cur !== prevDate ? mdShort(cur) : "";
-            T(page, font, val, (cx0 + cx1) / 2, yTop - 2.5, 9, { align: "center" });
+            val = cur && cur !== prevDate ? mdShort(cur) : "";
           } else if (k === "金額") {
-            T(page, font, comma(row.金額), cx1 - 5, yTop - 2.5, 9, {
-              align: "right",
-              maxW: cx1 - cx0 - pad,
-            });
+            val = comma(row.金額);
           } else {
-            T(page, font, row[k], cx0 + 8, yTop - 2.5, 9, {
-              align: "left",
-              maxW: cx1 - cx0 - 14,
-            });
+            val = row[k];
           }
+          T(page, font, val, tx, yTop - 2.5, 9, { align: al, maxW: cx1 - cx0 - 14 });
         });
         if (row.日付) prevDate = row.日付;
         if (r < n - 1) line(page, M, yTop - rowH, tableRight, yTop - rowH, GREY, 0.5); // 行間（最終行の下は引かない）
