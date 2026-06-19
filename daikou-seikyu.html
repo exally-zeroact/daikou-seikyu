@@ -640,6 +640,7 @@
         font-size: 11px;
         color: #7aa08c;
         font-weight: 700;
+        white-space: nowrap; /* 「お支払期限」等のラベルを縦折れさせない */
       }
       .itb-btn,
       .itb-font {
@@ -674,12 +675,47 @@
         color: #1a4a2e;
         cursor: pointer;
         font-family: inherit;
+        white-space: nowrap; /* 「西暦」「令和」等が縦書きに折り返さないように */
       }
       .itb-chip.on {
         background: #1a4a2e;
         border-color: #1a4a2e;
         color: #fff;
         font-weight: 700;
+      }
+      /* よくあるオンオフ・トグルスイッチ */
+      .itb-switch {
+        position: relative;
+        width: 44px;
+        height: 24px;
+        flex: none;
+        padding: 0;
+        border: 1px solid #c8ecd8;
+        border-radius: 12px;
+        background: #e6f4ec;
+        cursor: pointer;
+        transition:
+          background 0.15s,
+          border-color 0.15s;
+      }
+      .itb-switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+        transition: left 0.15s;
+      }
+      .itb-switch.on {
+        background: #52b788;
+        border-color: #52b788;
+      }
+      .itb-switch.on::after {
+        left: 24px;
       }
       .inv-override {
         display: flex;
@@ -2675,8 +2711,15 @@
         <div class="inv-toolbar2 no-print">
           <div class="itb-group">
             <span class="itb-lbl">お支払期限</span>
-            <button class="itb-chip" id="invDueOff" onclick="toggleInvoiceDue(false)">なし</button>
-            <button class="itb-chip" id="invDueOn" onclick="toggleInvoiceDue(true)">あり</button>
+            <button
+              class="itb-switch"
+              id="invDueSwitch"
+              type="button"
+              role="switch"
+              aria-checked="false"
+              aria-label="お支払期限のオン・オフ"
+              onclick="toggleInvoiceDue()"
+            ></button>
             <span id="invDueControls" style="display: none; align-items: center; gap: 6px">
               <input
                 type="date"
@@ -5414,11 +5457,12 @@
         // お支払期限（ON/OFF＋日付＋和暦/西暦）の同期
         var s = currentIssuer();
         var dueOn = !!s.showPaymentDue;
-        var bOn = document.getElementById("invDueOn"),
-          bOff = document.getElementById("invDueOff"),
+        var sw = document.getElementById("invDueSwitch"),
           ctrls = document.getElementById("invDueControls");
-        if (bOn) bOn.classList.toggle("on", dueOn);
-        if (bOff) bOff.classList.toggle("on", !dueOn);
+        if (sw) {
+          sw.classList.toggle("on", dueOn);
+          sw.setAttribute("aria-checked", dueOn ? "true" : "false");
+        }
         if (ctrls) ctrls.style.display = dueOn ? "inline-flex" : "none";
         var dd = document.getElementById("invDueDate");
         if (dd && document.activeElement !== dd) dd.value = s.paymentDue || "";
@@ -5428,8 +5472,9 @@
             b.classList.toggle("on", b.dataset.a === (s.paymentDueEra || "seireki"));
           });
       }
-      // 請求タブ：お支払期限 ON/OFF。ONで日付入力が出る。
-      function toggleInvoiceDue(on) {
+      // 請求タブ：お支払期限 ON/OFF（トグルスイッチ）。ONで日付入力が出る。
+      function toggleInvoiceDue() {
+        var on = !currentIssuer().showPaymentDue;
         setIssuer("showPaymentDue", on);
         syncInvoiceToolbar();
         generateInvoices();
