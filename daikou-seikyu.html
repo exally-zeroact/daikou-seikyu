@@ -1746,7 +1746,7 @@
       }
       /* ===== 編集タブ ===== */
       .edit-prev {
-        max-height: 42vh;
+        max-height: 52vh; /* コンパクト化で空いた分プレビューを広く（編集中の請求書を大きく見せる） */
         overflow: auto;
         background: #fff;
         border: 1px solid #e3eee8;
@@ -3160,7 +3160,7 @@
     <section class="screen" id="scr-edit">
       <div class="edit-stickytop">
         <div class="edit-live">
-          👁 プレビュー <span class="b">いじると即ここが変わる</span>
+          👁 プレビュー <span class="b">編集すると即ここが変わる</span>
           <select
             class="fselect"
             id="editCompany"
