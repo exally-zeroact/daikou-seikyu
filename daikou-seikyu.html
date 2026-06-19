@@ -2446,13 +2446,13 @@
             </button>
           </div>
           <div class="frow" style="margin-top: 10px">
-            <div class="flabel">ロゴの大きさ（mm・10〜60／基本40）</div>
+            <div class="flabel">ロゴの大きさ（mm・10〜46／基本40）</div>
             <input
               class="finput fnum"
               id="iss_logoSize"
               inputmode="numeric"
               min="10"
-              max="60"
+              max="46"
               style="max-width: 120px"
               oninput="setLogoSize(this.value)"
               onchange="this.value = setLogoSize(this.value)"
@@ -6009,7 +6009,7 @@
           hanko: s.hanko || null,
           hankoSizeMm: Number(s.hankoSizeMm) || 21,
           logo: s.logo || null,
-          logoSizeMm: Number(s.logoSizeMm) || 40, // 基本40mm（司さん指定で大きめ）
+          logoSizeMm: Math.max(10, Math.min(46, Number(s.logoSizeMm) || 40)), // 10〜46mm（描画上限と一致）
           pdfDesign: dv.design, // ★これが無いと classic に到達できない（監査B-1）★
           headerStyle: dv.variant.headerStyle, // デザイン×種類から導出
           logoMode: dv.variant.logoMode, // show=ロゴ枠あり / hide=ロゴ出さない
@@ -6084,7 +6084,13 @@
         var sz = document.getElementById("iss_hankoSize");
         if (sz && document.activeElement !== sz) sz.value = s.hankoSizeMm || 21;
         var lsz = document.getElementById("iss_logoSize");
-        if (lsz && document.activeElement !== lsz) lsz.value = s.logoSizeMm || 40;
+        // 旧データで46超を保存していたら一度だけ46へ正す（上限と一致）。
+        var lmm = Number(s.logoSizeMm) || 40;
+        if (lmm > 46 || lmm < 10) {
+          lmm = Math.max(10, Math.min(46, lmm));
+          setIssuer("logoSizeMm", lmm);
+        }
+        if (lsz && document.activeElement !== lsz) lsz.value = lmm;
         var cn = document.getElementById("iss_showNo");
         if (cn) cn.checked = !!s.showInvoiceNo;
         // プレビューは選んだmmサイズに比例して大小を表示＝サイズ変更が目で見える(共通 約1.6px/mm)。
@@ -6260,7 +6266,7 @@
       }
       function setLogoSize(v) {
         var n = Number(String(v).replace(/[^0-9.]/g, "")) || 40;
-        n = Math.max(10, Math.min(60, n)); // 下限10mm・上限60mm（範囲外は確定時に強制クランプ）
+        n = Math.max(10, Math.min(46, n)); // 下限10mm・上限46mm（=描画の実効上限・範囲外は確定時に強制クランプ）
         setIssuer("logoSizeMm", n);
         renderIssuer(); // プレビューを実サイズで更新（大小が見える）
         generateInvoices(); // 請求書プレビュー（実PDF）も更新
