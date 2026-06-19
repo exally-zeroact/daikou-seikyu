@@ -5915,7 +5915,7 @@
           // 揃え系(info/grand/lead)は「その範囲の揃えだけ」を出す（_alignFilter）。editTool内で fitInvoice。
           editTool(tool, tool === "align" ? key : null);
         }
-        _applyBlockSelection(true); // 範囲を光らせる＋(コンパクト窓で範囲が窓外の時だけ)寄せる
+        _applyBlockSelection(false); // 範囲を光らせるだけ（自動スクロールしない＝画面が動かない）
       }
       // 範囲の選択を解除＝全体表示に戻す（同じチップ再タップ）。
       function editDeselect() {
@@ -6084,12 +6084,12 @@
         }
       }
       // 720pxのA4シートをスマホ画面幅に縮小して全体を見せる
-      // 編集プレビューの高さ比率：閲覧=全体(0.66)／編集中=約半分(0.48)。
-      //   ★研究結論(専門家会議)：編集時のプレビューは画面の約50%が「見ながら触る」の業界標準
-      //   (Apple medium detent≈50%・Material halfExpandedRatio=0.50・操作面は画面2/3を超えない)。
-      //   旧0.35は操作に振りすぎで請求書の文脈が消えるアンチパターンだった。将来3段化する時はここを拡張。
+      // 編集プレビューの高さ比率＝★固定（閲覧/編集で変えない）★。
+      //   以前は閲覧0.66/編集0.48で切替えていたが、チップを押すたびにプレビューが伸び縮みして
+      //   画面がガクガク動く(司さん指摘)ため固定化。値は研究の標準点(画面の約50%＝見ながら触るの業界標準
+      //   Apple medium detent/Material halfExpandedRatio=0.50)に合わせ 0.52。動かない＝うざくない。
       function _editCapRatio() {
-        return _editFocusActive ? 0.48 : 0.66;
+        return 0.52;
       }
       function fitInvoice() {
         document.querySelectorAll(".inv-out").forEach(function (out) {
