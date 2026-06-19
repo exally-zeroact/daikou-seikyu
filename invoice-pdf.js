@@ -215,6 +215,11 @@
   function colCellX(al, cx0, cx1, pad) {
     return al === "right" ? cx1 - pad : al === "center" ? (cx0 + cx1) / 2 : cx0 + pad;
   }
+  // 文章ブロックの揃え。iss[field] が left/center/right なら優先、それ以外("auto"含む)は def（テンプレ既定）。
+  function blkAlignOf(iss, field, def) {
+    var a = iss && iss[field];
+    return a === "left" || a === "center" || a === "right" ? a : def;
+  }
 
   // ★テーマ振り分け：iss.pdfDesign==="classic" で前テンプレ（緑）、それ以外はエレガント。★
   async function drawCompany(ctx, master, co, rows, month, iss, invoiceNo) {
@@ -464,9 +469,9 @@
       // ロゴ＝右端固定・上端を線のすぐ下から（大きく）
       if (showLogo)
         page.drawImage(logo, { x: RXp - logoW, y: topY - logoH, width: logoW, height: logoH });
-      // 自社情報：ロゴありは中央揃え（中央）、ロゴなしは右揃え（右端＝ロゴがあった位置）。
-      var infoAlign = showLogo ? "center" : "right";
-      var infoAnchorX = showLogo ? CX : RXp;
+      // 自社情報の揃え：ユーザー設定(alignIssuer)優先。"auto"はロゴ有=中央/無=右の既定。
+      var infoAlign = blkAlignOf(iss, "alignIssuer", showLogo ? "center" : "right");
+      var infoAnchorX = infoAlign === "left" ? M : infoAlign === "center" ? CX : RXp;
       var textTop = topY - Math.max(0, (blockH - issH) / 2);
       var fy = textTop;
       iLines.forEach(function (ln, idx) {
@@ -476,13 +481,15 @@
         });
         fy -= idx === 0 ? 13 : 10;
       });
-      // 判子（社名の右端に“重ねて”押す＝角印標準）。中央揃え/右揃えで社名末尾の位置が変わる。
+      // 判子（社名の右端に“重ねて”押す＝角印標準）。揃えで社名末尾の位置が変わる。
       if (hanko) {
         var hs = (Number(iss && iss.hankoSizeMm) || 20) * MM * 0.8;
         var nameW = font.widthOfTextAtSize(_sanitize(iLines[0] || ""), 11);
-        var nameRight = showLogo ? CX + nameW / 2 : RXp; // 社名の右端
+        var nameRight =
+          infoAlign === "left" ? M + nameW : infoAlign === "center" ? CX + nameW / 2 : RXp; // 社名の右端
         var hankoX = nameRight - hs * 0.45; // 社名末尾に重なる
         if (hankoX + hs > RXp) hankoX = RXp - hs; // 緑の線の右端からはみ出さない
+        if (hankoX < M) hankoX = M; // 左マージンより内側に
         page.drawImage(hanko, {
           x: hankoX,
           y: textTop - hs + 9,

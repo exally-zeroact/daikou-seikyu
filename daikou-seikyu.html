@@ -2431,35 +2431,9 @@
               oninput="setIssuer('issuer', this.value)"
               onchange="toast('発行者を保存しました（請求書に反映）')"
             ></textarea>
-            <div class="align-row">
-              <span class="align-lbl">文字揃え</span>
-              <button
-                class="align-btn"
-                data-grp="issuerAlign"
-                data-a="left"
-                onclick="setAlign('issuerAlign', 'left')"
-              >
-                左
-              </button>
-              <button
-                class="align-btn"
-                data-grp="issuerAlign"
-                data-a="center"
-                onclick="setAlign('issuerAlign', 'center')"
-              >
-                中央
-              </button>
-              <button
-                class="align-btn"
-                data-grp="issuerAlign"
-                data-a="right"
-                onclick="setAlign('issuerAlign', 'right')"
-              >
-                右
-              </button>
-            </div>
-            <div style="font-size: 10px; color: #7aa08c; margin-top: 5px; line-height: 1.6">
-              例：屋号／事業名／〒／住所／TEL／登録番号。<b>登録番号や事業名が無ければ、その行を消すだけ。</b>代表者名・FAX・メールなど足すのも自由。1行目が少し大きく出ます。
+            <div style="font-size: 10px; color: #7aa08c; margin-top: 6px; line-height: 1.6">
+              例：屋号／事業名／〒／住所／TEL／登録番号。<b>登録番号や事業名が無ければ、その行を消すだけ。</b>代表者名・FAX・メールなど足すのも自由。1行目が少し大きく出ます。<br />
+              <b>文字揃えは「編集」タブ → 揃え</b> で（見ながら調整できます）。
             </div>
           </div>
         </div>
@@ -3109,6 +3083,9 @@
         </button>
         <button class="etool" data-tool="hanko" onclick="editTool('hanko')">
           <span class="ic">🟥</span>判子
+        </button>
+        <button class="etool" data-tool="align" onclick="editTool('align')">
+          <span class="ic">↔️</span>揃え
         </button>
         <button class="etool" data-tool="tpl" onclick="editTool('tpl')">
           <span class="ic">🎨</span>テンプレ
@@ -5888,6 +5865,38 @@
             });
             h += "</div></div>";
           }
+        } else if (tool === "align") {
+          var isEle = s.pdfDesign !== "classic";
+          h =
+            '<div class="ph">↔️ 揃え（文章ブロック）</div>' +
+            '<div class="note">自社情報の揃えを 左／中／右。' +
+            (isEle
+              ? "エレガントのフッターに反映"
+              : "※クラシックは自社情報が右固定の設計。エレガントで反映") +
+            "（Excel書き出しは右）。</div>";
+          var ai =
+            s.alignIssuer === "left" || s.alignIssuer === "center" || s.alignIssuer === "right"
+              ? s.alignIssuer
+              : "";
+          h += '<div class="ep-row"><span class="l">自社情報</span><div class="ep-alg">';
+          [
+            ["left", "左"],
+            ["center", "中"],
+            ["right", "右"],
+          ].forEach(function (e) {
+            h +=
+              '<button class="' +
+              (ai === e[0] ? "on" : "") +
+              '" onclick="editSetIssuerAlign(\'' +
+              e[0] +
+              "')\">" +
+              e[1] +
+              "</button>";
+          });
+          h += "</div></div>";
+          if (!ai)
+            h +=
+              '<div class="note" style="margin-top:2px">いまは自動（テンプレ既定）。タップで固定。</div>';
         }
         el.innerHTML = h;
       }
@@ -5979,6 +5988,11 @@
         generateInvoices();
         renderEditPanel("meta");
       }
+      function editSetIssuerAlign(a) {
+        setIssuer("alignIssuer", a);
+        generateInvoices();
+        renderEditPanel("align");
+      }
       function editToggleDue() {
         toggleInvoiceDue(); // 既存（保存＋即反映）
         renderEditPanel("meta");
@@ -6005,6 +6019,7 @@
           "showPaymentDue",
           "issuerAlign",
           "bankAlign",
+          "alignIssuer",
           "dateEra",
           "paymentDueEra",
         ].forEach(function (k) {
@@ -6437,6 +6452,7 @@
           bank: "伊予銀行　今治支店　普通　4160657\nド）ゼロアクト",
           issuerAlign: "left",
           bankAlign: "left",
+          alignIssuer: "auto", // 自社情報ブロックの揃え（編集タブで設定・auto=テンプレ既定）
           dateEra: "seireki", // 日付の表記: seireki(2026/2/1) / reiwa(令和8年2月1日)
           showInvoiceNo: false, // 請求書番号を表示するか
           showPaymentDue: false, // お支払期限（有効期限）を表示するか
@@ -6630,6 +6646,7 @@
           bank: bankLines.length ? ["お振込先"].concat(bankLines) : [],
           lineAlign: s.issuerAlign || "left",
           bankAlign: s.bankAlign || "left",
+          alignIssuer: s.alignIssuer || "auto", // 自社情報ブロックの揃え（編集タブ）
           dateEra: s.dateEra || "seireki",
           showInvoiceNo: !!s.showInvoiceNo,
           paymentDue:
