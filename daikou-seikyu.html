@@ -5800,7 +5800,7 @@
         out.innerHTML = "";
         out.appendChild(inner);
         fitInvoice();
-        if (typeof _editSelBlock !== "undefined" && _editSelBlock) _applyBlockSelection(false); // 再描画＝ハイライトのみ（寄せない＝勝手にスクロールしない）
+        if (typeof _editSelBlock !== "undefined" && _editSelBlock) _applyBlockSelection("ensure"); // 再描画＝選択範囲が窓外なら戻す（サイズ変更等を見失わない・見えてれば動かさない）
       }
       // 塊(ブロック)の当たり判定divを canvas の上に重ねる。
       //   PDF空間(y-up)の矩形 → pdf.js viewport.convertToViewportPoint で canvas px へ。
@@ -5960,7 +5960,10 @@
       // 選択中の範囲にミント枠を付ける。doScroll=true かつ プレビューが実際にスクロール可能な時だけ寄せる。
       //   ★全体が見えている(単ページ＝overflow:hidden)時は寄せない＝勝手にスクロールして うざいのを防ぐ。
       //   再描画のたびに寄せると動きまくるので、再描画時はハイライトのみ(doScroll=false)。
-      function _applyBlockSelection(doScroll) {
+      // scrollMode: "jump"(=true)＝必ずその範囲へ寄せる（チップ選択時）。
+      //   "ensure"＝範囲が窓外の時だけ寄せる（再描画時＝サイズ変更等で選択範囲を見失わない・既に見えてれば動かさない）。
+      //   それ以外(falsy)＝ハイライトのみ・寄せない。
+      function _applyBlockSelection(scrollMode) {
         var out = activeInvOut();
         if (!out) return;
         var sel = null;
@@ -5969,11 +5972,17 @@
           d.classList.toggle("sel", on);
           if (on && !sel) sel = d;
         });
-        if (sel && doScroll && _isPrevScrollable(out)) _scrollBlockIntoView(out, sel);
+        if (!sel || !scrollMode || !_isPrevScrollable(out)) return;
+        if (scrollMode === "ensure") {
+          var or = out.getBoundingClientRect();
+          var er = sel.getBoundingClientRect();
+          if (er.top >= or.top - 1 && er.bottom <= or.bottom + 1) return; // 既に見えてる＝動かさない
+        }
+        _scrollBlockIntoView(out, sel);
       }
-      // 実際にスクロールできる時だけ true（overflow:hidden=全体表示 や 収まってる時は false）。
+      // 実際にスクロールできる時だけ true（overflow:hidden=収まってる時は false）。
       function _isPrevScrollable(out) {
-        if (getComputedStyle(out).overflow === "hidden") return false;
+        if (getComputedStyle(out).overflowY === "hidden") return false;
         return out.scrollHeight > out.clientHeight + 4;
       }
       // 選択範囲が編集プレビュー窓の中央に来るようスクロール（複数ページで範囲が窓外の時のみ）。
@@ -6296,9 +6305,9 @@
           var lmm = Math.max(10, Math.min(46, Number(s.logoSizeMm) || 40));
           h +=
             '<div class="ep-row"><span class="l">大きさ</span><div class="ep-num">' +
-            '<button onclick="editLogoSize(-2)">−</button><span class="v">' +
+            '<button onclick="editLogoSize(-1)">−</button><span class="v">' +
             lmm +
-            'mm</span><button onclick="editLogoSize(2)">＋</button></div></div>';
+            'mm</span><button onclick="editLogoSize(1)">＋</button></div></div>';
         } else if (tool === "hanko") {
           h = '<div class="ph">🟥 判子</div>';
           if (!s.hanko)
