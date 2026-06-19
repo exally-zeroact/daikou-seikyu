@@ -1673,7 +1673,7 @@
       }
       /* ===== 編集タブ ===== */
       .edit-prev {
-        max-height: 52vh;
+        max-height: 44vh;
         overflow: auto;
         background: #fff;
         border: 1px solid #e3eee8;
@@ -1681,6 +1681,15 @@
         padding: 10px;
         box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
         margin-bottom: 10px;
+      }
+      /* プレビューを上部に固定＝道具を触っても請求書が見える（見ながら編集） */
+      .edit-stickytop {
+        position: sticky;
+        top: var(--hdr-h, 50px);
+        z-index: 8;
+        background: #eef7f1;
+        margin: 0 -12px;
+        padding: 4px 12px 0;
       }
       .edit-live {
         font-size: 11px;
@@ -3058,22 +3067,24 @@
 
     <!-- ===== 編集（請求書の見た目を見ながら微調整） ===== -->
     <section class="screen" id="scr-edit">
-      <div class="edit-live">
-        👁 プレビュー <span class="b">いじると即ここが変わる</span>
-        <select
-          class="fselect"
-          id="editCompany"
-          style="
-            margin-left: auto;
-            width: auto;
-            min-width: 120px;
-            padding: 4px 8px;
-            font-size: 12px;
-          "
-          onchange="editPickCompany()"
-        ></select>
+      <div class="edit-stickytop">
+        <div class="edit-live">
+          👁 プレビュー <span class="b">いじると即ここが変わる</span>
+          <select
+            class="fselect"
+            id="editCompany"
+            style="
+              margin-left: auto;
+              width: auto;
+              min-width: 120px;
+              padding: 4px 8px;
+              font-size: 12px;
+            "
+            onchange="editPickCompany()"
+          ></select>
+        </div>
+        <div class="edit-prev sheet-scale inv-out" id="editOut"></div>
       </div>
-      <div class="edit-prev sheet-scale inv-out" id="editOut"></div>
       <div class="edit-tools" id="editTools">
         <button class="etool on" data-tool="cols" onclick="editTool('cols')">
           <span class="ic">📊</span>列幅
@@ -5685,6 +5696,9 @@
       }
       function editEnter() {
         INV_OVERRIDE = null; // 編集タブは「保存済みデザイン」を表示・編集する
+        // プレビュー固定位置＝ヘッダーの高さの直下に合わせる
+        var _hdr = document.querySelector(".app-header");
+        if (_hdr) document.documentElement.style.setProperty("--hdr-h", _hdr.offsetHeight + "px");
         // 月＝データのある最新月（請求タブの選択には触れない）。
         var rows = DB.filter(function (r) {
           return r.account_id === CURRENT_ACCOUNT;
@@ -5892,19 +5906,20 @@
             return html + "</div></div>";
           };
           h = '<div class="ph">↔️ 揃え</div>';
+          // 並びは請求書の上→下：説明文 → ご請求金額 → 自社情報
           h +=
-            '<div class="note" style="font-weight:800;color:#5f8a72;margin-bottom:2px">自社情報</div>' +
+            '<div class="note" style="font-weight:800;color:#5f8a72;margin-bottom:2px">説明文</div>';
+          h += _algGroup("位置", _av(s.posLead), "editSetLeadPos");
+          h +=
+            '<div class="note" style="font-weight:800;color:#5f8a72;margin:10px 0 2px">ご請求金額</div>';
+          h += _algGroup("位置", _av(s.posGrand), "editSetGrandPos");
+          h +=
+            '<div class="note" style="font-weight:800;color:#5f8a72;margin:10px 0 2px">自社情報</div>' +
             '<div class="note" style="margin-top:0">「塊の位置」と「行の並び」を別々に。' +
             (isEle ? "エレガントのフッターに反映" : "※クラシックは右固定。エレガントで反映") +
             "（Excel書き出しは右）。</div>";
           h += _algGroup("塊の位置", _av(s.alignIssuer), "editSetIssuerAlign");
           h += _algGroup("行の並び", _av(s.lineIssuer), "editSetIssuerLine");
-          h +=
-            '<div class="note" style="font-weight:800;color:#5f8a72;margin:10px 0 2px">ご請求金額</div>';
-          h += _algGroup("位置", _av(s.posGrand), "editSetGrandPos");
-          h +=
-            '<div class="note" style="font-weight:800;color:#5f8a72;margin:10px 0 2px">説明文</div>';
-          h += _algGroup("位置", _av(s.posLead), "editSetLeadPos");
         }
         el.innerHTML = h;
       }
