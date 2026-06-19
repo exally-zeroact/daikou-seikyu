@@ -5902,6 +5902,9 @@
           h +=
             '<div class="note" style="font-weight:800;color:#5f8a72;margin:10px 0 2px">ご請求金額</div>';
           h += _algGroup("位置", _av(s.posGrand), "editSetGrandPos");
+          h +=
+            '<div class="note" style="font-weight:800;color:#5f8a72;margin:10px 0 2px">説明文</div>';
+          h += _algGroup("位置", _av(s.posLead), "editSetLeadPos");
         }
         el.innerHTML = h;
       }
@@ -6008,6 +6011,11 @@
         generateInvoices();
         renderEditPanel("align");
       }
+      function editSetLeadPos(a) {
+        setIssuer("posLead", a);
+        generateInvoices();
+        renderEditPanel("align");
+      }
       function editToggleDue() {
         toggleInvoiceDue(); // 既存（保存＋即反映）
         renderEditPanel("meta");
@@ -6037,6 +6045,7 @@
           "alignIssuer",
           "lineIssuer",
           "posGrand",
+          "posLead",
           "dateEra",
           "paymentDueEra",
         ].forEach(function (k) {
@@ -6472,6 +6481,7 @@
           alignIssuer: "auto", // 自社情報ブロックの位置（編集タブ・auto=テンプレ既定）
           lineIssuer: "auto", // 自社情報の行の並び（auto=位置と同じ）
           posGrand: "auto", // ご請求金額の位置（auto=左）
+          posLead: "auto", // 説明文の位置（auto=左）
           dateEra: "seireki", // 日付の表記: seireki(2026/2/1) / reiwa(令和8年2月1日)
           showInvoiceNo: false, // 請求書番号を表示するか
           showPaymentDue: false, // お支払期限（有効期限）を表示するか
@@ -6668,6 +6678,7 @@
           alignIssuer: s.alignIssuer || "auto", // 自社情報ブロックの位置（編集タブ）
           lineIssuer: s.lineIssuer || "auto", // 自社情報の行の並び（編集タブ）
           posGrand: s.posGrand || "auto", // ご請求金額の位置（編集タブ）
+          posLead: s.posLead || "auto", // 説明文の位置（編集タブ）
           dateEra: s.dateEra || "seireki",
           showInvoiceNo: !!s.showInvoiceNo,
           paymentDue:

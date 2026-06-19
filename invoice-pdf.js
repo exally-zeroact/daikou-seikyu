@@ -325,11 +325,13 @@
         });
       }
       cy -= 34;
-      // あいさつ
+      // あいさつ（説明文）。位置揃え（既定 left）。
       var lead = ((m.lead || "{月}月のご利用分です。") + "").replace("{月}", monthNum);
-      T(page, font, lead, M, cy, 9.5, { color: MUTED });
+      var lpos = blkAlignOf(iss, "posLead", "left");
+      var lx = lpos === "center" ? CX : lpos === "right" ? RXp : M;
+      T(page, font, lead, lx, cy, 9.5, { color: MUTED, align: lpos });
       cy -= 14;
-      T(page, font, "下記の通り御請求申し上げます。", M, cy, 9.5, { color: MUTED });
+      T(page, font, "下記の通り御請求申し上げます。", lx, cy, 9.5, { color: MUTED, align: lpos });
       cy -= 20;
       return cy;
     }
@@ -703,9 +705,11 @@
       }
       cy = topRow - 40;
       var lead = ((m.lead || "{月}月のご利用分です。") + "").replace("{月}", monthNum);
-      T(page, font, lead, M, cy, 9.5, { color: DARK });
+      var lpos = blkAlignOf(iss, "posLead", "left");
+      var lx = lpos === "center" ? M + CW / 2 : lpos === "right" ? M + CW : M;
+      T(page, font, lead, lx, cy, 9.5, { color: DARK, align: lpos });
       cy -= 16;
-      T(page, font, "下記の通り御請求申し上げます。", M, cy, 9.5, { color: DARK });
+      T(page, font, "下記の通り御請求申し上げます。", lx, cy, 9.5, { color: DARK, align: lpos });
       cy -= 22;
       if (showGrand) {
         // ★ご請求金額：ラベルと数字を同じ大きさに統一＋太字（微小ずらし重ね描き＝疑似ボールド）★
