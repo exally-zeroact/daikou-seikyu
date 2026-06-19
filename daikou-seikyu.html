@@ -5591,6 +5591,7 @@
           li: iss.lineIssuer,
           pg: iss.posGrand,
           pl: iss.posLead,
+          pdu: iss.posDue,
           de: iss.dateEra,
           sn: iss.showInvoiceNo,
           pd: iss.paymentDue,
@@ -5859,13 +5860,13 @@
         lead: "align", // あいさつ文 → 揃え
         logo: "logo", // ロゴ → 大きさ
         hanko: "hanko", // はんこ → 大きさ
+        due: "align", // お支払期限（有効期限）→ 位置（posDue）
       };
       // 位置揃えを持たない範囲＝選択＋ハイライト＋説明のみ（会計レイアウト/上部過密で固定）。
       var _BLK_NOTE = {
         totals:
           "小計・消費税・合計（税込）の範囲です。位置は会計の決まりで右下に固定しています（金額のケタを右でそろえるため）。",
         meta: "請求日・No. の範囲です。位置は上部に固定です。",
-        due: "お支払期限（有効期限）の範囲です。",
         bank: "お振込先の範囲です。",
       };
       function editSelectBlock(key) {
@@ -6314,6 +6315,10 @@
             h = '<div class="ph">↔️ あいさつ文</div>';
             h += '<div class="note">選択範囲（あいさつ文）を 左／中／右 に寄せます。</div>';
             h += _algGroup("選択範囲を", _av(s.posLead), "editSetLeadPos");
+          } else if (f === "due") {
+            h = '<div class="ph">↔️ お支払期限</div>';
+            h += '<div class="note">選択範囲（お支払期限）を 左／中／右 に寄せます。</div>';
+            h += _algGroup("選択範囲を", _av(s.posDue), "editSetDuePos");
           } else if (f === "grand") {
             h = '<div class="ph">↔️ ご請求金額</div>';
             h +=
@@ -6460,6 +6465,11 @@
         generateInvoices();
         renderEditPanel("align");
       }
+      function editSetDuePos(a) {
+        setIssuer("posDue", a);
+        generateInvoices();
+        renderEditPanel("align");
+      }
       function editToggleDue() {
         toggleInvoiceDue(); // 既存（保存＋即反映）
         refreshDueChip(); // 「お支払期限」チップの表示/非表示を更新
@@ -6491,6 +6501,7 @@
           "lineIssuer",
           "posGrand",
           "posLead",
+          "posDue",
           "dateEra",
           "paymentDueEra",
         ].forEach(function (k) {
@@ -6931,6 +6942,7 @@
           lineIssuer: "auto", // 自社情報の行の並び（auto=位置と同じ）
           posGrand: "auto", // ご請求金額の位置（auto=左）
           posLead: "auto", // 説明文の位置（auto=左）
+          posDue: "auto", // お支払期限の位置（auto=テンプレ既定）
           dateEra: "seireki", // 日付の表記: seireki(2026/2/1) / reiwa(令和8年2月1日)
           showInvoiceNo: false, // 請求書番号を表示するか
           showPaymentDue: false, // お支払期限（有効期限）を表示するか
@@ -7128,6 +7140,7 @@
           lineIssuer: s.lineIssuer || "auto", // 自社情報の行の並び（編集タブ）
           posGrand: s.posGrand || "auto", // ご請求金額の位置（編集タブ）
           posLead: s.posLead || "auto", // 説明文の位置（編集タブ）
+          posDue: s.posDue || "auto", // お支払期限（有効期限）の位置（編集タブ）
           dateEra: s.dateEra || "seireki",
           showInvoiceNo: !!s.showInvoiceNo,
           paymentDue:

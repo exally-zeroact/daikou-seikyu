@@ -357,9 +357,11 @@
       _curBlk = "aite";
       var aw = T(page, font, co + "　御中", M, cy, 17, { color: TEXT, maxW: CW * 0.5 });
       line(page, M, cy - 21, M + Math.min(aw + 10, CW * 0.5), cy - 21, BORDER, 0.6);
-      // ★右ブロック：お支払期限(due)＋振込先(bank) を別々の選択範囲に区分け（描画は不変）★
+      // ★右ブロック：お支払期限(due)＋振込先(bank) を別々の選択範囲に区分け★
+      //   有効期限の位置 posDue（既定=右）。右＝従来どおり右上（振込先と同じ右ブロック）。
+      var dpos = blkAlignOf(iss, "posDue", "right");
       var ry = cy + 2;
-      if (pDue) {
+      if (pDue && dpos === "right") {
         _curBlk = "due";
         T(page, font, "お支払期限　" + pDue, RXp, ry, 10, { align: "right", color: TEXT });
         ry -= 16;
@@ -376,6 +378,16 @@
       }
       _curBlk = null;
       cy -= 34;
+      // ★有効期限を左/中にした時は、宛名と被らないよう独立した1行で（あいさつの上）。★
+      if (pDue && dpos !== "right") {
+        _curBlk = "due";
+        T(page, font, "お支払期限　" + pDue, dpos === "center" ? CX : M, cy, 10, {
+          align: dpos,
+          color: TEXT,
+        });
+        _curBlk = null;
+        cy -= 16;
+      }
       // あいさつ（説明文）。位置揃え（既定 left）。
       _curBlk = "lead";
       var lead = ((m.lead || "{月}月のご利用分です。") + "").replace("{月}", monthNum);
@@ -735,8 +747,10 @@
         T(page, font, dateStr + (noStr ? "　　" + noStr : ""), M, cy, 10, { color: DARK });
         cy -= 14;
         if (pDue) {
-          _curBlk = "due"; // 有効期限は別の選択範囲に区分け
-          T(page, font, "お支払期限　" + pDue, M, cy, 10, { color: DARK });
+          _curBlk = "due"; // 有効期限は別の選択範囲に区分け（位置 posDue・既定=左）
+          var dposA = blkAlignOf(iss, "posDue", "left");
+          var dxA = dposA === "center" ? M + CW / 2 : dposA === "right" ? M + CW : M;
+          T(page, font, "お支払期限　" + pDue, dxA, cy, 10, { align: dposA, color: DARK });
           cy -= 14;
         }
         _curBlk = null;
@@ -750,11 +764,10 @@
           cy -= 13;
         }
         if (pDue) {
-          _curBlk = "due"; // 有効期限は別の選択範囲に区分け
-          T(page, font, "お支払期限　" + pDue, M + CW, cy, 9.5, {
-            align: "right",
-            color: DARK,
-          });
+          _curBlk = "due"; // 有効期限は別の選択範囲に区分け（位置 posDue・既定=右）
+          var dposB = blkAlignOf(iss, "posDue", "right");
+          var dxB = dposB === "center" ? M + CW / 2 : dposB === "left" ? M : M + CW;
+          T(page, font, "お支払期限　" + pDue, dxB, cy, 9.5, { align: dposB, color: DARK });
           cy -= 13;
         }
         _curBlk = null;
