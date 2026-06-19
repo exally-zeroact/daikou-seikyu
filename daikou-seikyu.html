@@ -1693,7 +1693,13 @@
         box-sizing: border-box;
         border-radius: 3px;
       }
-      /* どこを直す？＝塊チップ横帯（横スクロール・親指で押せる大きさ）。 */
+      /* 「直す範囲を選ぶ」見出し＋範囲チップ横帯（横スクロール・親指で押せる大きさ）。 */
+      .edit-chips-lbl {
+        font-size: 11px;
+        font-weight: 800;
+        color: #2f7d5b;
+        margin: 2px 2px 2px;
+      }
       .edit-chips {
         display: flex;
         gap: 6px;
@@ -1782,12 +1788,20 @@
       }
       .edit-tools {
         display: flex;
+        align-items: center;
         gap: 4px;
         background: #fff;
         border: 1px solid #e6f0ea;
         border-radius: 12px;
         padding: 6px 6px;
         margin-bottom: 10px;
+      }
+      .etool-lbl {
+        flex: none;
+        font-size: 10.5px;
+        font-weight: 800;
+        color: #9cbbab;
+        padding: 0 8px 0 4px;
       }
       .etool {
         flex: 1;
@@ -1837,7 +1851,9 @@
         padding: 7px 0;
       }
       .ep-row .l {
-        width: 58px;
+        min-width: 58px;
+        width: auto;
+        white-space: nowrap; /* 「選択範囲内の文字を」等の長いラベルも折り返さず1行（余白に収まる） */
         font-size: 12px;
         font-weight: 700;
         color: #5f8a72;
@@ -1912,6 +1928,13 @@
         background: #1a4a2e;
         color: #fff;
         font-weight: 700;
+      }
+      /* 効かない揃え（クラシックの自社情報など）＝押せない・薄く見せる（死にボタンと分かる）。 */
+      .ep-alg.dim {
+        opacity: 0.4;
+      }
+      .ep-alg.dim button {
+        cursor: not-allowed;
       }
       .ep-switch {
         width: 44px;
@@ -3157,7 +3180,8 @@
           ></select>
         </div>
         <div class="edit-prev sheet-scale inv-out" id="editOut"></div>
-        <!-- ★どこを直す？＝請求書の塊を選ぶ（タップ→上で光って中央へ寄る）。選ぶと下に操作が出る。 -->
+        <!-- ★直す範囲を選ぶ（タップ→上で範囲が光って中央へ寄る）。選ぶと下にその範囲の操作が出る。 -->
+        <div class="edit-chips-lbl">📍 直す範囲を選ぶ</div>
         <div class="edit-chips" id="editChips">
           <button class="echip" data-blk="info" onclick="editSelectBlock('info')">
             会社名・住所
@@ -3175,21 +3199,11 @@
           <button class="echip" data-blk="hanko" onclick="editSelectBlock('hanko')">はんこ</button>
         </div>
       </div>
+      <!-- 全体の設定（特定の塊に紐づかない）。塊ごとの調整は上の「どこを直す？」チップから。 -->
       <div class="edit-tools" id="editTools">
-        <button class="etool on" data-tool="cols" onclick="editTool('cols')">
-          <span class="ic">📊</span>列幅
-        </button>
-        <button class="etool" data-tool="logo" onclick="editTool('logo')">
-          <span class="ic">🖼</span>ロゴ
-        </button>
-        <button class="etool" data-tool="hanko" onclick="editTool('hanko')">
-          <span class="ic">🟥</span>判子
-        </button>
-        <button class="etool" data-tool="align" onclick="editTool('align')">
-          <span class="ic">↔️</span>揃え
-        </button>
+        <span class="etool-lbl">全体</span>
         <button class="etool" data-tool="tpl" onclick="editTool('tpl')">
-          <span class="ic">🎨</span>テンプレ
+          <span class="ic">🎨</span>デザイン
         </button>
         <button class="etool" data-tool="meta" onclick="editTool('meta')">
           <span class="ic">🔢</span>番号/期限
@@ -5841,7 +5855,9 @@
         document.querySelectorAll("#editChips .echip").forEach(function (b) {
           b.classList.toggle("on", b.dataset.blk === key);
         });
-        editTool(_BLK_TOOL[key] || "cols"); // 関連する操作パネルを下に出す
+        var tool = _BLK_TOOL[key] || "cols";
+        // 揃え系(info/grand/lead)は「その塊の揃えだけ」を出す（_alignFilter）。
+        editTool(tool, tool === "align" ? key : null);
         _applyBlockSelection(); // 上のプレビューで光らせて中央へ寄せる
       }
       // 選択中の塊にミント枠を付け、プレビュー窓の中央へスクロール。再描画後も呼ぶ。
@@ -6054,18 +6070,39 @@
           })[0] ||
           cos[0] ||
           "";
-        editTool(_editTool);
+        // 開いた直後は未選択＝上の「範囲を選ぶ」チップで選ぶよう促す（範囲を選ぶと操作がここに出る）。
+        _alignFilter = null;
+        var _ep = document.getElementById("editPanel");
+        if (_ep)
+          _ep.innerHTML =
+            '<div class="ph">直す範囲を選んでください</div>' +
+            '<div class="note">上の帯から<b>範囲</b>（会社名・住所／明細の表／ご請求金額／あいさつ文／ロゴ／はんこ）を選ぶと、その範囲だけの調整がここに出ます。デザインや番号は「全体」から。</div>';
+        document.querySelectorAll("#editTools .etool").forEach(function (b) {
+          b.classList.remove("on");
+        });
         generateInvoices(true); // 画面入場＝即ビルド（debounce無し）
       }
       function editPickCompany() {
         generateInvoices();
         if (_editTool === "cols") renderEditPanel("cols");
       }
-      function editTool(tool) {
+      var _alignFilter = null; // 揃えパネルを「選んだ範囲だけ」に絞る（info/grand/lead）。null=全表示
+      function editTool(tool, alignFilter) {
         _editTool = tool;
+        _alignFilter = alignFilter || null;
         document.querySelectorAll("#editTools .etool").forEach(function (b) {
           b.classList.toggle("on", b.dataset.tool === tool);
         });
+        // 「全体」設定（テンプレ/番号期限）を開いたら塊の選択は解除（プレビューのミント枠も消す）。
+        if (tool === "tpl" || tool === "meta") {
+          _editSelBlock = null;
+          var chips = document.getElementById("editChips");
+          if (chips)
+            chips.querySelectorAll(".echip").forEach(function (b) {
+              b.classList.remove("on");
+            });
+          _applyBlockSelection();
+        }
         renderEditPanel(tool);
       }
       function renderEditPanel(tool) {
@@ -6078,12 +6115,12 @@
           var m = MASTER[co] || {};
           var items = m.items && m.items.length ? m.items : ["日付", "行き先", "金額"];
           h =
-            '<div class="ph">📊 列幅（' +
+            '<div class="ph">📊 明細の表（' +
             _eh(co || "—") +
             "）</div>" +
-            '<div class="note">列ごとに幅を調整。広げると他の列が縮みます（合計幅は一定）。プレビューに即反映。</div>';
+            '<div class="note">列ごとに「幅」と「選択範囲内の文字の揃え」を調整。広げると他の列が縮みます（合計幅は一定）。プレビューに即反映。</div>';
           h +=
-            '<div class="note" style="margin-top:-4px">幅＝−＋／揃え＝左・中・右（金額は既定で右）。</div>';
+            '<div class="note" style="margin-top:-4px">幅＝−＋／文字＝左・中・右（金額は既定で右）。</div>';
           items.forEach(function (col) {
             var w = (m.widths && m.widths[col]) || COLBASE[col] || 80;
             var label =
@@ -6205,9 +6242,14 @@
           var _av = function (v) {
             return v === "left" || v === "center" || v === "right" ? v : "";
           };
-          var _algGroup = function (label, cur, fn) {
+          // disabled=true で「押せない（効かない）」見た目に（クラシックの自社情報など）。
+          var _algGroup = function (label, cur, fn, disabled) {
             var html =
-              '<div class="ep-row"><span class="l">' + label + '</span><div class="ep-alg">';
+              '<div class="ep-row"><span class="l">' +
+              label +
+              '</span><div class="ep-alg' +
+              (disabled ? " dim" : "") +
+              '">';
             [
               ["left", "左"],
               ["center", "中"],
@@ -6216,31 +6258,56 @@
               html +=
                 '<button class="' +
                 (cur === e[0] ? "on" : "") +
-                '" onclick="' +
-                fn +
-                "('" +
-                e[0] +
-                "')\">" +
+                '"' +
+                (disabled ? " disabled" : "") +
+                ' onclick="' +
+                (disabled ? "" : fn + "('" + e[0] + "')") +
+                '">' +
                 e[1] +
                 "</button>";
             });
             return html + "</div></div>";
           };
-          h = '<div class="ph">↔️ 揃え</div>';
-          // 並びは請求書の上→下：説明文 → ご請求金額 → 自社情報
-          h +=
-            '<div class="note" style="font-weight:800;color:#5f8a72;margin-bottom:2px">説明文</div>';
-          h += _algGroup("位置", _av(s.posLead), "editSetLeadPos");
-          h +=
-            '<div class="note" style="font-weight:800;color:#5f8a72;margin:10px 0 2px">ご請求金額</div>';
-          h += _algGroup("位置", _av(s.posGrand), "editSetGrandPos");
-          h +=
-            '<div class="note" style="font-weight:800;color:#5f8a72;margin:10px 0 2px">自社情報</div>' +
-            '<div class="note" style="margin-top:0">「塊の位置」と「行の並び」を別々に。' +
-            (isEle ? "エレガントのフッターに反映" : "※クラシックは右固定。エレガントで反映") +
-            "（Excel書き出しは右）。</div>";
-          h += _algGroup("塊の位置", _av(s.alignIssuer), "editSetIssuerAlign");
-          h += _algGroup("行の並び", _av(s.lineIssuer), "editSetIssuerLine");
+          var f = _alignFilter; // info/grand/lead のどれか（範囲選択時）。null=全表示
+          if (f === "lead") {
+            h = '<div class="ph">↔️ あいさつ文</div>';
+            h += '<div class="note">選択範囲（あいさつ文）を 左／中／右 に寄せます。</div>';
+            h += _algGroup("選択範囲を", _av(s.posLead), "editSetLeadPos");
+          } else if (f === "grand") {
+            h = '<div class="ph">↔️ ご請求金額</div>';
+            h +=
+              '<div class="note">選択範囲（ご請求金額）を 左／中／右 に寄せます（下線も一緒に動きます）。</div>';
+            h += _algGroup("選択範囲を", _av(s.posGrand), "editSetGrandPos");
+          } else if (f === "info") {
+            h = '<div class="ph">↔️ 会社名・住所（自社）</div>';
+            if (isEle) {
+              h +=
+                '<div class="note">「選択範囲」＝選んだ範囲そのものの位置。「選択範囲内の文字」＝その範囲の中の文字の揃え。別々に選べます。</div>';
+              h += _algGroup("選択範囲を", _av(s.alignIssuer), "editSetIssuerAlign");
+              h += _algGroup("選択範囲内の文字を", _av(s.lineIssuer), "editSetIssuerLine");
+            } else {
+              h +=
+                '<div class="note">※今のデザイン（クラシック）は会社名・住所が<b>右固定</b>です。位置を変えるには「全体 → デザイン」で<b>エレガント</b>を選んでください。</div>';
+              h += _algGroup("選択範囲を", _av(s.alignIssuer), "editSetIssuerAlign", true);
+              h += _algGroup("選択範囲内の文字を", _av(s.lineIssuer), "editSetIssuerLine", true);
+            }
+          } else {
+            // フォールバック（範囲フィルタ無し）＝従来どおり全部表示。
+            h = '<div class="ph">↔️ 揃え</div>';
+            h +=
+              '<div class="note" style="font-weight:800;color:#5f8a72;margin-bottom:2px">あいさつ文</div>';
+            h += _algGroup("選択範囲を", _av(s.posLead), "editSetLeadPos");
+            h +=
+              '<div class="note" style="font-weight:800;color:#5f8a72;margin:10px 0 2px">ご請求金額</div>';
+            h += _algGroup("選択範囲を", _av(s.posGrand), "editSetGrandPos");
+            h +=
+              '<div class="note" style="font-weight:800;color:#5f8a72;margin:10px 0 2px">会社名・住所（自社）</div>' +
+              (isEle
+                ? ""
+                : '<div class="note" style="margin-top:0">※クラシックは右固定（エレガントで変わります）。</div>');
+            h += _algGroup("選択範囲を", _av(s.alignIssuer), "editSetIssuerAlign", !isEle);
+            h += _algGroup("選択範囲内の文字を", _av(s.lineIssuer), "editSetIssuerLine", !isEle);
+          }
         }
         el.innerHTML = h;
       }
