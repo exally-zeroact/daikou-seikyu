@@ -5966,36 +5966,51 @@
       function _applyBlockSelection(scrollMode) {
         var out = activeInvOut();
         if (!out) return;
-        var sel = null;
         out.querySelectorAll(".hit-box").forEach(function (d) {
-          var on = !!_editSelBlock && d.dataset.key === _editSelBlock;
-          d.classList.toggle("sel", on);
-          if (on && !sel) sel = d;
+          d.classList.toggle("sel", !!_editSelBlock && d.dataset.key === _editSelBlock);
         });
-        if (!sel || !scrollMode || !_isPrevScrollable(out)) return;
+        if (!_editSelBlock || !scrollMode || !_isPrevScrollable(out)) return;
+        var r = _blockPxRange(out, _editSelBlock);
+        if (!r) return;
         if (scrollMode === "ensure") {
-          var or = out.getBoundingClientRect();
-          var er = sel.getBoundingClientRect();
-          if (er.top >= or.top - 1 && er.bottom <= or.bottom + 1) return; // 既に見えてる＝動かさない
+          // 既に窓内に見えてれば動かさない（再描画時の余計なスクロール防止）。
+          if (r.top >= out.scrollTop - 1 && r.bottom <= out.scrollTop + out.clientHeight + 1)
+            return;
         }
-        _scrollBlockIntoView(out, sel);
+        _scrollBlockIntoView(out, _editSelBlock);
       }
       // 実際にスクロールできる時だけ true（overflow:hidden=収まってる時は false）。
       function _isPrevScrollable(out) {
         if (getComputedStyle(out).overflowY === "hidden") return false;
         return out.scrollHeight > out.clientHeight + 4;
       }
-      // 選択範囲が編集プレビュー窓の中央に来るようスクロール（複数ページで範囲が窓外の時のみ）。
-      function _scrollBlockIntoView(out, el) {
-        var er = el.getBoundingClientRect();
-        var or = out.getBoundingClientRect();
-        var target =
-          out.scrollTop + (er.top - or.top) - (or.clientHeight || or.height) / 2 + er.height / 2;
-        try {
-          out.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
-        } catch (e) {
-          out.scrollTop = Math.max(0, target);
+      // ★範囲(key)の表示px範囲を PDF座標(_invCache.blocks)から決定的に計算（getBoundingClientRect不使用＝レース無し）。
+      function _blockPxRange(out, key) {
+        var b = _invCache && _invCache.blocks;
+        var inner = out.querySelector(".invScaleInner");
+        if (!b || !b.length || !inner || out.clientWidth <= 0) return null;
+        var blk = null;
+        for (var i = 0; i < b.length; i++) {
+          if (b[i].key === key) {
+            blk = b[i];
+            break;
+          }
         }
+        if (!blk) return null;
+        var A4H = 841.89;
+        var s = Math.min(1, out.clientWidth / 720);
+        var sh = inner.offsetHeight * s; // 縮小後のページ全体高さ
+        var pad = 8; // .edit-prev の上padding
+        var topPx = ((A4H - blk.y) / A4H) * sh + pad; // ブロック上端
+        var botPx = ((A4H - (blk.y - blk.h)) / A4H) * sh + pad; // ブロック下端
+        return { top: topPx, bottom: botPx };
+      }
+      // 選択範囲が窓の中央付近に来るようスクロール（PDF座標ベース＝確実に飛ぶ）。
+      function _scrollBlockIntoView(out, key) {
+        var r = _blockPxRange(out, key);
+        if (!r) return;
+        var target = (r.top + r.bottom) / 2 - out.clientHeight / 2;
+        out.scrollTop = Math.max(0, target);
       }
       // 請求書PDFのbytes生成（保存/印刷で共有）。該当なし等は toast して null を返す。
       async function _buildInvoiceBytes() {
@@ -6115,6 +6130,21 @@
       function _editCapRatio() {
         return 0.44;
       }
+      // 請求書の「内容の下端（合計/ご請求金額の下）」がページ高さの何割かを返す（0=上端,1=下端）。
+      //   ★PDF座標(_invCache.blocks)から計算＝レイアウト/スクロール状態に依存しない安定値。★
+      function _contentEndFraction() {
+        var b = _invCache && _invCache.blocks;
+        if (!b || !b.length) return null;
+        var A4H = 841.89; // invoice-pdf.js のA4高さ(pt)
+        var best = null;
+        b.forEach(function (x) {
+          if (x.key !== "totals" && x.key !== "grand") return;
+          var bottomY = x.y - x.h; // y-up でのブロック下端
+          var frac = (A4H - bottomY) / A4H; // ページ上端からブロック下端までの割合
+          if (best === null || frac > best) best = frac;
+        });
+        return best;
+      }
       function fitInvoice() {
         document.querySelectorAll(".inv-out").forEach(function (out) {
           var inner = out.querySelector(".invScaleInner");
@@ -6134,21 +6164,13 @@
             out.style.overflowX = "hidden"; // 横スクロールは常に無し
             var maxH = Math.round(window.innerHeight * 0.6); // 上限
             var minH = Math.round(window.innerHeight * 0.3); // 下限
-            out.style.height = maxH + "px"; // 測定用に一旦上限へ
-            out.style.overflowY = "auto";
-            out.scrollTop = 0;
-            // 合計ブロックの下端まで＝紙の空白を切る。無ければご請求金額→比率0.48でフォールバック。
-            var endBox =
-              out.querySelector('.hit-box[data-key="totals"]') ||
-              out.querySelector('.hit-box[data-key="grand"]');
-            var targetH;
-            if (endBox) {
-              var or = out.getBoundingClientRect();
-              var br = endBox.getBoundingClientRect();
-              targetH = Math.round(br.bottom - or.top + 12); // 合計の下端＋少し余白
-            } else {
-              targetH = Math.round(window.innerHeight * 0.48);
-            }
+            // ★高さ＝合計の下端まで（紙の空白を切る）。PDF座標から割合で算出＝scrollTopを触らない・安定。
+            //   合計/ご請求金額が無ければ比率0.48でフォールバック。
+            var frac = _contentEndFraction();
+            var targetH =
+              frac != null
+                ? Math.round(frac * sh + 20) // 内容下端＋余白(枠のpadding込)
+                : Math.round(window.innerHeight * 0.48);
             targetH = Math.max(minH, Math.min(maxH, targetH));
             out.style.height = targetH + "px";
             // 全体(フッター含む)はこれより高いので縦スクロールは残す（チップ選択で各範囲へ飛べる）。
