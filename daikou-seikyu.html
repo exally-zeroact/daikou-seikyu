@@ -1724,6 +1724,22 @@
         border-color: #2f9e6f;
         color: #fff;
       }
+      /* 全体設定チップ(デザイン/No.・有効期限)＝範囲チップと別行・別色で区別。 */
+      .echip-div {
+        flex-basis: 100%;
+        height: 0;
+        margin: 0;
+      }
+      .echip-set {
+        background: #eef3f8;
+        border-color: #cdd9e6;
+        color: #4a6b86;
+      }
+      .echip-set.on {
+        background: #2f6f9e;
+        border-color: #2f6f9e;
+        color: #fff;
+      }
       /* debug（位置検証）時のみ可視＋タップ可能。 */
       .hit-box.dbg {
         pointer-events: auto;
@@ -3224,16 +3240,15 @@
           </button>
           <button class="echip" data-blk="logo" onclick="editSelectBlock('logo')">ロゴ</button>
           <button class="echip" data-blk="hanko" onclick="editSelectBlock('hanko')">はんこ</button>
+          <!-- 全体の設定（範囲でなく請求書全体）。区別のため仕切り＋アイコン付き。 -->
+          <span class="echip-div" aria-hidden="true"></span>
+          <button class="echip echip-set" data-set="tpl" onclick="editGlobalSetting('tpl')">
+            🎨 デザイン
+          </button>
+          <button class="echip echip-set" data-set="meta" onclick="editGlobalSetting('meta')">
+            🔢 No./有効期限
+          </button>
         </div>
-      </div>
-      <!-- 全体の設定（デザイン／No.・有効期限）。範囲ごとの調整は上のチップ・初期化は上の見出し横。 -->
-      <div class="edit-tools" id="editTools">
-        <button class="etool" data-tool="tpl" onclick="editTool('tpl')">
-          <span class="ic">🎨</span>デザイン
-        </button>
-        <button class="etool" data-tool="meta" onclick="editTool('meta')">
-          <span class="ic">🔢</span>No./有効期限
-        </button>
       </div>
       <div class="edit-panel" id="editPanel"></div>
     </section>
@@ -5915,7 +5930,7 @@
           // 揃え系(info/grand/lead)は「その範囲の揃えだけ」を出す（_alignFilter）。editTool内で fitInvoice。
           editTool(tool, tool === "align" ? key : null);
         }
-        _applyBlockSelection(false); // 範囲を光らせるだけ（自動スクロールしない＝画面が動かない）
+        _applyBlockSelection(true); // 範囲を光らせる＋その範囲へ1回スクロール（飛ぶ）。高さは固定なので伸び縮みしない
       }
       // 範囲の選択を解除＝全体表示に戻す（同じチップ再タップ）。
       function editDeselect() {
@@ -6189,10 +6204,7 @@
         if (_ep)
           _ep.innerHTML =
             '<div class="ph">直す範囲を選んでください</div>' +
-            '<div class="note">上の帯から<b>範囲</b>（会社名・住所／明細の表／ご請求金額／あいさつ文／ロゴ／はんこ）を選ぶと、その範囲だけの調整がここに出ます。デザインや番号は「全体」から。</div>';
-        document.querySelectorAll("#editTools .etool").forEach(function (b) {
-          b.classList.remove("on");
-        });
+            '<div class="note">上の帯から<b>範囲</b>（会社名・住所／明細の表／ご請求金額 など）を選ぶと、その範囲だけの調整がここに出ます。右端の<b>🎨デザイン</b>／<b>🔢No.・有効期限</b>は請求書全体の設定です。</div>';
         generateInvoices(true); // 画面入場＝即ビルド（debounce無し）
       }
       function editPickCompany() {
@@ -6203,22 +6215,18 @@
       function editTool(tool, alignFilter) {
         _editTool = tool;
         _alignFilter = alignFilter || null;
-        document.querySelectorAll("#editTools .etool").forEach(function (b) {
-          b.classList.toggle("on", b.dataset.tool === tool);
-        });
-        // 「全体」設定（テンプレ/番号期限）を開いたら塊の選択は解除（プレビューのミント枠も消す）。
-        if (tool === "tpl" || tool === "meta") {
-          _editSelBlock = null;
-          var chips = document.getElementById("editChips");
-          if (chips)
-            chips.querySelectorAll(".echip").forEach(function (b) {
-              b.classList.remove("on");
-            });
-          _applyBlockSelection(false);
-        }
         renderEditPanel(tool);
-        _editFocusActive = true; // 道具を開いた＝編集モード→プレビューをコンパクトに
+        _editFocusActive = true;
         fitInvoice();
+      }
+      // 全体設定チップ（🎨デザイン / 🔢No.・有効期限）＝範囲でなく請求書全体の設定。
+      function editGlobalSetting(tool) {
+        _editSelBlock = null; // 範囲の選択は解除（ミント枠を消す）
+        document.querySelectorAll("#editChips .echip").forEach(function (b) {
+          b.classList.toggle("on", b.dataset.set === tool);
+        });
+        _applyBlockSelection(false); // ハイライト解除
+        editTool(tool);
       }
       function renderEditPanel(tool) {
         var el = document.getElementById("editPanel");
