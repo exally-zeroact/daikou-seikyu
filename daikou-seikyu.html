@@ -3180,20 +3180,36 @@
           ></select>
         </div>
         <div class="edit-prev sheet-scale inv-out" id="editOut"></div>
-        <!-- ★直す範囲を選ぶ（タップ→上で範囲が光って中央へ寄る）。選ぶと下にその範囲の操作が出る。 -->
+        <!-- ★直す範囲を選ぶ（タップ→上で範囲が光って中央へ寄る）。選ぶと下にその範囲の操作が出る。
+             並び順＝請求書の上→下（ごちゃつかないように）。 -->
         <div class="edit-chips-lbl">📍 直す範囲を選ぶ</div>
         <div class="edit-chips" id="editChips">
-          <button class="echip" data-blk="info" onclick="editSelectBlock('info')">
-            会社名・住所
+          <button class="echip" data-blk="meta" onclick="editSelectBlock('meta')">
+            請求日・No.
           </button>
-          <button class="echip" data-blk="table" onclick="editSelectBlock('table')">
-            明細の表
+          <button
+            class="echip"
+            data-blk="due"
+            onclick="editSelectBlock('due')"
+            style="display: none"
+          >
+            お支払期限
+          </button>
+          <button class="echip" data-blk="bank" onclick="editSelectBlock('bank')">お振込先</button>
+          <button class="echip" data-blk="lead" onclick="editSelectBlock('lead')">
+            あいさつ文
           </button>
           <button class="echip" data-blk="grand" onclick="editSelectBlock('grand')">
             ご請求金額
           </button>
-          <button class="echip" data-blk="lead" onclick="editSelectBlock('lead')">
-            あいさつ文
+          <button class="echip" data-blk="table" onclick="editSelectBlock('table')">
+            明細の表
+          </button>
+          <button class="echip" data-blk="totals" onclick="editSelectBlock('totals')">
+            小計・合計
+          </button>
+          <button class="echip" data-blk="info" onclick="editSelectBlock('info')">
+            会社名・住所
           </button>
           <button class="echip" data-blk="logo" onclick="editSelectBlock('logo')">ロゴ</button>
           <button class="echip" data-blk="hanko" onclick="editSelectBlock('hanko')">はんこ</button>
@@ -5772,11 +5788,12 @@
         title: "タイトル（請求書）",
         meta: "請求日・No.",
         aite: "宛名（御中）",
-        bankDue: "お支払期限・振込先",
+        due: "お支払期限",
+        bank: "お振込先",
         lead: "あいさつ文",
         grand: "ご請求金額",
         table: "明細の表",
-        totals: "合計（小計・消費税・合計）",
+        totals: "小計・消費税・合計（税込）",
         info: "会社名・住所（自社）",
         logo: "ロゴ",
         hanko: "はんこ",
@@ -5841,7 +5858,7 @@
       /* ===== 塊チップ：どこを直すか選ぶ＝請求書の塊をタップ（段階1ハイブリッドの核） =====
          チップを選ぶと (1)上のプレビューでその塊がミントで光る (2)窓中央へ寄る (3)下に操作が出る。
          操作UIは既存の道具パネルを流用（チップ→道具の対応表）。座標は段階0の lastBlocks 由来。 */
-      var _editSelBlock = null; // 今選んでいる塊（null=未選択）
+      var _editSelBlock = null; // 今選んでいる範囲（null=未選択）
       var _BLK_TOOL = {
         info: "align", // 会社名・住所（自社）→ 揃え
         table: "cols", // 明細の表 → 列幅・揃え
@@ -5850,15 +5867,45 @@
         logo: "logo", // ロゴ → 大きさ
         hanko: "hanko", // はんこ → 大きさ
       };
+      // 位置揃えを持たない範囲＝選択＋ハイライト＋説明のみ（会計レイアウト/上部過密で固定）。
+      var _BLK_NOTE = {
+        totals:
+          "小計・消費税・合計（税込）の範囲です。位置は会計の決まりで右下に固定しています（金額のケタを右でそろえるため）。",
+        meta: "請求日・No. の範囲です。位置は上部に固定です。",
+        due: "お支払期限（有効期限）の範囲です。",
+        bank: "お振込先の範囲です。",
+      };
       function editSelectBlock(key) {
         _editSelBlock = key;
         document.querySelectorAll("#editChips .echip").forEach(function (b) {
           b.classList.toggle("on", b.dataset.blk === key);
         });
-        var tool = _BLK_TOOL[key] || "cols";
-        // 揃え系(info/grand/lead)は「その塊の揃えだけ」を出す（_alignFilter）。
-        editTool(tool, tool === "align" ? key : null);
-        _applyBlockSelection(); // 上のプレビューで光らせて中央へ寄せる
+        if (_BLK_NOTE[key]) {
+          // 揃えなしの範囲＝選択して光らせる＋説明だけ（位置は固定）。
+          _alignFilter = null;
+          _editTool = null;
+          document.querySelectorAll("#editTools .etool").forEach(function (b) {
+            b.classList.remove("on");
+          });
+          var el = document.getElementById("editPanel");
+          if (el)
+            el.innerHTML =
+              '<div class="ph">' +
+              (_blkLabelJa[key] || key) +
+              '</div><div class="note">' +
+              _BLK_NOTE[key] +
+              "</div>";
+        } else {
+          var tool = _BLK_TOOL[key] || "cols";
+          // 揃え系(info/grand/lead)は「その範囲の揃えだけ」を出す（_alignFilter）。
+          editTool(tool, tool === "align" ? key : null);
+        }
+        _applyBlockSelection(); // 上のプレビューで範囲を光らせて中央へ寄せる
+      }
+      // 「お支払期限」チップは、お支払期限がONの時だけ出す（OFFなら請求書に無い＝選べない）。
+      function refreshDueChip() {
+        var c = document.querySelector('#editChips .echip[data-blk="due"]');
+        if (c) c.style.display = currentIssuer().showPaymentDue ? "" : "none";
       }
       // 選択中の塊にミント枠を付け、プレビュー窓の中央へスクロール。再描画後も呼ぶ。
       function _applyBlockSelection() {
@@ -6033,6 +6080,7 @@
           _chips.querySelectorAll(".echip").forEach(function (b) {
             b.classList.remove("on");
           });
+        refreshDueChip(); // 「お支払期限」チップは期限ONの時だけ出す
         // プレビュー固定位置＝ヘッダーの高さの直下に合わせる
         var _hdr = document.querySelector(".app-header");
         if (_hdr) document.documentElement.style.setProperty("--hdr-h", _hdr.offsetHeight + "px");
@@ -6421,6 +6469,7 @@
       }
       function editToggleDue() {
         toggleInvoiceDue(); // 既存（保存＋即反映）
+        refreshDueChip(); // 「お支払期限」チップの表示/非表示を更新
         renderEditPanel("meta");
       }
       function editSetDueEra(v) {

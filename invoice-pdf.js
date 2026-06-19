@@ -357,14 +357,15 @@
       _curBlk = "aite";
       var aw = T(page, font, co + "　御中", M, cy, 17, { color: TEXT, maxW: CW * 0.5 });
       line(page, M, cy - 21, M + Math.min(aw + 10, CW * 0.5), cy - 21, BORDER, 0.6);
-      // ★右ブロック（赤丸の位置）：お支払期限＋振込先を一塊で右上に★
-      _curBlk = "bankDue";
+      // ★右ブロック：お支払期限(due)＋振込先(bank) を別々の選択範囲に区分け（描画は不変）★
       var ry = cy + 2;
       if (pDue) {
+        _curBlk = "due";
         T(page, font, "お支払期限　" + pDue, RXp, ry, 10, { align: "right", color: TEXT });
         ry -= 16;
       }
       if (bank.length) {
+        _curBlk = "bank";
         bank.forEach(function (ln, i) {
           T(page, font, ln, RXp, ry, i === 0 ? 9.5 : 9, {
             align: "right",
@@ -373,6 +374,7 @@
           ry -= i === 0 ? 13 : 11;
         });
       }
+      _curBlk = null;
       cy -= 34;
       // あいさつ（説明文）。位置揃え（既定 left）。
       _curBlk = "lead";
@@ -733,6 +735,7 @@
         T(page, font, dateStr + (noStr ? "　　" + noStr : ""), M, cy, 10, { color: DARK });
         cy -= 14;
         if (pDue) {
+          _curBlk = "due"; // 有効期限は別の選択範囲に区分け
           T(page, font, "お支払期限　" + pDue, M, cy, 10, { color: DARK });
           cy -= 14;
         }
@@ -747,6 +750,7 @@
           cy -= 13;
         }
         if (pDue) {
+          _curBlk = "due"; // 有効期限は別の選択範囲に区分け
           T(page, font, "お支払期限　" + pDue, M + CW, cy, 9.5, {
             align: "right",
             color: DARK,
@@ -830,7 +834,7 @@
     // ---- 合計フッター（左=振込先／右=小計・消費税・合計＋役職集計）。本文幅フルなので左右並びでOK。----
     function drawTotalsFooter(page, footTop) {
       var by = footTop;
-      _curBlk = "bankDue";
+      _curBlk = "bank"; // 振込先（有効期限 due と区分け）
       bank.forEach(function (ln) {
         T(page, font, ln, M, by, 9, { color: DARK });
         by -= 14;
