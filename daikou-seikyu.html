@@ -6084,6 +6084,13 @@
         }
       }
       // 720pxのA4シートをスマホ画面幅に縮小して全体を見せる
+      // 編集プレビューの高さ比率：閲覧=全体(0.66)／編集中=約半分(0.48)。
+      //   ★研究結論(専門家会議)：編集時のプレビューは画面の約50%が「見ながら触る」の業界標準
+      //   (Apple medium detent≈50%・Material halfExpandedRatio=0.50・操作面は画面2/3を超えない)。
+      //   旧0.35は操作に振りすぎで請求書の文脈が消えるアンチパターンだった。将来3段化する時はここを拡張。
+      function _editCapRatio() {
+        return _editFocusActive ? 0.48 : 0.66;
+      }
       function fitInvoice() {
         document.querySelectorAll(".inv-out").forEach(function (out) {
           var inner = out.querySelector(".invScaleInner");
@@ -6098,7 +6105,7 @@
             // ★編集プレビュー：閲覧中は全体表示(0.66)、編集モード(チップ/道具選択中)はコンパクト(0.35)。
             //   transform:scale は原寸(720×H)の箱を残すので、負マージンで縦横の余白を畳む＝
             //   横スクロール消滅＋縦スクロール時に下へ空白が出ない（実際の請求書ぶんだけスクロール）。
-            var capPx = Math.round(window.innerHeight * (_editFocusActive ? 0.35 : 0.66));
+            var capPx = Math.round(window.innerHeight * _editCapRatio());
             inner.style.marginRight = -Math.round(720 * (1 - s)) + "px";
             inner.style.marginBottom = -Math.round(inner.offsetHeight * (1 - s)) + "px";
             out.style.overflowX = "hidden"; // 横スクロールは常に無し
