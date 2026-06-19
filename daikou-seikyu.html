@@ -5867,6 +5867,7 @@
          チップを選ぶと (1)上のプレビューでその塊がミントで光る (2)窓中央へ寄る (3)下に操作が出る。
          操作UIは既存の道具パネルを流用（チップ→道具の対応表）。座標は段階0の lastBlocks 由来。 */
       var _editSelBlock = null; // 今選んでいる範囲（null=未選択）
+      var _editFocusActive = false; // 編集モード（チップ/道具を選択中）＝プレビューをコンパクトに
       var _BLK_TOOL = {
         info: "align", // 会社名・住所（自社）→ 揃え
         table: "cols", // 明細の表 → 列幅・揃え
@@ -5884,7 +5885,12 @@
         bank: "お振込先の範囲です。",
       };
       function editSelectBlock(key) {
+        if (_editSelBlock === key) {
+          editDeselect(); // 同じ範囲をもう一度タップ＝選択解除＝全体表示に戻す
+          return;
+        }
         _editSelBlock = key;
+        _editFocusActive = true; // 範囲を選んだ＝編集モード→プレビューをコンパクトに
         document.querySelectorAll("#editChips .echip").forEach(function (b) {
           b.classList.toggle("on", b.dataset.blk === key);
         });
@@ -5903,12 +5909,33 @@
               '</div><div class="note">' +
               _BLK_NOTE[key] +
               "</div>";
+          fitInvoice(); // プレビューをコンパクトに（editTool経由でない note 系はここで）
         } else {
           var tool = _BLK_TOOL[key] || "cols";
-          // 揃え系(info/grand/lead)は「その範囲の揃えだけ」を出す（_alignFilter）。
+          // 揃え系(info/grand/lead)は「その範囲の揃えだけ」を出す（_alignFilter）。editTool内で fitInvoice。
           editTool(tool, tool === "align" ? key : null);
         }
-        _applyBlockSelection(true); // 範囲を光らせる＋(複数ページで窓外の時だけ)寄せる
+        _applyBlockSelection(true); // 範囲を光らせる＋(コンパクト窓で範囲が窓外の時だけ)寄せる
+      }
+      // 範囲の選択を解除＝全体表示に戻す（同じチップ再タップ）。
+      function editDeselect() {
+        _editSelBlock = null;
+        _editFocusActive = false;
+        _alignFilter = null;
+        _editTool = null;
+        document.querySelectorAll("#editChips .echip").forEach(function (b) {
+          b.classList.remove("on");
+        });
+        document.querySelectorAll("#editTools .etool").forEach(function (b) {
+          b.classList.remove("on");
+        });
+        var el = document.getElementById("editPanel");
+        if (el)
+          el.innerHTML =
+            '<div class="ph">直す範囲を選んでください</div>' +
+            '<div class="note">上の帯から範囲を選ぶと、その範囲だけの調整がここに出ます。同じ範囲をもう一度押すと全体表示に戻ります。</div>';
+        _applyBlockSelection(false); // ハイライト消す
+        fitInvoice(); // 全体表示に戻す
       }
       // 「お支払期限」チップは、お支払期限がONの時だけ出す（OFFなら請求書に無い＝選べない）。
       function refreshDueChip() {
@@ -6068,9 +6095,9 @@
           if (!out.classList.contains("edit-prev")) {
             out.style.height = sh + "px"; // 請求タブ：内容に合わせる
           } else {
-            // ★編集プレビュー：単ページは縮小後の高さに合わせてクリップ＝スクロールなしで全体が見える。
-            //   高すぎる(複数ページ)時だけ上限でスクロール。原寸レイアウト箱の余白は overflow:hidden で隠す。
-            var capPx = Math.round(window.innerHeight * 0.66);
+            // ★編集プレビュー：閲覧中は全体表示(0.66)、編集モード(チップ/道具選択中)はコンパクト(0.40)＝
+            //   下の操作パネルがすぐ使える。単ページは縮小後の高さに合わせてクリップ、収まらなければ上限でスクロール。
+            var capPx = Math.round(window.innerHeight * (_editFocusActive ? 0.4 : 0.66));
             if (sh <= capPx + 2) {
               out.style.height = sh + "px";
               out.style.overflow = "hidden";
@@ -6101,6 +6128,7 @@
       function editEnter() {
         INV_OVERRIDE = null; // 編集タブは「保存済みデザイン」を表示・編集する
         _editSelBlock = null; // 開いた直後は未選択（塊チップで選ぶ）
+        _editFocusActive = false; // 開いた直後は全体表示（編集モードでない）
         var _chips = document.getElementById("editChips");
         if (_chips)
           _chips.querySelectorAll(".echip").forEach(function (b) {
@@ -6175,9 +6203,11 @@
             chips.querySelectorAll(".echip").forEach(function (b) {
               b.classList.remove("on");
             });
-          _applyBlockSelection();
+          _applyBlockSelection(false);
         }
         renderEditPanel(tool);
+        _editFocusActive = true; // 道具を開いた＝編集モード→プレビューをコンパクトに
+        fitInvoice();
       }
       function renderEditPanel(tool) {
         var el = document.getElementById("editPanel");
