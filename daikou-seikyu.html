@@ -5553,6 +5553,71 @@
           _invGenTimer = setTimeout(_doGenerateInvoices, 220); // 0.6sのPDF生成を連続変更でまとめる
         }
       }
+      // ★ビルド結果キャッシュ：同じ内容なら約0.7秒の再ビルド(フォント埋込)を飛ばす（解像度は不変）。
+      //   塊座標(blocks)もキャッシュビルドを飛ばすと古くなるので一緒に保持して描画へ渡す。
+      var _invCache = { sig: null, bytes: null, blocks: null };
+      function _issFp(iss) {
+        return JSON.stringify({
+          d: iss.pdfDesign,
+          h: iss.headerStyle,
+          lm: iss.logoMode,
+          t: iss.templateId,
+          la: iss.lineAlign,
+          ba: iss.bankAlign,
+          ai: iss.alignIssuer,
+          li: iss.lineIssuer,
+          pg: iss.posGrand,
+          pl: iss.posLead,
+          de: iss.dateEra,
+          sn: iss.showInvoiceNo,
+          pd: iss.paymentDue,
+          hs: iss.hankoSizeMm,
+          ls: iss.logoSizeMm,
+          f: iss.pdfFont,
+          lines: iss.lines,
+          bank: iss.bank,
+          lg: iss.logo ? iss.logo.length + iss.logo.slice(0, 24) : "",
+          hk: iss.hanko ? iss.hanko.length + iss.hanko.slice(0, 24) : "",
+        });
+      }
+      function _coFp(m) {
+        if (!m) return "";
+        return JSON.stringify({
+          w: m.widths,
+          a: m.aligns,
+          i: m.items,
+          l: m.labels,
+          lead: m.lead,
+          tt: m.tableTitle,
+          ns: m.noteSummary,
+          ng: m.noteGroups,
+        });
+      }
+      function _rowsFp(rows) {
+        return JSON.stringify(
+          rows.map(function (r) {
+            var o = {};
+            Object.keys(r).forEach(function (k) {
+              if (k !== "id" && k !== "account_id" && k !== "_dbid") o[k] = r[k];
+            });
+            return o;
+          })
+        );
+      }
+      function _invSig1(co, month, iss, rows) {
+        return (
+          "1|" +
+          co +
+          "|" +
+          month +
+          "|" +
+          _issFp(iss) +
+          "|" +
+          _coFp(MASTER[co]) +
+          "|" +
+          _rowsFp(rows)
+        );
+      }
       function _invEmpty(out, msg, seq) {
         if (seq !== _invSeq) return;
         out.classList.remove("inv-loading");
@@ -5590,7 +5655,7 @@
         var iss = issuerForEngine();
         out.classList.add("inv-loading"); // 既存プレビューの上に「作成中」を重ねる（チラつき防止）
         try {
-          var bytes;
+          var bytes, blocks, sig;
           if (onlyCo) {
             var rows = DB.filter(function (r) {
               return (
@@ -5602,20 +5667,47 @@
               );
             });
             if (!rows.length) return _invEmpty(out, "該当する明細がありません", seq);
-            bytes = await InvoicePDF.buildOne(
-              MASTER,
-              onlyCo,
-              rows,
-              month,
-              iss,
-              MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, onlyCo)
-            );
+            sig = _invSig1(onlyCo, month, iss, rows);
+            if (_invCache.sig === sig && _invCache.bytes) {
+              bytes = _invCache.bytes; // ★同内容＝再ビルドを飛ばす（約0.7秒節約）
+              blocks = _invCache.blocks;
+            } else {
+              bytes = await InvoicePDF.buildOne(
+                MASTER,
+                onlyCo,
+                rows,
+                month,
+                iss,
+                MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, onlyCo)
+              );
+              blocks = window.InvoicePDF && InvoicePDF.lastBlocks ? InvoicePDF.lastBlocks() : [];
+              _invCache = { sig: sig, bytes: bytes, blocks: blocks };
+            }
           } else {
-            bytes = await InvoicePDF.buildMonth(MASTER, DB, month, CURRENT_ACCOUNT, iss);
-            if (!bytes) return _invEmpty(out, "該当する明細がありません", seq);
+            var monthRows = DB.filter(function (r) {
+              return r.account_id === CURRENT_ACCOUNT && inMonth(r.日付, month);
+            });
+            sig =
+              "0|" +
+              month +
+              "|" +
+              _issFp(iss) +
+              "|" +
+              JSON.stringify(MASTER) +
+              "|" +
+              _rowsFp(monthRows);
+            if (_invCache.sig === sig && _invCache.bytes) {
+              bytes = _invCache.bytes;
+              blocks = _invCache.blocks;
+            } else {
+              bytes = await InvoicePDF.buildMonth(MASTER, DB, month, CURRENT_ACCOUNT, iss);
+              if (!bytes) return _invEmpty(out, "該当する明細がありません", seq);
+              blocks = window.InvoicePDF && InvoicePDF.lastBlocks ? InvoicePDF.lastBlocks() : [];
+              _invCache = { sig: sig, bytes: bytes, blocks: blocks };
+            }
           }
           if (seq !== _invSeq) return; // 新しい要求が来ていたら破棄
-          await renderInvoicePreviewPDF(bytes, seq);
+          await renderInvoicePreviewPDF(bytes, seq, blocks);
         } catch (e) {
           if (seq === _invSeq)
             _invEmpty(out, "プレビュー作成に失敗：" + (e && e.message ? e.message : e), seq);
@@ -5624,7 +5716,7 @@
         }
       }
       // PDF bytes を pdf.js で 1ページ=1枚の canvas に描画（.sheet 包み＝印刷もページ送り維持）。
-      async function renderInvoicePreviewPDF(bytes, seq) {
+      async function renderInvoicePreviewPDF(bytes, seq, blocks) {
         var out = activeInvOut();
         var pdfjs = await ensurePdfjs();
         if (seq !== _invSeq) return;
@@ -5633,8 +5725,10 @@
         if (seq !== _invSeq) return;
         var inner = document.createElement("div");
         inner.className = "invScaleInner";
-        // ★塊(ブロック)の位置（編集タブの直接タップ用）。描画した請求書から取得。
-        var blocks = window.InvoicePDF && InvoicePDF.lastBlocks ? InvoicePDF.lastBlocks() : [];
+        // ★塊(ブロック)の位置（編集タブの直接タップ用）。キャッシュ再利用時は渡された blocks を、
+        //   無ければ直近ビルドの lastBlocks を使う。
+        if (!blocks)
+          blocks = window.InvoicePDF && InvoicePDF.lastBlocks ? InvoicePDF.lastBlocks() : [];
         for (var p = 1; p <= pdf.numPages; p++) {
           var pg = await pdf.getPage(p);
           var vp = pg.getViewport({ scale: 2 }); // 高解像度＝印刷でもくっきり
@@ -6307,24 +6401,28 @@
         toast("初期設定に戻しました");
       }
       // ===== 請求タブ：テンプレ＆書体をその場で切替（リアルタイム反映） =====
-      // 請求タブ：デザイン切替＝その回だけの一時上書き（INV_OVERRIDE・保存しない）。
+      // 請求タブ：デザイン/種類の切替＝★保存する（既定として永続）★。
+      //   以前は「この回だけ(INV_OVERRIDE)」で保存されず、更新/再読込のたびに既定へ戻っていた
+      //   （例：エレガント・ロゴなしにしてもロゴありに戻る）。アプリ哲学＝値は保存して全反映、に統一。
       function setInvoiceDesign(design) {
         if (!DESIGN_VARIANTS[design]) return;
-        INV_OVERRIDE = { pdfDesign: design, variant: activeVariantKey(design) };
+        INV_OVERRIDE = null;
+        setIssuer("pdfDesign", design); // 保存
         syncInvoiceToolbar();
         generateInvoices();
-        toast(DESIGN_LABELS[design] + " に切替えました（この回だけ）");
+        toast(DESIGN_LABELS[design] + " にしました");
       }
       function setInvoiceVariant(key) {
-        var d = activeDesign();
+        var d = currentIssuer().pdfDesign === "classic" ? "classic" : "elegant";
         var v = designVariants(d).filter(function (x) {
           return x.key === key;
         })[0];
         if (!v) return;
-        INV_OVERRIDE = { pdfDesign: d, variant: key };
+        INV_OVERRIDE = null;
+        setIssuer(d === "classic" ? "classicVariant" : "elegantVariant", key); // 保存
         syncInvoiceToolbar();
         generateInvoices();
-        toast(v.label + " に切替えました（この回だけ）");
+        toast(v.label + " にしました");
       }
       // 「既定にする」＝今の見た目(一時上書き or 既定)をアカウント既定として保存。
       function makeInvoiceDefault() {
@@ -8679,8 +8777,57 @@
         try {
           var f =
             typeof currentIssuer === "function" && currentIssuer() ? currentIssuer().pdfFont : null;
-          if (window.InvoicePDF && InvoicePDF.warmup) InvoicePDF.warmup(f); // フォント＋libを温める
-          if (typeof ensurePdfjs === "function") ensurePdfjs(); // pdf.jsも温める
+          if (typeof ensurePdfjs === "function") ensurePdfjs(); // pdf.jsを温める
+          if (window.InvoicePDF && InvoicePDF.warmup)
+            InvoicePDF.warmup(f).then(function () {
+              _prebuildPreview(); // 資産が温まったら最有力の請求書を裏で先行ビルド→開いた瞬間はキャッシュ命中
+            });
+        } catch (e) {}
+      }
+      // ログイン後の空き時間に「最新月×データのある会社」の請求書を1枚だけ先行ビルドしてキャッシュ。
+      //   編集/請求タブを開いた時は再ビルド不要＝描画だけ（解像度はそのまま）。
+      async function _prebuildPreview() {
+        try {
+          if (!window.InvoicePDF || !InvoicePDF.buildOne) return;
+          var rowsAll = DB.filter(function (r) {
+            return r.account_id === CURRENT_ACCOUNT;
+          });
+          if (!rowsAll.length) return;
+          var months = [];
+          rowsAll.forEach(function (r) {
+            var mm = String(r.日付 || "").slice(0, 7);
+            if (mm && months.indexOf(mm) < 0) months.push(mm);
+          });
+          months.sort();
+          var month = months[months.length - 1];
+          if (!month) return;
+          var co = (
+            rowsAll.filter(function (r) {
+              return inMonth(r.日付, month);
+            })[0] || {}
+          ).会社名;
+          if (!co || !MASTER[co]) return;
+          var rows = DB.filter(function (r) {
+            return r.account_id === CURRENT_ACCOUNT && r.会社名 === co && inMonth(r.日付, month);
+          }).sort(function (a, b) {
+            return (
+              (a.日付 || "").localeCompare(b.日付 || "") || (a.id || "").localeCompare(b.id || "")
+            );
+          });
+          if (!rows.length) return;
+          var iss = issuerForEngine();
+          var sig = _invSig1(co, month, iss, rows);
+          if (_invCache.sig === sig && _invCache.bytes) return; // 既にキャッシュ済み
+          var bytes = await InvoicePDF.buildOne(
+            MASTER,
+            co,
+            rows,
+            month,
+            iss,
+            MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co)
+          );
+          var blocks = InvoicePDF.lastBlocks ? InvoicePDF.lastBlocks() : [];
+          _invCache = { sig: sig, bytes: bytes, blocks: blocks };
         } catch (e) {}
       }
       async function boot() {
