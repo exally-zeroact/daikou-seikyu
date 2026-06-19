@@ -1667,9 +1667,192 @@
         z-index: 6;
       }
       /* 720pxのA4シートをスマホ幅に縮小して全体を見せる */
-      #invScaleInner {
+      .invScaleInner {
         width: 720px;
         transform-origin: top left;
+      }
+      /* ===== 編集タブ ===== */
+      .edit-prev {
+        max-height: 52vh;
+        overflow: auto;
+        background: #fff;
+        border: 1px solid #e3eee8;
+        border-radius: 12px;
+        padding: 10px;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+        margin-bottom: 10px;
+      }
+      .edit-live {
+        font-size: 11px;
+        font-weight: 800;
+        color: #2f9e6f;
+        margin: 2px 2px 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .edit-live .b {
+        background: #41a877;
+        color: #fff;
+        border-radius: 8px;
+        padding: 2px 7px;
+        font-size: 10px;
+      }
+      .edit-tools {
+        display: flex;
+        gap: 4px;
+        background: #fff;
+        border: 1px solid #e6f0ea;
+        border-radius: 12px;
+        padding: 6px 6px;
+        margin-bottom: 10px;
+      }
+      .etool {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding: 7px 0;
+        border-radius: 9px;
+        font-size: 9.5px;
+        color: #6f9685;
+        border: none;
+        background: transparent;
+        font-family: inherit;
+        cursor: pointer;
+      }
+      .etool .ic {
+        font-size: 17px;
+      }
+      .etool.on {
+        background: #eaf7f0;
+        color: #2f9e6f;
+        font-weight: 800;
+      }
+      .edit-panel {
+        background: #fff;
+        border: 1px solid #dcefe3;
+        border-radius: 12px;
+        padding: 14px;
+        min-height: 60px;
+      }
+      .edit-panel .ph {
+        font-size: 12.5px;
+        font-weight: 800;
+        margin: 0 0 4px;
+      }
+      .edit-panel .note {
+        font-size: 11.5px;
+        color: #7aa08c;
+        margin: 0 0 10px;
+        line-height: 1.5;
+      }
+      .ep-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 7px 0;
+      }
+      .ep-row .l {
+        width: 58px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #5f8a72;
+        flex: none;
+      }
+      .ep-seg {
+        display: inline-flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .ep-chip {
+        border: 1px solid #c8ecd8;
+        background: #fff;
+        border-radius: 14px;
+        padding: 7px 13px;
+        font-size: 12.5px;
+        font-weight: 700;
+        color: #1a4a2e;
+        font-family: inherit;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .ep-chip.on {
+        background: #1a4a2e;
+        border-color: #1a4a2e;
+        color: #fff;
+      }
+      .ep-num {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .ep-num button {
+        width: 34px;
+        height: 34px;
+        border: 1px solid #c8ecd8;
+        background: #fff;
+        border-radius: 9px;
+        color: #2f9e6f;
+        font-size: 18px;
+        font-weight: 800;
+        font-family: inherit;
+      }
+      .ep-num .v {
+        min-width: 56px;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 800;
+      }
+      .ep-switch {
+        width: 44px;
+        height: 24px;
+        border-radius: 12px;
+        background: #52b788;
+        position: relative;
+        border: none;
+        flex: none;
+      }
+      .ep-switch.off {
+        background: #e6f4ec;
+        border: 1px solid #c8ecd8;
+      }
+      .ep-switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 22px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+      }
+      .ep-switch.off::after {
+        left: 2px;
+      }
+      .ep-tog {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 0;
+      }
+      .ep-tog .l {
+        flex: 1;
+        font-size: 12.5px;
+        font-weight: 700;
+      }
+      .ep-reset {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #c8ecd8;
+        background: #fff;
+        color: #2f9e6f;
+        font-weight: 800;
+        border-radius: 12px;
+        font-size: 14px;
+        font-family: inherit;
       }
       .sh-right {
         text-align: right;
@@ -2052,7 +2235,7 @@
           height: auto !important;
         }
         /* 印刷時は縮小を解除して実寸A4で出す */
-        #invScaleInner {
+        .invScaleInner {
           transform: none !important;
           width: auto !important;
         }
@@ -2810,7 +2993,7 @@
           </button>
           <button class="btn btn-ghost btn-sm" onclick="printInvoicePDF(this)">🖨 印刷</button>
         </div>
-        <div id="invoiceOut" class="sheet-scale"></div>
+        <div id="invoiceOut" class="sheet-scale inv-out"></div>
         <details class="scr-sub no-print" style="margin-top: 8px">
           <summary style="cursor: pointer; font-weight: 700">
             📖 ページが複数枚になったときは？
@@ -2873,6 +3056,47 @@
       <div id="payBody"></div>
     </section>
 
+    <!-- ===== 編集（請求書の見た目を見ながら微調整） ===== -->
+    <section class="screen" id="scr-edit">
+      <div class="edit-live">
+        👁 プレビュー <span class="b">いじると即ここが変わる</span>
+        <select
+          class="fselect"
+          id="editCompany"
+          style="
+            margin-left: auto;
+            width: auto;
+            min-width: 120px;
+            padding: 4px 8px;
+            font-size: 12px;
+          "
+          onchange="editPickCompany()"
+        ></select>
+      </div>
+      <div class="edit-prev sheet-scale inv-out" id="editOut"></div>
+      <div class="edit-tools" id="editTools">
+        <button class="etool on" data-tool="cols" onclick="editTool('cols')">
+          <span class="ic">📊</span>列幅
+        </button>
+        <button class="etool" data-tool="logo" onclick="editTool('logo')">
+          <span class="ic">🖼</span>ロゴ
+        </button>
+        <button class="etool" data-tool="hanko" onclick="editTool('hanko')">
+          <span class="ic">🟥</span>判子
+        </button>
+        <button class="etool" data-tool="tpl" onclick="editTool('tpl')">
+          <span class="ic">🎨</span>テンプレ
+        </button>
+        <button class="etool" data-tool="meta" onclick="editTool('meta')">
+          <span class="ic">🔢</span>番号/期限
+        </button>
+      </div>
+      <div class="edit-panel" id="editPanel"></div>
+      <button class="ep-reset" style="margin-top: 12px" onclick="editResetDesign()">
+        ↩ 初期設定に戻す
+      </button>
+    </section>
+
     <!-- ===== BOTTOM NAV ===== -->
     <nav class="bottom-nav">
       <button class="nav-item" data-scr="settings" onclick="showScreen('settings')">
@@ -2888,8 +3112,11 @@
       <button class="nav-item" data-scr="list" onclick="showScreen('list')">
         <span class="nav-ic">📋</span><span class="nav-lb">一覧</span>
       </button>
+      <button class="nav-item" data-scr="edit" onclick="showScreen('edit')">
+        <span class="nav-ic">🎛️</span><span class="nav-lb">編集</span>
+      </button>
       <button class="nav-item" data-scr="billing" onclick="showScreen('billing')">
-        <span class="nav-ic">🧾</span><span class="nav-lb">請求/集計</span>
+        <span class="nav-ic">🧾</span><span class="nav-lb">請求</span>
       </button>
     </nav>
 
@@ -4948,6 +5175,7 @@
           input: "明細入力",
           list: "明細一覧",
           billing: "請求 / 集計",
+          edit: "編集",
           payment: "入金管理",
           settings: "設定",
         };
@@ -4962,6 +5190,7 @@
         if (name === "input") preselectInputCompany();
         if (name === "list") renderList();
         if (name === "billing") showBillingSeg("invoice"); // 既定＝請求書
+        if (name === "edit") editEnter();
         if (name === "payment") renderPayments();
         if (name === "settings") {
           showSettingsSeg("master"); // 既定＝会社マスタ
@@ -5217,12 +5446,30 @@
         out.innerHTML = '<div class="li-empty">' + msg + "</div>";
         out.style.height = "";
       }
+      // 今表示中の画面のプレビュー枠（請求タブ=invoiceOut / 編集タブ=editOut）を返す。
+      function activeInvOut() {
+        return (
+          document.querySelector(".screen.active .inv-out") || document.getElementById("invoiceOut")
+        );
+      }
       async function _doGenerateInvoices() {
-        var out = document.getElementById("invoiceOut");
+        var out = activeInvOut();
         if (!out) return;
         ensureLogoTrimmed(); // 既存ロゴの余白を一度だけ自動トリミング（揃え）
-        var month = document.getElementById("invMonth").value;
-        var onlyCo = document.getElementById("invCompany").value;
+        // ★編集タブは独自の月・会社（_editMonth / editCompany）を使い、請求タブの選択を汚さない。
+        var editing = !!(
+          document.getElementById("scr-edit") &&
+          document.getElementById("scr-edit").classList.contains("active")
+        );
+        var month, onlyCo;
+        if (editing) {
+          month = _editMonth || "";
+          onlyCo = document.getElementById("editCompany").value;
+        } else {
+          var mSel = document.getElementById("invMonth");
+          month = mSel ? mSel.value : "";
+          onlyCo = document.getElementById("invCompany").value;
+        }
         var seq = ++_invSeq;
         if (!month) return _invEmpty(out, "月を選んでください", seq);
         if (typeof InvoicePDF === "undefined")
@@ -5265,14 +5512,14 @@
       }
       // PDF bytes を pdf.js で 1ページ=1枚の canvas に描画（.sheet 包み＝印刷もページ送り維持）。
       async function renderInvoicePreviewPDF(bytes, seq) {
-        var out = document.getElementById("invoiceOut");
+        var out = activeInvOut();
         var pdfjs = await ensurePdfjs();
         if (seq !== _invSeq) return;
         // pdf.js は渡した配列を detach するのでコピーを渡す
         var pdf = await pdfjs.getDocument({ data: bytes.slice(0) }).promise;
         if (seq !== _invSeq) return;
         var inner = document.createElement("div");
-        inner.id = "invScaleInner";
+        inner.className = "invScaleInner";
         for (var p = 1; p <= pdf.numPages; p++) {
           var pg = await pdf.getPage(p);
           var vp = pg.getViewport({ scale: 2 }); // 高解像度＝印刷でもくっきり
@@ -5403,12 +5650,315 @@
       }
       // 720pxのA4シートをスマホ画面幅に縮小して全体を見せる
       function fitInvoice() {
-        var out = document.getElementById("invoiceOut");
-        var inner = document.getElementById("invScaleInner");
-        if (!inner) return;
-        var s = Math.min(1, out.clientWidth / 720);
-        inner.style.transform = "scale(" + s + ")";
-        out.style.height = inner.offsetHeight * s + "px";
+        document.querySelectorAll(".inv-out").forEach(function (out) {
+          var inner = out.querySelector(".invScaleInner");
+          if (!inner) return;
+          if (out.clientWidth <= 0) return; // 非表示中は scale(0) を当てない
+          var s = Math.min(1, out.clientWidth / 720);
+          inner.style.transform = "scale(" + s + ")";
+          // 編集タブ枠は max-height で内部スクロール。請求タブは高さを内容に合わせる。
+          if (!out.classList.contains("edit-prev"))
+            out.style.height = inner.offsetHeight * s + "px";
+        });
+      }
+
+      /* ===================================================================
+   編集タブ：請求書を見ながら微調整（列幅・ロゴ・判子・テンプレ・番号/期限）
+   設定はすべて既存の setIssuer / MASTER に保存＝クラウド保存＆PDF/Excel全反映。
+   =================================================================== */
+      var _editTool = "cols";
+      var _editMonth = ""; // 編集タブ専用の月（請求タブの invMonth とは独立）
+      var COLBASE = { 日付: 64, 行き先: 240, 金額: 100, 備考: 80, 距離: 80, 人数: 64, 名前: 96 };
+      function _eh(s) {
+        return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+          return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+        });
+      }
+      function editCurrentCo() {
+        var sel = document.getElementById("editCompany");
+        return sel ? sel.value : "";
+      }
+      function editEnter() {
+        INV_OVERRIDE = null; // 編集タブは「保存済みデザイン」を表示・編集する
+        // 月＝データのある最新月（請求タブの選択には触れない）。
+        var rows = DB.filter(function (r) {
+          return r.account_id === CURRENT_ACCOUNT;
+        });
+        var months = [];
+        rows.forEach(function (r) {
+          var mm = String(r.日付 || "").slice(0, 7);
+          if (mm && months.indexOf(mm) < 0) months.push(mm);
+        });
+        months.sort();
+        _editMonth = months.length ? months[months.length - 1] : "";
+        // 会社セレクト＝マスタ全社。既定は「その月にデータがある会社」を優先（空プレビュー回避）。
+        var sel = document.getElementById("editCompany");
+        var cos = Object.keys(MASTER);
+        sel.innerHTML = "";
+        cos.forEach(function (c) {
+          var o = document.createElement("option");
+          o.value = c;
+          o.textContent = c;
+          sel.appendChild(o);
+        });
+        var withData = rows
+          .filter(function (r) {
+            return inMonth(r.日付, _editMonth);
+          })
+          .map(function (r) {
+            return r.会社名;
+          });
+        sel.value =
+          withData.filter(function (c) {
+            return cos.indexOf(c) >= 0;
+          })[0] ||
+          cos[0] ||
+          "";
+        editTool(_editTool);
+        generateInvoices();
+      }
+      function editPickCompany() {
+        generateInvoices();
+        if (_editTool === "cols") renderEditPanel("cols");
+      }
+      function editTool(tool) {
+        _editTool = tool;
+        document.querySelectorAll("#editTools .etool").forEach(function (b) {
+          b.classList.toggle("on", b.dataset.tool === tool);
+        });
+        renderEditPanel(tool);
+      }
+      function renderEditPanel(tool) {
+        var el = document.getElementById("editPanel");
+        if (!el) return;
+        var s = currentIssuer();
+        var co = editCurrentCo();
+        var h = "";
+        if (tool === "cols") {
+          var m = MASTER[co] || {};
+          var items = m.items && m.items.length ? m.items : ["日付", "行き先", "金額"];
+          h =
+            '<div class="ph">📊 列幅（' +
+            _eh(co || "—") +
+            "）</div>" +
+            '<div class="note">列ごとに幅を調整。広げると他の列が縮みます（合計幅は一定）。プレビューに即反映。</div>';
+          items.forEach(function (col) {
+            var w = (m.widths && m.widths[col]) || COLBASE[col] || 80;
+            var label =
+              window.MeisaiEngine && MeisaiEngine.utils && MeisaiEngine.utils.labelOf
+                ? MeisaiEngine.utils.labelOf(m, col)
+                : col;
+            h +=
+              '<div class="ep-row"><span class="l">' +
+              _eh(label) +
+              '</span><div class="ep-num">' +
+              "<button onclick=\"editColWidth('" +
+              _eh(col) +
+              "', -20)\">−</button>" +
+              '<span class="v">' +
+              Math.round(w) +
+              "</span>" +
+              "<button onclick=\"editColWidth('" +
+              _eh(col) +
+              "', 20)\">＋</button></div></div>";
+          });
+        } else if (tool === "logo") {
+          h = '<div class="ph">🖼 ロゴ</div>';
+          if (!s.logo)
+            h +=
+              '<div class="note">ロゴ画像は「設定 → 自社情報」で登録できます。表示するテンプレ（ロゴあり）も必要です。</div>';
+          else
+            h +=
+              '<div class="note">大きさを調整（10〜46mm）。表示位置はテンプレで決まります。</div>';
+          var lmm = Math.max(10, Math.min(46, Number(s.logoSizeMm) || 40));
+          h +=
+            '<div class="ep-row"><span class="l">大きさ</span><div class="ep-num">' +
+            '<button onclick="editLogoSize(-2)">−</button><span class="v">' +
+            lmm +
+            'mm</span><button onclick="editLogoSize(2)">＋</button></div></div>';
+        } else if (tool === "hanko") {
+          h = '<div class="ph">🟥 判子</div>';
+          if (!s.hanko)
+            h += '<div class="note">判子画像は「設定 → 自社情報」で登録できます。</div>';
+          else h += '<div class="note">大きさを調整（10〜40mm）。プレビューに即反映。</div>';
+          var hmm = Math.max(10, Math.min(40, Number(s.hankoSizeMm) || 21));
+          h +=
+            '<div class="ep-row"><span class="l">大きさ</span><div class="ep-num">' +
+            '<button onclick="editHankoSize(-1)">−</button><span class="v">' +
+            hmm +
+            'mm</span><button onclick="editHankoSize(1)">＋</button></div></div>';
+        } else if (tool === "tpl") {
+          var d = s.pdfDesign === "classic" ? "classic" : "elegant";
+          h =
+            '<div class="ph">🎨 テンプレ</div><div class="note">デザインと種類を選ぶ。保存され、PDFもExcelも揃います。</div>';
+          h += '<div class="ep-row"><span class="l">デザイン</span><div class="ep-seg">';
+          ["elegant", "classic"].forEach(function (dd) {
+            h +=
+              '<button class="ep-chip' +
+              (d === dd ? " on" : "") +
+              '" onclick="editSetDesign(\'' +
+              dd +
+              "')\">" +
+              DESIGN_LABELS[dd] +
+              "</button>";
+          });
+          h += "</div></div>";
+          var vkey = d === "elegant" ? s.elegantVariant || "logo" : s.classicVariant || "diag_logo";
+          h += '<div class="ep-row"><span class="l">種類</span><div class="ep-seg">';
+          DESIGN_VARIANTS[d].forEach(function (v) {
+            h +=
+              '<button class="ep-chip' +
+              (vkey === v.key ? " on" : "") +
+              '" onclick="editSetVariant(\'' +
+              v.key +
+              "')\">" +
+              _eh(v.label) +
+              "</button>";
+          });
+          h += "</div></div>";
+        } else if (tool === "meta") {
+          h = '<div class="ph">🔢 請求書番号・お支払期限</div>';
+          h +=
+            '<div class="ep-tog"><span class="l">請求書番号（No.）</span>' +
+            '<button class="ep-switch' +
+            (s.showInvoiceNo ? "" : " off") +
+            '" onclick="editToggleNo()"></button></div>';
+          h +=
+            '<div class="ep-tog"><span class="l">お支払期限</span>' +
+            '<button class="ep-switch' +
+            (s.showPaymentDue ? "" : " off") +
+            '" onclick="editToggleDue()"></button></div>';
+          if (s.showPaymentDue) {
+            h +=
+              '<div class="ep-row"><span class="l">期日</span>' +
+              '<input type="date" class="fselect itb-date" value="' +
+              _eh(s.paymentDue || "") +
+              '" onchange="setInvoiceDue(this.value)" /></div>';
+            h += '<div class="ep-row"><span class="l">表記</span><div class="ep-seg">';
+            [
+              ["seireki", "西暦"],
+              ["reiwa", "令和"],
+            ].forEach(function (e) {
+              h +=
+                '<button class="ep-chip' +
+                ((s.paymentDueEra || "seireki") === e[0] ? " on" : "") +
+                '" onclick="editSetDueEra(\'' +
+                e[0] +
+                "')\">" +
+                e[1] +
+                "</button>";
+            });
+            h += "</div></div>";
+          }
+        }
+        el.innerHTML = h;
+      }
+      // --- 編集タブの各操作（すべて保存＆即反映） ---
+      // ±連打でクラウド書き込みが増えないよう、保存だけ debounce（プレビューは即時）。
+      var _saveMasterTimer = null,
+        _saveIssuerTimer = null;
+      function saveMasterSoon() {
+        if (_saveMasterTimer) clearTimeout(_saveMasterTimer);
+        _saveMasterTimer = setTimeout(saveMaster, 600);
+      }
+      function saveIssuerSoon() {
+        if (_saveIssuerTimer) clearTimeout(_saveIssuerTimer);
+        _saveIssuerTimer = setTimeout(saveIssuer, 600);
+      }
+      function editColWidth(col, delta) {
+        var co = editCurrentCo();
+        var m = MASTER[co];
+        if (!m) return;
+        m.widths = m.widths || {};
+        var cur = Number(m.widths[col]) || COLBASE[col] || 80;
+        m.widths[col] = Math.max(24, Math.min(400, cur + delta));
+        saveMasterSoon();
+        generateInvoices();
+        renderEditPanel("cols");
+      }
+      function editLogoSize(delta) {
+        if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
+        var s = ISSUER_SETTINGS[CURRENT_ACCOUNT];
+        s.logoSizeMm = Math.max(10, Math.min(46, (Number(s.logoSizeMm) || 40) + delta));
+        saveIssuerSoon();
+        renderIssuer();
+        generateInvoices();
+        renderEditPanel("logo");
+      }
+      function editHankoSize(delta) {
+        if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
+        var s = ISSUER_SETTINGS[CURRENT_ACCOUNT];
+        s.hankoSizeMm = Math.max(10, Math.min(40, (Number(s.hankoSizeMm) || 21) + delta));
+        saveIssuerSoon();
+        renderIssuer();
+        generateInvoices();
+        renderEditPanel("hanko");
+      }
+      function editSetDesign(d) {
+        if (!DESIGN_VARIANTS[d]) return;
+        INV_OVERRIDE = null;
+        setIssuer("pdfDesign", d);
+        renderIssuer();
+        generateInvoices();
+        renderEditPanel("tpl");
+      }
+      function editSetVariant(key) {
+        var s = currentIssuer();
+        var d = s.pdfDesign === "classic" ? "classic" : "elegant";
+        INV_OVERRIDE = null;
+        setIssuer(d === "elegant" ? "elegantVariant" : "classicVariant", key);
+        renderIssuer();
+        generateInvoices();
+        renderEditPanel("tpl");
+      }
+      function editToggleNo() {
+        var s = currentIssuer();
+        setIssuer("showInvoiceNo", !s.showInvoiceNo);
+        generateInvoices();
+        renderEditPanel("meta");
+      }
+      function editToggleDue() {
+        toggleInvoiceDue(); // 既存（保存＋即反映）
+        renderEditPanel("meta");
+      }
+      function editSetDueEra(v) {
+        setDueEra(v); // 既存
+        renderEditPanel("meta");
+      }
+      function editResetDesign() {
+        if (
+          !confirm(
+            "見た目（デザイン・ロゴ/判子サイズ・列幅・番号/期限）を初期設定に戻します。よろしいですか？"
+          )
+        )
+          return;
+        var def = defaultIssuer();
+        [
+          "pdfDesign",
+          "elegantVariant",
+          "classicVariant",
+          "logoSizeMm",
+          "hankoSizeMm",
+          "showInvoiceNo",
+          "showPaymentDue",
+          "issuerAlign",
+          "bankAlign",
+          "dateEra",
+          "paymentDueEra",
+        ].forEach(function (k) {
+          setIssuer(k, def[k]);
+        });
+        // 現在表示中の会社の列幅を既定（自動）へ
+        var co = editCurrentCo();
+        if (MASTER[co]) {
+          MASTER[co].widths = {};
+          saveMaster();
+        }
+        INV_OVERRIDE = null;
+        renderIssuer();
+        generateInvoices();
+        renderEditPanel(_editTool);
+        toast("初期設定に戻しました");
       }
       // ===== 請求タブ：テンプレ＆書体をその場で切替（リアルタイム反映） =====
       // 請求タブ：デザイン切替＝その回だけの一時上書き（INV_OVERRIDE・保存しない）。
@@ -7660,12 +8210,14 @@
         toast("月次集計(.xlsx)を書き出しました");
       }
 
-      // 画面回転・リサイズで請求書プレビューの縮尺を合わせ直す
+      // 画面回転・リサイズで請求書プレビューの縮尺を合わせ直す（請求タブ・編集タブ両方）
       window.addEventListener("resize", function () {
         var billing = document.getElementById("scr-billing");
         var invPanel = document.querySelector('#scr-billing .seg-panel[data-seg="invoice"]');
-        if (billing.classList.contains("active") && invPanel && invPanel.classList.contains("on"))
-          fitInvoice();
+        var billingOn =
+          billing.classList.contains("active") && invPanel && invPanel.classList.contains("on");
+        var editOn = document.getElementById("scr-edit").classList.contains("active");
+        if (billingOn || editOn) fitInvoice();
       });
       /* ===================================================================
    ログイン（初回だけ・以後はセッション保持で自動）
