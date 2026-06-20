@@ -1890,6 +1890,55 @@
         padding: 10px 12px;
         min-height: 48px;
       }
+      /* ★編集タブだけ「1画面の固定フレーム」化＝ページ全体スクロールを止め、上下に動きすぎるのを根治。
+         上段(会社選択+プレビュー+ページバー+チップ)は固定、編集パネルだけが唯一のスクロール領域＝広く使える。
+         他タブには一切影響しない（body.edit-frame-on は編集タブ表示中だけ付与）。
+         高さは 100dvh でなく JS が visualViewport から入れる --appvh＝iOS Safariのアドレスバー伸縮で揺れない。 */
+      body.edit-frame-on {
+        height: var(--appvh, 100vh);
+        overflow: hidden;
+        padding-bottom: 0;
+      }
+      body.edit-frame-on #scr-edit.active {
+        display: flex;
+        flex-direction: column;
+        height: calc(var(--appvh, 100vh) - var(--hdr-h, 50px) - var(--nav-h, 56px));
+        overflow: hidden;
+        padding: 6px 12px 0;
+      }
+      body.edit-frame-on .edit-stickytop {
+        position: static; /* sticky撤去＝フレーム自体が固定なので不要・WebKitのsticky×transform競合も消える */
+        flex: 0 0 auto;
+        margin: 0;
+        padding: 0;
+        background: transparent;
+      }
+      body.edit-frame-on .edit-panel {
+        flex: 1 1 auto;
+        min-height: 0; /* flexの子がはみ出さずスクロールできる */
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain; /* パネル端でページに伝播させない */
+        padding-bottom: calc(env(safe-area-inset-bottom) + 14px);
+      }
+      /* フレーム内は上段chromeを少し詰めて編集パネルへ回す（横スクロール化はしない＝チップは全部見える）。 */
+      body.edit-frame-on .edit-chips-lbl {
+        margin: 0 2px 2px;
+      }
+      body.edit-frame-on .edit-chips {
+        gap: 4px;
+        padding-bottom: 4px;
+      }
+      body.edit-frame-on .echip {
+        padding: 3px 7px;
+        font-size: 11px;
+      }
+      body.edit-frame-on .edit-pagebar {
+        margin: 0 0 4px;
+      }
+      body.edit-frame-on .epage-btn {
+        height: 28px;
+      }
       .edit-panel .ph {
         font-size: 12.5px;
         font-weight: 800;
@@ -5384,6 +5433,7 @@
           s.classList.remove("active");
         });
         document.getElementById("scr-" + name).classList.add("active");
+        document.body.classList.toggle("edit-frame-on", name === "edit"); // ★編集タブだけ固定フレーム化
         document.querySelectorAll(".nav-item").forEach(function (b) {
           b.classList.toggle("active", b.dataset.scr === name);
         });
@@ -6347,10 +6397,11 @@
             inner.style.marginRight = -Math.round(720 * (1 - s)) + "px";
             inner.style.marginBottom = -Math.round(inner.offsetHeight * (1 - s)) + "px";
             out.style.overflowX = "hidden"; // 横スクロールは常に無し
-            // ★上限0.44＝明細が多くて長い/複数ページでもプレビューは画面の44%まで＝下の操作エリアを常に広く保つ
-            //   （司さん指摘：シュシュみたいに明細マックスだと下が狭くなる）。短い請求書は合計でさらに詰まる。
-            var maxH = Math.round(window.innerHeight * 0.44); // 上限（操作エリア確保）
-            var minH = Math.round(window.innerHeight * 0.3); // 下限
+            // ★範囲選択中(_editFocusActive)はプレビューを小さく＝下の編集パネルを広げる（司さん「編集場所が狭い」）。
+            //   閲覧中(未選択)はプレビュー優先で大きめ。長い/複数ページでも上限で頭打ち＝操作エリアを確保。
+            var vh = window.innerHeight;
+            var maxH = Math.round(vh * (_editFocusActive ? 0.3 : 0.44)); // 上限（選択中は縮める）
+            var minH = Math.round(vh * (_editFocusActive ? 0.22 : 0.3)); // 下限
             // ★高さ＝合計の下端まで（紙の空白を切る）。PDF座標から割合で算出＝scrollTopを触らない・安定。
             //   合計/ご請求金額が無ければ比率0.44でフォールバック。長い/複数ページは上限0.44で頭打ち。
             var frac = _contentEndFraction();
@@ -6393,9 +6444,12 @@
             b.classList.remove("on");
           });
         refreshDueChip(); // 「お支払期限」チップは期限ONの時だけ出す
-        // プレビュー固定位置＝ヘッダーの高さの直下に合わせる
+        // ★固定フレームの高さ計算用＝ヘッダ高/ナビ高/実ビューポート高を CSS変数に。
         var _hdr = document.querySelector(".app-header");
         if (_hdr) document.documentElement.style.setProperty("--hdr-h", _hdr.offsetHeight + "px");
+        var _nav = document.querySelector(".bottom-nav");
+        if (_nav) document.documentElement.style.setProperty("--nav-h", _nav.offsetHeight + "px");
+        _setAppVh(); // iOS Safari アドレスバー伸縮に追従する実高さ
         // 月＝データのある最新月（請求タブの選択には触れない）。
         var rows = DB.filter(function (r) {
           return r.account_id === CURRENT_ACCOUNT;
@@ -9132,14 +9186,24 @@
       }
 
       // 画面回転・リサイズで請求書プレビューの縮尺を合わせ直す（請求タブ・編集タブ両方）
-      window.addEventListener("resize", function () {
+      // 実ビューポート高さを CSS変数 --appvh に（iOS Safari のアドレスバー伸縮で固定フレームが揺れないように）。
+      function _setAppVh() {
+        var vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+        document.documentElement.style.setProperty("--appvh", Math.round(vh) + "px");
+      }
+      function _onViewportChange() {
+        var editOn = document.getElementById("scr-edit").classList.contains("active");
+        if (editOn) _setAppVh(); // 編集タブの固定フレーム高を追従
         var billing = document.getElementById("scr-billing");
         var invPanel = document.querySelector('#scr-billing .seg-panel[data-seg="invoice"]');
         var billingOn =
           billing.classList.contains("active") && invPanel && invPanel.classList.contains("on");
-        var editOn = document.getElementById("scr-edit").classList.contains("active");
         if (billingOn || editOn) fitInvoice();
-      });
+      }
+      window.addEventListener("resize", _onViewportChange);
+      window.addEventListener("orientationchange", _onViewportChange);
+      if (window.visualViewport)
+        window.visualViewport.addEventListener("resize", _onViewportChange);
       /* ===================================================================
    ログイン（初回だけ・以後はセッション保持で自動）
    =================================================================== */
