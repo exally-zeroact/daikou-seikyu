@@ -4469,11 +4469,17 @@
           var HDR_FILL = isElegant ? { fgColor: { rgb: "EAF7F0" } } : GREEN;
           var HRULE = { style: "thin", color: { rgb: isElegant ? "DCE8E2" : "808080" } };
 
-          for (var pi = 0; pi < pageCount; pi++) {
-            var pageRows = allRows.slice(pi * PER, (pi + 1) * PER);
+          // ★複数ページは最終に「サマリーページ（ご請求金額＋ページ別内訳＋合計＋振込先）」を足す＝PDF同様。
+          var hasSummary = pageCount > 1;
+          var totalPages = pageCount + (hasSummary ? 1 : 0);
+          var pageSubs = []; // 各明細ページの小計（サマリーの【ページ別内訳】用）
+          for (var pi = 0; pi < totalPages; pi++) {
+            var isSummary = hasSummary && pi === pageCount; // 最終＝サマリーページ
+            var pageRows = isSummary ? [] : allRows.slice(pi * PER, (pi + 1) * PER);
             var pageTotal = pageRows.reduce(function (s, r) {
               return s + (Number(r.金額) || 0);
             }, 0);
+            if (!isSummary) pageSubs.push(pageTotal);
             var startRow = aoa.length + 1;
             breaks.push(startRow);
             backs.push(startRow);
@@ -4556,8 +4562,8 @@
                   M(rria, 0, rria, rightStart - 1);
                   S(rria, 0, { font: { sz: 10 } });
                 }
-                if (liA === leftLinesA.length && pi === pageCount - 1) {
-                  // ★ご請求金額は最終ページのみ（PDF同様・途中ページには総額を出さない）。
+                if (liA === leftLinesA.length && (pageCount === 1 || isSummary)) {
+                  // ★ご請求金額は単ページ or 最終サマリーページのみ（途中ページには出さない＝PDF同様）。
                   var yenA = "¥" + String(billTotal).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
                   aoa[rria][0] = "ご請求金額（税込）　　" + yenA;
                   M(rria, 0, rria, lastCol);
@@ -4652,8 +4658,8 @@
                   M(rri, 0, rri, rightStart - 1);
                   S(rri, 0, { font: { sz: 10 } }); // 見本どおりあいさつ文 sz10
                 }
-                if (leftI === leftLines.length && pi === pageCount - 1) {
-                  // ★ご請求金額は最終ページのみ（PDF同様）。
+                if (leftI === leftLines.length && (pageCount === 1 || isSummary)) {
+                  // ★ご請求金額は単ページ or 最終サマリーページのみ（PDF同様）。
                   // ご請求金額（税込）¥xxx ＝ ラベル＋金額を左ゾーン全幅で1セルに（切れ防止）。
                   // 見本どおり sz13 太字・下線。左ゾーン(0..rightStart-1)に下線を引く。
                   var yenStr = "¥" + String(billTotal).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -4672,75 +4678,119 @@
               row(blank());
             } // end headerStyle B
 
-            // 表ヘッダー：運転業務委託料（日付＋行き先にかける）／増えた項目は各自に見出し／金額（税込み）
-            var hd = blank();
-            var titleEnd = colStart[textIdx] + spans[textIdx] - 1; // 行き先（説明ブロック）の右端
-            hd[0] = amt > 0 ? m.tableTitle || "運転業務委託料" : "金額（税込み）";
-            // 行き先より後・金額より前の項目（距離/人数等）＝各列に見出しを付ける
-            items.forEach(function (k2, ci) {
-              if (ci > textIdx && ci < amt) hd[colStart[ci]] = U.labelOf(m, k2);
-            });
-            hd[amtDisp] = "金額（税込み）";
-            items.slice(amt + 1).forEach(function (k2, j) {
-              hd[colStart[amt + 1 + j]] = U.labelOf(m, k2);
-            });
-            var riHd = row(hd);
-            heights[riHd] = 20;
-            if (titleEnd > 0) M(riHd, 0, riHd, titleEnd);
-            for (var c = 0; c < W; c++)
-              S(riHd, c, {
-                font: { bold: true, sz: 12, color: C_LABEL }, // 表ヘッダー sz12（PDFと同じ中緑）
-                alignment: { horizontal: "center", vertical: "center" },
-                fill: HDR_FILL,
-                border: isElegant ? { bottom: { style: "thin", color: { rgb: "52B788" } } } : BOX,
-              });
-
-            // 明細22行（全幅・空行も枠線）
-            var prevDate = null;
-            for (var rr2 = 0; rr2 < PER; rr2++) {
-              var src = pageRows[rr2];
-              var line = blank();
-              if (src) {
-                items.forEach(function (key, ci) {
-                  var dc = colStart[ci];
-                  if (key === "日付") {
-                    var cur = src.日付 || "";
-                    line[dc] = cur && cur !== prevDate ? U.mdShort(cur) : "";
-                  } else if (key === "金額") {
-                    line[dc] = src.金額 === "" || src.金額 == null ? "" : Number(src.金額);
-                  } else line[dc] = src[key] == null ? "" : src[key];
+            if (isSummary) {
+              // ===== サマリーページ：明細でなく【ページ別 内訳】（各ページの小計一覧）＝PDF同様 =====
+              var sumLbl = Math.max(lastCol - 1, 0); // ラベル列（最右の1つ左）
+              var sumAmt = lastCol; // 金額＝右端
+              var capRow = blank();
+              capRow[0] = "【ページ別 内訳】";
+              var capRi = row(capRow);
+              S(capRi, 0, { font: { sz: 9, color: C_MUTED } });
+              heights[capRi] = 14;
+              var shd = blank();
+              shd[0] = "ページ";
+              shd[sumAmt] = "金額（税込）";
+              var shdRi = row(shd);
+              heights[shdRi] = 20;
+              M(shdRi, 0, shdRi, sumLbl);
+              for (var sc = 0; sc < W; sc++)
+                S(shdRi, sc, {
+                  font: { bold: true, sz: 12, color: C_LABEL },
+                  alignment: { horizontal: sc === sumAmt ? "right" : "left", vertical: "center" },
+                  fill: HDR_FILL,
+                  border: isElegant ? { bottom: { style: "thin", color: { rgb: "52B788" } } } : BOX,
                 });
-                prevDate = src.日付 || prevDate;
-              }
-              var riR = row(line);
-              heights[riR] = 14; // 明細を多く(30行)＋お振込先/合計までA4縦1枚に収める詰め行高
-              // テキスト列はまたがり結合
-              items.forEach(function (key, ci) {
-                if (spans[ci] > 1) M(riR, colStart[ci], riR, colStart[ci] + spans[ci] - 1);
-              });
-              for (var c2 = 0; c2 < W; c2++) {
-                // 本文：elegant＝横罫だけ／classic＝上下＋外枠左右＋金額前の縦線（PDF準拠）
-                var bd;
-                if (isElegant) {
-                  bd = { bottom: HRULE };
-                } else {
-                  bd = { top: THIN, bottom: THIN };
-                  if (c2 === 0 || vlCols[c2]) bd.left = THIN;
-                  if (c2 === lastCol) bd.right = THIN;
-                }
-                var base = {
-                  border: bd,
+              pageSubs.forEach(function (sub, si) {
+                var sr2 = blank();
+                sr2[0] = si + 1 + "ページ目";
+                sr2[sumAmt] = sub;
+                var sr2i = row(sr2);
+                heights[sr2i] = 16;
+                M(sr2i, 0, sr2i, sumLbl);
+                S(sr2i, 0, {
                   font: { sz: 11 },
+                  alignment: { horizontal: "left" },
+                  border: isElegant ? { bottom: HRULE } : BOX,
+                });
+                S(sr2i, sumAmt, {
+                  font: { sz: 11 },
+                  numFmt: "#,##0",
+                  alignment: { horizontal: "right" },
+                  border: isElegant ? { bottom: HRULE } : BOX,
+                });
+              });
+              row(blank());
+            } else {
+              // 表ヘッダー：運転業務委託料（日付＋行き先にかける）／増えた項目は各自に見出し／金額（税込み）
+              var hd = blank();
+              var titleEnd = colStart[textIdx] + spans[textIdx] - 1; // 行き先（説明ブロック）の右端
+              hd[0] = amt > 0 ? m.tableTitle || "運転業務委託料" : "金額（税込み）";
+              // 行き先より後・金額より前の項目（距離/人数等）＝各列に見出しを付ける
+              items.forEach(function (k2, ci) {
+                if (ci > textIdx && ci < amt) hd[colStart[ci]] = U.labelOf(m, k2);
+              });
+              hd[amtDisp] = "金額（税込み）";
+              items.slice(amt + 1).forEach(function (k2, j) {
+                hd[colStart[amt + 1 + j]] = U.labelOf(m, k2);
+              });
+              var riHd = row(hd);
+              heights[riHd] = 20;
+              if (titleEnd > 0) M(riHd, 0, riHd, titleEnd);
+              for (var c = 0; c < W; c++)
+                S(riHd, c, {
+                  font: { bold: true, sz: 12, color: C_LABEL }, // 表ヘッダー sz12（PDFと同じ中緑）
                   alignment: { horizontal: "center", vertical: "center" },
-                };
-                if (c2 === amtDisp) {
-                  // 見本どおり金額は中央揃え（右揃えにしない）。右揃えは自社情報だけ。
-                  base.alignment = { horizontal: "center", vertical: "center" };
-                  base.numFmt = "#,##0";
+                  fill: HDR_FILL,
+                  border: isElegant ? { bottom: { style: "thin", color: { rgb: "52B788" } } } : BOX,
+                });
+
+              // 明細22行（全幅・空行も枠線）
+              var prevDate = null;
+              for (var rr2 = 0; rr2 < PER; rr2++) {
+                var src = pageRows[rr2];
+                var line = blank();
+                if (src) {
+                  items.forEach(function (key, ci) {
+                    var dc = colStart[ci];
+                    if (key === "日付") {
+                      var cur = src.日付 || "";
+                      line[dc] = cur && cur !== prevDate ? U.mdShort(cur) : "";
+                    } else if (key === "金額") {
+                      line[dc] = src.金額 === "" || src.金額 == null ? "" : Number(src.金額);
+                    } else line[dc] = src[key] == null ? "" : src[key];
+                  });
+                  prevDate = src.日付 || prevDate;
                 }
-                S(riR, c2, base);
+                var riR = row(line);
+                heights[riR] = 14; // 明細を多く(30行)＋お振込先/合計までA4縦1枚に収める詰め行高
+                // テキスト列はまたがり結合
+                items.forEach(function (key, ci) {
+                  if (spans[ci] > 1) M(riR, colStart[ci], riR, colStart[ci] + spans[ci] - 1);
+                });
+                for (var c2 = 0; c2 < W; c2++) {
+                  // 本文：elegant＝横罫だけ／classic＝上下＋外枠左右＋金額前の縦線（PDF準拠）
+                  var bd;
+                  if (isElegant) {
+                    bd = { bottom: HRULE };
+                  } else {
+                    bd = { top: THIN, bottom: THIN };
+                    if (c2 === 0 || vlCols[c2]) bd.left = THIN;
+                    if (c2 === lastCol) bd.right = THIN;
+                  }
+                  var base = {
+                    border: bd,
+                    font: { sz: 11 },
+                    alignment: { horizontal: "center", vertical: "center" },
+                  };
+                  if (c2 === amtDisp) {
+                    // 見本どおり金額は中央揃え（右揃えにしない）。右揃えは自社情報だけ。
+                    base.alignment = { horizontal: "center", vertical: "center" };
+                    base.numFmt = "#,##0";
+                  }
+                  S(riR, c2, base);
+                }
               }
-            }
+            } // end 明細テーブル(!isSummary)
             // 表と下段の間は詰める（アプリ .sh-foot margin-top:8px 相当）
             var spRi = row(blank());
             heights[spRi] = 6;
@@ -4748,7 +4798,8 @@
             // 下段：お振込先(左) / 小計・消費税・合計(右下隅)。専門家3名合意の配置：
             // ①合計は表の右端に右揃えで置き桁を縦に揃える ②ラベル左・金額右(中央寄せ廃止)
             // ③合計を強調＋上に区切り線 ④役職集計は「内訳」見出しで合計と分離。最終ページのみ。
-            var showSummary = m.noteSummary && pi === pageCount - 1 && (m.noteGroups || []).length;
+            var showSummary =
+              m.noteSummary && (pageCount === 1 || isSummary) && (m.noteGroups || []).length;
             var bank = (iss.bank || []).slice();
             // ===== 合計欄を動的に組む（基本/外税/税率別インボイス ＋ 源泉/繰越のテンプレ対応） =====
             var YENNEG = '"¥"#,##0;"△¥"#,##0'; // マイナスは △¥（控除・入金を会計式に）
@@ -4803,8 +4854,8 @@
             }
             var amtC = lastCol; // 金額＝表の右端（右下隅・桁の縦ライン）
             var lblC = Math.max(amtC - 1, 0); // ラベルは金額のすぐ左
-            if (pi !== pageCount - 1) {
-              // ★途中ページ：このページの小計だけ（PDF同様・振込先や総額・ご請求金額は最終ページに）。
+            if (!(pageCount === 1 || isSummary)) {
+              // ★途中の明細ページ：このページの小計だけ（PDF同様・振込先や総額・ご請求金額はサマリーページに）。
               var subFr = blank();
               subFr[lblC] = "このページの小計";
               subFr[amtC] = pageTotal;
@@ -4818,7 +4869,7 @@
               });
               heights[subRi] = 16;
             } else {
-              // 最終ページ：お振込先(左) ＋ 小計/消費税/合計(右下隅・請求全体)。
+              // 単ページ or サマリーページ：お振込先(左) ＋ 小計/消費税/合計(右下隅・請求全体)。
               var fn = Math.max(bank.length, tot.length);
               for (var f = 0; f < fn; f++) {
                 var fr = blank();
@@ -4893,16 +4944,17 @@
                 heights[sri] = 15;
               });
             }
-            if (pi < pageCount - 1) {
+            if (hasSummary && !isSummary) {
+              // 明細ページ（サマリーが後ろに来る）＝次へ続く。
               var cr = blank();
               cr[0] = "次ページへ続く →";
               var ric = row(cr);
               S(ric, 0, { font: { italic: true, color: { rgb: "888888" } } });
             }
-            // ★ページ番号は右下（PDF同様）。複数ページ時のみ。
-            if (pageCount > 1) {
+            // ★ページ番号は右下（PDF同様）。複数ページ時のみ・総ページ数=明細＋サマリー。
+            if (totalPages > 1) {
               var pn = blank();
-              pn[lastCol] = pi + 1 + " / " + pageCount;
+              pn[lastCol] = pi + 1 + " / " + totalPages;
               var pnRi = row(pn);
               S(pnRi, lastCol, {
                 font: { sz: 9, color: C_MUTED },
