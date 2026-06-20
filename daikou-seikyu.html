@@ -1153,11 +1153,70 @@
       }
       .pay-quick {
         display: flex;
+        flex-wrap: wrap; /* 全額/残額/半額/未入金 が折返せるように */
         gap: 8px;
         margin: 10px 0 4px;
       }
       .pay-quick .btn {
-        flex: 1;
+        flex: 1 1 calc(50% - 4px); /* 2列で折返し */
+      }
+      /* 入金行の「全入金」ワンタップ（当たり44px・誤爆防止に行タップと分離） */
+      .pay-full-btn {
+        flex: 0 0 auto;
+        min-width: 56px;
+        min-height: 44px;
+        margin-left: 8px;
+        border: 1px solid #2e7d54;
+        background: #fff;
+        color: #2e7d54;
+        border-radius: 10px;
+        font-family: inherit;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .pay-full-btn:active {
+        background: #eafaf1;
+      }
+      /* 取り消しボタン付きトースト（通常トーストと別） */
+      .toast-undo {
+        position: fixed;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        bottom: calc(var(--nav-h, 56px) + env(safe-area-inset-bottom) + 12px);
+        z-index: 80;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        max-width: 92%;
+        background: #1a4a2e;
+        color: #fff;
+        padding: 10px 12px 10px 16px;
+        border-radius: 12px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+        font-size: 13px;
+        opacity: 0;
+        pointer-events: none;
+        transition:
+          opacity 0.18s,
+          transform 0.18s;
+      }
+      .toast-undo.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+        pointer-events: auto;
+      }
+      .toast-undo-btn {
+        flex: 0 0 auto;
+        background: #fff;
+        color: #1a4a2e;
+        border: none;
+        border-radius: 8px;
+        padding: 7px 12px;
+        font-family: inherit;
+        font-size: 12px;
+        font-weight: 800;
+        cursor: pointer;
       }
 
       /* ===== 月次集計テーブル ===== */
@@ -7260,7 +7319,17 @@
               yen(x.iv.total) +
               "</div>" +
               remHtml +
-              "</div></div>"
+              "</div>" +
+              (x.st !== "paid"
+                ? '<button type="button" class="pay-full-btn" onclick="event.stopPropagation();markPaidFull(\'' +
+                  esc(x.iv.month) +
+                  "','" +
+                  esc(x.iv.company).replace(/'/g, "\\'") +
+                  "'," +
+                  x.iv.total +
+                  ')">全入金</button>'
+                : "") +
+              "</div>"
             );
           })
           .join("");
@@ -7295,7 +7364,28 @@
           iv.total +
           ')">全額（' +
           yen(iv.total) +
-          ')</button><button class="btn btn-ghost btn-sm" onclick="payFill(0)">未入金(0)</button></div>' +
+          ")</button>" +
+          // ★残額（請求−入金済）・半額のクイック。既存 payFill を再利用。
+          (function () {
+            var rem = iv.total - (Number(rec.paid) || 0);
+            var half = Math.round(iv.total / 2);
+            var h = "";
+            if (rem > 0 && rem !== iv.total)
+              h +=
+                '<button class="btn btn-ghost btn-sm" onclick="payFill(' +
+                rem +
+                ')">残額（' +
+                yen(rem) +
+                "）</button>";
+            h +=
+              '<button class="btn btn-ghost btn-sm" onclick="payFill(' +
+              half +
+              ')">半額（' +
+              yen(half) +
+              "）</button>";
+            return h;
+          })() +
+          '<button class="btn btn-ghost btn-sm" onclick="payFill(0)">未入金(0)</button></div>' +
           '<div class="frow"><div class="flabel">入金日</div>' +
           '<input class="finput" type="date" id="pay_date" value="' +
           esc(rec.paidDate || "") +
@@ -7369,6 +7459,118 @@
         renderPayments();
         updatePayBadge();
         toast("入金を記録しました");
+      }
+      // ★行から直接ワンタップで全額入金済に（確認なし＝取り消しトースト付き）。savePayと同一のupsertを流用。
+      async function markPaidFull(month, co, total) {
+        var key = payKeyFor(month, co);
+        var snap = PAYMENTS[key] ? Object.assign({}, PAYMENTS[key]) : null; // 取り消し用に前の状態を保持
+        var d = new Date();
+        var date =
+          d.getFullYear() +
+          "-" +
+          ("0" + (d.getMonth() + 1)).slice(-2) +
+          "-" +
+          ("0" + d.getDate()).slice(-2);
+        var up = await SB.from("payments")
+          .upsert(
+            {
+              user_id: CURRENT_ACCOUNT,
+              month: month,
+              company: co,
+              paid: total,
+              paid_date: date,
+              memo: (snap && snap.note) || "",
+              deleted_at: null,
+            },
+            { onConflict: "user_id,month,company" }
+          )
+          .select("id")
+          .single();
+        if (up.error) {
+          cloudErr("入金保存", up.error);
+          return;
+        }
+        PAYMENTS[key] = {
+          paid: total,
+          paidDate: date,
+          note: (snap && snap.note) || "",
+          _dbid: up.data.id,
+        };
+        renderPayments();
+        updatePayBadge();
+        toastUndo(esc(co) + " を全入金にしました", function () {
+          undoPayState(month, co, snap);
+        });
+      }
+      // 全入金の取り消し＝直前の状態へ戻す（元が未入金なら記録削除）。
+      async function undoPayState(month, co, snap) {
+        var key = payKeyFor(month, co);
+        if (snap === null) {
+          var del = await SB.from("payments").delete().eq("month", month).eq("company", co);
+          if (del.error) {
+            cloudErr("入金取消", del.error);
+            return;
+          }
+          delete PAYMENTS[key];
+        } else {
+          var up = await SB.from("payments")
+            .upsert(
+              {
+                user_id: CURRENT_ACCOUNT,
+                month: month,
+                company: co,
+                paid: snap.paid,
+                paid_date: snap.paidDate || null,
+                memo: snap.note || "",
+                deleted_at: null,
+              },
+              { onConflict: "user_id,month,company" }
+            )
+            .select("id")
+            .single();
+          if (up.error) {
+            cloudErr("入金取消", up.error);
+            return;
+          }
+          PAYMENTS[key] = {
+            paid: snap.paid,
+            paidDate: snap.paidDate,
+            note: snap.note,
+            _dbid: up.data.id,
+          };
+        }
+        renderPayments();
+        updatePayBadge();
+        toast("取り消しました");
+      }
+      // 取り消しボタン付きトースト（通常 toast とは別要素・別タイマー＝監査指摘）。
+      function toastUndo(msg, onUndo) {
+        var t = document.getElementById("toastUndo");
+        if (!t) {
+          t = document.createElement("div");
+          t.id = "toastUndo";
+          t.className = "toast-undo";
+          document.body.appendChild(t);
+        }
+        t.innerHTML = "";
+        var span = document.createElement("span");
+        span.textContent = msg;
+        var btn = document.createElement("button");
+        btn.className = "toast-undo-btn";
+        btn.type = "button";
+        btn.textContent = "取り消す";
+        btn.onclick = function () {
+          clearTimeout(t._tm);
+          t.classList.remove("show");
+          onUndo();
+        };
+        t.appendChild(span);
+        t.appendChild(btn);
+        t.classList.add("show");
+        clearTimeout(t._tm);
+        t._tm = setTimeout(function () {
+          t.classList.remove("show");
+        }, 5000);
       }
 
       /* ===================================================================
