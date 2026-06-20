@@ -6166,15 +6166,17 @@
             inner.style.marginRight = -Math.round(720 * (1 - s)) + "px";
             inner.style.marginBottom = -Math.round(inner.offsetHeight * (1 - s)) + "px";
             out.style.overflowX = "hidden"; // 横スクロールは常に無し
-            var maxH = Math.round(window.innerHeight * 0.6); // 上限
+            // ★上限0.44＝明細が多くて長い/複数ページでもプレビューは画面の44%まで＝下の操作エリアを常に広く保つ
+            //   （司さん指摘：シュシュみたいに明細マックスだと下が狭くなる）。短い請求書は合計でさらに詰まる。
+            var maxH = Math.round(window.innerHeight * 0.44); // 上限（操作エリア確保）
             var minH = Math.round(window.innerHeight * 0.3); // 下限
             // ★高さ＝合計の下端まで（紙の空白を切る）。PDF座標から割合で算出＝scrollTopを触らない・安定。
-            //   合計/ご請求金額が無ければ比率0.48でフォールバック。
+            //   合計/ご請求金額が無ければ比率0.44でフォールバック。長い/複数ページは上限0.44で頭打ち。
             var frac = _contentEndFraction();
             var targetH =
               frac != null
                 ? Math.round(frac * sh + 20) // 内容下端＋余白(枠のpadding込)
-                : Math.round(window.innerHeight * 0.48);
+                : Math.round(window.innerHeight * 0.44);
             targetH = Math.max(minH, Math.min(maxH, targetH));
             out.style.height = targetH + "px";
             // 全体(フッター含む)はこれより高いので縦スクロールは残す（チップ選択で各範囲へ飛べる）。

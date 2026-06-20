@@ -320,7 +320,9 @@
     var issTall = Math.max(0, (iLines.length || 1) - 4);
     var logoTall = showLogo ? 3 : 0; // 大きいロゴぶんフッターが高い→3行ぶん減らす
     var capSingle = Math.max(8, Math.round((17 - noteN - issTall - logoTall) / _fs)); // 単ページの明細上限（大きい字ほど少なく）
-    var capDetail = Math.max(8, Math.round(22 / _fs)); // 明細ページ（総額なし）の明細上限
+    // ★明細ページも自社情報/ロゴ分(issTall/logoTall)を引く＝ページ小計「このページの小計／次ページへ続く」が
+    //   自社情報フッターに食い込むのを防ぐ（司さん指摘の重なり根因）。大きい字ほど少なく。
+    var capDetail = Math.max(8, Math.round((20 - issTall - logoTall) / _fs)); // 明細ページ（総額なし）の明細上限
     var multi = rows.length > capSingle;
     var detailPages = [];
     if (multi) {
@@ -640,14 +642,39 @@
       cy -= 14;
       var tableBottom = drawTable(page, cy, pageRows);
       if (!multi) {
-        drawTotals(page, tableBottom - 18);
+        // ★小計/合計がフッター(自社情報/ロゴ/判子)と重ならないよう、開始yをフッター上端より上にクランプ。
+        //   通常(明細少)は tableBottom-18 のまま＝従来どおり。明細マックス＋自社情報多行のときだけ効く。
+        var _nL = iLines.length || 1;
+        var _issH = _nL > 0 ? _g(13) + (_nL - 1) * _g(10) : 0;
+        var _logoH = 0;
+        if (showLogo) {
+          var _asp = logo.width / logo.height;
+          var _lw = Math.min((Number(iss && iss.logoSizeMm) || 40) * MM * 1.2, 210);
+          _logoH = _lw / _asp;
+          if (_logoH > 130) _logoH = 130;
+        }
+        var _footTop = 78 + Math.max(_issH, _logoH, 20); // フッター(自社情報/ロゴ)の上端
+        var _totalsH = _g(83) + (noteN ? _g(13) + noteN * _g(12) : 0); // 小計〜合計(＋内訳)の概算高さ
+        drawTotals(page, Math.max(tableBottom - 18, _footTop + _totalsH));
       } else {
-        T(page, font, "このページの小計", RXp - 230, tableBottom - 16, 9, { color: MUTED });
-        T(page, font, yen(pageSubtotals[pi]), RXp, tableBottom - 16, 10.5, {
+        // ★ページ小計＋「次ページへ続く」が自社情報フッターに食い込まないよう、yをフッター上端より上にクランプ。
+        var _nLd = iLines.length || 1;
+        var _issHd = _nLd > 0 ? _g(13) + (_nLd - 1) * _g(10) : 0;
+        var _logoHd = 0;
+        if (showLogo) {
+          var _aspd = logo.width / logo.height;
+          var _lwd = Math.min((Number(iss && iss.logoSizeMm) || 40) * MM * 1.2, 210);
+          _logoHd = _lwd / _aspd;
+          if (_logoHd > 130) _logoHd = 130;
+        }
+        var _footTopD = 78 + Math.max(_issHd, _logoHd, 20);
+        var _subY = Math.max(tableBottom - 16, _footTopD + _g(40)); // 小計行（続く含む）の下端がフッターを侵さない
+        T(page, font, "このページの小計", RXp - 230, _subY, 9, { color: MUTED });
+        T(page, font, yen(pageSubtotals[pi]), RXp, _subY, 10.5, {
           align: "right",
           color: TEXT,
         });
-        T(page, font, "次ページへ続く →", RXp, tableBottom - 32, 9, {
+        T(page, font, "次ページへ続く →", RXp, _subY - _g(16), 9, {
           align: "right",
           color: MUTED,
         });
