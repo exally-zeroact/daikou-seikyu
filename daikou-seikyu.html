@@ -4308,6 +4308,10 @@
         var THIN = { style: "thin", color: { rgb: "808080" } };
         var BOX = { top: THIN, bottom: THIN, left: THIN, right: THIN };
         var YEN = '"¥"#,##0';
+        // ★PDFのミント配色（文字色）。色未指定セル（＝黒）を本文＝濃い緑にして「色がPDFと違う」を解消。
+        var C_TEXT = { rgb: "1A4A2E" }; // 本文・タイトル・宛名・金額（#1a4a2e）
+        var C_LABEL = { rgb: "3D9E72" }; // 見出し・ラベル（#3d9e72）
+        var C_MUTED = { rgb: "7AA08C" }; // 補助文・自社情報・あいさつ（#7aa08c）
         var aoa = [],
           styles = {},
           merges = [],
@@ -4324,8 +4328,10 @@
           return aoa.length - 1; // 0始まりの行index
         }
         function S(r, c, s) {
-          // 文字サイズ係数を全フォント指定セルに反映（_exlFs=1なら無変更＝バイト不変）。
-          if (_exlFs !== 1 && s && s.font && s.font.sz) s.font.sz = Math.round(s.font.sz * _exlFs);
+          if (s && s.font) {
+            if (_exlFs !== 1 && s.font.sz) s.font.sz = Math.round(s.font.sz * _exlFs); // 文字サイズ係数
+            if (!s.font.color) s.font.color = C_TEXT; // ★色未指定（黒）→PDFの本文緑に既定化
+          }
           styles[XLSX.utils.encode_cell({ r: r, c: c })] = s;
         }
         function M(r1, c1, r2, c2) {
@@ -4672,7 +4678,7 @@
             if (titleEnd > 0) M(riHd, 0, riHd, titleEnd);
             for (var c = 0; c < W; c++)
               S(riHd, c, {
-                font: { bold: true, sz: 12 }, // 見本どおり表ヘッダー sz12
+                font: { bold: true, sz: 12, color: C_LABEL }, // 表ヘッダー sz12（PDFと同じ中緑）
                 alignment: { horizontal: "center", vertical: "center" },
                 fill: HDR_FILL,
                 border: isElegant ? { bottom: { style: "thin", color: { rgb: "52B788" } } } : BOX,
