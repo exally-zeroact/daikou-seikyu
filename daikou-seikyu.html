@@ -1771,6 +1771,36 @@
         box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
         margin-bottom: 6px;
       }
+      /* 複数ページ時のページ切替バー（プレビュー直下・中央） */
+      .edit-pagebar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        margin: -2px 0 6px;
+      }
+      .epage-btn {
+        min-width: 40px;
+        height: 32px;
+        border: 1px solid #cfe6da;
+        background: #fff;
+        color: #0f766e;
+        border-radius: 8px;
+        font-size: 15px;
+        line-height: 1;
+        cursor: pointer;
+      }
+      .epage-btn:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .epage-lbl {
+        font-size: 13px;
+        font-weight: 700;
+        color: #334155;
+        min-width: 56px;
+        text-align: center;
+      }
       /* プレビューを上部に固定＝道具を触っても請求書が見える（見ながら編集） */
       .edit-stickytop {
         position: sticky;
@@ -3209,6 +3239,16 @@
           ></select>
         </div>
         <div class="edit-prev sheet-scale inv-out" id="editOut"></div>
+        <!-- ★複数ページ時だけ出るページ切替（1ページずつ表示＝縦に長くならない・チップも今のページ内で迷わない） -->
+        <div class="edit-pagebar" id="editPageBar" style="display: none">
+          <button type="button" class="epage-btn" onclick="editGoPage(-1)" aria-label="前のページ">
+            ◀
+          </button>
+          <span class="epage-lbl" id="editPageLbl">1 / 1</span>
+          <button type="button" class="epage-btn" onclick="editGoPage(1)" aria-label="次のページ">
+            ▶
+          </button>
+        </div>
         <!-- ★直す範囲を選ぶ（タップ→上で範囲が光って中央へ寄る）。選ぶと下にその範囲の操作が出る。
              並び順＝請求書の上→下（ごちゃつかないように）。 -->
         <div class="edit-chips-lbl">📍 直す範囲を選ぶ</div>
@@ -5795,6 +5835,7 @@
           cv.className = "inv-pdf-canvas";
           var sheet = document.createElement("div");
           sheet.className = "sheet sheet-pdf";
+          sheet.dataset.page = p; // 何ページ目か（ページ切替で表示制御）
           sheet.appendChild(cv);
           _overlayHitBlocks(sheet, vp, blocks, p - 1); // 当たり判定divを重ねる（debug時のみ可視）
           inner.appendChild(sheet);
@@ -5803,8 +5844,71 @@
         }
         out.innerHTML = "";
         out.appendChild(inner);
+        // ★複数ページは編集プレビューでは1ページずつ表示（縦に長くしない）。請求タブ(.edit-prev以外)は全ページ表示のまま。
+        if (out.classList.contains("edit-prev")) {
+          _editPageCount = pdf.numPages;
+          if (_editPage > _editPageCount) _editPage = _editPageCount;
+          if (_editPage < 1) _editPage = 1;
+          _showEditPage(out);
+          _renderPageBar();
+        }
         fitInvoice();
         if (typeof _editSelBlock !== "undefined" && _editSelBlock) _applyBlockSelection("ensure"); // 再描画＝選択範囲が窓外なら戻す（サイズ変更等を見失わない・見えてれば動かさない）
+      }
+      // 選んだ範囲(key)が今のページに無ければ、その範囲があるページへ切替（小計・合計＝最終ページ等）。
+      function _switchToPageWithBlock(key) {
+        if (_editPageCount <= 1) return;
+        var b = _invCache && _invCache.blocks;
+        if (!b || !b.length) return;
+        var onCur = false,
+          first = null;
+        b.forEach(function (x) {
+          if (x.key !== key) return;
+          var dp = (x.page || 0) + 1; // blocks は0始まり→表示ページ(1始まり)
+          if (dp === _editPage) onCur = true;
+          if (first === null || dp < first) first = dp;
+        });
+        if (!onCur && first && first !== _editPage) {
+          _editPage = first;
+          var out = document.getElementById("editOut");
+          _showEditPage(out);
+          _renderPageBar();
+        }
+      }
+      // 編集プレビューで _editPage のシートだけ表示（他は非表示）＝縦に積まない。
+      function _showEditPage(out) {
+        out = out || document.getElementById("editOut");
+        if (!out) return;
+        out.querySelectorAll(".sheet-pdf").forEach(function (sh) {
+          sh.style.display = Number(sh.dataset.page) === _editPage ? "" : "none";
+        });
+      }
+      // ページ切替バーの表示更新（複数ページ時だけ出す）。
+      function _renderPageBar() {
+        var bar = document.getElementById("editPageBar");
+        if (!bar) return;
+        if (_editPageCount <= 1) {
+          bar.style.display = "none";
+          return;
+        }
+        bar.style.display = "flex";
+        var lbl = document.getElementById("editPageLbl");
+        if (lbl) lbl.textContent = _editPage + " / " + _editPageCount;
+        var btns = bar.querySelectorAll(".epage-btn");
+        if (btns[0]) btns[0].disabled = _editPage <= 1;
+        if (btns[1]) btns[1].disabled = _editPage >= _editPageCount;
+      }
+      // ページ切替（◀▶）。表示を切り替えてプレビュー高さを測り直し、先頭へスクロール。
+      function editGoPage(delta) {
+        var n = _editPage + delta;
+        if (n < 1 || n > _editPageCount) return;
+        _editPage = n;
+        var out = document.getElementById("editOut");
+        _showEditPage(out);
+        _renderPageBar();
+        fitInvoice();
+        if (out) out.scrollTop = 0;
+        if (typeof _editSelBlock !== "undefined" && _editSelBlock) _applyBlockSelection("ensure");
       }
       // 塊(ブロック)の当たり判定divを canvas の上に重ねる。
       //   PDF空間(y-up)の矩形 → pdf.js viewport.convertToViewportPoint で canvas px へ。
@@ -5887,6 +5991,8 @@
          操作UIは既存の道具パネルを流用（チップ→道具の対応表）。座標は段階0の lastBlocks 由来。 */
       var _editSelBlock = null; // 今選んでいる範囲（null=未選択）
       var _editFocusActive = false; // 編集モード（チップ/道具を選択中）＝プレビューをコンパクトに
+      var _editPage = 1; // 編集プレビューで表示中のページ（1始まり・複数ページ時のみ切替バー表示）
+      var _editPageCount = 1; // 総ページ数
       var _BLK_TOOL = {
         info: "align", // 会社名・住所（自社）→ 揃え
         table: "cols", // 明細の表 → 列幅・揃え
@@ -5910,6 +6016,7 @@
         }
         _editSelBlock = key;
         _editFocusActive = true; // 範囲を選んだ＝編集モード→プレビューをコンパクトに
+        _switchToPageWithBlock(key); // 複数ページ時：その範囲が無いページなら、ある方のページへ切替（小計・合計＝最終ページ等）
         document.querySelectorAll("#editChips .echip").forEach(function (b) {
           b.classList.toggle("on", b.dataset.blk === key);
         });
@@ -5993,11 +6100,21 @@
         var b = _invCache && _invCache.blocks;
         var inner = out.querySelector(".invScaleInner");
         if (!b || !b.length || !inner || out.clientWidth <= 0) return null;
+        // 表示中ページ(_editPage)の塊を優先（複数ページで1ページずつ表示）。
+        //   ★blocks の page は0始まり、_editPage は1始まり＝+1で合わせる。無ければ最初の塊。
         var blk = null;
         for (var i = 0; i < b.length; i++) {
-          if (b[i].key === key) {
+          if (b[i].key === key && (b[i].page || 0) + 1 === _editPage) {
             blk = b[i];
             break;
+          }
+        }
+        if (!blk) {
+          for (var j = 0; j < b.length; j++) {
+            if (b[j].key === key) {
+              blk = b[j];
+              break;
+            }
           }
         }
         if (!blk) return null;
@@ -6205,6 +6322,7 @@
         INV_OVERRIDE = null; // 編集タブは「保存済みデザイン」を表示・編集する
         _editSelBlock = null; // 開いた直後は未選択（塊チップで選ぶ）
         _editFocusActive = false; // 開いた直後は全体表示（編集モードでない）
+        _editPage = 1; // 開いた直後は1ページ目から
         var _chips = document.getElementById("editChips");
         if (_chips)
           _chips.querySelectorAll(".echip").forEach(function (b) {
@@ -6258,6 +6376,7 @@
         generateInvoices(true); // 画面入場＝即ビルド（debounce無し）
       }
       function editPickCompany() {
+        _editPage = 1; // 会社を変えたら1ページ目から
         generateInvoices();
         if (_editTool === "cols") renderEditPanel("cols");
       }
