@@ -214,6 +214,34 @@
       .exl-dl:active {
         transform: translateY(1px);
       }
+      /* Excel書き出しの選択モーダル */
+      .exl-pick-grp {
+        margin-bottom: 12px;
+      }
+      .exl-pick-h {
+        font-size: 12px;
+        font-weight: 800;
+        color: #2f7d5b;
+        margin: 0 0 4px;
+      }
+      .exl-pick {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        min-height: 40px;
+        padding: 0 10px 0 4px;
+        margin: 0 6px 4px 0;
+        font-size: 13px;
+        border: 1px solid #e3eee8;
+        border-radius: 8px;
+      }
+      .exl-pick input {
+        width: 18px;
+        height: 18px;
+      }
+      .exl-pick input:disabled {
+        opacity: 0.35;
+      }
       .exl-dlnote {
         font-size: 11px;
         color: #5c7c6a;
@@ -3064,11 +3092,12 @@
 
       <!-- Excel自動連携（個人URLをPCのExcelに1回貼るだけ→以後は自動更新） -->
       <div class="exl-card">
-        <div class="exl-title">📊 Excelに連携</div>
+        <div class="exl-title">📊 Excelに書き出し</div>
         <div class="exl-sub">
-          ボタン1個で、<b>明細・入金・集計・会社・請求書の5シートが入ったExcel</b>を作ります。データ4シートは<b>PCのExcelで開くと自動で最新</b>に（ファイルは1個・増えません）。<b>請求書シート</b>は会社×月ごとの請求書を読める形で並べたもの（落とした時点・印刷や送付用）。
+          <b>入れる内容（明細／請求書／月次集計／会社別集計／入金）と、会社・月を選んで</b
+          >、1個のExcelに書き出します。<b>普通に開けて相手にそのまま送れます</b>（自動更新なし＝「修復しますか」は出ません）。見たい時に作り直せばOK。
         </div>
-        <button class="exl-dl" onclick="downloadExcelWorkbook(this)">📥 Excelをダウンロード</button>
+        <button class="exl-dl" onclick="openExcelPicker()">📥 Excelを作る（選ぶ）</button>
         <div class="exl-dlnote">
           開くと<b>「ホーム」</b>が出ます →
           <b>タップで各ページへ</b>（アプリの下タブと同じ・下のシートタブでも切替）。<br />
@@ -4020,11 +4049,219 @@
           });
         return aoa;
       }
+      // 明細aoa（事前に絞り込んだ rows から）。_exlMeisaiAoa の rows 差し替え版。
+      function _exlMeisaiAoaFrom(rows) {
+        var cols = ["会社名", "日付", "行き先", "金額", "備考", "距離", "人数", "名前"];
+        var nums = { 金額: 1, 距離: 1, 人数: 1 };
+        var aoa = [cols],
+          tot = 0;
+        rows.forEach(function (r) {
+          tot += Number(r.金額) || 0;
+          aoa.push(
+            cols.map(function (c) {
+              var v = r[c];
+              if (nums[c]) return v === "" || v == null ? "" : Number(v);
+              return v == null ? "" : v;
+            })
+          );
+        });
+        aoa.push(["合計", "", "", tot, "", "", "", ""]);
+        return aoa;
+      }
+      // 会社別の合計（全月まとめ）＝会社ごとに 件数/請求額/入金額/残額/状態。
+      function _exlCompanyTotalsAoa(sumRows) {
+        var by = {};
+        sumRows.forEach(function (x) {
+          var b = by[x.company] || (by[x.company] = { count: 0, total: 0, paid: 0 });
+          b.count += Number(x.count) || 0;
+          b.total += Number(x.total) || 0;
+          b.paid += Number(x.paid) || 0;
+        });
+        var aoa = [["会社名", "件数", "請求額", "入金額", "残額", "状態"]];
+        Object.keys(by)
+          .sort()
+          .forEach(function (co) {
+            var b = by[co],
+              rem = b.total - b.paid;
+            aoa.push([co, b.count, b.total, b.paid, rem, PAY_LABEL[payStatusOf(b.total, b.paid)]]);
+          });
+        return aoa;
+      }
+      // ===== 選択式・普通に開けるExcel（自動更新なし＝修復ダイアログ無し・送れる1ファイル） =====
+      function openExcelPicker() {
+        var acct = CURRENT_ACCOUNT;
+        var cosAll = Object.keys(MASTER)
+          .filter(function (n) {
+            return MASTER[n] && !MASTER[n].deleted_at && MASTER[n].account_id === acct;
+          })
+          .sort();
+        var moSet = {};
+        DB.forEach(function (r) {
+          if (r.account_id === acct && r.日付) moSet[r.日付.slice(0, 7)] = 1;
+        });
+        var mosAll = Object.keys(moSet).sort().reverse();
+        var sheetDefs = [
+          ["meisai", "明細データ"],
+          ["invoice", "請求書（見た目つき）"],
+          ["summary", "月次集計"],
+          ["byco", "会社別集計"],
+          ["pay", "入金一覧"],
+        ];
+        var chk = function (cls, val, label, on) {
+          return (
+            '<label class="exl-pick"><input type="checkbox" class="' +
+            cls +
+            '" value="' +
+            esc(val) +
+            '"' +
+            (on ? " checked" : "") +
+            "> " +
+            esc(label) +
+            "</label>"
+          );
+        };
+        var h = '<div class="exl-pick-grp"><div class="exl-pick-h">入れる内容（複数OK）</div>';
+        sheetDefs.forEach(function (s) {
+          h += chk("xlSheet", s[0], s[1], true);
+        });
+        h +=
+          '</div><div class="exl-pick-grp"><div class="exl-pick-h">会社</div>' +
+          '<label class="exl-pick"><input type="checkbox" id="xlAllCo" checked onchange="_xlToggleAll(\'xlCo\',this.checked)"> <b>全社</b></label>';
+        cosAll.forEach(function (c) {
+          h += chk("xlCo", c, c, false);
+        });
+        h +=
+          '</div><div class="exl-pick-grp"><div class="exl-pick-h">月</div>' +
+          '<label class="exl-pick"><input type="checkbox" id="xlAllMo" checked onchange="_xlToggleAll(\'xlMo\',this.checked)"> <b>全期間</b></label>';
+        mosAll.forEach(function (m) {
+          var p = m.split("-");
+          h += chk("xlMo", m, Number(p[0]) + "年" + Number(p[1]) + "月", false);
+        });
+        h +=
+          '</div><div style="display:flex;gap:8px;margin-top:14px;">' +
+          '<button class="btn btn-primary btn-sm" style="flex:1;" onclick="buildPickedExcel(this)">📥 このExcelを作る</button></div>';
+        document.getElementById("modalTitle").textContent = "Excelを作る（選んで書き出し）";
+        document.getElementById("modalBody").innerHTML = h;
+        openModal();
+      }
+      function _xlToggleAll(cls, on) {
+        // 「全社/全期間」チェック時は個別を無効化（=全部扱い）。外したら個別選択可。
+        document.querySelectorAll("#modalBody ." + cls).forEach(function (el) {
+          el.disabled = on;
+          if (on) el.checked = false;
+        });
+      }
+      async function buildPickedExcel(btn) {
+        var pick = {};
+        document.querySelectorAll("#modalBody .xlSheet:checked").forEach(function (el) {
+          pick[el.value] = 1;
+        });
+        if (!Object.keys(pick).length) {
+          toast("入れる内容を1つ以上選んでください");
+          return;
+        }
+        var allCo = document.getElementById("xlAllCo").checked;
+        var allMo = document.getElementById("xlAllMo").checked;
+        var cos = allCo
+          ? []
+          : [].map.call(document.querySelectorAll("#modalBody .xlCo:checked"), function (e) {
+              return e.value;
+            });
+        var months = allMo
+          ? []
+          : [].map.call(document.querySelectorAll("#modalBody .xlMo:checked"), function (e) {
+              return e.value;
+            });
+        var inCo = function (c) {
+          return !cos.length || cos.indexOf(c) >= 0;
+        };
+        var inMo = function (m) {
+          return !months.length || months.indexOf(m) >= 0;
+        };
+        var old = btn ? btn.textContent : "";
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = "作成中…";
+        }
+        try {
+          var acct = CURRENT_ACCOUNT;
+          var wb = XLSX.utils.book_new();
+          var append = function (name, aoa) {
+            var ws = XLSX.utils.aoa_to_sheet(aoa);
+            ws["!cols"] = autoColWidths(aoa);
+            XLSX.utils.book_append_sheet(wb, ws, name);
+          };
+          var sumRows = summarize("").rows.filter(function (x) {
+            return inCo(x.company) && inMo(x.month);
+          });
+          if (pick.meisai) {
+            var mrows = DB.filter(function (r) {
+              return r.account_id === acct && inCo(r.会社名) && inMo((r.日付 || "").slice(0, 7));
+            }).sort(function (a, b) {
+              return (
+                (a.日付 || "").localeCompare(b.日付 || "") || (a.id || "").localeCompare(b.id || "")
+              );
+            });
+            append("明細", _exlMeisaiAoaFrom(mrows));
+          }
+          if (pick.summary) append("月次集計", _exlSummaryAoa(sumRows));
+          if (pick.byco) append("会社別集計", _exlCompanyTotalsAoa(sumRows));
+          if (pick.pay) append("入金", _exlPayAoa(sumRows));
+          if (pick.invoice) {
+            var invData = _exlInvoiceData(cos, months);
+            if (invData.aoa.length) {
+              var iws = XLSX.utils.aoa_to_sheet(invData.aoa);
+              iws["!cols"] = invData.cols || [{ wch: 9 }, { wch: 13 }, { wch: 13 }, { wch: 13 }];
+              iws["!merges"] = invData.merges;
+              var rws = [];
+              Object.keys(invData.heights).forEach(function (r) {
+                rws[Number(r)] = { hpt: invData.heights[r] };
+              });
+              iws["!rows"] = rws;
+              Object.keys(invData.styles).forEach(function (ref) {
+                if (!iws[ref]) iws[ref] = { t: "s", v: "" };
+                iws[ref].s = invData.styles[ref];
+              });
+              XLSX.utils.book_append_sheet(wb, iws, "請求書");
+            }
+          }
+          if (!wb.SheetNames.length) {
+            toast("該当データがありません");
+            return;
+          }
+          // ★_exlEnhance（Power Query注入）を通さない＝普通に開けるExcel（修復ダイアログ無し）。
+          var buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+          var blob = new Blob([buf], {
+            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          });
+          var d = new Date();
+          var ymd =
+            d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2);
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "代行データ_" + ymd + ".xlsx";
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(function () {
+            URL.revokeObjectURL(a.href);
+            a.remove();
+          }, 1500);
+          closeModal();
+          toast("Excelを作りました（" + wb.SheetNames.join("/") + "）");
+        } catch (e) {
+          toast("作成に失敗：" + (e && e.message ? e.message : e));
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = old;
+          }
+        }
+      }
       // 請求書シート＝上に「目次（会社×年月）」、下に各請求書をアプリと同じページ割り(22行/ページ)で積む。
       // 1請求書が複数ページなら各ページに発行者/宛名を繰り返し・最終ページに合計・ページ間で改ページ。
       // 目次タップ→その請求書の1ページ目へ。各ページから「↩一覧へ」。
       // 返り値 {aoa, links, backs, breaks}（行は1始まり・breaks=各ページ先頭行）
-      function _exlInvoiceData() {
+      function _exlInvoiceData(fCos, fMonths) {
         var empty = { aoa: [], styles: {}, merges: [], links: [], backs: [], breaks: [] };
         if (typeof MeisaiEngine === "undefined") return empty;
         var U = MeisaiEngine.utils;
@@ -4042,6 +4279,9 @@
         // ヘッダー型：A=対角(左タイトル+右ロゴ/自社情報・会計ソフト標準/専門家推奨) / B=中央タイトル(整理版)
         var headerStyle = iss.headerStyle || "A";
         var invs = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, null);
+        // ★選択式Excel：会社/月で絞る（fCos/fMonths が空なら全部）。
+        if (fCos && fCos.length) invs = invs.filter((iv) => fCos.indexOf(iv.company) >= 0);
+        if (fMonths && fMonths.length) invs = invs.filter((iv) => fMonths.indexOf(iv.month) >= 0);
         if (!invs.length) return empty;
 
         // ===== スタイル素材（PDFに寄せる） =====
