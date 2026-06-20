@@ -3576,6 +3576,26 @@
           })
           .slice(0, n);
       }
+      // ★会社セレクトの<option>群を「最近使った会社(上位3)＋すべての会社(全件)」のoptgroup二段で返す。
+      //   記録なし/4社以下は単段(後方互換)。入力/一覧/編集すべてで共通利用＝「使った順に上へ」を全箇所統一。
+      function _companyOptsHtml(names) {
+        var opt = function (n) {
+          return '<option value="' + esc(n) + '">' + esc(n) + "</option>";
+        };
+        var allOpts = names.map(opt).join("");
+        var N = 3;
+        var recent = names.length > N + 1 ? topRecentCompanies(names, N) : [];
+        if (recent.length) {
+          return (
+            '<optgroup label="最近使った会社">' +
+            recent.map(opt).join("") +
+            '</optgroup><optgroup label="すべての会社">' +
+            allOpts +
+            "</optgroup>"
+          );
+        }
+        return allOpts;
+      }
 
       // ===== テナント（マルチテナントの土台） =====
       // 本番ではログインアカウント(=代行業者)のIDが入る。練習台は単一アカウント固定。
@@ -6630,13 +6650,7 @@
         // 会社セレクト＝マスタ全社。既定は「その月にデータがある会社」を優先（空プレビュー回避）。
         var sel = document.getElementById("editCompany");
         var cos = Object.keys(MASTER);
-        sel.innerHTML = "";
-        cos.forEach(function (c) {
-          var o = document.createElement("option");
-          o.value = c;
-          o.textContent = c;
-          sel.appendChild(o);
-        });
+        sel.innerHTML = _companyOptsHtml(cos); // ★最近使った順（入力/一覧と統一）
         var withData = rows
           .filter(function (r) {
             return inMonth(r.日付, _editMonth);
@@ -6661,6 +6675,8 @@
       }
       function editPickCompany() {
         _editPage = 1; // 会社を変えたら1ページ目から
+        var co = editCurrentCo();
+        if (co) recordCompanyUse(co); // ★選んだ会社を「最近使った」に記録
         generateInvoices();
         if (_editTool === "cols") renderEditPanel("cols");
       }
@@ -8148,25 +8164,7 @@
           var head = pair[1]
             ? '<option value="">全社</option>'
             : '<option value="">― 会社を選択 ―</option>';
-          var opt = function (n) {
-            return '<option value="' + esc(n) + '">' + esc(n) + "</option>";
-          };
-          var allOpts = names.map(opt).join("");
-          // ★最近使った会社を上段に（5社以上のときだけ＝小規模は冗長な二段にしない）。
-          var N = 3;
-          var recent = names.length > N + 1 ? topRecentCompanies(names, N) : [];
-          var body;
-          if (recent.length) {
-            body =
-              '<optgroup label="最近使った会社">' +
-              recent.map(opt).join("") +
-              '</optgroup><optgroup label="すべての会社">' +
-              allOpts +
-              "</optgroup>";
-          } else {
-            body = allOpts; // 記録なし/小規模＝現状どおり単段（後方互換）
-          }
-          el.innerHTML = head + body;
+          el.innerHTML = head + _companyOptsHtml(names);
           if (names.indexOf(keep) >= 0 || keep === "") el.value = keep;
         });
       }
@@ -8196,6 +8194,7 @@
         }
         card.style.display = "block";
         document.getElementById("entryCardLabel").textContent = co + " の明細";
+        recordCompanyUse(co); // ★選んだ時点で「最近使った」に記録＝次開いたら上に来る
         entryRows = [blankEntry()];
         renderEntry();
       }
