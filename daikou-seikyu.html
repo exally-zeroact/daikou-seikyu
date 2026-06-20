@@ -4497,7 +4497,7 @@
                 );
               var _pdueA = iss.paymentDue || m.paymentDue;
               if (_pdueA) leftMeta.push("お支払期限　" + _pdueA);
-              if (pageCount > 1) leftMeta.push("（" + (pi + 1) + "/" + pageCount + "）");
+              // ★ページ番号は請求日に足さない（PDF同様。右下に別途出す＝_xlPageNo）。
               leftMeta.forEach(function (mt) {
                 var mrx = blank();
                 mrx[0] = mt;
@@ -4567,7 +4567,7 @@
               var meta = "請求日　" + issDateStr(month, iss.dateEra);
               if (iss.showInvoiceNo)
                 meta += "　No." + MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co);
-              if (pageCount > 1) meta += "（" + (pi + 1) + "/" + pageCount + "）";
+              // ★ページ番号は請求日に足さない（PDF同様・右下へ）。
               var r0 = blank();
               r0[rightStart] = meta;
               var ri0 = row(r0);
