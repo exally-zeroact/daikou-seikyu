@@ -7139,7 +7139,7 @@
       function editResetDesign() {
         if (
           !confirm(
-            "見た目（デザイン・ロゴ/判子サイズ・列幅・番号/期限）を初期設定に戻します。よろしいですか？"
+            "見た目（デザイン・ロゴ/判子サイズ・列幅・文字サイズ・揃え・番号/期限）を初期設定に戻します。よろしいですか？"
           )
         )
           return;
@@ -7164,6 +7164,9 @@
         ].forEach(function (k) {
           setIssuer(k, def[k]);
         });
+        // ★今回追加した「文字サイズ」も初期化（これが無いと初期に戻しても文字サイズが戻らなかった）。
+        setIssuer("blkFs", null); // 範囲別の文字サイズ
+        setIssuer("fontScale", 1); // 全体の文字サイズ
         // 現在表示中の会社の列幅を既定（自動）へ
         var co = editCurrentCo();
         if (MASTER[co]) {
@@ -7174,7 +7177,9 @@
         INV_OVERRIDE = null;
         renderIssuer();
         generateInvoices();
-        renderEditPanel(_editTool);
+        // 範囲選択中ならその範囲のパネル(スライダー等)も現在値=初期で描き直す。
+        if (_editSelBlock) _rerenderRangePanel(_editSelBlock);
+        else renderEditPanel(_editTool);
         toast("初期設定に戻しました");
       }
       // ===== 請求タブ：テンプレ＆書体をその場で切替（リアルタイム反映） =====
