@@ -4564,15 +4564,17 @@
                 }
                 if (liA === leftLinesA.length && (pageCount === 1 || isSummary)) {
                   // ★ご請求金額は単ページ or 最終サマリーページのみ（途中ページには出さない＝PDF同様）。
+                  //   同じ行に自社情報がある時は左ゾーンだけ結合＝右の自社情報結合と重ならない（重複→修復/見切れ防止）。
+                  var goseiR = issRestA[ka] ? rightStart - 1 : lastCol;
                   var yenA = "¥" + String(billTotal).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
                   aoa[rria][0] = "ご請求金額（税込）　　" + yenA;
-                  M(rria, 0, rria, lastCol);
+                  M(rria, 0, rria, goseiR);
                   S(rria, 0, {
                     font: { bold: true, sz: 13 },
                     alignment: { horizontal: "left" },
                     border: { bottom: { style: "medium" } },
                   });
-                  for (var uba = 1; uba <= lastCol; uba++)
+                  for (var uba = 1; uba <= goseiR; uba++)
                     S(rria, uba, { border: { bottom: { style: "medium" } } });
                 }
               }
@@ -4664,14 +4666,15 @@
                   // 見本どおり sz13 太字・下線。左ゾーン(0..rightStart-1)に下線を引く。
                   var yenStr = "¥" + String(billTotal).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
                   aoa[rri][0] = "ご請求金額（税込）　　" + yenStr;
-                  // この行は自社情報が無いので左端〜金額列まで広く結合して切れを防ぐ。
-                  M(rri, 0, rri, lastCol);
+                  // 同じ行に自社情報がある時は左ゾーンだけ結合＝右の自社情報結合と重ならない（重複→修復/見切れ防止）。
+                  var goseiRB = issRest[k] ? rightStart - 1 : lastCol;
+                  M(rri, 0, rri, goseiRB);
                   S(rri, 0, {
                     font: { bold: true, sz: 13 },
                     alignment: { horizontal: "left" },
                     border: { bottom: { style: "medium" } },
                   });
-                  for (var ub = 1; ub <= lastCol; ub++)
+                  for (var ub = 1; ub <= goseiRB; ub++)
                     S(rri, ub, { border: { bottom: { style: "medium" } } });
                 }
               }
