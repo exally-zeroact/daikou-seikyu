@@ -2029,6 +2029,57 @@
         gap: 6px;
         flex-wrap: wrap;
       }
+      /* 文字サイズ＝左小・右大のドラッグスライダー */
+      .ep-fs {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex: 1;
+        min-width: 150px;
+        min-height: 48px; /* 行高で当たり判定44px超を確保 */
+        justify-content: center;
+      }
+      .ep-fs-range {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 10px;
+        border-radius: 6px;
+        background: #c8ecd8;
+        touch-action: none; /* iOS Safariで縦スクロールに横取りされず一発で掴める */
+        margin: 0;
+        outline: none;
+      }
+      .ep-fs-range::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: #1a4a2e;
+        border: 3px solid #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+        cursor: pointer;
+      }
+      .ep-fs-range::-moz-range-thumb {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: #1a4a2e;
+        border: 3px solid #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+        cursor: pointer;
+      }
+      .ep-fs-range:disabled {
+        opacity: 0.4;
+      }
+      .ep-fs-labs {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        color: #7aa08c;
+        font-weight: 700;
+      }
       .ep-chip {
         border: 1px solid #c8ecd8;
         background: #fff;
@@ -6212,40 +6263,49 @@
         var s = currentIssuer();
         var cur = s.blkFs && s.blkFs[key] != null ? Number(s.blkFs[key]) : Number(s.fontScale) || 1;
         var classic = s.pdfDesign === "classic";
+        // ★左=小・右=大のスライダー（押しながら左右に引っ張って調整・離した時に保存）。
+        var dis = classic ? " disabled" : "";
         var h =
-          '<div class="ep-row" style="margin-top:8px;border-top:1px dashed #d6e6dd;padding-top:10px">' +
-          '<span class="l">文字の大きさ</span><div class="ep-seg">';
-        [
-          ["小", 0.9],
-          ["標準", 1.0],
-          ["大", 1.1],
-        ].forEach(function (e) {
-          var on = Math.abs(cur - e[1]) < 0.001;
-          h +=
-            '<button class="ep-chip' +
-            (on ? " on" : "") +
-            '"' +
-            (classic ? " disabled" : "") +
-            ' onclick="' +
-            (classic ? "" : "editSetBlkFont('" + key + "'," + e[1] + ")") +
-            '">' +
-            e[0] +
-            "</button>";
-        });
-        h += "</div></div>";
+          '<div class="ep-row" style="margin-top:8px;border-top:1px dashed #d6e6dd;padding-top:10px;align-items:flex-start">' +
+          '<span class="l">文字の大きさ</span>' +
+          '<div class="ep-fs">' +
+          '<input type="range" class="ep-fs-range" min="0.85" max="1.18" step="0.05" value="' +
+          cur +
+          '" data-key="' +
+          esc(key) +
+          '"' +
+          dis +
+          " oninput=\"_fsApply('" +
+          esc(key).replace(/'/g, "\\'") +
+          "',this.value,false)\" onchange=\"_fsApply('" +
+          esc(key).replace(/'/g, "\\'") +
+          "',this.value,true)\">" +
+          '<div class="ep-fs-labs"><span>小</span><span>標準</span><span>大</span></div>' +
+          "</div></div>";
         if (classic)
           h +=
             '<div class="note" style="color:#b45309">※今のデザイン（前テンプレ）は文字サイズ変更に未対応です。エレガント系でお使いください。</div>';
+        else
+          h += '<div class="note" style="margin-top:2px">※大きさはPDF用です（Excelは標準）。</div>';
         return h;
       }
-      // 範囲別フォントを保存→再描画→パネル更新。
-      function editSetBlkFont(key, v) {
-        var s = currentIssuer();
+      // 文字サイズ係数を step0.05 に丸め＋標準(1.0)スナップ（PDF↔Excelの丸れ抑制・0.85〜1.18）。
+      function _fsSnap(v) {
+        v = Number(v) || 1;
+        if (Math.abs(v - 1.0) < 0.03) v = 1.0; // 標準に吸着
+        v = Math.round(v / 0.05) * 0.05;
+        return Math.max(0.85, Math.min(1.18, v));
+      }
+      // スライダー適用。save=false(oninput)=ライブ反映(クラウド保存しない)／save=true(onchange=離した時)=クラウド保存。
+      //   ★ドラッグ中はパネル(スライダー)を再描画しない＝つまみが指の下から飛ばない。
+      function _fsApply(key, raw, save) {
+        if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
+        var s = ISSUER_SETTINGS[CURRENT_ACCOUNT];
         var m = Object.assign({}, s.blkFs || {});
-        m[key] = Number(v) || 1;
-        setIssuer("blkFs", m);
-        generateInvoices();
-        if (_editSelBlock === key) _rerenderRangePanel(key); // ハイライト更新
+        m[key] = _fsSnap(raw);
+        s.blkFs = m;
+        if (save) saveIssuer(); // 指を離した時だけクラウド保存
+        generateInvoices(); // 220ms debounceでプレビューにライブ反映
       }
       // 選択中範囲のパネル（道具＋文字サイズ）を描き直す。
       function _rerenderRangePanel(key) {
