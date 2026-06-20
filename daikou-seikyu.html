@@ -4207,8 +4207,9 @@
           if (pick.summary) append("月次集計", _exlSummaryAoa(sumRows));
           if (pick.byco) append("会社別集計", _exlCompanyTotalsAoa(sumRows));
           if (pick.pay) append("入金", _exlPayAoa(sumRows));
+          var invData = null;
           if (pick.invoice) {
-            var invData = _exlInvoiceData(cos, months);
+            invData = _exlInvoiceData(cos, months);
             if (invData.aoa.length) {
               var iws = XLSX.utils.aoa_to_sheet(invData.aoa);
               iws["!cols"] = invData.cols || [{ wch: 9 }, { wch: 13 }, { wch: 13 }, { wch: 13 }];
@@ -4223,17 +4224,36 @@
                 iws[ref].s = invData.styles[ref];
               });
               XLSX.utils.book_append_sheet(wb, iws, "請求書");
-            }
+            } else invData = null;
           }
           if (!wb.SheetNames.length) {
             toast("該当データがありません");
             return;
           }
-          // ★_exlEnhance（Power Query注入）を通さない＝普通に開けるExcel（修復ダイアログ無し）。
           var buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-          var blob = new Blob([buf], {
-            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          });
+          var blob;
+          if (invData) {
+            // ロゴ寸法をアプリ一致に（Excelのforce-square回避）。
+            if (invData.hanko && invData.hanko.logo && invData.hanko.logo.dataURL) {
+              try {
+                var _lg = invData.hanko.logo;
+                var _dim = await _containLogoMm(
+                  _lg.dataURL,
+                  _lg.boxMaxWmm || 40,
+                  _lg.boxMaxHmm || 26
+                );
+                _lg.wMm = _dim.wMm;
+                _lg.hMm = _dim.hMm;
+              } catch (e) {}
+            }
+            // ★token=null＝Power Query(自動更新)を一切入れない。ページ区切り/判子/フォントだけ入れる＝
+            //   印刷でページ毎に分かれる＋判子＋游ゴシック。自動更新なしなので「修復しますか」も出ない。
+            blob = await _exlEnhance(buf, [], null, invData.breaks, invData.hanko, invData.margin);
+          } else {
+            blob = new Blob([buf], {
+              type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            });
+          }
           var d = new Date();
           var ymd =
             d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2);
@@ -4885,6 +4905,21 @@
           Object.keys(heights).forEach(function (k) {
             heights[k] = Math.round(heights[k] * _exlFs);
           });
+        // ★重複する結合セルを除去＝Excelの「修復しますか」の根因（重なった結合をExcelが嫌う）。
+        //   先勝ちで、既に占有されたセルを含む結合は捨てる（捨てるのは重なってる方＝見た目はほぼ不変）。
+        var _occ = {},
+          _cleanM = [];
+        merges.forEach(function (m) {
+          var bad = false,
+            r,
+            c;
+          for (r = m.s.r; r <= m.e.r && !bad; r++)
+            for (c = m.s.c; c <= m.e.c && !bad; c++) if (_occ[r + "," + c]) bad = true;
+          if (bad) return;
+          for (r = m.s.r; r <= m.e.r; r++) for (c = m.s.c; c <= m.e.c; c++) _occ[r + "," + c] = 1;
+          _cleanM.push(m);
+        });
+        merges = _cleanM;
         return {
           aoa: aoa,
           styles: styles,
