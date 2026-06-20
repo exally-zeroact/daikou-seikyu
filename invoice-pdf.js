@@ -46,7 +46,7 @@
   var _blkFs = null; // {塊名: 係数} 範囲別（override）
   var _globalFs = 1; // 全体（base/fallback）
   function _clampFs(v) {
-    return Math.max(0.85, Math.min(1.18, Number(v) || 1));
+    return Math.max(0.85, Math.min(1.4, Number(v) || 1)); // 上限1.4（+40%まで・行送り連動とページ分割で崩れ防止）
   }
   function _scaleOf(name) {
     var v = name && _blkFs && _blkFs[name];

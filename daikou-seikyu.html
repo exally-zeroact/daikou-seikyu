@@ -1178,6 +1178,69 @@
       .pay-full-btn:active {
         background: #eafaf1;
       }
+      /* 複数選択して一括全入金 */
+      .pay-sel-toggle {
+        flex: 0 0 auto;
+        min-height: 36px;
+        padding: 0 14px;
+        border: 1px solid #cfe6da;
+        background: #fff;
+        color: #2e7d54;
+        border-radius: 8px;
+        font-family: inherit;
+        font-weight: 700;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      .pay-sel-toggle.on {
+        background: #2e7d54;
+        border-color: #2e7d54;
+        color: #fff;
+      }
+      .pay-check {
+        flex: 0 0 auto;
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        border: 2px solid #2e7d54;
+        background: #fff;
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        font-weight: 800;
+      }
+      .pay-check.on {
+        background: #2e7d54;
+      }
+      .pay-check.dim {
+        opacity: 0.25;
+        border-color: #b9d3c6;
+      }
+      .pay-item.pay-sel {
+        background: #eafaf1;
+      }
+      .pay-sel-bar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: var(--nav-h, 56px);
+        z-index: 70;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        background: #ffffff;
+        border-top: 1px solid #d4eae0;
+        box-shadow: 0 -2px 10px rgba(30, 80, 46, 0.08);
+      }
+      .pay-sel-info {
+        flex: 1;
+        font-size: 13px;
+        font-weight: 800;
+        color: #1a4a2e;
+      }
       /* 取り消しボタン付きトースト（通常トーストと別） */
       .toast-undo {
         position: fixed;
@@ -3372,9 +3435,22 @@
           <option value="partial">一部入金</option>
           <option value="paid">入金済</option>
         </select>
+        <button type="button" class="pay-sel-toggle" id="paySelToggle" onclick="payToggleSelMode()">
+          選択
+        </button>
       </div>
       <div id="paySummary" class="pay-summary"></div>
       <div id="payBody"></div>
+      <!-- 複数選択して一括「全入金」する時だけ出る固定バー（ナビの上） -->
+      <div class="pay-sel-bar" id="paySelBar" style="display: none">
+        <span class="pay-sel-info" id="paySelInfo">0件</span>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="payToggleSelMode()">
+          やめる
+        </button>
+        <button type="button" class="btn btn-primary btn-sm" id="paySelGo" onclick="bulkMarkPaid()">
+          選択を全入金
+        </button>
+      </div>
     </section>
 
     <!-- ===== 編集（請求書の見た目を見ながら微調整） ===== -->
@@ -6289,7 +6365,7 @@
           '<div class="ep-row" style="margin-top:8px;border-top:1px dashed #d6e6dd;padding-top:10px;align-items:flex-start">' +
           '<span class="l">文字の大きさ</span>' +
           '<div class="ep-fs">' +
-          '<input type="range" class="ep-fs-range" min="0.85" max="1.18" step="0.05" value="' +
+          '<input type="range" class="ep-fs-range" min="0.85" max="1.4" step="0.05" value="' +
           cur +
           '" data-key="' +
           esc(key) +
@@ -6309,12 +6385,12 @@
           h += '<div class="note" style="margin-top:2px">※大きさはPDF用です（Excelは標準）。</div>';
         return h;
       }
-      // 文字サイズ係数を step0.05 に丸め＋標準(1.0)スナップ（PDF↔Excelの丸れ抑制・0.85〜1.18）。
+      // 文字サイズ係数を step0.05 に丸め＋標準(1.0)スナップ（PDF↔Excelの丸れ抑制・0.85〜1.4）。
       function _fsSnap(v) {
         v = Number(v) || 1;
         if (Math.abs(v - 1.0) < 0.03) v = 1.0; // 標準に吸着
         v = Math.round(v / 0.05) * 0.05;
-        return Math.max(0.85, Math.min(1.18, v));
+        return Math.max(0.85, Math.min(1.4, v));
       }
       // スライダー適用。save=false(oninput)=ライブ反映(クラウド保存しない)／save=true(onchange=離した時)=クラウド保存。
       //   ★ドラッグ中はパネル(スライダー)を再描画しない＝つまみが指の下から飛ばない。
@@ -7330,6 +7406,8 @@
         if (months.indexOf(keep) >= 0 || keep === "") sel.value = keep;
       }
       function renderPayments() {
+        var _nav = document.querySelector(".bottom-nav"); // 一括バーの位置用（--nav-h）
+        if (_nav) document.documentElement.style.setProperty("--nav-h", _nav.offsetHeight + "px");
         refreshPayMonthSelect();
         var month = document.getElementById("payMonth").value;
         var statusF = document.getElementById("payStatus").value;
@@ -7375,12 +7453,42 @@
               "件" +
               (x.paid > 0 && x.st !== "paid" ? "・入金 " + yen(x.paid) : "");
             var remHtml = x.st === "paid" ? "" : '<div class="pay-rem">残 ' + yen(x.rem) + "</div>";
+            var moEsc = esc(x.iv.month);
+            var coEsc = esc(x.iv.company).replace(/'/g, "\\'");
+            var key = payKeyFor(x.iv.month, x.iv.company);
+            var selectable = x.st !== "paid"; // 入金済は選択対象外
+            var selected = _paySelMode && !!_paySelected[key];
+            // 選択モード＝行タップで選択トグル（選べるのは未完了のみ）。通常モード＝行タップで詳細編集。
+            var rowClick = _paySelMode
+              ? selectable
+                ? "payToggleRow('" + moEsc + "','" + coEsc + "'," + x.iv.total + ")"
+                : ""
+              : "openPayEdit('" + moEsc + "','" + coEsc + "')";
+            var check = _paySelMode
+              ? '<span class="pay-check' +
+                (selected ? " on" : "") +
+                (selectable ? "" : " dim") +
+                '">' +
+                (selected ? "✓" : "") +
+                "</span>"
+              : "";
+            var fullBtn =
+              !_paySelMode && x.st !== "paid"
+                ? '<button type="button" class="pay-full-btn" onclick="event.stopPropagation();markPaidFull(\'' +
+                  moEsc +
+                  "','" +
+                  coEsc +
+                  "'," +
+                  x.iv.total +
+                  ')">全入金</button>'
+                : "";
             return (
-              '<div class="pay-item" onclick="openPayEdit(\'' +
-              esc(x.iv.month) +
-              "','" +
-              esc(x.iv.company).replace(/'/g, "\\'") +
-              "')\">" +
+              '<div class="pay-item' +
+              (selected ? " pay-sel" : "") +
+              '" onclick="' +
+              rowClick +
+              '">' +
+              check +
               '<span class="pay-pill ' +
               x.st +
               '">' +
@@ -7396,19 +7504,107 @@
               "</div>" +
               remHtml +
               "</div>" +
-              (x.st !== "paid"
-                ? '<button type="button" class="pay-full-btn" onclick="event.stopPropagation();markPaidFull(\'' +
-                  esc(x.iv.month) +
-                  "','" +
-                  esc(x.iv.company).replace(/'/g, "\\'") +
-                  "'," +
-                  x.iv.total +
-                  ')">全入金</button>'
-                : "") +
+              fullBtn +
               "</div>"
             );
           })
           .join("");
+        _updatePaySelBar();
+      }
+      // ===== 複数選択して一括「全入金」 =====
+      var _paySelMode = false;
+      var _paySelected = {}; // { payKey: {month, co, total} }
+      function payToggleSelMode() {
+        _paySelMode = !_paySelMode;
+        _paySelected = {};
+        var tg = document.getElementById("paySelToggle");
+        if (tg) tg.classList.toggle("on", _paySelMode);
+        var bar = document.getElementById("paySelBar");
+        if (bar) bar.style.display = _paySelMode ? "flex" : "none";
+        renderPayments();
+      }
+      function payToggleRow(month, co, total) {
+        var key = payKeyFor(month, co);
+        if (_paySelected[key]) delete _paySelected[key];
+        else _paySelected[key] = { month: month, co: co, total: total };
+        renderPayments(); // 行のハイライト＋バー更新
+      }
+      function _updatePaySelBar() {
+        var info = document.getElementById("paySelInfo");
+        var go = document.getElementById("paySelGo");
+        if (!info) return;
+        var keys = Object.keys(_paySelected);
+        var sum = keys.reduce(function (s, k) {
+          return s + (Number(_paySelected[k].total) || 0);
+        }, 0);
+        info.textContent = keys.length + "件・" + yen(sum);
+        if (go) go.disabled = keys.length === 0;
+      }
+      // 選択した請求を1件ずつ全額入金へ。部分失敗は明示。最後に一括取り消しを出す。
+      async function bulkMarkPaid() {
+        var keys = Object.keys(_paySelected);
+        if (!keys.length) return;
+        var d = new Date();
+        var date =
+          d.getFullYear() +
+          "-" +
+          ("0" + (d.getMonth() + 1)).slice(-2) +
+          "-" +
+          ("0" + d.getDate()).slice(-2);
+        var snaps = [],
+          ok = 0,
+          fail = 0;
+        for (var i = 0; i < keys.length; i++) {
+          var k = keys[i],
+            sel = _paySelected[k];
+          var prev = PAYMENTS[k] ? Object.assign({}, PAYMENTS[k]) : null;
+          var up = await SB.from("payments")
+            .upsert(
+              {
+                user_id: CURRENT_ACCOUNT,
+                month: sel.month,
+                company: sel.co,
+                paid: sel.total,
+                paid_date: date,
+                memo: (prev && prev.note) || "",
+                deleted_at: null,
+              },
+              { onConflict: "user_id,month,company" }
+            )
+            .select("id")
+            .single();
+          if (up.error) {
+            fail++;
+            continue;
+          }
+          PAYMENTS[k] = {
+            paid: sel.total,
+            paidDate: date,
+            note: (prev && prev.note) || "",
+            _dbid: up.data.id,
+          };
+          snaps.push({ month: sel.month, co: sel.co, snap: prev });
+          ok++;
+        }
+        _paySelected = {};
+        _paySelMode = false;
+        var tg = document.getElementById("paySelToggle");
+        if (tg) tg.classList.remove("on");
+        var bar = document.getElementById("paySelBar");
+        if (bar) bar.style.display = "none";
+        renderPayments();
+        updatePayBadge();
+        if (fail) toast(ok + "件を全入金（" + fail + "件は失敗）");
+        else if (ok)
+          toastUndo(ok + "件を全入金にしました", function () {
+            bulkUndo(snaps);
+          });
+      }
+      async function bulkUndo(snaps) {
+        for (var i = 0; i < snaps.length; i++) {
+          await undoPayState(snaps[i].month, snaps[i].co, snaps[i].snap);
+        }
+        toast("取り消しました");
       }
       function openPayEdit(month, co) {
         var iv = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, month).filter(function (x) {
