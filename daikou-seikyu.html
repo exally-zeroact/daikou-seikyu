@@ -4032,6 +4032,13 @@
         // 明細スロットを持たせる（司さん指示「明細を入れる行は増やして」）。A4縦1枚に収まる上限。
         var PER = 28;
         var iss = issuerForEngine();
+        // ★Excelにも「文字サイズ」を反映（全体fontScale）。A4縦1枚を守るため上限は控えめ(1.2)。
+        //   クラシックはPDFが文字サイズ非対応なので整合させ1.0固定。標準(1.0)では全 sz/heights が
+        //   元値のまま＝生成バイト完全不変。範囲別(blkFs)のセル単位反映は段階2（ここは全体のみ）。
+        var _exlFs =
+          iss.pdfDesign === "classic"
+            ? 1
+            : Math.max(0.85, Math.min(1.2, Number(iss.fontScale) || 1));
         // ヘッダー型：A=対角(左タイトル+右ロゴ/自社情報・会計ソフト標準/専門家推奨) / B=中央タイトル(整理版)
         var headerStyle = iss.headerStyle || "A";
         var invs = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, null);
@@ -4057,6 +4064,8 @@
           return aoa.length - 1; // 0始まりの行index
         }
         function S(r, c, s) {
+          // 文字サイズ係数を全フォント指定セルに反映（_exlFs=1なら無変更＝バイト不変）。
+          if (_exlFs !== 1 && s && s.font && s.font.sz) s.font.sz = Math.round(s.font.sz * _exlFs);
           styles[XLSX.utils.encode_cell({ r: r, c: c })] = s;
         }
         function M(r1, c1, r2, c2) {
@@ -4631,6 +4640,11 @@
         }, 0);
         var tableIn = sumWch * 0.093; // 経験係数（游ゴシック実測・分割防止に表幅をやや大きめ見積り）
         var sideMargin = Math.max(0.3, (8.27 - tableIn) / 2); // A4縦の幅=8.27in
+        // 文字サイズに合わせて行高も一括スケール（_exlFs=1なら無変更＝バイト不変）。
+        if (_exlFs !== 1)
+          Object.keys(heights).forEach(function (k) {
+            heights[k] = Math.round(heights[k] * _exlFs);
+          });
         return {
           aoa: aoa,
           styles: styles,
