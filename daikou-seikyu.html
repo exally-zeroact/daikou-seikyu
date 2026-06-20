@@ -3419,6 +3419,53 @@
       var MASTER_KEY = "daiko_master_v1";
       var PAY_KEY = "daiko_payments_v1";
       var LAST_CO_KEY = "daiko_lastco_v1"; // 入力で直近に使った会社（自動選択用）
+      var CO_RECENT_KEY = "daiko_co_recent_v1"; // 会社→最終使用時刻 {会社名:epochMs}（最近使った順セレクト用・端末ローカル）
+      // ★明細保存した会社を「最近使った」として記録（端末ローカル・クラウド非同期）。
+      //   JSON.parse失敗 と setItem例外 を別々に握り潰す（壊れた値で記録が永久停止しないように）。
+      function recordCompanyUse(name) {
+        if (!name) return;
+        var map = {};
+        try {
+          map = JSON.parse(localStorage.getItem(CO_RECENT_KEY) || "{}") || {};
+          if (typeof map !== "object") map = {};
+        } catch (e) {
+          map = {};
+        }
+        map[name] = Date.now();
+        // 上限50件で古いものを間引き（肥大防止）
+        var keys = Object.keys(map);
+        if (keys.length > 50) {
+          keys
+            .sort(function (a, b) {
+              return map[b] - map[a];
+            })
+            .slice(50)
+            .forEach(function (k) {
+              delete map[k];
+            });
+        }
+        try {
+          localStorage.setItem(CO_RECENT_KEY, JSON.stringify(map));
+        } catch (e2) {}
+      }
+      // 最近使った会社を新しい順に最大n社（names のうち記録があるものだけ）。
+      function topRecentCompanies(names, n) {
+        var map = {};
+        try {
+          map = JSON.parse(localStorage.getItem(CO_RECENT_KEY) || "{}") || {};
+          if (typeof map !== "object") map = {};
+        } catch (e) {
+          map = {};
+        }
+        return names
+          .filter(function (nm) {
+            return map[nm] != null;
+          })
+          .sort(function (a, b) {
+            return map[b] - map[a]; // epoch降順（Array.sortは安定）
+          })
+          .slice(0, n);
+      }
 
       // ===== テナント（マルチテナントの土台） =====
       // 本番ではログインアカウント(=代行業者)のIDが入る。練習台は単一アカウント固定。
@@ -7839,13 +7886,25 @@
           var head = pair[1]
             ? '<option value="">全社</option>'
             : '<option value="">― 会社を選択 ―</option>';
-          el.innerHTML =
-            head +
-            names
-              .map(function (n) {
-                return '<option value="' + esc(n) + '">' + esc(n) + "</option>";
-              })
-              .join("");
+          var opt = function (n) {
+            return '<option value="' + esc(n) + '">' + esc(n) + "</option>";
+          };
+          var allOpts = names.map(opt).join("");
+          // ★最近使った会社を上段に（5社以上のときだけ＝小規模は冗長な二段にしない）。
+          var N = 3;
+          var recent = names.length > N + 1 ? topRecentCompanies(names, N) : [];
+          var body;
+          if (recent.length) {
+            body =
+              '<optgroup label="最近使った会社">' +
+              recent.map(opt).join("") +
+              '</optgroup><optgroup label="すべての会社">' +
+              allOpts +
+              "</optgroup>";
+          } else {
+            body = allOpts; // 記録なし/小規模＝現状どおり単段（後方互換）
+          }
+          el.innerHTML = head + body;
           if (names.indexOf(keep) >= 0 || keep === "") el.value = keep;
         });
       }
@@ -8157,6 +8216,7 @@
         try {
           localStorage.setItem(LAST_CO_KEY, co); // 次回の入力で同じ会社を自動選択（端末ごと）
         } catch (e) {}
+        recordCompanyUse(co); // 「最近使った会社」順の記録（セレクト並べ替え用）
         updatePayBadge();
         entryRows = [blankEntry()];
         renderEntry();
