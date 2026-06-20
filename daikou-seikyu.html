@@ -4547,7 +4547,8 @@
                   M(rria, 0, rria, rightStart - 1);
                   S(rria, 0, { font: { sz: 10 } });
                 }
-                if (liA === leftLinesA.length) {
+                if (liA === leftLinesA.length && pi === pageCount - 1) {
+                  // ★ご請求金額は最終ページのみ（PDF同様・途中ページには総額を出さない）。
                   var yenA = "¥" + String(billTotal).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
                   aoa[rria][0] = "ご請求金額（税込）　　" + yenA;
                   M(rria, 0, rria, lastCol);
@@ -4642,7 +4643,8 @@
                   M(rri, 0, rri, rightStart - 1);
                   S(rri, 0, { font: { sz: 10 } }); // 見本どおりあいさつ文 sz10
                 }
-                if (leftI === leftLines.length) {
+                if (leftI === leftLines.length && pi === pageCount - 1) {
+                  // ★ご請求金額は最終ページのみ（PDF同様）。
                   // ご請求金額（税込）¥xxx ＝ ラベル＋金額を左ゾーン全幅で1セルに（切れ防止）。
                   // 見本どおり sz13 太字・下線。左ゾーン(0..rightStart-1)に下線を引く。
                   var yenStr = "¥" + String(billTotal).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -4768,15 +4770,16 @@
               tot.push({ l: "合計", v: baseGoukei, big: 1, line: 1 });
             } else {
               // 内税:小計=合計=税込/消費税=内税分。外税:小計=税抜/消費税=小計×10%/合計=税込。
-              var pTax = isSoto ? Math.round(pageTotal * 0.1) : U.tax10(pageTotal);
-              baseGoukei = isSoto ? pageTotal + pTax : pageTotal;
-              tot.push({ l: "小計", v: pageTotal });
+              // ★合計は請求全体(grand)で計算（最終ページにのみ出す＝PDF同様。途中ページはページ小計）。
+              var pTax = isSoto ? Math.round(grand * 0.1) : U.tax10(grand);
+              baseGoukei = isSoto ? grand + pTax : grand;
+              tot.push({ l: "小計", v: grand });
               tot.push({ l: isSoto ? "消費税（10%）" : "消費税", v: pTax });
               tot.push({ l: "合計", v: baseGoukei, big: 1, line: 1 });
             }
             // 源泉徴収（個人宛）：税抜×10.21%を差引いてお振込金額
             if (m.withholding) {
-              var taxBase = isSoto ? pageTotal : Math.round(pageTotal / 1.1);
+              var taxBase = isSoto ? grand : Math.round(grand / 1.1);
               var gensen = Math.round(taxBase * 0.1021);
               tot.push({ l: "源泉徴収税額", v: -gensen });
               tot.push({ l: "お振込金額", v: baseGoukei - gensen, big: 1, line: 1 });
@@ -4791,38 +4794,58 @@
             }
             var amtC = lastCol; // 金額＝表の右端（右下隅・桁の縦ライン）
             var lblC = Math.max(amtC - 1, 0); // ラベルは金額のすぐ左
-            var fn = Math.max(bank.length, tot.length);
-            for (var f = 0; f < fn; f++) {
-              var fr = blank();
-              if (bank[f]) fr[0] = bank[f];
-              var t = tot[f];
-              if (t) {
-                fr[lblC] = t.l;
-                fr[amtC] = t.v;
+            if (pi !== pageCount - 1) {
+              // ★途中ページ：このページの小計だけ（PDF同様・振込先や総額・ご請求金額は最終ページに）。
+              var subFr = blank();
+              subFr[lblC] = "このページの小計";
+              subFr[amtC] = pageTotal;
+              var subRi = row(subFr);
+              M(subRi, 0, subRi, Math.max(lblC - 1, 0));
+              S(subRi, lblC, { font: { sz: 11 }, alignment: { horizontal: "center" } });
+              S(subRi, amtC, {
+                font: { sz: 11 },
+                numFmt: YEN,
+                alignment: { horizontal: "center" },
+              });
+              heights[subRi] = 16;
+            } else {
+              // 最終ページ：お振込先(左) ＋ 小計/消費税/合計(右下隅・請求全体)。
+              var fn = Math.max(bank.length, tot.length);
+              for (var f = 0; f < fn; f++) {
+                var fr = blank();
+                if (bank[f]) fr[0] = bank[f];
+                var t = tot[f];
+                if (t) {
+                  fr[lblC] = t.l;
+                  fr[amtC] = t.v;
+                }
+                var rif = row(fr);
+                if (bank[f]) {
+                  M(rif, 0, rif, Math.max(lblC - 1, 0));
+                  S(rif, 0, {
+                    font: { sz: 11 },
+                    alignment: { horizontal: iss.bankAlign || "left" },
+                  });
+                }
+                if (t) {
+                  // 見本どおり中央揃え。強調行(big)は太字大、line指定で上に区切り線。
+                  var topbd = t.line
+                    ? { top: { style: "thin", color: { rgb: "000000" } } }
+                    : undefined;
+                  S(rif, lblC, {
+                    font: { bold: !!t.big, sz: t.big ? 13 : 11 },
+                    alignment: { horizontal: "center" },
+                    border: topbd,
+                  });
+                  S(rif, amtC, {
+                    font: { bold: !!t.big, sz: t.big ? 13 : 11 },
+                    numFmt: YENNEG,
+                    alignment: { horizontal: "center" },
+                    border: topbd,
+                  });
+                }
+                heights[rif] = t && t.big ? 18 : 16;
               }
-              var rif = row(fr);
-              if (bank[f]) {
-                M(rif, 0, rif, Math.max(lblC - 1, 0));
-                S(rif, 0, { font: { sz: 11 }, alignment: { horizontal: iss.bankAlign || "left" } });
-              }
-              if (t) {
-                // 見本どおり中央揃え。強調行(big)は太字大、line指定で上に区切り線。
-                var topbd = t.line
-                  ? { top: { style: "thin", color: { rgb: "000000" } } }
-                  : undefined;
-                S(rif, lblC, {
-                  font: { bold: !!t.big, sz: t.big ? 13 : 11 },
-                  alignment: { horizontal: "center" },
-                  border: topbd,
-                });
-                S(rif, amtC, {
-                  font: { bold: !!t.big, sz: t.big ? 13 : 11 },
-                  numFmt: YENNEG,
-                  alignment: { horizontal: "center" },
-                  border: topbd,
-                });
-              }
-              heights[rif] = t && t.big ? 18 : 16;
             }
             // 役職集計（藤原型）＝合計の内訳。余白＋見出しで合計と分離・金額は右端右揃え。
             if (showSummary) {
@@ -4866,6 +4889,16 @@
               cr[0] = "次ページへ続く →";
               var ric = row(cr);
               S(ric, 0, { font: { italic: true, color: { rgb: "888888" } } });
+            }
+            // ★ページ番号は右下（PDF同様）。複数ページ時のみ。
+            if (pageCount > 1) {
+              var pn = blank();
+              pn[lastCol] = pi + 1 + " / " + pageCount;
+              var pnRi = row(pn);
+              S(pnRi, lastCol, {
+                font: { sz: 9, color: C_MUTED },
+                alignment: { horizontal: "right" },
+              });
             }
             row(blank());
             row(blank());
