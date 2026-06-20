@@ -40,21 +40,34 @@
   var _blkRecs = []; // [{key,pageObj,minX,maxX,yTop,yBot}]
   var _lastDoc = null; // 直近に描いた doc（pageObj→ページ番号の解決用）
 
-  // ★文字サイズ係数（全体fontScale）。全 T() の size と、行送り(_g)に同率で掛ける＝大きくしても重ならない。
-  //   ★_fs=1 なら全て×1＝従来とバイト不変（標準＝安全弁）。範囲は 0.85〜1.18 にクランプ。
-  var _fs = 1;
-  function _setFs(v) {
-    var n = Number(v) || 1;
-    _fs = Math.max(0.85, Math.min(1.18, n));
+  // ★文字サイズ係数。範囲(塊)別 _blkFs[塊名] を最優先、無ければ全体 _globalFs、それも無ければ1。
+  //   全 T() の size と行送り(_g)に「今描いてる塊(_curBlk)の係数」を掛ける＝大きくしても重ならない。
+  //   ★全係数=1なら従来とバイト不変（標準＝安全弁）。範囲は 0.85〜1.18 にクランプ。
+  var _blkFs = null; // {塊名: 係数} 範囲別（override）
+  var _globalFs = 1; // 全体（base/fallback）
+  function _clampFs(v) {
+    return Math.max(0.85, Math.min(1.18, Number(v) || 1));
+  }
+  function _scaleOf(name) {
+    var v = name && _blkFs && _blkFs[name];
+    return _clampFs(v != null ? v : _globalFs);
+  }
+  function _curScale() {
+    return _scaleOf(_curBlk);
   }
   function _g(n) {
-    return n * _fs;
-  } // 行送り/隙間スケーラ（pitch = もとの値 × fontScale）
+    return n * _curScale();
+  } // 行送り/隙間スケーラ（pitch = もとの値 × 今の塊の係数）
+  function _setFontScales(iss) {
+    _globalFs = _clampFs(iss && iss.fontScale);
+    _blkFs = (iss && iss.blkFs) || null;
+  }
   function _blkReset(doc) {
     _curBlk = null;
     _blkRecs = [];
     _lastDoc = doc || null;
-    _fs = 1; // 文字サイズ係数を初期化（drawCompanyで毎回 _setFs され直すが念のため）
+    _globalFs = 1;
+    _blkFs = null; // 係数を初期化（drawCompanyで毎回セットし直すが念のため）
   }
   // primitive が描いた矩形[left,right]×[bot,top](y-up)を現在の塊に取り込む。
   function _accBox(pageObj, left, right, top, bot) {
@@ -204,7 +217,7 @@
   // テキスト描画。x,y は「行の左上(top)」基準。align=left/center/right。opts.maxWで折返しせず…詰め。返り値=文字幅。
   function T(page, font, str, x, top, size, opts) {
     opts = opts || {};
-    size = size * _fs; // ★文字サイズ係数（_fs=1で従来どおり）。全文字がここを通る＝1箇所で全体スケール。
+    size = size * _curScale(); // ★文字サイズ係数（今の塊_curBlkの係数）。全文字がここを通る＝1箇所で範囲別スケール。
     str = _sanitize(String(str == null ? "" : str));
     if (opts.maxW) str = _truncate(font, str, size, opts.maxW);
     var w = font.widthOfTextAtSize(str, size);
@@ -280,10 +293,11 @@
 
   // ★テーマ振り分け：iss.pdfDesign==="classic" で前テンプレ（緑）、それ以外はエレガント。★
   async function drawCompany(ctx, master, co, rows, month, iss, invoiceNo) {
-    _setFs(iss && iss.fontScale); // ★文字サイズ係数（標準=1=バイト不変）
+    _setFontScales(iss); // ★文字サイズ係数（全体＋範囲別）。全=1なら従来どおりバイト不変
     if (iss && iss.pdfDesign === "classic") {
       _defColor = BLACK;
-      _fs = 1; // ★クラシックは行送り連動が未実装＝当面 文字サイズ変更を無効化（=従来どおり・重なり防止）。次段で連動化。
+      _globalFs = 1;
+      _blkFs = null; // ★クラシックは行送り連動が未実装＝当面 文字サイズ変更を無効化（従来どおり・重なり防止）。次段で連動化。
       return drawCompanyClassic(ctx, master, co, rows, month, iss, invoiceNo);
     }
     _defColor = TEXT;
@@ -310,8 +324,9 @@
     var iLines = (iss && iss.lines) || [];
     var CX = M + CW / 2; // 中央x
     var RXp = M + CW; // 右端x
-    var headH = _g(22),
-      rowH = _g(22); // ★行送りは文字サイズに連動（大きくしても重ならない）
+    var _tableFs = _scaleOf("table"); // 明細の表の文字サイズ係数（行送り/上限はこれに連動）
+    var headH = 22 * _tableFs,
+      rowH = 22 * _tableFs; // ★行送りは明細の文字サイズに連動（大きくしても重ならない）
     var FOOT_Y = 116; // 明細テーブルの下限（これより下はフッター領域）
     var noteN = m.noteSummary && (m.noteGroups || []).length ? m.noteGroups.length : 0;
 
@@ -319,10 +334,10 @@
     // 自社情報が多行/大きいロゴのときはフッターが高くなるぶん、単ページの明細上限を減らして合計と被らせない。
     var issTall = Math.max(0, (iLines.length || 1) - 4);
     var logoTall = showLogo ? 3 : 0; // 大きいロゴぶんフッターが高い→3行ぶん減らす
-    var capSingle = Math.max(8, Math.round((17 - noteN - issTall - logoTall) / _fs)); // 単ページの明細上限（大きい字ほど少なく）
+    var capSingle = Math.max(8, Math.round((17 - noteN - issTall - logoTall) / _tableFs)); // 単ページの明細上限（大きい字ほど少なく）
     // ★明細ページも自社情報/ロゴ分(issTall/logoTall)を引く＝ページ小計「このページの小計／次ページへ続く」が
     //   自社情報フッターに食い込むのを防ぐ（司さん指摘の重なり根因）。大きい字ほど少なく。
-    var capDetail = Math.max(8, Math.round((20 - issTall - logoTall) / _fs)); // 明細ページ（総額なし）の明細上限
+    var capDetail = Math.max(8, Math.round((20 - issTall - logoTall) / _tableFs)); // 明細ページ（総額なし）の明細上限
     var multi = rows.length > capSingle;
     var detailPages = [];
     if (multi) {
@@ -545,7 +560,8 @@
     //   振込先はヘッダー右ブロック（お支払期限と一塊）へ移動済み。多行でも線が自動で上がりあふれない。
     function drawFooter(page) {
       var nL = iLines.length || 1;
-      var issH = nL > 0 ? _g(13) + (nL - 1) * _g(10) : 0; // 自社情報ブロック高さ（行送りも文字サイズ連動）
+      var _infoFs = _scaleOf("info"); // 自社情報の文字サイズ係数（高さ/行送りはこれに連動）
+      var issH = nL > 0 ? _infoFs * 13 + (nL - 1) * _infoFs * 10 : 0; // 自社情報ブロック高さ（行送りも文字サイズ連動）
       // ロゴ寸法（エレガント基準＝大きめ＋スライダーで効く。高さ上限を大きくして
       //   正方形ロゴでも logoSizeMm を上げたら大きくなるように）。
       var logoW = 0,
@@ -645,7 +661,8 @@
         // ★小計/合計がフッター(自社情報/ロゴ/判子)と重ならないよう、開始yをフッター上端より上にクランプ。
         //   通常(明細少)は tableBottom-18 のまま＝従来どおり。明細マックス＋自社情報多行のときだけ効く。
         var _nL = iLines.length || 1;
-        var _issH = _nL > 0 ? _g(13) + (_nL - 1) * _g(10) : 0;
+        var _ifsS = _scaleOf("info");
+        var _issH = _nL > 0 ? _ifsS * 13 + (_nL - 1) * _ifsS * 10 : 0;
         var _logoH = 0;
         if (showLogo) {
           var _asp = logo.width / logo.height;
@@ -654,12 +671,14 @@
           if (_logoH > 130) _logoH = 130;
         }
         var _footTop = 78 + Math.max(_issH, _logoH, 20); // フッター(自社情報/ロゴ)の上端
-        var _totalsH = _g(83) + (noteN ? _g(13) + noteN * _g(12) : 0); // 小計〜合計(＋内訳)の概算高さ
+        var _tfsS = _scaleOf("totals");
+        var _totalsH = _tfsS * 83 + (noteN ? _tfsS * 13 + noteN * _tfsS * 12 : 0); // 小計〜合計(＋内訳)の概算高さ
         drawTotals(page, Math.max(tableBottom - 18, _footTop + _totalsH));
       } else {
         // ★ページ小計＋「次ページへ続く」が自社情報フッターに食い込まないよう、yをフッター上端より上にクランプ。
         var _nLd = iLines.length || 1;
-        var _issHd = _nLd > 0 ? _g(13) + (_nLd - 1) * _g(10) : 0;
+        var _ifsD = _scaleOf("info");
+        var _issHd = _nLd > 0 ? _ifsD * 13 + (_nLd - 1) * _ifsD * 10 : 0;
         var _logoHd = 0;
         if (showLogo) {
           var _aspd = logo.width / logo.height;

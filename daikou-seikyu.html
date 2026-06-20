@@ -5670,6 +5670,7 @@
           hs: iss.hankoSizeMm,
           ls: iss.logoSizeMm,
           fsz: iss.fontScale,
+          bfs: iss.blkFs ? JSON.stringify(iss.blkFs) : "",
           f: iss.pdfFont,
           lines: iss.lines,
           bank: iss.bank,
@@ -6041,7 +6042,70 @@
           // 揃え系(info/grand/lead)は「その範囲の揃えだけ」を出す（_alignFilter）。editTool内で fitInvoice。
           editTool(tool, tool === "align" ? key : null);
         }
+        _appendFontCtrl(key); // ★その範囲の「文字の大きさ」小/標準/大をパネル末尾に追加（範囲別フォント）
         _applyBlockSelection(true); // 範囲を光らせる＋その範囲へ1回スクロール（飛ぶ）。高さは固定なので伸び縮みしない
+      }
+      // ★範囲別 文字サイズ。logo/hanko以外の各範囲パネル末尾に「文字の大きさ」を追加。
+      function _appendFontCtrl(key) {
+        if (key === "logo" || key === "hanko") return;
+        var el = document.getElementById("editPanel");
+        if (!el) return;
+        el.insertAdjacentHTML("beforeend", _fontCtrlHtml(key));
+      }
+      function _fontCtrlHtml(key) {
+        var s = currentIssuer();
+        var cur = s.blkFs && s.blkFs[key] != null ? Number(s.blkFs[key]) : Number(s.fontScale) || 1;
+        var classic = s.pdfDesign === "classic";
+        var h =
+          '<div class="ep-row" style="margin-top:8px;border-top:1px dashed #d6e6dd;padding-top:10px">' +
+          '<span class="l">文字の大きさ</span><div class="ep-seg">';
+        [
+          ["小", 0.9],
+          ["標準", 1.0],
+          ["大", 1.1],
+        ].forEach(function (e) {
+          var on = Math.abs(cur - e[1]) < 0.001;
+          h +=
+            '<button class="ep-chip' +
+            (on ? " on" : "") +
+            '"' +
+            (classic ? " disabled" : "") +
+            ' onclick="' +
+            (classic ? "" : "editSetBlkFont('" + key + "'," + e[1] + ")") +
+            '">' +
+            e[0] +
+            "</button>";
+        });
+        h += "</div></div>";
+        if (classic)
+          h +=
+            '<div class="note" style="color:#b45309">※今のデザイン（前テンプレ）は文字サイズ変更に未対応です。エレガント系でお使いください。</div>';
+        return h;
+      }
+      // 範囲別フォントを保存→再描画→パネル更新。
+      function editSetBlkFont(key, v) {
+        var s = currentIssuer();
+        var m = Object.assign({}, s.blkFs || {});
+        m[key] = Number(v) || 1;
+        setIssuer("blkFs", m);
+        generateInvoices();
+        if (_editSelBlock === key) _rerenderRangePanel(key); // ハイライト更新
+      }
+      // 選択中範囲のパネル（道具＋文字サイズ）を描き直す。
+      function _rerenderRangePanel(key) {
+        if (_BLK_NOTE[key]) {
+          var el = document.getElementById("editPanel");
+          if (el)
+            el.innerHTML =
+              '<div class="ph">' +
+              (_blkLabelJa[key] || key) +
+              '</div><div class="note">' +
+              _BLK_NOTE[key] +
+              "</div>";
+        } else {
+          renderEditPanel(_BLK_TOOL[key] || "cols"); // _alignFilter は選択時のまま
+        }
+        _appendFontCtrl(key);
       }
       // 範囲の選択を解除＝全体表示に戻す（同じチップ再タップ）。
       function editDeselect() {
@@ -7437,7 +7501,8 @@
           logoMode: dv.variant.logoMode, // show=ロゴ枠あり / hide=ロゴ出さない
           templateId: dv.design + "_" + dv.variant.key,
           pdfFont: s.pdfFont || "BIZ UDPゴシック", // PDFの書体
-          fontScale: Number(s.fontScale) || 1, // ★文字サイズ係数（標準=1＝従来どおり）
+          fontScale: Number(s.fontScale) || 1, // ★文字サイズ係数（全体＝base）
+          blkFs: s.blkFs || null, // ★範囲別 文字サイズ係数 {塊名:係数}（override・base優先）
         };
       }
       function setAlign(field, val) {
