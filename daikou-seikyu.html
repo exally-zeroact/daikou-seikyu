@@ -3248,6 +3248,9 @@
           <button class="echip echip-set" data-set="meta" onclick="editGlobalSetting('meta')">
             🔢 No./有効期限
           </button>
+          <button class="echip echip-set" data-set="font" onclick="editGlobalSetting('font')">
+            🔠 文字サイズ
+          </button>
         </div>
       </div>
       <div class="edit-panel" id="editPanel"></div>
@@ -5626,6 +5629,7 @@
           pd: iss.paymentDue,
           hs: iss.hankoSizeMm,
           ls: iss.logoSizeMm,
+          fsz: iss.fontScale,
           f: iss.pdfFont,
           lines: iss.lines,
           bank: iss.bank,
@@ -6404,6 +6408,31 @@
             });
             h += "</div></div>";
           }
+        } else if (tool === "font") {
+          h = '<div class="ph">🔠 文字サイズ</div>';
+          h +=
+            '<div class="note">請求書全体の文字の大きさを変えます。プレビューに即反映。大きくすると1枚に入る明細が減り、増えたぶんは自動で2ページ目に回ります。</div>';
+          var curFs = Number(s.fontScale) || 1;
+          if (s.pdfDesign === "classic")
+            h +=
+              '<div class="note" style="color:#b45309">※今のデザイン（前テンプレ）は文字サイズ変更に未対応です。エレガント系のデザインでお使いください。</div>';
+          h += '<div class="ep-row"><span class="l">大きさ</span><div class="ep-seg">';
+          [
+            ["小", 0.9],
+            ["標準", 1.0],
+            ["大", 1.1],
+          ].forEach(function (e) {
+            var on = Math.abs(curFs - e[1]) < 0.001;
+            h +=
+              '<button class="ep-chip' +
+              (on ? " on" : "") +
+              '" onclick="editSetFontScale(' +
+              e[1] +
+              ')">' +
+              e[0] +
+              "</button>";
+          });
+          h += "</div></div>";
         } else if (tool === "align") {
           var isEle = s.pdfDesign !== "classic";
           var _av = function (v) {
@@ -6589,6 +6618,12 @@
         setIssuer("posLead", a);
         generateInvoices();
         renderEditPanel("align");
+      }
+      // ★文字サイズ（全体fontScale）。小0.9/標準1.0/大1.1。標準=従来どおり（バイト不変）。
+      function editSetFontScale(v) {
+        setIssuer("fontScale", Number(v) || 1);
+        generateInvoices();
+        renderEditPanel("font");
       }
       function editSetDuePos(a) {
         setIssuer("posDue", a);
@@ -7281,6 +7316,7 @@
           logoMode: dv.variant.logoMode, // show=ロゴ枠あり / hide=ロゴ出さない
           templateId: dv.design + "_" + dv.variant.key,
           pdfFont: s.pdfFont || "BIZ UDPゴシック", // PDFの書体
+          fontScale: Number(s.fontScale) || 1, // ★文字サイズ係数（標準=1＝従来どおり）
         };
       }
       function setAlign(field, val) {
