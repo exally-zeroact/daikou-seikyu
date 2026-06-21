@@ -4948,11 +4948,15 @@
               });
             }
             if (hasSummary && !isSummary) {
-              // 明細ページ（サマリーが後ろに来る）＝次へ続く。
+              // 明細ページ（サマリーが後ろに来る）＝次へ続く。★PDF同様に右側（金額列）に右揃え。
               var cr = blank();
-              cr[0] = "次ページへ続く →";
+              cr[lastCol] = "次ページへ続く →";
               var ric = row(cr);
-              S(ric, 0, { font: { italic: true, color: { rgb: "888888" } } });
+              M(ric, Math.max(lastCol - 2, 0), ric, lastCol);
+              S(ric, lastCol, {
+                font: { italic: true, color: C_MUTED },
+                alignment: { horizontal: "right" },
+              });
             }
             // ★ページ番号は右下（PDF同様）。複数ページ時のみ・総ページ数=明細＋サマリー。
             if (totalPages > 1) {
