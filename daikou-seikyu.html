@@ -4151,6 +4151,23 @@
           if (on) el.checked = false;
         });
       }
+      // Excelシート名の制約に合わせる：31字以内・禁止文字( : \ / ? * [ ] )除去・空なら代替・重複は連番。
+      function _exlSheetName(co, used) {
+        var n = String(co == null ? "" : co)
+          .replace(/[:\\\/?*\[\]]/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 28);
+        if (!n) n = "請求書";
+        var base = n,
+          i = 2;
+        while (used[n]) {
+          n = base.slice(0, 26) + "_" + i;
+          i++;
+        }
+        used[n] = 1;
+        return n;
+      }
       async function buildPickedExcel(btn) {
         var pick = {};
         document.querySelectorAll("#modalBody .xlSheet:checked").forEach(function (el) {
@@ -4207,24 +4224,61 @@
           if (pick.summary) append("月次集計", _exlSummaryAoa(sumRows));
           if (pick.byco) append("会社別集計", _exlCompanyTotalsAoa(sumRows));
           if (pick.pay) append("入金", _exlPayAoa(sumRows));
-          var invData = null;
+          // ★請求書は会社毎に別シート(タブ)にする＝列幅もテンプレも会社毎にできる（1シート縦積みの制約解消）。
+          var invSheets = [];
           if (pick.invoice) {
-            invData = _exlInvoiceData(cos, months);
-            if (invData.aoa.length) {
-              var iws = XLSX.utils.aoa_to_sheet(invData.aoa);
-              iws["!cols"] = invData.cols || [{ wch: 9 }, { wch: 13 }, { wch: 13 }, { wch: 13 }];
-              iws["!merges"] = invData.merges;
+            var _invList = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, null).filter(
+              function (iv) {
+                return inCo(iv.company) && inMo(iv.month);
+              }
+            );
+            var _coOrder = [],
+              _seenCo = {};
+            _invList.forEach(function (iv) {
+              if (!_seenCo[iv.company]) {
+                _seenCo[iv.company] = 1;
+                _coOrder.push(iv.company);
+              }
+            });
+            var _usedNm = {};
+            for (var _ci = 0; _ci < _coOrder.length; _ci++) {
+              var _co = _coOrder[_ci];
+              var _d1 = _exlInvoiceData([_co], months);
+              if (!_d1.aoa.length) continue;
+              var iws = XLSX.utils.aoa_to_sheet(_d1.aoa);
+              iws["!cols"] = _d1.cols || [{ wch: 9 }, { wch: 13 }, { wch: 13 }, { wch: 13 }];
+              iws["!merges"] = _d1.merges;
               var rws = [];
-              Object.keys(invData.heights).forEach(function (r) {
-                rws[Number(r)] = { hpt: invData.heights[r] };
+              Object.keys(_d1.heights).forEach(function (r) {
+                rws[Number(r)] = { hpt: _d1.heights[r] };
               });
               iws["!rows"] = rws;
-              Object.keys(invData.styles).forEach(function (ref) {
+              Object.keys(_d1.styles).forEach(function (ref) {
                 if (!iws[ref]) iws[ref] = { t: "s", v: "" };
-                iws[ref].s = invData.styles[ref];
+                iws[ref].s = _d1.styles[ref];
               });
-              XLSX.utils.book_append_sheet(wb, iws, "請求書");
-            } else invData = null;
+              // ロゴ寸法をアプリ一致に（Excelのforce-square回避）。
+              if (_d1.hanko && _d1.hanko.logo && _d1.hanko.logo.dataURL) {
+                try {
+                  var _lg = _d1.hanko.logo;
+                  var _dim = await _containLogoMm(
+                    _lg.dataURL,
+                    _lg.boxMaxWmm || 40,
+                    _lg.boxMaxHmm || 26
+                  );
+                  _lg.wMm = _dim.wMm;
+                  _lg.hMm = _dim.hMm;
+                } catch (e) {}
+              }
+              var _snm = _exlSheetName(_co, _usedNm);
+              XLSX.utils.book_append_sheet(wb, iws, _snm);
+              invSheets.push({
+                name: _snm,
+                breaks: _d1.breaks,
+                hanko: _d1.hanko,
+                margin: _d1.margin,
+              });
+            }
           }
           if (!wb.SheetNames.length) {
             toast("該当データがありません");
@@ -4232,23 +4286,10 @@
           }
           var buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
           var blob;
-          if (invData) {
-            // ロゴ寸法をアプリ一致に（Excelのforce-square回避）。
-            if (invData.hanko && invData.hanko.logo && invData.hanko.logo.dataURL) {
-              try {
-                var _lg = invData.hanko.logo;
-                var _dim = await _containLogoMm(
-                  _lg.dataURL,
-                  _lg.boxMaxWmm || 40,
-                  _lg.boxMaxHmm || 26
-                );
-                _lg.wMm = _dim.wMm;
-                _lg.hMm = _dim.hMm;
-              } catch (e) {}
-            }
-            // ★token=null＝Power Query(自動更新)を一切入れない。ページ区切り/判子/フォントだけ入れる＝
+          if (invSheets.length) {
+            // ★token=null＝Power Query(自動更新)を一切入れない。各会社シートにページ区切り/判子/フォントだけ入れる＝
             //   印刷でページ毎に分かれる＋判子＋游ゴシック。自動更新なしなので「修復しますか」も出ない。
-            blob = await _exlEnhance(buf, [], null, invData.breaks, invData.hanko, invData.margin);
+            blob = await _exlEnhance(buf, [], null, null, null, null, invSheets);
           } else {
             blob = new Blob([buf], {
               type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -5403,7 +5444,15 @@
         });
         if (add) z.file("[Content_Types].xml", ct.replace("</Types>", add + "</Types>"));
       }
-      async function _exlEnhance(buf, sheets, token, invoiceBreaks, invoiceHanko, invoiceMargin) {
+      async function _exlEnhance(
+        buf,
+        sheets,
+        token,
+        invoiceBreaks,
+        invoiceHanko,
+        invoiceMargin,
+        invoiceSheets
+      ) {
         var TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
         if (typeof JSZip === "undefined") return new Blob([buf], { type: TYPE });
         async function fontFix(z) {
@@ -5428,15 +5477,30 @@
               await fontFix(z);
             }
           }
-          try {
-            await _injectPageSetup(z, "請求書", invoiceMargin);
-          } catch (e) {}
-          try {
-            await _injectRowBreaks(z, "請求書", invoiceBreaks);
-          } catch (e) {}
-          try {
-            await _injectHanko(z, "請求書", invoiceHanko);
-          } catch (e) {}
+          // ★会社毎シート(invoiceSheets配列)があればシート毎に体裁注入。無ければ従来の単一「請求書」。
+          var _invSheets =
+            invoiceSheets && invoiceSheets.length
+              ? invoiceSheets
+              : [
+                  {
+                    name: "請求書",
+                    breaks: invoiceBreaks,
+                    hanko: invoiceHanko,
+                    margin: invoiceMargin,
+                  },
+                ];
+          for (var _is = 0; _is < _invSheets.length; _is++) {
+            var _sh = _invSheets[_is];
+            try {
+              await _injectPageSetup(z, _sh.name, _sh.margin);
+            } catch (e) {}
+            try {
+              await _injectRowBreaks(z, _sh.name, _sh.breaks);
+            } catch (e) {}
+            try {
+              await _injectHanko(z, _sh.name, _sh.hanko);
+            } catch (e) {}
+          }
           return z.generateAsync({ type: "blob", mimeType: TYPE, compression: "DEFLATE" });
         } catch (e) {
           return new Blob([buf], { type: TYPE });
