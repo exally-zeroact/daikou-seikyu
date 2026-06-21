@@ -4454,6 +4454,14 @@
           // 税方式：内税(既定・金額=税込) / 外税(金額=税抜→消費税を別途加算)。会社マスタ taxMode。
           var isSoto = m.taxMode === "外税";
           var billTotal = isSoto ? grand + Math.round(grand * 0.1) : grand; // ご請求金額(税込)
+          // ★PDFと配置を一致：ヘッダ右上＝お振込先、下＝自社情報（従来のExcelは上下逆だった）。
+          var hdrInfo =
+            iss.bank && iss.bank.length
+              ? /振込/.test(iss.bank[0])
+                ? iss.bank.slice()
+                : ["お振込先"].concat(iss.bank)
+              : iss.lines || [];
+          var ftrInfo = iss.lines || []; // 下段の自社情報（フッター）
           // 下段が増えるテンプレ（役職集計/源泉/繰越/税率別）は明細スロットを減らしA4縦1枚に。
           var extraFooter = 0;
           if (m.noteSummary && (m.noteGroups || []).length) extraFooter += m.noteGroups.length + 3;
@@ -4526,7 +4534,7 @@
               // 宛名(左) ＋ 自社情報(右・宛名の高さから) ＝ B同様の2カラム
               var atA = blank();
               atA[0] = co + "　御中";
-              atA[rightStart] = (iss.lines && iss.lines[0]) || "";
+              atA[rightStart] = hdrInfo[0] || ""; // ★ヘッダ右＝お振込先（PDF同様）
               var riAtA = row(atA);
               heights[riAtA] = 22;
               M(riAtA, 0, riAtA, rightStart - 1);
@@ -4536,13 +4544,13 @@
                 font: { sz: 10 },
                 alignment: { horizontal: "right" },
               });
-              if (iss.hanko) hankoAnchors.push(anchorAt(lastCol, riAtA, 250000, 0));
+              // 判子は自社情報フッター（下段）に押す＝ヘッダ右はお振込先になったため。
               // リード(宛名から2行下げてくっつき解消) ＋ 自社情報の続き(右) ＋ ご請求金額
               var leftLinesA = [];
               if (m.lead) leftLinesA.push(String(m.lead).replace(/\{月\}/g, mo));
               // 「消費税は10%…」は下段の消費税内訳と重複＋税率混在で不正確なので出さない。
               leftLinesA.push("下記の通り御請求申し上げます。");
-              var issRestA = (iss.lines || []).slice(1);
+              var issRestA = hdrInfo.slice(1);
               var gapA = 2; // 宛名とリードの間隔（くっつき解消）
               var nA = Math.max(gapA + leftLinesA.length + 1, issRestA.length);
               for (var ka = 0; ka < nA; ka++) {
@@ -4570,10 +4578,11 @@
                   aoa[rria][0] = "ご請求金額（税込）　　" + yenA;
                   M(rria, 0, rria, goseiR);
                   S(rria, 0, {
-                    font: { bold: true, sz: 13 },
-                    alignment: { horizontal: "left" },
+                    font: { bold: true, sz: 16 }, // ★PDF同様に大きく目立たせる
+                    alignment: { horizontal: "left", vertical: "center" },
                     border: { bottom: { style: "medium" } },
                   });
+                  heights[rria] = 26;
                   for (var uba = 1; uba <= goseiR; uba++)
                     S(rria, uba, { border: { bottom: { style: "medium" } } });
                 }
@@ -4620,7 +4629,7 @@
               // 宛名(左) / 発行者(右・左揃え)
               var atRow = blank();
               atRow[0] = co + "　御中";
-              atRow[rightStart] = (iss.lines && iss.lines[0]) || "";
+              atRow[rightStart] = hdrInfo[0] || ""; // ★ヘッダ右＝お振込先（PDF同様）
               var riAt = row(atRow);
               heights[riAt] = 24;
               M(riAt, 0, riAt, rightStart - 1);
@@ -4631,16 +4640,14 @@
                 font: { sz: 10 }, // 自社情報1行目 sz10
                 alignment: { horizontal: "right" },
               });
-              // 判子＝会社名（自社情報1行目）に重ねて押す＝日本の請求書の標準（角印は社名に
-              // かぶせる＝偽造防止）。社名の右側に重なる位置へ。EMU: 1mm=36000。
-              if (iss.hanko) hankoAnchors.push(anchorAt(lastCol, riAt, 250000, 0));
+              // 判子は自社情報フッター（下段）に押す＝ヘッダ右はお振込先になったため。
 
               // リード／ご請求金額（左・宛名から2行下げる＝sh-leadwrapの余白）＋発行者の続き(右)
               var leftLines = [];
               if (m.lead) leftLines.push(String(m.lead).replace(/\{月\}/g, mo));
               // 「消費税は10%…」は下段の消費税内訳と重複＋税率混在で不正確なので出さない。
               leftLines.push("下記の通り御請求申し上げます。");
-              var issRest = (iss.lines || []).slice(1);
+              var issRest = hdrInfo.slice(1);
               var gap = 2; // 宛名とリードの間隔（左だけ空ける／発行者は連続）
               var n = Math.max(gap + leftLines.length + 1, issRest.length);
               for (var k = 0; k < n; k++) {
@@ -4670,10 +4677,11 @@
                   var goseiRB = issRest[k] ? rightStart - 1 : lastCol;
                   M(rri, 0, rri, goseiRB);
                   S(rri, 0, {
-                    font: { bold: true, sz: 13 },
-                    alignment: { horizontal: "left" },
+                    font: { bold: true, sz: 16 }, // ★PDF同様に大きく目立たせる
+                    alignment: { horizontal: "left", vertical: "center" },
                     border: { bottom: { style: "medium" } },
                   });
+                  heights[rri] = 26;
                   for (var ub = 1; ub <= goseiRB; ub++)
                     S(rri, ub, { border: { bottom: { style: "medium" } } });
                 }
@@ -4803,7 +4811,7 @@
             // ③合計を強調＋上に区切り線 ④役職集計は「内訳」見出しで合計と分離。最終ページのみ。
             var showSummary =
               m.noteSummary && (pageCount === 1 || isSummary) && (m.noteGroups || []).length;
-            var bank = (iss.bank || []).slice();
+            var bank = []; // 下段の左列は使わない（お振込先はヘッダ右・自社情報は各ページのフッターへ）
             // ===== 合計欄を動的に組む（基本/外税/税率別インボイス ＋ 源泉/繰越のテンプレ対応） =====
             var YENNEG = '"¥"#,##0;"△¥"#,##0'; // マイナスは △¥（控除・入金を会計式に）
             var tot = [];
@@ -4956,6 +4964,23 @@
               S(ric, lastCol, {
                 font: { italic: true, color: C_MUTED },
                 alignment: { horizontal: "right" },
+              });
+            }
+            // ★自社情報フッター（全ページ・右下＝PDF同様）。判子は社名(1行目)に重ねて押す（角印標準）。
+            if (ftrInfo.length) {
+              var fgap = row(blank());
+              heights[fgap] = 6;
+              ftrInfo.forEach(function (ln, fi) {
+                var frr = blank();
+                frr[lastCol] = ln;
+                var frri = row(frr);
+                M(frri, Math.max(lastCol - 2, 0), frri, lastCol);
+                S(frri, lastCol, {
+                  font: { sz: fi === 0 ? 11 : 9, color: fi === 0 ? C_TEXT : C_MUTED },
+                  alignment: { horizontal: "right" },
+                });
+                heights[frri] = fi === 0 ? 16 : 13;
+                if (fi === 0 && iss.hanko) hankoAnchors.push(anchorAt(lastCol, frri, 250000, 0));
               });
             }
             // ★ページ番号は右下（PDF同様）。複数ページ時のみ・総ページ数=明細＋サマリー。
