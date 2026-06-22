@@ -3520,6 +3520,9 @@
           <button class="echip" data-blk="meta" onclick="editSelectBlock('meta')">
             請求日・No.
           </button>
+          <button class="echip" data-blk="aite" onclick="editSelectBlock('aite')">
+            宛名（御中）
+          </button>
           <button
             class="echip"
             data-blk="due"
@@ -6802,6 +6805,7 @@
       var _editPage = 1; // 編集プレビューで表示中のページ（1始まり・複数ページ時のみ切替バー表示）
       var _editPageCount = 1; // 総ページ数
       var _BLK_TOOL = {
+        aite: "align", // 宛名（御中）→ 位置（posAite）
         info: "align", // 会社名・住所（自社）→ 揃え
         table: "cols", // 明細の表 → 列幅・揃え
         grand: "align", // ご請求金額 → 揃え
@@ -6809,13 +6813,13 @@
         logo: "logo", // ロゴ → 大きさ
         hanko: "hanko", // はんこ → 大きさ
         due: "align", // お支払期限（有効期限）→ 位置（posDue）
+        bank: "align", // お振込先 → 位置（posBank）×行の並び（lineBank）
       };
       // 位置揃えを持たない範囲＝選択＋ハイライト＋説明のみ（会計レイアウト/上部過密で固定）。
       var _BLK_NOTE = {
         totals:
           "小計・消費税・合計（税込）の範囲です。位置は会計の決まりで右下に固定しています（金額のケタを右でそろえるため）。",
         meta: "請求日・No. の範囲です。位置は上部に固定です。",
-        bank: "お振込先の範囲です。",
       };
       function editSelectBlock(key) {
         if (_editSelBlock === key) {
@@ -7488,6 +7492,30 @@
             h +=
               '<div class="note">選択範囲（ご請求金額）を 左／中／右 に寄せます（下線も一緒に動きます）。</div>';
             h += _algGroup("選択範囲を", _av(s.posGrand), "editSetGrandPos");
+          } else if (f === "aite") {
+            h = '<div class="ph">↔️ 宛名（御中）</div>';
+            if (isEle) {
+              h +=
+                '<div class="note">選択範囲（宛名）を 左／中／右 に寄せます。右の「お振込先」と重なるときは、自動で下の段に分けて被りを防ぎます。</div>';
+              h += _algGroup("選択範囲を", _av(s.posAite), "editSetAitePos");
+            } else {
+              h +=
+                '<div class="note">※今のデザイン（クラシック）は宛名が<b>左固定</b>です。位置を変えるには「全体 → デザイン」で<b>エレガント</b>を選んでください。</div>';
+              h += _algGroup("選択範囲を", _av(s.posAite), "editSetAitePos", true);
+            }
+          } else if (f === "bank") {
+            h = '<div class="ph">↔️ お振込先</div>';
+            if (isEle) {
+              h +=
+                '<div class="note">「選択範囲」＝お振込先の固まりの位置。「選択範囲内の文字」＝中の各行の揃え。宛名と重なるときは自動で段が分かれます。</div>';
+              h += _algGroup("選択範囲を", _av(s.posBank), "editSetBankPos");
+              h += _algGroup("選択範囲内の文字を", _av(s.lineBank), "editSetBankLine");
+            } else {
+              h +=
+                '<div class="note">※今のデザイン（クラシック）はお振込先が<b>右下に固定</b>です。位置を変えるには「全体 → デザイン」で<b>エレガント</b>を選んでください。</div>';
+              h += _algGroup("選択範囲を", _av(s.posBank), "editSetBankPos", true);
+              h += _algGroup("選択範囲内の文字を", _av(s.lineBank), "editSetBankLine", true);
+            }
           } else if (f === "info") {
             h = '<div class="ph">↔️ 会社名・住所（自社）</div>';
             if (isEle) {
@@ -7626,6 +7654,21 @@
       }
       function editSetLeadPos(a) {
         setIssuer("posLead", a);
+        generateInvoices();
+        renderEditPanel("align");
+      }
+      function editSetAitePos(a) {
+        setIssuer("posAite", a);
+        generateInvoices();
+        renderEditPanel("align");
+      }
+      function editSetBankPos(a) {
+        setIssuer("posBank", a);
+        generateInvoices();
+        renderEditPanel("align");
+      }
+      function editSetBankLine(a) {
+        setIssuer("lineBank", a);
         generateInvoices();
         renderEditPanel("align");
       }
