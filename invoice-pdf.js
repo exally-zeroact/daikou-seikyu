@@ -1116,7 +1116,7 @@
   }
 
   // ---- 公開: 月内の全社（1つのPDFに連結） ----
-  async function buildMonth(master, db, month, accountId, iss) {
+  async function buildMonth(master, db, month, accountId, iss, issForCo) {
     var a = await loadAssets(iss && iss.pdfFont);
     var doc = await a.PDFLib.PDFDocument.create();
     _blkReset(doc); // 塊位置の集計をリセット（このdocで描く塊を記録）
@@ -1148,13 +1148,15 @@
         });
       if (!rows.length) continue;
       any = true;
+      // ★会社毎テンプレ：issForCo(co)があればその会社のデザインで描く（font/ロゴ/判子はdoc共通）。
+      var issCo = (typeof issForCo === "function" && issForCo(co)) || iss;
       await drawCompany(
         ctx,
         master,
         co,
         rows,
         month,
-        iss,
+        issCo,
         invoiceNoFor(master, accountId, month, co)
       );
     }

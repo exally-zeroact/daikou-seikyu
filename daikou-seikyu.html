@@ -3791,19 +3791,22 @@
       }
       function companyToDb(co) {
         var m = MASTER[co];
-        return {
-          name: co,
-          items: m.items || [],
-          config: {
-            widths: m.widths || {},
-            aligns: m.aligns || {},
-            lead: m.lead || "",
-            tableTitle: m.tableTitle || "",
-            noteSummary: !!m.noteSummary,
-            noteGroups: m.noteGroups || [],
-            labels: m.labels || {},
-          },
+        var config = {
+          widths: m.widths || {},
+          aligns: m.aligns || {},
+          lead: m.lead || "",
+          tableTitle: m.tableTitle || "",
+          noteSummary: !!m.noteSummary,
+          noteGroups: m.noteGroups || [],
+          labels: m.labels || {},
         };
+        // ★会社毎テンプレは「指定された時だけ」configに足す＝未設定会社のpayloadは従来と完全一致（バイト不変）。
+        if (m.pdfDesign) {
+          config.pdfDesign = m.pdfDesign;
+          config.elegantVariant = m.elegantVariant || null;
+          config.classicVariant = m.classicVariant || null;
+        }
+        return { name: co, items: m.items || [], config: config };
       }
       function cloudErr(where, e) {
         console.warn("cloud", where, e);
@@ -3834,6 +3837,10 @@
               noteSummary: !!cf.noteSummary,
               noteGroups: cf.noteGroups || [],
               labels: cf.labels || {},
+              // ★会社毎テンプレ（未設定=null=全体設定を使う＝既定）。
+              pdfDesign: cf.pdfDesign || null,
+              elegantVariant: cf.elegantVariant || null,
+              classicVariant: cf.classicVariant || null,
             };
           });
         }
@@ -4338,7 +4345,9 @@
         // Excelの請求書はA4縦1枚を明細でいっぱいに使う＝アプリ画面プレビュー(22)より多くの
         // 明細スロットを持たせる（司さん指示「明細を入れる行は増やして」）。A4縦1枚に収まる上限。
         var PER = 28;
-        var iss = issuerForEngine();
+        // ★会社毎テンプレ：このシートが1社だけ(会社毎シート分割)ならその会社のデザインを使う。
+        //   複数社/全社(旧・単一シート経路)は会社指定なし＝全体設定（従来どおり・バイト不変）。
+        var iss = issuerForEngine(fCos && fCos.length === 1 ? fCos[0] : null);
         // ★Excelにも「文字サイズ」を反映（全体fontScale）。A4縦1枚を守るため上限は控えめ(1.2)。
         //   クラシックはPDFが文字サイズ非対応なので整合させ1.0固定。標準(1.0)では全 sz/heights が
         //   元値のまま＝生成バイト完全不変。範囲別(blkFs)のセル単位反映は段階2（ここは全体のみ）。
@@ -6553,7 +6562,8 @@
               );
             });
             if (!rows.length) return _invEmpty(out, "該当する明細がありません", seq);
-            sig = _invSig1(onlyCo, month, iss, rows);
+            var _coIss = issuerForEngine(onlyCo); // ★この会社のテンプレ（未設定は全体）
+            sig = _invSig1(onlyCo, month, _coIss, rows);
             if (_invCache.sig === sig && _invCache.bytes) {
               bytes = _invCache.bytes; // ★同内容＝再ビルドを飛ばす（約0.7秒節約）
               blocks = _invCache.blocks;
@@ -6563,7 +6573,7 @@
                 onlyCo,
                 rows,
                 month,
-                iss,
+                _coIss,
                 MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, onlyCo)
               );
               blocks = window.InvoicePDF && InvoicePDF.lastBlocks ? InvoicePDF.lastBlocks() : [];
@@ -6586,7 +6596,16 @@
               bytes = _invCache.bytes;
               blocks = _invCache.blocks;
             } else {
-              bytes = await InvoicePDF.buildMonth(MASTER, DB, month, CURRENT_ACCOUNT, iss);
+              bytes = await InvoicePDF.buildMonth(
+                MASTER,
+                DB,
+                month,
+                CURRENT_ACCOUNT,
+                iss,
+                function (co) {
+                  return issuerForEngine(co); // ★全社まとめPDFも会社毎テンプレで描き分け
+                }
+              );
               if (!bytes) return _invEmpty(out, "該当する明細がありません", seq);
               blocks = window.InvoicePDF && InvoicePDF.lastBlocks ? InvoicePDF.lastBlocks() : [];
               _invCache = { sig: sig, bytes: bytes, blocks: blocks };
@@ -7023,12 +7042,21 @@
             onlyCo,
             rows,
             month,
-            iss,
+            issuerForEngine(onlyCo),
             MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, onlyCo)
           );
           fname = "請求書_" + month + "_" + onlyCo + ".pdf";
         } else {
-          bytes = await InvoicePDF.buildMonth(MASTER, DB, month, CURRENT_ACCOUNT, iss);
+          bytes = await InvoicePDF.buildMonth(
+            MASTER,
+            DB,
+            month,
+            CURRENT_ACCOUNT,
+            iss,
+            function (co) {
+              return issuerForEngine(co);
+            }
+          );
           if (!bytes) {
             toast("該当する明細がありません");
             return null;
@@ -8537,10 +8565,27 @@
         return y + "/" + mo + "/" + d;
       }
       // エンジンが受け取る形（lines/bank/hanko）へ変換。空行は自動で除外。
-      function issuerForEngine() {
+      function issuerForEngine(co) {
         var s = currentIssuer();
         var bankLines = splitLines(s.bank);
-        var dv = resolveDesignVariant(); // ★pdfDesign×variant（請求タブ一時上書きも反映）★
+        // ★デザインの解決順：①請求タブ一時上書き(全社強制) → ②会社毎テンプレ → ③全体設定（既定）。
+        //   会社毎未設定(=co無し/m.pdfDesign無し)は resolveDesignVariant() と完全同一＝バイト不変。
+        var _m = (co && MASTER[co]) || null;
+        var dv;
+        if (INV_OVERRIDE) {
+          dv = resolveDesignVariant();
+        } else if (_m && _m.pdfDesign) {
+          var _d = _m.pdfDesign === "classic" ? "classic" : "elegant";
+          var _vk = _d === "classic" ? _m.classicVariant : _m.elegantVariant;
+          var _list = designVariants(_d);
+          var _v =
+            _list.filter(function (x) {
+              return x.key === _vk;
+            })[0] || _list[0];
+          dv = { design: _d, variant: _v };
+        } else {
+          dv = resolveDesignVariant();
+        }
         return {
           lines: splitLines(s.issuer),
           bank: bankLines.length ? ["お振込先"].concat(bankLines) : [],
@@ -10355,7 +10400,7 @@
             );
           });
           if (!rows.length) return;
-          var iss = issuerForEngine();
+          var iss = issuerForEngine(co); // ★この会社のテンプレ（プレビュー先読みも会社毎）
           var sig = _invSig1(co, month, iss, rows);
           if (_invCache.sig === sig && _invCache.bytes) return; // 既にキャッシュ済み
           var bytes = await InvoicePDF.buildOne(
