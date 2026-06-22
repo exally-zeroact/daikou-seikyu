@@ -26,7 +26,7 @@
   // Exallyブランドのミント配色（参考の上品レイアウト×アプリの色で統一）
   var MINT, MINTD, MINTBG, BORDER, RULE, TEXT, MUTED, BLACK;
   // クラシック（前テンプレ＝緑ヘッダー帯＋罫線）の配色
-  var GREEN, GREY, DARK;
+  var GREEN, GREY, DARK, INKSC, INKC, HAIRC;
   var _defColor = null; // T() の既定文字色（テーマ別に drawCompany 先頭で設定）
   // フォントが持たない字（例：髙﨑邉などの異体字）の検出。描画時に〓へ置換し、利用者に知らせる。
   var _cov = null; // { fk: fontkitフォント, missing: Set }
@@ -192,18 +192,24 @@
   // ctx: { doc, font, rgb } を持つ
   function makeDrawer(ctx) {
     var rgb = ctx.rgb;
-    MINT = rgb(0.322, 0.718, 0.533); // #52b788 線・アクセント
-    MINTD = rgb(0.239, 0.62, 0.447); // #3d9e72 見出し・ラベル
-    MINTBG = rgb(0.941, 0.98, 0.957); // #f0faf4 極薄ミント面
-    BORDER = rgb(0.784, 0.925, 0.847); // #c8ecd8 細い境界
-    RULE = rgb(0.85, 0.85, 0.85); // 薄グレー罫（明細の行罫）
-    TEXT = rgb(0.102, 0.29, 0.18); // #1a4a2e 本文・金額
-    MUTED = rgb(0.478, 0.627, 0.549); // #7aa08c 補助文
-    BLACK = rgb(0, 0, 0);
-    // クラシック用
-    GREEN = rgb(220 / 255, 239 / 255, 230 / 255); // 緑ヘッダー帯
-    GREY = rgb(0.5, 0.5, 0.5); // 罫線
-    DARK = rgb(0.13, 0.13, 0.13); // 本文
+    // ★文字色・濃さの統一トークン（デザイナー会議 wf_921e25d7 確定）。
+    //   役割=inkStrong(主役)/ink(本文)/muted(補助)/accentLine(罫)/ruleHairline(極薄罫)/surface(面)。
+    //   同役割は同色＝バラつき解消。緑/グレーは線だけ・テキストから排除。
+    MINT = rgb(0.322, 0.718, 0.533); // #52b788 accentLine(エレガント) 線・飾り線のみ
+    MINTD = rgb(0.239, 0.62, 0.447); // #3d9e72 ※テキスト不使用に降格（残置・未使用）
+    MINTBG = rgb(0.941, 0.98, 0.957); // #f0faf4 surface(エレガント) ヘッダー面
+    BORDER = rgb(0.851, 0.851, 0.851); // #d9d9d9 ruleHairline(エレガント) 極薄罫（旧ミント境界を中立化）
+    RULE = rgb(0.69, 0.69, 0.69); // #b0b0b0 ruleHairline(エレガント) 行間罫（会議推奨=FAX/白黒で消えないよう一段濃く）
+    TEXT = rgb(0.102, 0.29, 0.18); // #1a4a2e inkStrong/ink(エレガント) 本文・金額
+    MUTED = rgb(0.31, 0.435, 0.373); // #4f6f5f muted(エレガント) 補助文（会議結論=読めるラインへ一段濃く・WCAG AA 約5.3:1。緑トーンは維持）
+    BLACK = rgb(0, 0, 0); // ※純黒は不使用（残置）
+    // クラシック用（濃墨1系統＋グレー罫）
+    GREEN = rgb(0.91, 0.937, 0.914); // #e8efe9 surface(クラシック) ヘッダー面（中和）
+    GREY = rgb(0.5, 0.5, 0.5); // #808080 accentLine(クラシック) 罫・飾り線
+    DARK = rgb(0.42, 0.42, 0.42); // #6b6b6b muted(クラシック) 補助文（旧#212121本文から降格）
+    INKSC = rgb(0.051, 0.051, 0.051); // #0d0d0d inkStrong(クラシック) 主役インク（純黒回避）
+    INKC = rgb(0.102, 0.102, 0.102); // #1a1a1a ink(クラシック) 本文
+    HAIRC = rgb(0.69, 0.69, 0.69); // #b0b0b0 ruleHairline(クラシック) 行間罫（会議推奨=FAX/白黒で消えないよう一段濃く）
     return ctx;
   }
 
@@ -295,7 +301,8 @@
   async function drawCompany(ctx, master, co, rows, month, iss, invoiceNo) {
     _setFontScales(iss); // ★文字サイズ係数（全体＋範囲別）。全=1なら従来どおりバイト不変
     if (iss && iss.pdfDesign === "classic") {
-      _defColor = BLACK;
+      _defColor = INKSC; // ★純黒#000→濃墨#0d0d0d。色未指定セルもinkStrongに統一（本文2色割れ解消）
+
       _globalFs = 1;
       _blkFs = null; // ★クラシックは行送り連動が未実装＝当面 文字サイズ変更を無効化（従来どおり・重なり防止）。次段で連動化。
       return drawCompanyClassic(ctx, master, co, rows, month, iss, invoiceNo);
@@ -387,15 +394,15 @@
       cy -= _g(26);
       // 宛名（右の期限＋振込先ブロックと被らないよう幅を抑える）
       _curBlk = "aite";
-      var aw = T(page, font, co + "　御中", M, cy, 17, { color: TEXT, maxW: CW * 0.5 });
-      line(page, M, cy - _g(21), M + Math.min(aw + 10, CW * 0.5), cy - _g(21), BORDER, 0.6);
+      T(page, font, co + "　御中", M, cy, 17, { color: TEXT, maxW: CW * 0.5 });
+      // ★宛名の下線はデフォルト除去（司さん要望）。
       // ★右ブロック：お支払期限(due)＋振込先(bank) を別々の選択範囲に区分け★
       //   有効期限の位置 posDue（既定=右）。右＝従来どおり右上（振込先と同じ右ブロック）。
       var dpos = blkAlignOf(iss, "posDue", "right");
       var ry = cy + 2;
       if (pDue && dpos === "right") {
         _curBlk = "due";
-        T(page, font, "お支払期限　" + pDue, RXp, ry, 10, { align: "right", color: TEXT });
+        T(page, font, "お支払期限　" + pDue, RXp, ry, 10, { align: "right", color: MUTED });
         ry -= _g(16);
       }
       if (bank.length) {
@@ -403,7 +410,7 @@
         bank.forEach(function (ln, i) {
           T(page, font, ln, RXp, ry, i === 0 ? 9.5 : 9, {
             align: "right",
-            color: i === 0 ? TEXT : MUTED,
+            color: TEXT, // ★塊の中は同じ濃さ（強弱は大きさで・フェードさせない）
           });
           ry -= _g(i === 0 ? 13 : 11);
         });
@@ -415,7 +422,7 @@
         _curBlk = "due";
         T(page, font, "お支払期限　" + pDue, dpos === "center" ? CX : M, cy, 10, {
           align: dpos,
-          color: TEXT,
+          color: MUTED,
         });
         _curBlk = null;
         cy -= _g(16);
@@ -455,7 +462,7 @@
       var gL = gpos === "center" ? CX - gw / 2 : gpos === "right" ? RXp - gw : M;
       if (gL + gw > RXp) gL = RXp - gw;
       if (gL < M) gL = M;
-      gBold(lbl, gL, 12, MINTD);
+      gBold(lbl, gL, 12, TEXT);
       gBold(gv, gL + lblW + 50, 20, TEXT);
       line(page, gL, by - _g(25), gL + Math.min(gw + 10, 330), by - _g(25), MINT, 1.2); // 下線
       _curBlk = null;
@@ -476,7 +483,7 @@
         var label = k === "金額" ? "金額（税込）" : (m.labels && m.labels[k]) || k;
         var al = colAlign(m, k);
         var tx = colCellX(al, cx0, cx1, 8);
-        T(page, font, label, tx, tableTop - 5, 9, { align: al, color: MINTD });
+        T(page, font, label, tx, tableTop - 5, 9, { align: al, color: MUTED });
       });
       line(page, M, tableTop, RXp, tableTop, BORDER, 0.5); // 帯の上
       line(page, M, tableTop - headH, RXp, tableTop - headH, MINT, 0.8); // 帯の下（ミント）
@@ -528,8 +535,14 @@
       sy -= _g(14); // ★線を消費税の文字／数字と重ねない（下げる）★
       line(page, bx + 8, sy, rx, sy, MINT, 0.8); // 合計の上に1本（アプリと同じ）
       sy -= _g(15);
-      T(page, font, "合計", bx + 10, sy, 12, { color: TEXT });
-      T(page, font, yen(grand), rx - 10, sy - 1, 14, { color: TEXT, align: "right" });
+      // ★合計＝「支払う金額」＝疑似ボールド（御請求金額と同じ太字規律で頂点を2つに）
+      //   会議結論=合計の中サイズ帯は重ね幅0.02（0.025だと縮小/FAXで桁が滲んでくっつく）
+      var _olT = 12 * 0.02,
+        _ovT = 14 * 0.02;
+      for (var _b = 0; _b < 3; _b++) {
+        T(page, font, "合計", bx + 10 + _olT * _b, sy, 12, { color: TEXT });
+        T(page, font, yen(grand), rx - 10 + _ovT * _b, sy - 1, 14, { color: TEXT, align: "right" });
+      }
       sy -= _g(20);
       // 役職集計（内訳）
       if (noteN) {
@@ -617,7 +630,7 @@
       iLines.forEach(function (ln, idx) {
         T(page, font, ln, lineX, fy, idx === 0 ? 11 : 8, {
           align: infoLine,
-          color: idx === 0 ? TEXT : MUTED,
+          color: TEXT, // ★塊の中は同じ濃さ（会社名は大きさで立たせる・住所をフェードさせない）
           maxW: infoRB - boxLeft, // ロゴへ食い込まない（長文は…詰め）
         });
         fy -= idx === 0 ? _g(13) : _g(10);
@@ -711,8 +724,8 @@
       // コンパクトなサマリー表（件数ぶんだけ）
       var sAmtX = RXp;
       rect(spage, M, cy2, CW, headH, MINTBG);
-      T(spage, font, "ページ", M + 10, cy2 - 5, 9, { color: MINTD });
-      T(spage, font, "金額（税込）", RXp - 8, cy2 - 5, 9, { align: "right", color: MINTD });
+      T(spage, font, "ページ", M + 10, cy2 - 5, 9, { color: MUTED });
+      T(spage, font, "金額（税込）", RXp - 8, cy2 - 5, 9, { align: "right", color: MUTED });
       line(spage, M, cy2, RXp, cy2, BORDER, 0.5);
       line(spage, M, cy2 - headH, RXp, cy2 - headH, MINT, 0.8);
       var sbTop = cy2 - headH;
@@ -847,7 +860,10 @@
       _curBlk = "info";
       var iy = style === "A" ? topRow - 6 : topRow;
       iLines.forEach(function (ln, idx) {
-        T(page, font, ln, M + CW, iy, idx === 0 ? 11 : 9.5, { align: "right", color: DARK });
+        T(page, font, ln, M + CW, iy, idx === 0 ? 11 : 9.5, {
+          align: "right",
+          color: INKC, // ★塊の中は同じ濃さ（会社名は大きさで立たせる・住所をフェードさせない）
+        });
         iy -= idx === 0 ? 15 : 13;
       });
       _curBlk = null;
@@ -881,9 +897,9 @@
         var gSize = 16;
         var gBold = function (str, x) {
           var o = gSize * 0.025; // ずらし幅（疑似ボールド）
-          T(page, font, str, x, cy, gSize, { color: BLACK });
-          T(page, font, str, x + o, cy, gSize, { color: BLACK });
-          T(page, font, str, x + o * 2, cy, gSize, { color: BLACK });
+          T(page, font, str, x, cy, gSize, { color: INKSC });
+          T(page, font, str, x + o, cy, gSize, { color: INKSC });
+          T(page, font, str, x + o * 2, cy, gSize, { color: INKSC });
           return font.widthOfTextAtSize(_sanitize(str), gSize);
         };
         var gLabel = "ご請求金額（税込）";
@@ -898,7 +914,7 @@
         if (gL < M) gL = M;
         gBold(gLabel, gL);
         gBold(gv, gL + glw + 40);
-        line(page, gL, cy - 22, gL + gTextW + 8, cy - 22, BLACK, 1.4);
+        line(page, gL, cy - 22, gL + gTextW + 8, cy - 22, GREY, 1.4);
         _curBlk = null;
         return cy - 22 - 56; // 緑の隙間≈黄色(約28)の2倍
       }
@@ -909,8 +925,8 @@
     function drawTotalsFooter(page, footTop) {
       var by = footTop;
       _curBlk = "bank"; // 振込先（有効期限 due と区分け）
-      bank.forEach(function (ln) {
-        T(page, font, ln, M, by, 9, { color: DARK });
+      bank.forEach(function (ln, i) {
+        T(page, font, ln, M, by, 9, { color: INKC }); // ★振込先も塊の中は同じ濃さ
         by -= 14;
       });
       _curBlk = "totals";
@@ -918,13 +934,23 @@
         RX = M + CW,
         sy = footTop;
       function totRow(lbl, val, big) {
-        T(page, font, lbl, boxX, sy, big ? 11 : 9.5, { color: DARK });
-        T(page, font, val, RX, sy, big ? 12 : 9.5, { align: "right" });
+        if (big) {
+          // ★合計＝「支払う金額」＝疑似ボールド＋主役墨（会議結論=中サイズ帯は重ね幅0.02で桁の滲み防止）
+          var ol = 11 * 0.02,
+            ov = 12 * 0.02;
+          for (var b = 0; b < 3; b++) {
+            T(page, font, lbl, boxX + ol * b, sy, 11, { color: INKSC });
+            T(page, font, val, RX + ov * b, sy, 12, { align: "right", color: INKSC });
+          }
+        } else {
+          T(page, font, lbl, boxX, sy, 9.5, { color: DARK }); // ラベル=muted
+          T(page, font, val, RX, sy, 9.5, { align: "right", color: INKSC }); // 値=主役墨
+        }
         sy -= big ? 18 : 15;
       }
       totRow("小計", yen(grand));
       totRow("消費税（10%・内税）", yen(tax10(grand)));
-      line(page, boxX, sy + 3, RX, sy + 3, DARK, 0.8);
+      line(page, boxX, sy + 3, RX, sy + 3, GREY, 0.8);
       sy -= 2;
       totRow("合計", yen(grand), true);
       if (m.noteSummary && (m.noteGroups || []).length) {
@@ -941,7 +967,7 @@
         ny -= 14;
         (m.noteGroups || []).forEach(function (g) {
           T(page, font, g, boxX, ny, 9, { color: DARK });
-          T(page, font, sums[g] ? yen(sums[g]) : "", RX, ny, 9, { align: "right", color: DARK });
+          T(page, font, sums[g] ? yen(sums[g]) : "", RX, ny, 9, { align: "right", color: INKSC });
           ny -= 13;
         });
       }
@@ -967,12 +993,14 @@
           9.5,
           {
             align: "center",
+            color: DARK,
           }
         );
       }
       if (amtIdx >= 0) {
         T(page, font, "金額（税込み）", (colX[amtIdx] + colX[amtIdx + 1]) / 2, tableTop - 3, 9.5, {
           align: "center",
+          color: DARK,
         });
         items.slice(amtIdx + 1).forEach(function (k, j) {
           var ci = amtIdx + 1 + j;
@@ -985,6 +1013,7 @@
             9.5,
             {
               align: "center",
+              color: DARK,
             }
           );
         });
@@ -1015,7 +1044,7 @@
           T(page, font, val, tx, yTop - 2.5, 9, { align: al, maxW: cx1 - cx0 - 14 });
         });
         if (row.日付) prevDate = row.日付;
-        if (r < n - 1) line(page, M, yTop - rowH, tableRight, yTop - rowH, GREY, 0.5); // 行間（最終行の下は引かない）
+        if (r < n - 1) line(page, M, yTop - rowH, tableRight, yTop - rowH, HAIRC, 0.5); // 行間（最終行の下は引かない）
       }
       var tableBottom = bodyTop - n * rowH;
       // ★縦罫は引かない（エレガントと同じ横罫だけ＝見やすく）。表を締める下線のみ。★
@@ -1031,9 +1060,13 @@
         splitX = M + CW - amtW,
         tableRight = M + CW;
       rect(page, M, tableTop, CW, headH, GREEN);
-      T(page, font, "内容（ページ別）", (M + splitX) / 2, tableTop - 3, 9.5, { align: "center" });
+      T(page, font, "内容（ページ別）", (M + splitX) / 2, tableTop - 3, 9.5, {
+        align: "center",
+        color: DARK,
+      });
       T(page, font, "金額（税込み）", (splitX + tableRight) / 2, tableTop - 3, 9.5, {
         align: "center",
+        color: DARK,
       });
       line(page, M, tableTop, tableRight, tableTop, GREY, 0.8);
       line(page, M, tableTop - headH, tableRight, tableTop - headH, GREY, 0.8);
@@ -1043,7 +1076,7 @@
         var yTop = bodyTop - r * rowH;
         T(page, font, r + 1 + "ページ目", M + 12, yTop - 2.5, 9.5, { align: "left" });
         T(page, font, comma(subs[r]), tableRight - 8, yTop - 2.5, 9.5, { align: "right" });
-        if (r < n - 1) line(page, M, yTop - rowH, tableRight, yTop - rowH, GREY, 0.5);
+        if (r < n - 1) line(page, M, yTop - rowH, tableRight, yTop - rowH, HAIRC, 0.5);
       }
       var tableBottom = bodyTop - n * rowH;
       // ★縦罫は引かない（横罫だけ）。表を締める下線のみ。★
@@ -1056,7 +1089,7 @@
       if (totalPages > 1) {
         T(page, font, pageNum + " / " + totalPages, M + CW, M - 4, 8, {
           align: "right",
-          color: GREY,
+          color: DARK,
         });
       }
     }
@@ -1074,7 +1107,7 @@
         T(page, font, yen(pageSubtotals[pi]), M + CW, footTop, 9.5, { align: "right" });
         T(page, font, "次ページへ続く →", M + CW, footTop - 16, 10, {
           align: "right",
-          color: DARK,
+          color: INKC,
         });
       }
       drawPageNo(page);
