@@ -9713,11 +9713,130 @@
           '" onchange="setNoteGroups(\'' +
           esc(co) +
           "',this.value)\"></div>" +
+          companyTplHTML(co) +
           '<div style="display:flex;gap:8px;margin-top:12px;">' +
           '<button class="btn btn-danger btn-sm" style="flex:1;" onclick="deleteCompany(\'' +
           esc(co) +
           "')\">会社を削除</button></div>"
         );
+      }
+      // ★会社毎テンプレ選択（この会社専用 or 全体設定）。設定の全体ギャラリーを会社編集に持ち込む形。
+      function companyTplHTML(co) {
+        var m = MASTER[co];
+        var hasOwn = !!m.pdfDesign;
+        var gdv = resolveDesignVariant(); // 全体の解決結果（未指定時の表示用）
+        var design = hasOwn ? (m.pdfDesign === "classic" ? "classic" : "elegant") : "elegant";
+        var curVar =
+          design === "classic" ? m.classicVariant || "diag_logo" : m.elegantVariant || "logo";
+        var html =
+          '<div class="card-label" style="margin-top:14px;">請求書テンプレ（この会社）</div>' +
+          '<label class="toggle-row"><input type="checkbox" ' +
+          (hasOwn ? "checked" : "") +
+          " onchange=\"toggleCompanyTpl('" +
+          esc(co) +
+          "',this.checked)\"> この会社だけ専用テンプレにする</label>";
+        if (!hasOwn) {
+          html +=
+            '<div class="scr-sub" style="margin:2px 0 0;">未指定＝全体設定（現在: ' +
+            esc(DESIGN_LABELS[gdv.design] + "・" + gdv.variant.label) +
+            "）を使います。</div>";
+          return html;
+        }
+        html +=
+          '<div class="dseg" style="display:flex;gap:6px;margin:6px 0;">' +
+          Object.keys(DESIGN_LABELS)
+            .map(function (d) {
+              return (
+                '<button type="button" class="dseg-btn' +
+                (d === design ? " on" : "") +
+                '" onclick="setCompanyDesign(\'' +
+                esc(co) +
+                "','" +
+                d +
+                "')\">" +
+                DESIGN_LABELS[d] +
+                "</button>"
+              );
+            })
+            .join("") +
+          "</div>";
+        html +=
+          '<div class="tpl-grid">' +
+          designVariants(design)
+            .map(function (v) {
+              return (
+                '<button type="button" class="tpl-card' +
+                (v.key === curVar ? " on" : "") +
+                '" onclick="setCompanyVariant(\'' +
+                esc(co) +
+                "','" +
+                design +
+                "','" +
+                v.key +
+                "')\">" +
+                '<div class="tpl-badge">✓</div>' +
+                '<img class="tpl-thumb" src="tpl_' +
+                design +
+                "_" +
+                v.key +
+                '.png" loading="lazy" alt="' +
+                esc(v.label) +
+                '" />' +
+                '<div class="tpl-meta"><div class="tpl-name">' +
+                esc(v.label) +
+                '</div><div class="tpl-desc">' +
+                esc(v.desc) +
+                "</div></div></button>"
+              );
+            })
+            .join("") +
+          "</div>";
+        return html;
+      }
+      function toggleCompanyTpl(co, on) {
+        var m = MASTER[co];
+        if (on) {
+          if (!m.pdfDesign) {
+            var dv = resolveDesignVariant(); // 全体の現在値を初期値に
+            m.pdfDesign = dv.design;
+            if (dv.design === "classic") m.classicVariant = dv.variant.key;
+            else m.elegantVariant = dv.variant.key;
+          }
+        } else {
+          m.pdfDesign = null;
+          m.elegantVariant = null;
+          m.classicVariant = null;
+        }
+        saveMaster();
+        reopen(co);
+        generateInvoices();
+      }
+      function setCompanyDesign(co, design) {
+        if (!DESIGN_VARIANTS[design]) return;
+        MASTER[co].pdfDesign = design;
+        saveMaster();
+        reopen(co);
+        generateInvoices();
+        toast(DESIGN_LABELS[design] + " にしました");
+      }
+      function setCompanyVariant(co, design, key) {
+        if (
+          !designVariants(design).some(function (v) {
+            return v.key === key;
+          })
+        )
+          return;
+        var m = MASTER[co];
+        m.pdfDesign = design;
+        if (design === "classic") m.classicVariant = key;
+        else m.elegantVariant = key;
+        saveMaster();
+        reopen(co);
+        generateInvoices();
+        var v = designVariants(design).filter(function (x) {
+          return x.key === key;
+        })[0];
+        toast(DESIGN_LABELS[design] + "・" + (v ? v.label : key) + " にしました");
       }
       function toggleMasterBody(hd) {
         var body = hd.nextElementSibling;
