@@ -385,56 +385,31 @@
       cy -= _g(30);
       flourish(page, cy - 4);
       cy -= _g(26);
-      // 宛名（御中）＝位置 posAite（既定=左）。右の期限＋振込先（右ブロック）とバンドで衝突回避。
+      // 宛名（右の期限＋振込先ブロックと被らないよう幅を抑える）
       _curBlk = "aite";
-      var apos = blkAlignOf(iss, "posAite", "left");
-      var aiteStr = co + "　御中";
-      var aiteW = Math.min(font.widthOfTextAtSize(_sanitize(aiteStr), 17), CW * 0.5);
-      var aiteLeft = apos === "center" ? CX - aiteW / 2 : apos === "right" ? RXp - aiteW : M;
-      if (aiteLeft + aiteW > RXp) aiteLeft = RXp - aiteW;
-      if (aiteLeft < M) aiteLeft = M;
-      var aw = T(page, font, aiteStr, aiteLeft, cy, 17, { color: TEXT, maxW: CW * 0.5 });
-      var ulR = Math.min(aiteLeft + Math.min(aw + 10, CW * 0.5), RXp);
-      line(page, aiteLeft, cy - _g(21), ulR, cy - _g(21), BORDER, 0.6);
-      // ★右ブロック：お支払期限(due・posDue===right時)＋振込先(bank)。位置 posBank（既定=右）×行の並び lineBank。★
+      var aw = T(page, font, co + "　御中", M, cy, 17, { color: TEXT, maxW: CW * 0.5 });
+      line(page, M, cy - _g(21), M + Math.min(aw + 10, CW * 0.5), cy - _g(21), BORDER, 0.6);
+      // ★右ブロック：お支払期限(due)＋振込先(bank) を別々の選択範囲に区分け★
+      //   有効期限の位置 posDue（既定=右）。右＝従来どおり右上（振込先と同じ右ブロック）。
       var dpos = blkAlignOf(iss, "posDue", "right");
-      var bpos = blkAlignOf(iss, "posBank", "right");
-      var bline = blkAlignOf(iss, "lineBank", bpos);
-      var rLines = [];
-      if (pDue && dpos === "right")
-        rLines.push({ t: "お支払期限　" + pDue, sz: 10, col: TEXT, gap: 16, blk: "due" });
-      if (bank.length)
+      var ry = cy + 2;
+      if (pDue && dpos === "right") {
+        _curBlk = "due";
+        T(page, font, "お支払期限　" + pDue, RXp, ry, 10, { align: "right", color: TEXT });
+        ry -= _g(16);
+      }
+      if (bank.length) {
+        _curBlk = "bank";
         bank.forEach(function (ln, i) {
-          rLines.push({
-            t: ln,
-            sz: i === 0 ? 9.5 : 9,
-            col: i === 0 ? TEXT : MUTED,
-            gap: i === 0 ? 13 : 11,
-            blk: "bank",
+          T(page, font, ln, RXp, ry, i === 0 ? 9.5 : 9, {
+            align: "right",
+            color: i === 0 ? TEXT : MUTED,
           });
+          ry -= _g(i === 0 ? 13 : 11);
         });
-      var rW = 0;
-      rLines.forEach(function (o) {
-        var w = font.widthOfTextAtSize(_sanitize(o.t), o.sz);
-        if (w > rW) rW = w;
-      });
-      var bBoxLeft = bpos === "center" ? CX - rW / 2 : bpos === "left" ? M : RXp - rW;
-      if (bBoxLeft + rW > RXp) bBoxLeft = RXp - rW;
-      if (bBoxLeft < M) bBoxLeft = M;
-      // バンド衝突：宛名 と 右ブロック が横で重なるなら、右ブロックを宛名の下段へ落として被りを防ぐ。
-      var overlap =
-        rLines.length && !(aiteLeft + aiteW + 12 <= bBoxLeft || bBoxLeft + rW + 12 <= aiteLeft);
-      var lineXr =
-        bline === "left" ? bBoxLeft : bline === "center" ? bBoxLeft + rW / 2 : bBoxLeft + rW;
-      var ry = overlap ? cy - _g(34) : cy + 2; // 衝突時は宛名の下線の下から
-      rLines.forEach(function (o) {
-        _curBlk = o.blk;
-        T(page, font, o.t, lineXr, ry, o.sz, { align: bline, color: o.col });
-        ry -= _g(o.gap);
-      });
+      }
       _curBlk = null;
       cy -= _g(34);
-      if (overlap && ry < cy) cy = ry - _g(2); // 下段に落ちた右ブロックの下まで本文開始を送る
       // ★有効期限を左/中にした時は、宛名と被らないよう独立した1行で（あいさつの上）。★
       if (pDue && dpos !== "right") {
         _curBlk = "due";
