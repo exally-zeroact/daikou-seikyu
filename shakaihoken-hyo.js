@@ -139,38 +139,54 @@ const SHAKAIHOKEN_HYO = {
   ],
 
   // ----------------------------------------------------------------
-  // ヘルパー関数：支給合計から標準報酬月額を取得
+  // 健康保険 標準報酬月額（50等級・上限1,390,000）※健保は厚年(上限650,000)より上限が高い
+  // 報酬月額の範囲で標準報酬月額を決定（協会けんぽ 保険料額表 準拠）
   // ----------------------------------------------------------------
-  getHyojunHoshu: function(shikyugokei) {
-    for (var i = 0; i < this.HYOJUN_HOSHU_HYO.length; i++) {
-      var row = this.HYOJUN_HOSHU_HYO[i];
-      if (shikyugokei >= row.min && shikyugokei < row.max) {
-        return row.hyojun;
-      }
-    }
-    return 650000; // 上限
-  },
+  HEALTH_HYOJUN_HYO: [
+    { min:0,       max:63000,   hyojun:58000   },{ min:63000,   max:73000,   hyojun:68000   },{ min:73000,   max:83000,   hyojun:78000   },
+    { min:83000,   max:93000,   hyojun:88000   },{ min:93000,   max:101000,  hyojun:98000   },{ min:101000,  max:107000,  hyojun:104000  },
+    { min:107000,  max:114000,  hyojun:110000  },{ min:114000,  max:122000,  hyojun:118000  },{ min:122000,  max:130000,  hyojun:126000  },
+    { min:130000,  max:138000,  hyojun:134000  },{ min:138000,  max:146000,  hyojun:142000  },{ min:146000,  max:155000,  hyojun:150000  },
+    { min:155000,  max:165000,  hyojun:160000  },{ min:165000,  max:175000,  hyojun:170000  },{ min:175000,  max:185000,  hyojun:180000  },
+    { min:185000,  max:195000,  hyojun:190000  },{ min:195000,  max:210000,  hyojun:200000  },{ min:210000,  max:230000,  hyojun:220000  },
+    { min:230000,  max:250000,  hyojun:240000  },{ min:250000,  max:270000,  hyojun:260000  },{ min:270000,  max:290000,  hyojun:280000  },
+    { min:290000,  max:310000,  hyojun:300000  },{ min:310000,  max:330000,  hyojun:320000  },{ min:330000,  max:350000,  hyojun:340000  },
+    { min:350000,  max:370000,  hyojun:360000  },{ min:370000,  max:395000,  hyojun:380000  },{ min:395000,  max:425000,  hyojun:410000  },
+    { min:425000,  max:455000,  hyojun:440000  },{ min:455000,  max:485000,  hyojun:470000  },{ min:485000,  max:515000,  hyojun:500000  },
+    { min:515000,  max:545000,  hyojun:530000  },{ min:545000,  max:575000,  hyojun:560000  },{ min:575000,  max:605000,  hyojun:590000  },
+    { min:605000,  max:635000,  hyojun:620000  },{ min:635000,  max:665000,  hyojun:650000  },{ min:665000,  max:695000,  hyojun:680000  },
+    { min:695000,  max:730000,  hyojun:710000  },{ min:730000,  max:770000,  hyojun:750000  },{ min:770000,  max:810000,  hyojun:790000  },
+    { min:810000,  max:855000,  hyojun:830000  },{ min:855000,  max:905000,  hyojun:880000  },{ min:905000,  max:955000,  hyojun:930000  },
+    { min:955000,  max:1005000, hyojun:980000  },{ min:1005000, max:1055000, hyojun:1030000 },{ min:1055000, max:1115000, hyojun:1090000 },
+    { min:1115000, max:1175000, hyojun:1150000 },{ min:1175000, max:1235000, hyojun:1210000 },{ min:1235000, max:1295000, hyojun:1270000 },
+    { min:1295000, max:1355000, hyojun:1330000 },{ min:1355000, max:Infinity, hyojun:1390000 },
+  ],
 
-  // ----------------------------------------------------------------
-  // ヘルパー関数：健康保険料（従業員負担）を計算
-  // ----------------------------------------------------------------
-  calcKenkoHoken: function(shikyugokei, prefCode, hasKaigo) {
-    var hyojun = this.getHyojunHoshu(shikyugokei);
+  // 端数処理：50銭以下切捨て・50銭超切上げ（法定）。FP誤差対策で銭まで丸めてから判定
+  han50: function(x) { var n = Math.round(x * 100) / 100; var f = n - Math.floor(n); return f <= 0.5 ? Math.floor(n) : Math.ceil(n); },
+
+  // 標準報酬月額：厚生年金(上限650,000) / 健康保険(上限1,390,000) を分離
+  getHyojunPension: function(pay) {
+    for (var i = 0; i < this.HYOJUN_HOSHU_HYO.length; i++) { var r = this.HYOJUN_HOSHU_HYO[i]; if (pay >= r.min && pay < r.max) return r.hyojun; }
+    return 650000;
+  },
+  getHyojunHealth: function(pay) {
+    for (var i = 0; i < this.HEALTH_HYOJUN_HYO.length; i++) { var r = this.HEALTH_HYOJUN_HYO[i]; if (pay >= r.min && pay < r.max) return r.hyojun; }
+    return 1390000;
+  },
+  // 後方互換（=厚生年金の標準報酬）
+  getHyojunHoshu: function(pay) { return this.getHyojunPension(pay); },
+
+  // 健康保険料（従業員負担・介護込み可）：健保標準報酬 × 折半料率、50銭ルール
+  calcKenkoHoken: function(pay, prefCode, hasKaigo) {
+    var hy = this.getHyojunHealth(pay);
     var pref = this.KENKO_RITSU[prefCode] || this.KENKO_RITSU['tokyo'];
-    var ritsu = pref.jugyoin;
-    if (hasKaigo) ritsu += this.KAIGO_RITSU_JUGYOIN; // 40歳以上65歳未満
-    var kingaku = hyojun * ritsu;
-    // 端数処理：50銭以下切捨て、50銭超切上げ
-    return Math.round(kingaku);
+    var ritsu = pref.jugyoin + (hasKaigo ? this.KAIGO_RITSU_JUGYOIN : 0);
+    return this.han50(hy * ritsu);
   },
-
-  // ----------------------------------------------------------------
-  // ヘルパー関数：厚生年金保険料（従業員負担）を計算
-  // ----------------------------------------------------------------
-  calcKoseiNenkin: function(shikyugokei) {
-    var hyojun = this.getHyojunHoshu(shikyugokei);
-    var kingaku = hyojun * this.KOSEI_NENKIN_RITSU_JUGYOIN;
-    return Math.round(kingaku);
+  // 厚生年金保険料（従業員負担）：厚年標準報酬 × 折半料率、50銭ルール
+  calcKoseiNenkin: function(pay) {
+    return this.han50(this.getHyojunPension(pay) * this.KOSEI_NENKIN_RITSU_JUGYOIN);
   }
 
 };

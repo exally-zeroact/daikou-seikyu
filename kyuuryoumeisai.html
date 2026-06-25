@@ -2499,9 +2499,9 @@
               if (item.id === "health" || item.id === "h_health") {
                 // 健保：標準報酬月額から確定金額を計算
                 if (typeof SHAKAIHOKEN_HYO !== "undefined" && MONTHLY_AMOUNT > 0) {
-                  var hyojun2 = SHAKAIHOKEN_HYO.getHyojunHoshu(MONTHLY_AMOUNT);
+                  var hyojun2 = SHAKAIHOKEN_HYO.getHyojunHealth(MONTHLY_AMOUNT);
                   var hRate2 = v;
-                  var hAmt2 = Math.round(hyojun2 * hRate2);
+                  var hAmt2 = SHAKAIHOKEN_HYO.han50(hyojun2 * hRate2);
                   return (
                     "¥" + hAmt2.toLocaleString() + "（標準報酬¥" + hyojun2.toLocaleString() + "）"
                   );
@@ -2510,8 +2510,8 @@
               if (item.id === "pension" || item.id === "h_pension") {
                 // 年金：標準報酬月額から確定金額を計算
                 if (typeof SHAKAIHOKEN_HYO !== "undefined" && MONTHLY_AMOUNT > 0) {
-                  var hyojun3 = SHAKAIHOKEN_HYO.getHyojunHoshu(MONTHLY_AMOUNT);
-                  var pAmt2 = Math.round(hyojun3 * 0.0915);
+                  var hyojun3 = SHAKAIHOKEN_HYO.getHyojunPension(MONTHLY_AMOUNT);
+                  var pAmt2 = SHAKAIHOKEN_HYO.han50(hyojun3 * 0.0915);
                   return (
                     "¥" + pAmt2.toLocaleString() + "（標準報酬¥" + hyojun3.toLocaleString() + "）"
                   );
@@ -3337,9 +3337,9 @@
               if (item.id === "health" || item.id === "h_health") {
                 // 標準報酬月額から健保確定額を計算してExcelに数値で出力
                 if (typeof SHAKAIHOKEN_HYO !== "undefined" && MONTHLY_AMOUNT > 0) {
-                  const hyojun = SHAKAIHOKEN_HYO.getHyojunHoshu(MONTHLY_AMOUNT);
+                  const hyojun = SHAKAIHOKEN_HYO.getHyojunHealth(MONTHLY_AMOUNT);
                   const r = rate["rate"] ?? 0.04955;
-                  return Math.round(hyojun * r).toString();
+                  return SHAKAIHOKEN_HYO.han50(hyojun * r).toString();
                 }
                 const r = rate["rate"] ?? 0.04955;
                 return `=ROUND(${payTotalCell}*${r},0)`;
@@ -3347,8 +3347,8 @@
               if (item.id === "pension" || item.id === "h_pension") {
                 // 標準報酬月額から年金確定額を計算してExcelに数値で出力
                 if (typeof SHAKAIHOKEN_HYO !== "undefined" && MONTHLY_AMOUNT > 0) {
-                  const hyojun = SHAKAIHOKEN_HYO.getHyojunHoshu(MONTHLY_AMOUNT);
-                  return Math.round(hyojun * 0.0915).toString();
+                  const hyojun = SHAKAIHOKEN_HYO.getHyojunPension(MONTHLY_AMOUNT);
+                  return SHAKAIHOKEN_HYO.han50(hyojun * 0.0915).toString();
                 }
                 return `=ROUND(${payTotalCell}*0.0915,0)`;
               }
@@ -4212,17 +4212,17 @@
             const rate = cRates[item.id] || {};
             if (item.id === "health" || item.id === "h_health") {
               if (typeof SHAKAIHOKEN_HYO !== "undefined" && MONTHLY_AMOUNT > 0) {
-                const hy = SHAKAIHOKEN_HYO.getHyojunHoshu(MONTHLY_AMOUNT);
+                const hy = SHAKAIHOKEN_HYO.getHyojunHealth(MONTHLY_AMOUNT);
                 const r = rate["rate"] ?? 0.04955;
-                return Math.round(hy * r).toString();
+                return SHAKAIHOKEN_HYO.han50(hy * r).toString();
               }
               const r = rate["rate"] ?? 0.04955;
               return `=ROUND(${payTotalCell}*${r},0)`;
             }
             if (item.id === "pension" || item.id === "h_pension") {
               if (typeof SHAKAIHOKEN_HYO !== "undefined" && MONTHLY_AMOUNT > 0) {
-                const hy = SHAKAIHOKEN_HYO.getHyojunHoshu(MONTHLY_AMOUNT);
-                return Math.round(hy * 0.0915).toString();
+                const hy = SHAKAIHOKEN_HYO.getHyojunPension(MONTHLY_AMOUNT);
+                return SHAKAIHOKEN_HYO.han50(hy * 0.0915).toString();
               }
               return `=ROUND(${payTotalCell}*0.0915,0)`;
             }
@@ -4893,17 +4893,17 @@
               // 健康保険 = 標準報酬 × 料率
               if (id === "health" || id === "h_health") {
                 if (typeof SHAKAIHOKEN_HYO !== "undefined" && payTotal > 0) {
-                  var hyojun = SHAKAIHOKEN_HYO.getHyojunHoshu(payTotal);
+                  var hyojun = SHAKAIHOKEN_HYO.getHyojunHealth(payTotal);
                   var hRate = rate["rate"] || 0.04955;
-                  return Math.round(hyojun * hRate);
+                  return SHAKAIHOKEN_HYO.han50(hyojun * hRate);
                 }
                 return 0;
               }
               // 厚生年金 = 標準報酬 × 0.0915
               if (id === "pension" || id === "h_pension") {
                 if (typeof SHAKAIHOKEN_HYO !== "undefined" && payTotal > 0) {
-                  var hyojun2 = SHAKAIHOKEN_HYO.getHyojunHoshu(payTotal);
-                  return Math.round(hyojun2 * 0.0915);
+                  var hyojun2 = SHAKAIHOKEN_HYO.getHyojunPension(payTotal);
+                  return SHAKAIHOKEN_HYO.han50(hyojun2 * 0.0915);
                 }
                 return 0;
               }
@@ -4915,9 +4915,9 @@
               // 介護保険 = 標準報酬 × 料率
               if (id === "kaigo" || id === "h_kaigo") {
                 if (typeof SHAKAIHOKEN_HYO !== "undefined" && payTotal > 0) {
-                  var hyojun3 = SHAKAIHOKEN_HYO.getHyojunHoshu(payTotal);
+                  var hyojun3 = SHAKAIHOKEN_HYO.getHyojunHealth(payTotal);
                   var kRate = rate["rate"] || 0.00795;
-                  return Math.round(hyojun3 * kRate);
+                  return SHAKAIHOKEN_HYO.han50(hyojun3 * kRate);
                 }
                 return 0;
               }

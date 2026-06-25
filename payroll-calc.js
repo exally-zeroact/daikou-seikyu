@@ -101,15 +101,21 @@
     if (payTotal <= 0 || !SHAKAIHOKEN_HYO) {
       return { hyojun: 0, health: 0, pension: 0, kaigo: 0, employ: 0, total: 0 };
     }
-    var hyojun = SHAKAIHOKEN_HYO.getHyojunHoshu(payTotal);
-    var health = Math.round(hyojun * healthRate);
-    var pension = Math.round(hyojun * KOSEI_NENKIN_RITSU);
+    // 健保は上限1,390,000・厚年は上限650,000 → 標準報酬を分離
+    var hyHealth = SHAKAIHOKEN_HYO.getHyojunHealth ? SHAKAIHOKEN_HYO.getHyojunHealth(payTotal) : SHAKAIHOKEN_HYO.getHyojunHoshu(payTotal);
+    var hyPension = SHAKAIHOKEN_HYO.getHyojunPension ? SHAKAIHOKEN_HYO.getHyojunPension(payTotal) : SHAKAIHOKEN_HYO.getHyojunHoshu(payTotal);
+    // 端数：50銭以下切捨・超切上（Math.round=.5切上 は誤り）
+    var han50 = SHAKAIHOKEN_HYO.han50 ? SHAKAIHOKEN_HYO.han50.bind(SHAKAIHOKEN_HYO) : function (x) { var n = Math.round(x * 100) / 100; var f = n - Math.floor(n); return f <= 0.5 ? Math.floor(n) : Math.ceil(n); };
     var kaigoRate =
       SHAKAIHOKEN_HYO.KAIGO_RITSU_JUGYOIN != null ? SHAKAIHOKEN_HYO.KAIGO_RITSU_JUGYOIN : 0.00795;
-    var kaigo = hasKaigo ? Math.round(hyojun * kaigoRate) : 0;
-    var employ = Math.round(payTotal * employRate);
+    var health = han50(hyHealth * healthRate);
+    var kaigo = hasKaigo ? han50(hyHealth * kaigoRate) : 0;
+    var pension = han50(hyPension * KOSEI_NENKIN_RITSU);
+    var employ = han50(payTotal * employRate); // 雇用保険は総支給ベース（正しい）
     return {
-      hyojun: hyojun,
+      hyojun: hyPension,        // 後方互換（厚年標準報酬）
+      hyojunHealth: hyHealth,
+      hyojunPension: hyPension,
       health: health,
       pension: pension,
       kaigo: kaigo,

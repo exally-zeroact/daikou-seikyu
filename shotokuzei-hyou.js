@@ -160,20 +160,32 @@ const SHOTOKUZEI_HYOU = {
   // ----------------------------------------------------------------
   // ヘルパー関数：甲欄から税額を取得
   // ----------------------------------------------------------------
+  // 電算機計算の特例（甲欄・令和3〜7年分／国税庁 財務省告示）で全所得レンジを正確に算定。
+  // 旧・月額表(KO_HYOU)は課税302,000で打ち切り→302,000超で過少徴収だったため置換。
+  // kazeiGaku = その月の社会保険料等控除後の給与等の金額(A) / fuyouNinzu = 扶養親族等の数(配偶者含む)
   getZei: function(kazeiGaku, fuyouNinzu) {
-    // 扶養人数は0〜7（7以上は7として扱う）
-    var idx = Math.min(Math.max(parseInt(fuyouNinzu) || 0, 0), 7);
-    for (var i = 0; i < this.KO_HYOU.length; i++) {
-      var row = this.KO_HYOU[i];
-      if (kazeiGaku >= row.min && kazeiGaku < row.max) {
-        if (row.zei === null) {
-          // 302,000円以上：国税庁の税額表を参照
-          return null;
-        }
-        return row.zei[idx];
-      }
-    }
-    return null;
+    var A = Math.floor(Math.max(0, kazeiGaku || 0));
+    if (A <= 0) return 0;
+    var f = Math.max(0, parseInt(fuyouNinzu) || 0);
+    var kyu; // 第1表 給与所得控除(1円未満切上)
+    if (A <= 135416) kyu = 45834;
+    else if (A <= 149999) kyu = Math.ceil(A * 0.40 - 8333);
+    else if (A <= 299999) kyu = Math.ceil(A * 0.30 + 6667);
+    else if (A <= 549999) kyu = Math.ceil(A * 0.20 + 36667);
+    else if (A <= 708330) kyu = Math.ceil(A * 0.10 + 91667);
+    else kyu = 162500;
+    var kiso = A <= 2162499 ? 40000 : (A <= 2204166 ? 26667 : (A <= 2245833 ? 13334 : 0)); // 第3表
+    var B = A - kyu - 31667 * f - kiso; // 課税給与所得金額
+    if (B <= 0) return 0;
+    var t; // 第4表 税額の算式
+    if (B <= 162500) t = B * 0.05105;
+    else if (B <= 275000) t = B * 0.10210 - 8296;
+    else if (B <= 579166) t = B * 0.20420 - 36374;
+    else if (B <= 750000) t = B * 0.23483 - 54113;
+    else if (B <= 1500000) t = B * 0.33693 - 130688;
+    else if (B <= 3333333) t = B * 0.40840 - 237893;
+    else t = B * 0.45945 - 408061;
+    return Math.round(t / 10) * 10; // 10円未満四捨五入
   }
 
 };
