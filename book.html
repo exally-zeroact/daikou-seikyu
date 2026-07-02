@@ -114,6 +114,98 @@ body {
   #fmt-bar2 { display:flex; }
   #fmt-toggle { display:none; }
 }
+
+/* ===== リボンのタブ ===== */
+#ribbon-tabs{
+  display:flex;
+  align-items:stretch;
+  background:#F0FAF4;
+  border-bottom:1px solid #C8ECD8;
+  padding:0 4px;
+  gap:2px;
+  flex-shrink:0;
+  height:32px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scrollbar-width:none;
+}
+#ribbon-tabs::-webkit-scrollbar{ display:none; }
+.rb-tab{
+  border:none;
+  background:none;
+  font-family:inherit;
+  font-size:13px;
+  font-weight:600;
+  color:#4A6B5A;
+  padding:0 14px;
+  cursor:pointer;
+  white-space:nowrap;
+  border-bottom:2px solid transparent;
+  flex-shrink:0;
+}
+.rb-tab:hover{ background:#E3F5EB; }
+.rb-tab.active{
+  color:#3D9E72;
+  border-bottom-color:#52B788;
+  background:#F8FEFC;
+}
+.rb-tab.rb-file{
+  color:#fff;
+  background:#3D9E72;
+  border-radius:6px;
+  margin:4px 4px 4px 0;
+  padding:0 14px;
+}
+.rb-tab.rb-file:hover{ background:#2E8A60; }
+/* リボンの各パネル（ホーム以外） */
+.ribbon-panel{
+  display:none;
+  align-items:center;
+  background:#F8FEFC;
+  border-bottom:1px solid #C8ECD8;
+  padding:0 6px;
+  gap:2px;
+  flex-shrink:0;
+  height:34px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scrollbar-width:none;
+}
+.ribbon-panel::-webkit-scrollbar{ display:none; }
+.ribbon-panel.show{ display:flex; }
+.rb-btn{
+  border:1px solid transparent;
+  background:none;
+  font-family:inherit;
+  font-size:12px;
+  font-weight:600;
+  color:#1A4A2E;
+  padding:5px 9px;
+  border-radius:7px;
+  cursor:pointer;
+  white-space:nowrap;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  flex-shrink:0;
+}
+.rb-btn:hover{ background:#EAF7F0; border-color:#D4EDE1; }
+.rb-btn .ic{ font-size:14px; }
+.rb-grp{
+  display:inline-flex;
+  align-items:center;
+  gap:2px;
+  padding:0 4px;
+  border-right:1px solid #E0EFE7;
+  height:26px;
+}
+.rb-grp:last-child{ border-right:none; }
+.rb-grp-lb{
+  font-size:10px;
+  color:#9CC5B0;
+  padding:0 4px;
+  flex-shrink:0;
+}
 /* スマホ：▼ボタンを右端にsticky固定（見切れ防止）*/
 @media(max-width:768px){
   #fmt-toggle {
@@ -3040,7 +3132,17 @@ window.addEventListener('load',updateBookVerBadge);
   </div>
 </div>
 
-<!-- ツールバー1段目<!-- ツールバー1段目（常時表示） -->
+<!-- リボンのタブ -->
+<div id="ribbon-tabs">
+  <button class="rb-tab rb-file" onclick="switchRibbonTab('file')">ファイル</button>
+  <button class="rb-tab active" id="rbtab-home" onclick="switchRibbonTab('home')">ホーム</button>
+  <button class="rb-tab" id="rbtab-insert" onclick="switchRibbonTab('insert')">挿入</button>
+  <button class="rb-tab" id="rbtab-formula" onclick="switchRibbonTab('formula')">数式</button>
+  <button class="rb-tab" id="rbtab-data" onclick="switchRibbonTab('data')">データ</button>
+  <button class="rb-tab" id="rbtab-view" onclick="switchRibbonTab('view')">表示</button>
+</div>
+
+<!-- ツールバー1段目<!-- ツールバー1段目（常時表示・ホームタブ） -->
 
 <div id="fmt-bar1">
   <!-- 戻る・進む（左端sticky）-->
@@ -3107,6 +3209,70 @@ window.addEventListener('load',updateBookVerBadge);
   <button class="fmt-btn" onclick="insertLineBreak()" title="任意改行（Alt+Enter）" style="font-size:11px;letter-spacing:-0.5px;">改行</button>
   <button class="fmt-btn" onclick="applyIndent(1)"       title="インデント増">▷+</button>
   <button class="fmt-btn" onclick="applyIndent(-1)"      title="インデント減">◁−</button>
+</div>
+
+<!-- リボン: ファイル タブ -->
+<div class="ribbon-panel" id="ribbon-file">
+  <button class="rb-btn" onclick="newBook()"><span class="ic">🆕</span>新規</button>
+  <button class="rb-btn" onclick="saveXlsx()"><span class="ic">💾</span>Excelでダウンロード</button>
+  <button class="rb-btn" onclick="printBook()"><span class="ic">🖨️</span>印刷</button>
+  <div class="rb-grp"></div>
+  <button class="rb-btn" onclick="location.href='home.html'"><span class="ic">🏠</span>ホーム画面</button>
+  <button class="rb-btn" onclick="openBookVerModal()"><span class="ic">📊</span>バージョン</button>
+</div>
+
+<!-- リボン: 挿入 タブ -->
+<div class="ribbon-panel" id="ribbon-insert">
+  <span class="rb-grp-lb">テーブル</span>
+  <button class="rb-btn" onclick="toggleFilter()"><span class="ic">▦</span>テーブル/フィルター</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">図</span>
+  <button class="rb-btn" onclick="insertChart()"><span class="ic">📊</span>グラフ</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">セル</span>
+  <button class="rb-btn" onclick="ctxInsertRow()"><span class="ic">➕</span>行を挿入</button>
+  <button class="rb-btn" onclick="ctxInsertCol()"><span class="ic">➕</span>列を挿入</button>
+  <button class="rb-btn" onclick="addSheet()"><span class="ic">📄</span>シート追加</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">関数</span>
+  <button class="rb-btn" onclick="openFnPalette()"><span class="ic">ƒx</span>関数の挿入</button>
+</div>
+
+<!-- リボン: 数式 タブ -->
+<div class="ribbon-panel" id="ribbon-formula">
+  <span class="rb-grp-lb">オート集計</span>
+  <button class="rb-btn" onclick="quickAgg('SUM')"><span class="ic">Σ</span>合計</button>
+  <button class="rb-btn" onclick="quickAgg('AVERAGE')"><span class="ic">x̄</span>平均</button>
+  <button class="rb-btn" onclick="quickAgg('COUNT')"><span class="ic">#</span>個数</button>
+  <button class="rb-btn" onclick="quickAgg('MAX')"><span class="ic">↑</span>最大</button>
+  <button class="rb-btn" onclick="quickAgg('MIN')"><span class="ic">↓</span>最小</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">関数ライブラリ</span>
+  <button class="rb-btn" onclick="openFnPalette()"><span class="ic">ƒx</span>関数の挿入</button>
+</div>
+
+<!-- リボン: データ タブ -->
+<div class="ribbon-panel" id="ribbon-data">
+  <span class="rb-grp-lb">並べ替えとフィルター</span>
+  <button class="rb-btn" onclick="dataSort(true)"><span class="ic">🔼</span>昇順</button>
+  <button class="rb-btn" onclick="dataSort(false)"><span class="ic">🔽</span>降順</button>
+  <button class="rb-btn" onclick="openSortModal()"><span class="ic">↕️</span>並べ替え</button>
+  <button class="rb-btn" onclick="toggleFilter()"><span class="ic">▽</span>フィルター</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">検索</span>
+  <button class="rb-btn" onclick="openFind(false)"><span class="ic">🔍</span>検索</button>
+  <button class="rb-btn" onclick="openFind(true)"><span class="ic">🔁</span>置換</button>
+</div>
+
+<!-- リボン: 表示 タブ -->
+<div class="ribbon-panel" id="ribbon-view">
+  <span class="rb-grp-lb">ズーム</span>
+  <button class="rb-btn" onclick="zoomBy(0.1)"><span class="ic">➕</span>拡大</button>
+  <button class="rb-btn" onclick="zoomBy(-0.1)"><span class="ic">➖</span>縮小</button>
+  <button class="rb-btn" onclick="zoomReset()"><span class="ic">🔄</span>100%</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">ウィンドウ</span>
+  <button class="rb-btn" onclick="freezePanes()"><span class="ic">🧊</span>ウィンドウ枠の固定</button>
 </div>
 
 <div id="grid-wrap">
@@ -5192,6 +5358,107 @@ function toggleFmtBar2() {
   var open = bar2.classList.toggle('open');
   if(btn) btn.textContent = open ? '▲' : '▼';
 }
+
+/* ===== リボンのタブ切り替え ===== */
+var _ribbonTab='home';
+function switchRibbonTab(name){
+  // ファイルはタブ状態を変えずパネルだけトグル（Excelのバックステージ相当）
+  var panels=['file','insert','formula','data','view'];
+  if(name==='home'){
+    _ribbonTab='home';
+  } else if(name==='file'){
+    // 開いていれば閉じる
+    var f=document.getElementById('ribbon-file');
+    if(f.classList.contains('show')){ switchRibbonTab(_ribbonTab); return; }
+  } else {
+    _ribbonTab=name;
+  }
+  // タブの見た目（ファイルは常にボタン扱いでactive付けない）
+  ['home','insert','formula','data','view'].forEach(function(t){
+    var el=document.getElementById('rbtab-'+t);
+    if(el) el.classList.toggle('active', t===_ribbonTab && name!=='file');
+  });
+  // ホーム用ツールバーの表示
+  var showHome=(name==='home');
+  document.getElementById('fmt-bar1').style.display=showHome?'flex':'none';
+  var bar2=document.getElementById('fmt-bar2');
+  bar2.style.display=showHome?'':'none';
+  // 各パネルの表示
+  panels.forEach(function(t){
+    var el=document.getElementById('ribbon-'+t);
+    if(el) el.classList.toggle('show', t===name && name!=='home');
+  });
+  _syncGridSize();
+}
+function _syncGridSize(){
+  // ツールバーの高さが変わったのでグリッドを再計測して再描画
+  if(typeof resize==='function') resize();
+  if(typeof render==='function') render();
+}
+function _ribbonToast(msg){
+  var t=document.getElementById('toast');
+  if(t){ t.textContent=msg; t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); },2200); }
+  else alert(msg);
+}
+
+/* ===== ファイル タブ ===== */
+function newBook(){
+  if(!confirm('現在のシートの内容をすべて消去して新規にします。よろしいですか？')) return;
+  var s=sheets[activeSheet];
+  s.data={}; s.hiddenRows={}; s.hiddenCols={}; s._af=null;
+  undoStack=[]; redoStack=[];
+  if(hf){ try{ recalcSheet(activeSheet, s.data); }catch(e){} }
+  sel(0,0,0,0); render(); updateBar();
+  _ribbonToast('🆕 新しいシートにしました');
+}
+function printBook(){ window.print(); }
+
+/* ===== 挿入 / 表示 タブ（Phase 6・7 は準備中トースト） ===== */
+function insertChart(){ _ribbonToast('📊 グラフは Phase 7 で実装予定です'); }
+function freezePanes(){ _ribbonToast('🧊 ウィンドウ枠の固定は Phase 6 で実装予定です'); }
+
+/* ===== 数式 タブ: オート集計 ===== */
+function quickAgg(fn){
+  var r1=selR1,c1=selC1,r2=selR2,c2=selC2;
+  if(r1===r2&&c1===c2){
+    // 単一セル: 直上の連続する数値を集計（なければ左方向）
+    var top=r1, rr=r1-1;
+    while(rr>=0 && _isNum(_cellDisp(rr,c1))){ top=rr; rr--; }
+    if(top<r1){ setCell(r1,c1,'='+fn+'('+cellAddr(top,c1)+':'+cellAddr(r1-1,c1)+')'); }
+    else {
+      var left=c1, cc=c1-1;
+      while(cc>=0 && _isNum(_cellDisp(r1,cc))){ left=cc; cc--; }
+      if(left<c1) setCell(r1,c1,'='+fn+'('+cellAddr(r1,left)+':'+cellAddr(r1,c1-1)+')');
+      else { startEdit(r1,c1); var ci=document.getElementById('cell-input'); if(ci) ci.value='='+fn+'('; return; }
+    }
+    sel(r1,c1,r1,c1);
+  } else if(c1===c2){
+    // 縦一列の選択 → すぐ下に集計
+    setCell(r2+1,c1,'='+fn+'('+cellAddr(r1,c1)+':'+cellAddr(r2,c1)+')');
+    sel(r2+1,c1,r2+1,c1);
+  } else {
+    // 複数列 → 各列の下に集計
+    for(var c=c1;c<=c2;c++) setCell(r2+1,c,'='+fn+'('+cellAddr(r1,c)+':'+cellAddr(r2,c)+')');
+    sel(r2+1,c1,r2+1,c2);
+  }
+  render(); updateBar();
+}
+
+/* ===== データ タブ: アクティブ列で並べ替え ===== */
+function dataSort(asc){
+  var rng=getFilterRange();
+  var col=selC1<rng.c1?rng.c1:(selC1>rng.c2?rng.c2:selC1);
+  _sortRange(rng, [{col:col,asc:asc}], true);
+  _ribbonToast((asc?'🔼 昇順':'🔽 降順')+'で並べ替えました');
+}
+
+/* ===== 表示 タブ: ズーム ===== */
+function zoomBy(delta){
+  scale=Math.max(0.5, Math.min(2, Math.round((scale+delta)*10)/10));
+  render();
+  _ribbonToast('🔍 ズーム '+Math.round(scale*100)+'%');
+}
+function zoomReset(){ scale=1; render(); _ribbonToast('🔍 ズーム 100%'); }
 
 // ===== セル書式設定モーダル =====
 var FMT_DATE_TYPES=[
