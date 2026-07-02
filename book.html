@@ -1093,6 +1093,40 @@ touch-action:manipulation;
 .find-replace-only{display:none;}
 #findPanel.replace-mode .find-replace-only{display:flex;}
 
+/* フィルターのドロップダウンメニュー */
+#filterMenu{position:fixed;z-index:1500;width:240px;max-width:calc(100vw - 24px);background:#fff;border:1px solid #C8ECD8;border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,0.20);display:none;overflow:hidden;font-family:'Noto Sans JP',sans-serif;}
+#filterMenu.show{display:block;}
+.fm-sort{display:flex;flex-direction:column;padding:6px;gap:2px;border-bottom:1px solid #E8F5EE;background:#F8FEFC;}
+.fm-sort button{text-align:left;padding:7px 10px;border:none;background:none;border-radius:6px;font-size:12px;color:#1A4A2E;cursor:pointer;}
+.fm-sort button:hover{background:#F0FAF4;}
+.fm-search{padding:8px;border-bottom:1px solid #E8F5EE;}
+.fm-search input{width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #D4EDE1;border-radius:6px;font-size:12px;}
+.fm-list{max-height:220px;overflow-y:auto;padding:4px 8px;}
+.fm-list label{display:flex;align-items:center;gap:6px;padding:4px 2px;font-size:12px;color:#333;cursor:pointer;}
+.fm-list label.fm-all{font-weight:700;color:#1A4A2E;border-bottom:1px solid #EEE;margin-bottom:2px;padding-bottom:6px;}
+.fm-list input[type=checkbox]{flex:none;}
+.fm-btns{display:flex;gap:6px;justify-content:flex-end;padding:8px;border-top:1px solid #E8F5EE;background:#F8FEFC;}
+.fm-btns button{padding:6px 12px;border:1px solid #D4EDE1;border-radius:8px;background:#fff;color:#1A4A2E;font-size:12px;font-weight:600;cursor:pointer;}
+.fm-btns button.pr{background:#52B788;color:#fff;border-color:#52B788;}
+
+/* 並べ替えモーダル */
+#sortModal{position:fixed;inset:0;z-index:1600;background:rgba(0,0,0,0.35);display:none;align-items:center;justify-content:center;font-family:'Noto Sans JP',sans-serif;}
+#sortModal.show{display:flex;}
+.sm-box{background:#fff;border-radius:14px;width:440px;max-width:calc(100vw - 24px);max-height:calc(100vh - 40px);overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,0.25);}
+.sm-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #E8F5EE;background:#F8FEFC;}
+.sm-hd .tt{font-size:15px;font-weight:700;color:#1A4A2E;}
+.sm-hd .cl{background:none;border:none;font-size:22px;color:#7A9A87;cursor:pointer;line-height:1;}
+.sm-bd{padding:14px 16px;}
+.sm-opt{font-size:12px;color:#333;display:flex;align-items:center;gap:6px;margin-bottom:12px;}
+.sm-lv{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.sm-lv .lb{font-size:11px;color:#7A9A87;width:52px;flex:none;}
+.sm-lv select{flex:1;padding:6px 8px;border:1px solid #D4EDE1;border-radius:7px;font-size:12px;background:#fff;}
+.sm-lv select.ord{flex:none;width:96px;}
+.sm-add{margin-top:4px;padding:6px 10px;border:1px dashed #B7DCC8;border-radius:8px;background:#fff;color:#3D9E72;font-size:12px;font-weight:600;cursor:pointer;}
+.sm-ft{display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:1px solid #E8F5EE;}
+.sm-ft button{padding:8px 16px;border:1px solid #D4EDE1;border-radius:9px;background:#fff;color:#1A4A2E;font-size:13px;font-weight:600;cursor:pointer;}
+.sm-ft button.pr{background:#52B788;color:#fff;border-color:#52B788;}
+
 /* トースト通知 */
 #toast {
 position:fixed;
@@ -1652,6 +1686,9 @@ function _doRender() {
 
   // 4. 罫線（グリッド線の上に描画）
   for(var r=sR;r<=eR+1;r++) for(var c=sC;c<=eC+1;c++) drawBorder(r,c);
+
+  // フィルターのドロップダウンボタン（見出し行に描画）
+  if(typeof drawFilterButtons==='function') drawFilterButtons(sR,eR,sC,eC);
 
   // 5. ヘッダー背景
   ctx.fillStyle=C_HDR_BG;
@@ -2554,6 +2591,9 @@ function detectTimePattern(values){
   <div class="ctx-divider"></div>
   <div class="ctx-item" onclick="ctxFormat()">🎨 セルの書式設定</div>
   <div class="ctx-divider"></div>
+  <div class="ctx-item" onclick="openSortModal()">↕️ 並べ替え...</div>
+  <div class="ctx-item" id="ctx-filter" onclick="toggleFilter()">🔽 フィルター</div>
+  <div class="ctx-divider"></div>
   <div class="ctx-item" onclick="ctxInsertRow()">➕ 行を挿入（上）</div>
   <div class="ctx-item" onclick="ctxInsertCol()">➕ 列を挿入（左）</div>
   <div class="ctx-item" onclick="ctxDeleteRow()">🗑️ 行を削除</div>
@@ -2824,6 +2864,42 @@ window.addEventListener('load',updateBookVerBadge);
       <button class="find-btn find-btn-pr" onclick="findNext()">次を検索</button>
       <button class="find-btn find-replace-only" onclick="replaceOne()">置換</button>
       <button class="find-btn find-replace-only" onclick="replaceAll()">すべて置換</button>
+    </div>
+  </div>
+</div>
+
+<!-- フィルターのドロップダウン -->
+<div id="filterMenu">
+  <div class="fm-sort">
+    <button onclick="_fmSort(true)">▲ 昇順で並べ替え</button>
+    <button onclick="_fmSort(false)">▼ 降順で並べ替え</button>
+  </div>
+  <div class="fm-search">
+    <input id="fm-search" type="text" placeholder="検索..." autocomplete="off" oninput="_fmFilterList()">
+  </div>
+  <div class="fm-list" id="fm-list"></div>
+  <div class="fm-btns">
+    <button onclick="closeFilterMenu()">キャンセル</button>
+    <button onclick="_fmClear()">クリア</button>
+    <button class="pr" onclick="applyFilterMenu()">OK</button>
+  </div>
+</div>
+
+<!-- 並べ替えモーダル -->
+<div id="sortModal">
+  <div class="sm-box">
+    <div class="sm-hd">
+      <span class="tt">並べ替え</span>
+      <button class="cl" onclick="closeSortModal()">×</button>
+    </div>
+    <div class="sm-bd">
+      <label class="sm-opt"><input type="checkbox" id="sm-header" checked onchange="_smRebuildCols()">先頭行をデータの見出しとして使用する</label>
+      <div id="sm-levels"></div>
+      <button class="sm-add" onclick="_smAddLevel()">＋ レベルの追加</button>
+    </div>
+    <div class="sm-ft">
+      <button onclick="closeSortModal()">キャンセル</button>
+      <button class="pr" onclick="applySortModal()">OK</button>
     </div>
   </div>
 </div>
@@ -4146,6 +4222,7 @@ function onMD(e){
     }
   }
   commitEdit(); hideCtxMenu();
+  if(typeof closeFilterMenu==='function') closeFilterMenu();
   // cell-input に focus 強制（マウス操作で奪われた focus を取り戻す）
   var _ci=document.getElementById('cell-input');
   if(_ci && !editingCell) setTimeout(function(){ _ci.focus(); },0);
@@ -4198,6 +4275,12 @@ function onMD(e){
     return;
   }
   var c=xToC(p.x),r=yToR(p.y);
+
+  // フィルターのドロップダウンボタン判定（セル選択より優先）
+  if(typeof _filterBtnHit==='function'){
+    var _fbc=_filterBtnHit(p.x,p.y);
+    if(_fbc>=0){ openFilterMenu(_fbc); return; }
+  }
 
   // STEP3: 複数選択モード ON 時の挙動（PC・スマホ共通）
   if(multiSelectMode && !e.shiftKey){
@@ -5420,6 +5503,298 @@ function drawFindHighlights(sR,eR,sC,eC){
   }
   ctx.restore();
 }
+/* ===== Phase 3: 並べ替え・フィルター ===== */
+
+function _afGet(){ return sheets[activeSheet]._af || null; }
+function _cellDisp(r,c){
+  var cell=sheets[activeSheet].data[r+','+c];
+  if(!cell) return '';
+  var v=(cell.d!==undefined&&cell.d!=='')?cell.d:cell.v;
+  return (v===undefined||v===null)?'':String(v);
+}
+function _hasVal(r,c){ return _cellDisp(r,c)!==''; }
+function _rowHasAny(r,c1,c2){ for(var c=c1;c<=c2;c++) if(_hasVal(r,c)) return true; return false; }
+function _colHasAny(c,r1,r2){ for(var r=r1;r<=r2;r++) if(_hasVal(r,c)) return true; return false; }
+function _detectRegion(r0,c0){
+  if(!_hasVal(r0,c0)) return {r1:r0,c1:c0,r2:r0,c2:c0};
+  var r1=r0,r2=r0,c1=c0,c2=c0,changed=true;
+  while(changed){
+    changed=false;
+    if(r1>0&&_rowHasAny(r1-1,c1,c2)){ r1--; changed=true; }
+    if(r2<ROWS-1&&_rowHasAny(r2+1,c1,c2)){ r2++; changed=true; }
+    if(c1>0&&_colHasAny(c1-1,r1,r2)){ c1--; changed=true; }
+    if(c2<COLS-1&&_colHasAny(c2+1,r1,r2)){ c2++; changed=true; }
+  }
+  return {r1:r1,c1:c1,r2:r2,c2:c2};
+}
+function getFilterRange(){
+  if(selR1!==selR2||selC1!==selC2) return {r1:selR1,c1:selC1,r2:selR2,c2:selC2};
+  return _detectRegion(selR1,selC1);
+}
+
+// 並べ替えの値比較
+function _isNum(x){ return x!=='' && !isNaN(x) && isFinite(Number(x)); }
+function _cmpVals(a,b){
+  var ae=(a===undefined||a===null||String(a)===''), be=(b===undefined||b===null||String(b)==='');
+  if(ae&&be) return 0; if(ae) return 1; if(be) return -1;
+  a=String(a); b=String(b);
+  if(_isNum(a)&&_isNum(b)) return Number(a)-Number(b);
+  return a.localeCompare(b,'ja');
+}
+function _sortRange(rng, keys, hasHeader){
+  if(!keys.length) return;
+  _pushRowColUndo();
+  var s=sheets[activeSheet];
+  var startR=hasHeader?rng.r1+1:rng.r1;
+  var rows=[];
+  for(var r=startR;r<=rng.r2;r++){
+    var slice={};
+    for(var c=rng.c1;c<=rng.c2;c++){ var k=r+','+c; if(s.data[k]) slice[c]=s.data[k]; }
+    rows.push(slice);
+  }
+  rows.sort(function(a,b){
+    for(var i=0;i<keys.length;i++){
+      var col=keys[i].col;
+      var va=a[col]?_cellDispFromCell(a[col]):'';
+      var vb=b[col]?_cellDispFromCell(b[col]):'';
+      var cmp=_cmpVals(va,vb);
+      if(cmp!==0) return keys[i].asc?cmp:-cmp;
+    }
+    return 0;
+  });
+  for(var i2=0;i2<rows.length;i2++){
+    var rr=startR+i2;
+    for(var c2=rng.c1;c2<=rng.c2;c2++){
+      var k2=rr+','+c2;
+      if(rows[i2][c2]) s.data[k2]=rows[i2][c2];
+      else delete s.data[k2];
+    }
+  }
+  recalcSheet(activeSheet, s.data);
+  if(s._af) _afApply();
+  render(); updateBar();
+}
+function _cellDispFromCell(cell){
+  var v=(cell.d!==undefined&&cell.d!=='')?cell.d:cell.v;
+  return (v===undefined||v===null)?'':String(v);
+}
+
+// フィルターの適用（見出し行以下を非表示制御）
+function _afApply(){
+  var af=_afGet(); if(!af) return;
+  var s=sheets[activeSheet];
+  if(!s.hiddenRows) s.hiddenRows={};
+  if(af.hiddenByFilter) Object.keys(af.hiddenByFilter).forEach(function(r){ delete s.hiddenRows[r]; });
+  af.hiddenByFilter={};
+  var cols=af.crit?Object.keys(af.crit):[];
+  if(cols.length){
+    for(var r=af.r1+1;r<=af.r2;r++){
+      var show=true;
+      for(var ci=0;ci<cols.length;ci++){
+        var col=parseInt(cols[ci]);
+        var allowed=af.crit[col];
+        if(!allowed[_cellDisp(r,col)]){ show=false; break; }
+      }
+      if(!show){ s.hiddenRows[r]=true; af.hiddenByFilter[r]=true; }
+    }
+  }
+  render();
+}
+function toggleFilter(){
+  hideCtxMenu();
+  var s=sheets[activeSheet];
+  if(s._af){
+    if(s._af.hiddenByFilter&&s.hiddenRows) Object.keys(s._af.hiddenByFilter).forEach(function(r){ delete s.hiddenRows[r]; });
+    s._af=null;
+  } else {
+    var rng=getFilterRange();
+    s._af={r1:rng.r1,c1:rng.c1,r2:rng.r2,c2:rng.c2,crit:{},hiddenByFilter:{}};
+  }
+  render();
+}
+
+// フィルターボタンの描画
+function _rrPath(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function _filterBtnRect(c){
+  var af=_afGet(); if(!af) return null;
+  if(c<af.c1||c>af.c2) return null;
+  if(sheets[activeSheet].hiddenCols&&sheets[activeSheet].hiddenCols[c]) return null;
+  var x=colX(c),w=cW(c),y=rowY(af.r1),h=rH(af.r1);
+  if(w<10||h<8) return null;
+  var bw=Math.min(15,w-2), bh=Math.min(15,h-2);
+  var bx=x+w-bw-1, by=y+(h-bh)/2;
+  if(bx+bw<HDR_W||bx>wrapW||by+bh<HDR_H||by>wrapH) return null;
+  return {x:bx,y:by,w:bw,h:bh};
+}
+function drawFilterButtons(sR,eR,sC,eC){
+  var af=_afGet(); if(!af) return;
+  if(af.r1<sR-1||af.r1>eR+2) return;
+  ctx.save();
+  for(var c=Math.max(af.c1,sC-1);c<=Math.min(af.c2,eC+1);c++){
+    var rect=_filterBtnRect(c); if(!rect) continue;
+    var active=!!(af.crit&&af.crit[c]);
+    _rrPath(rect.x,rect.y,rect.w,rect.h,3);
+    ctx.fillStyle=active?'#52B788':'#FFFFFF';
+    ctx.fill();
+    ctx.strokeStyle=active?'#3D9E72':'#9CC5B0';
+    ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=active?'#FFFFFF':'#3D9E72';
+    var tx=rect.x+rect.w/2, ty=rect.y+rect.h/2-1, t=3;
+    ctx.beginPath(); ctx.moveTo(tx-t,ty-1); ctx.lineTo(tx+t,ty-1); ctx.lineTo(tx,ty+t+1); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+function _filterBtnHit(px,py){
+  var af=_afGet(); if(!af) return -1;
+  for(var c=af.c1;c<=af.c2;c++){
+    var rect=_filterBtnRect(c); if(!rect) continue;
+    if(px>=rect.x-2&&px<=rect.x+rect.w+2&&py>=rect.y-2&&py<=rect.y+rect.h+2) return c;
+  }
+  return -1;
+}
+
+// フィルターメニュー
+var _fmCol=-1;
+function _uniqueValues(col){
+  var af=_afGet(); if(!af) return [];
+  var seen={}, out=[];
+  for(var r=af.r1+1;r<=af.r2;r++){
+    var v=_cellDisp(r,col);
+    if(!seen.hasOwnProperty(v)){ seen[v]=true; out.push(v); }
+  }
+  out.sort(function(a,b){ return _cmpVals(a,b); });
+  return out;
+}
+function openFilterMenu(col){
+  var af=_afGet(); if(!af) return;
+  _fmCol=col;
+  var vals=_uniqueValues(col);
+  var allowed=(af.crit&&af.crit[col])?af.crit[col]:null;
+  var list=document.getElementById('fm-list');
+  var html='<label class="fm-all"><input type="checkbox" id="fm-all" checked onchange="_fmToggleAll(this.checked)">(すべて選択)</label>';
+  for(var i=0;i<vals.length;i++){
+    var v=vals[i];
+    var checked=(!allowed||allowed[v])?'checked':'';
+    var label=(v==='')?'(空白)':_fmEsc(v);
+    html+='<label><input type="checkbox" class="fm-cb" data-val="'+_fmEscAttr(v)+'" '+checked+' onchange="_fmSyncAll()">'+label+'</label>';
+  }
+  list.innerHTML=html;
+  document.getElementById('fm-search').value='';
+  _fmSyncAll();
+  var menu=document.getElementById('filterMenu');
+  menu.classList.add('show');
+  // 位置：ボタンの真下（画面内に収める）
+  var rect=_filterBtnRect(col);
+  var cr=canvas.getBoundingClientRect();
+  var mw=menu.offsetWidth||240, mh=menu.offsetHeight||300;
+  var left=cr.left+(rect?rect.x:HDR_W), top=cr.top+(rect?rect.y+rect.h:HDR_H)+2;
+  if(left+mw>window.innerWidth) left=window.innerWidth-mw-8;
+  if(left<8) left=8;
+  if(top+mh>window.innerHeight) top=Math.max(8, window.innerHeight-mh-8);
+  menu.style.left=left+'px'; menu.style.top=top+'px';
+}
+function _fmEsc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function _fmEscAttr(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function closeFilterMenu(){ var m=document.getElementById('filterMenu'); if(m) m.classList.remove('show'); }
+function _fmToggleAll(on){
+  var cbs=document.querySelectorAll('#fm-list .fm-cb');
+  for(var i=0;i<cbs.length;i++){ if(cbs[i].parentNode.style.display!=='none') cbs[i].checked=on; }
+}
+function _fmSyncAll(){
+  var cbs=document.querySelectorAll('#fm-list .fm-cb'), all=document.getElementById('fm-all');
+  if(!all) return;
+  var total=0, on=0;
+  for(var i=0;i<cbs.length;i++){ total++; if(cbs[i].checked) on++; }
+  all.checked=(on===total);
+  all.indeterminate=(on>0&&on<total);
+}
+function _fmFilterList(){
+  var q=document.getElementById('fm-search').value.toLowerCase();
+  var labels=document.querySelectorAll('#fm-list label');
+  for(var i=0;i<labels.length;i++){
+    if(labels[i].classList.contains('fm-all')) continue;
+    var t=labels[i].textContent.toLowerCase();
+    labels[i].style.display=(t.indexOf(q)>=0)?'flex':'none';
+  }
+}
+function applyFilterMenu(){
+  var af=_afGet(); if(!af||_fmCol<0){ closeFilterMenu(); return; }
+  var cbs=document.querySelectorAll('#fm-list .fm-cb');
+  var allowed={}, total=0, on=0;
+  for(var i=0;i<cbs.length;i++){
+    total++;
+    if(cbs[i].checked){ on++; allowed[cbs[i].getAttribute('data-val')]=true; }
+  }
+  if(!af.crit) af.crit={};
+  if(on===total) delete af.crit[_fmCol];
+  else af.crit[_fmCol]=allowed;
+  _afApply();
+  closeFilterMenu();
+}
+function _fmClear(){
+  var af=_afGet(); if(af&&af.crit) delete af.crit[_fmCol];
+  _afApply();
+  closeFilterMenu();
+}
+function _fmSort(asc){
+  var af=_afGet(); if(!af||_fmCol<0){ closeFilterMenu(); return; }
+  _sortRange({r1:af.r1,c1:af.c1,r2:af.r2,c2:af.c2}, [{col:_fmCol,asc:asc}], true);
+  closeFilterMenu();
+}
+
+// 並べ替えモーダル
+var _smRange=null;
+function openSortModal(){
+  hideCtxMenu();
+  _smRange=getFilterRange();
+  document.getElementById('sm-header').checked=true;
+  document.getElementById('sm-levels').innerHTML='';
+  _smAddLevel();
+  document.getElementById('sortModal').classList.add('show');
+}
+function closeSortModal(){ document.getElementById('sortModal').classList.remove('show'); }
+function _smColOptions(){
+  var rng=_smRange, hasH=document.getElementById('sm-header').checked;
+  var html='';
+  for(var c=rng.c1;c<=rng.c2;c++){
+    var name=hasH?_cellDisp(rng.r1,c):'';
+    if(!name) name='列 '+colLetter(c);
+    html+='<option value="'+c+'">'+_fmEsc(name)+'</option>';
+  }
+  return html;
+}
+function _smAddLevel(){
+  var box=document.getElementById('sm-levels');
+  if(box.children.length>=3) return;
+  var opts=_smColOptions();
+  var isFirst=box.children.length===0;
+  var div=document.createElement('div');
+  div.className='sm-lv';
+  div.innerHTML='<span class="lb">'+(isFirst?'最優先':'次に優先')+'</span>'
+    +'<select class="col">'+opts+'</select>'
+    +'<select class="ord"><option value="asc">昇順</option><option value="desc">降順</option></select>';
+  box.appendChild(div);
+}
+function _smRebuildCols(){
+  var opts=_smColOptions();
+  var sels=document.querySelectorAll('#sm-levels .col');
+  for(var i=0;i<sels.length;i++){ var v=sels[i].value; sels[i].innerHTML=opts; sels[i].value=v; }
+}
+function applySortModal(){
+  var levels=document.querySelectorAll('#sm-levels .sm-lv');
+  var keys=[], used={};
+  for(var i=0;i<levels.length;i++){
+    var col=parseInt(levels[i].querySelector('.col').value);
+    var asc=levels[i].querySelector('.ord').value==='asc';
+    if(used[col]) continue;
+    used[col]=true;
+    keys.push({col:col,asc:asc});
+  }
+  var hasH=document.getElementById('sm-header').checked;
+  _sortRange(_smRange, keys, hasH);
+  closeSortModal();
+}
+
 function _findCellText(cell, inFormula){
   if(inFormula) return String(cell.f||cell.v||'');
   return String((cell.d!==undefined&&cell.d!=='')?cell.d:cell.v||'');
