@@ -1735,7 +1735,7 @@ function _doRender() {
   var fs=Math.max(9,Math.round(11*Math.min(scale,1.5)));
   ctx.font=fw+' '+fs+'px "Noto Sans JP",sans-serif';
   for(var c=sC;c<=eC+1;c++){
-    var x=colX(c),w=cW(c); if(x+w<0||x>wrapW) continue;
+    var x=colX(c),w=cW(c); if(x+w<0||x>wrapW||w<=0) continue;
     ctx.fillStyle=_colInAnySel(c)?'#1E88E5':C_HDR_TXT;
     ctx.fillText(colLetter(c),x+w/2,HDR_H/2);
   }
@@ -1743,7 +1743,7 @@ function _doRender() {
   var rf=Math.max(9,Math.round(11*Math.min(scale,1.5)));
   ctx.font=rf+'px "Noto Sans JP",sans-serif';
   for(var r=sR;r<=eR+1;r++){
-    var y=rowY(r),h=rH(r); if(y+h<0||y>wrapH) continue;
+    var y=rowY(r),h=rH(r); if(y+h<0||y>wrapH||h<=0) continue;
     ctx.fillStyle=_rowInAnySel(r)?'#1E88E5':C_HDR_TXT;
     ctx.fillText(r+1,HDR_W-4,y+h/2);
   }
@@ -1878,6 +1878,7 @@ function _doRender() {
 
 function drawText(r,c){
   var x=colX(c),y=rowY(r),w=cW(c),h=rH(r);
+  if(w<=0||h<=0) return;
   if(x+w<HDR_W||x>wrapW||y+h<HDR_H||y>wrapH) return;
   var cell=getCell(r,c);
 
@@ -1981,6 +1982,7 @@ function drawBorder(r,c){
   if(!cell.border) return; // borderなし → 即return（最適化）
   var b=cell.border;
   var x=colX(c),y=rowY(r),w=cW(c),h=rH(r);
+  if(w<=0||h<=0) return;
   if(x+w<HDR_W||x>wrapW||y+h<HDR_H||y>wrapH) return;
   ctx.save();
   if(b.top){
