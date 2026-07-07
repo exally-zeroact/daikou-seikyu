@@ -4151,6 +4151,7 @@ function bindEvents(){
       this.style.width=Math.max(w,80)+'px';
       this.style.height=h+'px';
       this.classList.add('editing');
+      _applyCellFontToInput(this,selR1,selC1);
     }
     // 数式モード判定＋ref色付け
     refMode=(editingCell&&this.classList.contains('editing')&&v.length>0&&(v[0]==='='||v[0]==='＝'));
@@ -5110,15 +5111,8 @@ function moveSel(dr,dc){
 }
 
 // セル編集
-function startEdit(r,c,init){
-  commitEdit();
-  editingCell={r:r,c:c};
-  var x=colX(c),y=rowY(r),w=cW(c),h=rH(r);
-  var el=document.getElementById('cell-input');
-  el.style.left=x+'px'; el.style.top=y+'px';
-  el.style.width=Math.max(w,80)+'px'; el.style.height=h+'px';
-  el.classList.add('editing');
-  // セルの書式（フォントサイズ/太字/斜体/フォント種別/色）を編集欄にも反映（表示と一致させる）
+// セルの書式（フォントサイズ/太字/斜体/フォント種別/色）を編集欄にも反映（表示と一致させる）
+function _applyCellFontToInput(el,r,c){
   var cell=getCell(r,c);
   var fontSize=Math.max(9,Math.min(72,Math.round((cell.fontSize||12)*scale)));
   var fam=cell.fontFamily?'"'+cell.fontFamily+'",sans-serif':'"Noto Sans JP",sans-serif';
@@ -5127,6 +5121,16 @@ function startEdit(r,c,init){
   el.style.fontWeight=cell.bold?'bold':'normal';
   el.style.fontStyle=cell.italic?'italic':'normal';
   el.style.color=cell.color||'#1A2B22';
+}
+function startEdit(r,c,init){
+  commitEdit();
+  editingCell={r:r,c:c};
+  var x=colX(c),y=rowY(r),w=cW(c),h=rH(r);
+  var el=document.getElementById('cell-input');
+  el.style.left=x+'px'; el.style.top=y+'px';
+  el.style.width=Math.max(w,80)+'px'; el.style.height=h+'px';
+  el.classList.add('editing');
+  _applyCellFontToInput(el,r,c);
   el.value=init!==undefined?init:(getCell(r,c).v||'');
   el.focus();
   if(init!==undefined) el.setSelectionRange(init.length,init.length);
