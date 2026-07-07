@@ -5118,6 +5118,15 @@ function startEdit(r,c,init){
   el.style.left=x+'px'; el.style.top=y+'px';
   el.style.width=Math.max(w,80)+'px'; el.style.height=h+'px';
   el.classList.add('editing');
+  // セルの書式（フォントサイズ/太字/斜体/フォント種別/色）を編集欄にも反映（表示と一致させる）
+  var cell=getCell(r,c);
+  var fontSize=Math.max(9,Math.min(72,Math.round((cell.fontSize||12)*scale)));
+  var fam=cell.fontFamily?'"'+cell.fontFamily+'",sans-serif':'"Noto Sans JP",sans-serif';
+  el.style.fontSize=fontSize+'px';
+  el.style.fontFamily=fam;
+  el.style.fontWeight=cell.bold?'bold':'normal';
+  el.style.fontStyle=cell.italic?'italic':'normal';
+  el.style.color=cell.color||'#1A2B22';
   el.value=init!==undefined?init:(getCell(r,c).v||'');
   el.focus();
   if(init!==undefined) el.setSelectionRange(init.length,init.length);
