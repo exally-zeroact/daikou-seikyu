@@ -759,28 +759,6 @@ animation:spin 0.7s linear infinite;
 @keyframes spin { to { transform:rotate(360deg); } }
 #loading p { color:#3D9E72; font-size:13px; font-weight:700; }
 
-/* セル操作ボタン（選択セル右下） */
-#cell-action-btn {
-position:fixed;
-display:none;
-min-width:24px;
-height:22px;
-padding:0 4px;
-background:#fff;
-color:#4A6B5A;
-border:1px solid #C8ECD8;
-border-radius:4px;
-font-size:11px;
-font-family:inherit;
-cursor:pointer;
-z-index:80;
-box-shadow:0 1px 4px rgba(0,0,0,0.10);
-line-height:22px;
-text-align:center;
-user-select:none;
--webkit-user-select:none;
-}
-#cell-action-btn:active { background:#C8ECD8; }
 /* 解説ポップアップ */
 #explain-popup {
 position:fixed;
@@ -1510,31 +1488,9 @@ function updateBar(){
   document.getElementById('formula-input').value=(cell.f||'').replace(/\n/g,' ↵ ');
   updateFormulaDisplay(cell.f||'');
   updateFormatBar(cell);
-  updateActionBtn();
 }
 var _canvasBCR=null, _canvasBCRDirty=true;
 function _getCanvasBCR(){ if(_canvasBCRDirty||!_canvasBCR){_canvasBCR=canvas.getBoundingClientRect();_canvasBCRDirty=false;} return _canvasBCR; }
-function updateActionBtn(){
-  var btn = document.getElementById('cell-action-btn');
-  if(!btn) return;
-  var x2 = colX(selC2)+cW(selC2);
-  var y2 = rowY(selR2)+rH(selR2);
-  var cr = _getCanvasBCR();
-  var bx = cr.left + x2 + 10;
-  var by = cr.top  + y2 - 30;
-  bx = Math.min(bx, window.innerWidth  - 34);
-  bx = Math.max(bx, cr.left + HDR_W + 2);
-  by = Math.max(by, cr.top  + HDR_H + 2);
-  by = Math.min(by, window.innerHeight - 34);
-  btn.style.left = Math.round(bx) + 'px';
-  btn.style.top  = Math.round(by) + 'px';
-  btn.style.display = 'block';
-}
-function onActionBtn(e){
-  e.stopPropagation();
-  var btn = document.getElementById('cell-action-btn');
-  showCtxMenu(parseFloat(btn.style.left), parseFloat(btn.style.top)+26);
-}
 
 // 書式ツールバーの状態を更新
 function updateFormatBar(cell) {
@@ -1968,8 +1924,6 @@ function _doRender() {
     drawColoredFormulaOnCell(_editR, _editC, _editVal);
   }
 
-  // ⋮ボタン位置を更新
-  if(typeof updateActionBtn==='function') updateActionBtn();
 }
 
 function drawText(r,c){
@@ -2658,8 +2612,6 @@ function detectTimePattern(values){
 </svg>
 
 <div id="loading"><div class="spinner"></div><p>グリッドを起動中...</p></div>
-
-<button id="cell-action-btn" ontouchstart="event.stopPropagation()" ontouchend="event.stopPropagation();event.preventDefault();onActionBtn(event);" onclick="onActionBtn(event)">▼</button>
 
 <!-- 解説ポップアップ -->
 
