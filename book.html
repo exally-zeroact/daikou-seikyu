@@ -5304,14 +5304,27 @@ function cancelEdit(){
 // シート
 function switchSheet(idx){
   commitEdit();
+  // 現シートの選択セル・スクロール位置を記憶（Excelと同様、シート毎に保持）
+  if(sheets[activeSheet]){
+    sheets[activeSheet]._lastSel={r1:selR1,c1:selC1,r2:selR2,c2:selC2,scrollTop:scrollTop,scrollLeft:scrollLeft};
+  }
   if(multiSelectMode){
     // 複数選択モード中：メイン退避 & 新シート範囲を昇格
     _switchSheetWithMultiSelect(idx);
   } else {
     activeSheet=idx;
-    selR1=0;selC1=0;selR2=0;selC2=0;
+    var ls=sheets[idx]._lastSel;
+    if(ls){
+      selR1=ls.r1;selC1=ls.c1;selR2=ls.r2;selC2=ls.c2;
+      anchorR=ls.r1;anchorC=ls.c1;activeR=ls.r2;activeC=ls.c2;
+      scrollTop=ls.scrollTop;scrollLeft=ls.scrollLeft;
+    } else {
+      selR1=0;selC1=0;selR2=0;selC2=0;
+      anchorR=0;anchorC=0;activeR=0;activeC=0;
+      scrollTop=0;scrollLeft=0;
+    }
   }
-  scrollTop=0;scrollLeft=0;scale=1;
+  scale=1;
   updateBar(); render();
   document.querySelectorAll('.sheet-tab').forEach(function(t,i){t.classList.toggle('active',i===idx);});
   // モード中はサブバーも更新（別シート範囲のチップ表示に反映）
