@@ -4127,19 +4127,17 @@ function bindEvents(){
     if(!editingCell){
       if(e.key==='ArrowDown'||e.key==='ArrowUp'||e.key==='ArrowLeft'||e.key==='ArrowRight'||
          e.key==='Tab'||e.key==='Home'||e.key==='End'||e.key==='Delete'||e.key==='Backspace'||
-         e.key==='F2'||e.key==='PageUp'||e.key==='PageDown'){
-        // onKD が処理する（スキップ）
+         e.key==='F2'||e.key==='PageUp'||e.key==='PageDown'||e.key==='Enter'){
+        // onKD が処理する（スキップ、Enterも編集中でなければExcelと同様に下移動のみ）
         return;
       }
       // Ctrl/Cmd ショートカットも onKD へ
       if(e.ctrlKey||e.metaKey) return;
-      // Enter: F2相当で編集開始（既存値を初期値に）
-      if(e.key==='Enter'){ e.preventDefault(); startEdit(selR1,selC1); return; }
     }
-    // 編集モード中
-    if(e.key==='Enter'&&!e.shiftKey){if(e.isComposing||e.keyCode===229)return;e.preventDefault();refMode=false;refStartR=-1;commitEdit();moveSel(1,0);}
-    else if(e.key==='Tab'){e.preventDefault();refMode=false;refStartR=-1;commitEdit();moveSel(0,1);}
-    else if(e.key==='Escape'){refMode=false;refStartR=-1;cancelEdit();}
+    // 編集モード中（ここで完結して処理するので、onKDへの二重伝播を止める）
+    if(e.key==='Enter'&&!e.shiftKey){if(e.isComposing||e.keyCode===229)return;e.preventDefault();e.stopPropagation();refMode=false;refStartR=-1;commitEdit();moveSel(1,0);}
+    else if(e.key==='Tab'){e.preventDefault();e.stopPropagation();refMode=false;refStartR=-1;commitEdit();moveSel(0,e.shiftKey?-1:1);}
+    else if(e.key==='Escape'){e.stopPropagation();refMode=false;refStartR=-1;cancelEdit();}
   });
   ci.addEventListener('input',function(){
     var v=this.value;
@@ -4863,7 +4861,7 @@ function onKD(e){
     if(e.key==='ArrowLeft') {moveSel(0,-1);moved=true;}
   }
 
-  if(e.key==='Enter'){startEdit(selR1,selC1);moved=true;}
+  if(e.key==='Enter'){moveSel(e.shiftKey?-1:1,0);moved=true;}
   if(e.key==='Delete'||e.key==='Backspace'){setCell(selR1,selC1,'');updateBar();render();moved=true;}
   if(e.key==='Home'){ sel(selR1,0,selR1,0); moved=true; }
   if(e.key==='End'){  sel(selR1,COLS-1,selR1,COLS-1); moved=true; }
