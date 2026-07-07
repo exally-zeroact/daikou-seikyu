@@ -859,6 +859,10 @@ padding:4px 0;
 z-index:1000;
 min-width:160px;
 display:none;
+max-height:calc(100dvh - 12px);
+overflow-y:auto;
+overscroll-behavior:contain;
+-webkit-overflow-scrolling:touch;
 }
 #ctx-menu.show { display:block; }
 .ctx-item {
@@ -4933,8 +4937,20 @@ function showCtxMenu(x,y){
   document.getElementById('ctx-unhide-col').style.display=hasHC?'block':'none';
   m.classList.add('show');
   var rect=m.getBoundingClientRect();
-  if(rect.right>window.innerWidth) m.style.left=(x-rect.width)+'px';
-  if(rect.bottom>window.innerHeight) m.style.top=(y-rect.height)+'px';
+  var pad=6;
+  var vw=window.innerWidth, vh=window.innerHeight;
+  var left=x, top=y;
+  // 右にはみ出す → 左側に出す
+  if(left+rect.width>vw-pad) left=x-rect.width;
+  if(left<pad) left=pad;
+  if(left+rect.width>vw-pad) left=Math.max(pad, vw-rect.width-pad);
+  // 下にはみ出す → 上向きに反転
+  if(top+rect.height>vh-pad) top=y-rect.height;
+  // 上端が画面外に出ないようクランプ（メニューが長い時に上が切れるのを防ぐ）
+  if(top<pad) top=pad;
+  // それでも下にはみ出す（画面より高い）→ 上端揃え＋スクロール
+  if(top+rect.height>vh-pad) top=Math.max(pad, vh-rect.height-pad);
+  m.style.left=left+'px'; m.style.top=top+'px';
 }
 function hideCtxMenu(){ document.getElementById('ctx-menu').classList.remove('show'); }
 
