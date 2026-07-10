@@ -114,6 +114,98 @@ body {
   #fmt-bar2 { display:flex; }
   #fmt-toggle { display:none; }
 }
+
+/* ===== リボンのタブ ===== */
+#ribbon-tabs{
+  display:flex;
+  align-items:stretch;
+  background:#F0FAF4;
+  border-bottom:1px solid #C8ECD8;
+  padding:0 4px;
+  gap:2px;
+  flex-shrink:0;
+  height:32px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scrollbar-width:none;
+}
+#ribbon-tabs::-webkit-scrollbar{ display:none; }
+.rb-tab{
+  border:none;
+  background:none;
+  font-family:inherit;
+  font-size:13px;
+  font-weight:600;
+  color:#4A6B5A;
+  padding:0 14px;
+  cursor:pointer;
+  white-space:nowrap;
+  border-bottom:2px solid transparent;
+  flex-shrink:0;
+}
+.rb-tab:hover{ background:#E3F5EB; }
+.rb-tab.active{
+  color:#3D9E72;
+  border-bottom-color:#52B788;
+  background:#F8FEFC;
+}
+.rb-tab.rb-file{
+  color:#fff;
+  background:#3D9E72;
+  border-radius:6px;
+  margin:4px 4px 4px 0;
+  padding:0 14px;
+}
+.rb-tab.rb-file:hover{ background:#2E8A60; }
+/* リボンの各パネル（ホーム以外） */
+.ribbon-panel{
+  display:none;
+  align-items:center;
+  background:#F8FEFC;
+  border-bottom:1px solid #C8ECD8;
+  padding:0 6px;
+  gap:2px;
+  flex-shrink:0;
+  height:34px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scrollbar-width:none;
+}
+.ribbon-panel::-webkit-scrollbar{ display:none; }
+.ribbon-panel.show{ display:flex; }
+.rb-btn{
+  border:1px solid transparent;
+  background:none;
+  font-family:inherit;
+  font-size:12px;
+  font-weight:600;
+  color:#1A4A2E;
+  padding:5px 9px;
+  border-radius:7px;
+  cursor:pointer;
+  white-space:nowrap;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  flex-shrink:0;
+}
+.rb-btn:hover{ background:#EAF7F0; border-color:#D4EDE1; }
+.rb-btn .ic{ font-size:14px; }
+.rb-grp{
+  display:inline-flex;
+  align-items:center;
+  gap:2px;
+  padding:0 4px;
+  border-right:1px solid #E0EFE7;
+  height:26px;
+}
+.rb-grp:last-child{ border-right:none; }
+.rb-grp-lb{
+  font-size:10px;
+  color:#9CC5B0;
+  padding:0 4px;
+  flex-shrink:0;
+}
 /* スマホ：▼ボタンを右端にsticky固定（見切れ防止）*/
 @media(max-width:768px){
   #fmt-toggle {
@@ -667,28 +759,6 @@ animation:spin 0.7s linear infinite;
 @keyframes spin { to { transform:rotate(360deg); } }
 #loading p { color:#3D9E72; font-size:13px; font-weight:700; }
 
-/* セル操作ボタン（選択セル右下） */
-#cell-action-btn {
-position:fixed;
-display:none;
-min-width:24px;
-height:22px;
-padding:0 4px;
-background:#fff;
-color:#4A6B5A;
-border:1px solid #C8ECD8;
-border-radius:4px;
-font-size:11px;
-font-family:inherit;
-cursor:pointer;
-z-index:80;
-box-shadow:0 1px 4px rgba(0,0,0,0.10);
-line-height:22px;
-text-align:center;
-user-select:none;
--webkit-user-select:none;
-}
-#cell-action-btn:active { background:#C8ECD8; }
 /* 解説ポップアップ */
 #explain-popup {
 position:fixed;
@@ -767,6 +837,10 @@ padding:4px 0;
 z-index:1000;
 min-width:160px;
 display:none;
+max-height:calc(100dvh - 12px);
+overflow-y:auto;
+overscroll-behavior:contain;
+-webkit-overflow-scrolling:touch;
 }
 #ctx-menu.show { display:block; }
 .ctx-item {
@@ -1031,7 +1105,10 @@ touch-action:manipulation;
 .fmtmd-tab{flex:1;padding:10px 6px;font-size:12px;font-weight:600;color:#7A9A87;background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;}
 .fmtmd-tab.active{color:#3D9E72;border-bottom-color:#3D9E72;background:#fff;}
 .fmtmd-tab:disabled{color:#C0CEC7;cursor:not-allowed;}
-.fmtmd-bd{padding:14px 18px;overflow-y:auto;flex:1;min-height:0;display:flex;gap:12px;}
+.fmtmd-bd{padding:14px 18px;overflow-y:auto;flex:1;min-height:0;display:block;}
+.fmtmd-panel{display:none;}
+.fmtmd-panel.active{display:block;}
+#fmtPanel-number.active{display:flex;gap:12px;}
 .fmtmd-cat{flex:0 0 130px;border:1px solid #D4EDE1;border-radius:8px;overflow:hidden;max-height:340px;overflow-y:auto;}
 .fmtmd-cat-it{padding:8px 10px;font-size:12px;color:#1A4A2E;cursor:pointer;border-bottom:1px solid #F0FAF4;}
 .fmtmd-cat-it:last-child{border-bottom:none;}
@@ -1051,9 +1128,78 @@ touch-action:manipulation;
 .fmtmd-btn{padding:8px 18px;border-radius:8px;border:1px solid #D4EDE1;background:#fff;color:#1A4A2E;font-size:13px;font-weight:600;cursor:pointer;}
 .fmtmd-btn-pr{background:#52B788;color:#fff;border-color:#52B788;}
 @media(max-width:600px){
-.fmtmd-bd{flex-direction:column;}
+#fmtPanel-number.active{flex-direction:column;}
 .fmtmd-cat{flex:none;max-height:130px;}
 }
+/* 書式モーダル 各タブ共通コントロール */
+.fmtf-row{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.fmtf-lb{font-size:12px;color:#7A9A87;width:72px;flex:none;}
+.fmtf-tg{padding:7px 12px;border:1px solid #D4EDE1;border-radius:8px;background:#fff;color:#1A4A2E;font-size:13px;cursor:pointer;font-weight:600;min-width:40px;}
+.fmtf-tg.active{background:#52B788;color:#fff;border-color:#52B788;}
+.fmtf-sel,.fmtf-num{padding:7px 10px;border:1px solid #D4EDE1;border-radius:8px;font-size:13px;color:#1A4A2E;background:#fff;}
+.fmtf-num{width:72px;}
+.fmtf-sw{width:32px;height:32px;border-radius:7px;border:1px solid #ccc;cursor:pointer;padding:0;}
+.fmtf-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:5px;max-width:320px;}
+.fmtf-grid .sw{width:100%;padding-bottom:100%;border-radius:5px;border:1px solid #ccc;cursor:pointer;position:relative;}
+.fmtf-grid .sw.active{outline:2px solid #52B788;outline-offset:1px;}
+.fmtf-bd-btns{display:flex;gap:8px;flex-wrap:wrap;}
+.fmtf-bd-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px 6px;border:1px solid #D4EDE1;border-radius:8px;background:#fff;cursor:pointer;font-size:11px;color:#1A4A2E;min-width:58px;}
+.fmtf-bd-btn:hover{background:#F0FAF4;}
+.fmtf-bd-ico{font-size:18px;line-height:1;}
+.fmtf-prev{padding:14px;border:1px solid #C8ECD8;border-radius:8px;background:#F0FAF4;text-align:center;font-size:16px;color:#1A4A2E;margin-top:6px;min-height:52px;display:flex;align-items:center;justify-content:center;}
+
+/* 検索・置換パネル */
+#findPanel{position:fixed;top:64px;right:16px;z-index:1400;width:320px;max-width:calc(100vw - 32px);background:#fff;border:1px solid #C8ECD8;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,0.18);display:none;overflow:hidden;}
+#findPanel.show{display:block;}
+.find-hd{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #E8F5EE;background:#F8FEFC;}
+.find-hd .tt{font-size:13px;font-weight:700;color:#1A4A2E;}
+.find-hd .cl{background:none;border:none;font-size:20px;color:#7A9A87;cursor:pointer;line-height:1;padding:0 2px;}
+.find-bd{padding:12px;display:flex;flex-direction:column;gap:8px;}
+.find-row{display:flex;align-items:center;gap:6px;}
+.find-row label{font-size:11px;color:#7A9A87;width:42px;flex:none;}
+.find-inp{flex:1;min-width:0;padding:7px 9px;border:1px solid #D4EDE1;border-radius:8px;font-size:13px;color:#1A4A2E;}
+.find-opts{display:flex;flex-wrap:wrap;gap:10px;padding:2px 0;}
+.find-opts label{display:flex;align-items:center;gap:4px;font-size:11px;color:#1A4A2E;width:auto;cursor:pointer;}
+.find-cnt{font-size:11px;color:#7A9A87;min-height:14px;}
+.find-btns{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;}
+.find-btn{padding:6px 12px;border:1px solid #D4EDE1;border-radius:8px;background:#fff;color:#1A4A2E;font-size:12px;font-weight:600;cursor:pointer;}
+.find-btn-pr{background:#52B788;color:#fff;border-color:#52B788;}
+.find-replace-only{display:none;}
+#findPanel.replace-mode .find-replace-only{display:flex;}
+
+/* フィルターのドロップダウンメニュー */
+#filterMenu{position:fixed;z-index:1500;width:240px;max-width:calc(100vw - 24px);background:#fff;border:1px solid #C8ECD8;border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,0.20);display:none;overflow:hidden;font-family:'Noto Sans JP',sans-serif;}
+#filterMenu.show{display:block;}
+.fm-sort{display:flex;flex-direction:column;padding:6px;gap:2px;border-bottom:1px solid #E8F5EE;background:#F8FEFC;}
+.fm-sort button{text-align:left;padding:7px 10px;border:none;background:none;border-radius:6px;font-size:12px;color:#1A4A2E;cursor:pointer;}
+.fm-sort button:hover{background:#F0FAF4;}
+.fm-search{padding:8px;border-bottom:1px solid #E8F5EE;}
+.fm-search input{width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #D4EDE1;border-radius:6px;font-size:12px;}
+.fm-list{max-height:220px;overflow-y:auto;padding:4px 8px;}
+.fm-list label{display:flex;align-items:center;gap:6px;padding:4px 2px;font-size:12px;color:#333;cursor:pointer;}
+.fm-list label.fm-all{font-weight:700;color:#1A4A2E;border-bottom:1px solid #EEE;margin-bottom:2px;padding-bottom:6px;}
+.fm-list input[type=checkbox]{flex:none;}
+.fm-btns{display:flex;gap:6px;justify-content:flex-end;padding:8px;border-top:1px solid #E8F5EE;background:#F8FEFC;}
+.fm-btns button{padding:6px 12px;border:1px solid #D4EDE1;border-radius:8px;background:#fff;color:#1A4A2E;font-size:12px;font-weight:600;cursor:pointer;}
+.fm-btns button.pr{background:#52B788;color:#fff;border-color:#52B788;}
+
+/* 並べ替えモーダル */
+#sortModal{position:fixed;inset:0;z-index:1600;background:rgba(0,0,0,0.35);display:none;align-items:center;justify-content:center;font-family:'Noto Sans JP',sans-serif;}
+#sortModal.show{display:flex;}
+.sm-box{background:#fff;border-radius:14px;width:440px;max-width:calc(100vw - 24px);max-height:calc(100vh - 40px);overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,0.25);}
+.sm-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #E8F5EE;background:#F8FEFC;}
+.sm-hd .tt{font-size:15px;font-weight:700;color:#1A4A2E;}
+.sm-hd .cl{background:none;border:none;font-size:22px;color:#7A9A87;cursor:pointer;line-height:1;}
+.sm-bd{padding:14px 16px;}
+.sm-opt{font-size:12px;color:#333;display:flex;align-items:center;gap:6px;margin-bottom:12px;}
+.sm-lv{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.sm-lv .lb{font-size:11px;color:#7A9A87;width:52px;flex:none;}
+.sm-lv select{flex:1;padding:6px 8px;border:1px solid #D4EDE1;border-radius:7px;font-size:12px;background:#fff;}
+.sm-lv select.ord{flex:none;width:96px;}
+.sm-add{margin-top:4px;padding:6px 10px;border:1px dashed #B7DCC8;border-radius:8px;background:#fff;color:#3D9E72;font-size:12px;font-weight:600;cursor:pointer;}
+.sm-ft{display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:1px solid #E8F5EE;}
+.sm-ft button{padding:8px 16px;border:1px solid #D4EDE1;border-radius:9px;background:#fff;color:#1A4A2E;font-size:13px;font-weight:600;cursor:pointer;}
+.sm-ft button.pr{background:#52B788;color:#fff;border-color:#52B788;}
 
 /* トースト通知 */
 #toast {
@@ -1342,31 +1488,9 @@ function updateBar(){
   document.getElementById('formula-input').value=(cell.f||'').replace(/\n/g,' ↵ ');
   updateFormulaDisplay(cell.f||'');
   updateFormatBar(cell);
-  updateActionBtn();
 }
 var _canvasBCR=null, _canvasBCRDirty=true;
 function _getCanvasBCR(){ if(_canvasBCRDirty||!_canvasBCR){_canvasBCR=canvas.getBoundingClientRect();_canvasBCRDirty=false;} return _canvasBCR; }
-function updateActionBtn(){
-  var btn = document.getElementById('cell-action-btn');
-  if(!btn) return;
-  var x2 = colX(selC2)+cW(selC2);
-  var y2 = rowY(selR2)+rH(selR2);
-  var cr = _getCanvasBCR();
-  var bx = cr.left + x2 + 10;
-  var by = cr.top  + y2 - 30;
-  bx = Math.min(bx, window.innerWidth  - 34);
-  bx = Math.max(bx, cr.left + HDR_W + 2);
-  by = Math.max(by, cr.top  + HDR_H + 2);
-  by = Math.min(by, window.innerHeight - 34);
-  btn.style.left = Math.round(bx) + 'px';
-  btn.style.top  = Math.round(by) + 'px';
-  btn.style.display = 'block';
-}
-function onActionBtn(e){
-  e.stopPropagation();
-  var btn = document.getElementById('cell-action-btn');
-  showCtxMenu(parseFloat(btn.style.left), parseFloat(btn.style.top)+26);
-}
 
 // 書式ツールバーの状態を更新
 function updateFormatBar(cell) {
@@ -1606,11 +1730,17 @@ function _doRender() {
   }
   ctx.stroke();
 
+  // 検索ヒットのハイライト（テキストの下地）
+  if(typeof _findHighlightOn==='function' && _findHighlightOn()) drawFindHighlights(sR,eR,sC,eC);
+
   // 3. セルテキスト
   for(var r=sR;r<=eR+1;r++) for(var c=sC;c<=eC+1;c++) drawText(r,c);
 
   // 4. 罫線（グリッド線の上に描画）
   for(var r=sR;r<=eR+1;r++) for(var c=sC;c<=eC+1;c++) drawBorder(r,c);
+
+  // フィルターのドロップダウンボタン（見出し行に描画）
+  if(typeof drawFilterButtons==='function') drawFilterButtons(sR,eR,sC,eC);
 
   // 5. ヘッダー背景
   ctx.fillStyle=C_HDR_BG;
@@ -1657,7 +1787,7 @@ function _doRender() {
   var fs=Math.max(9,Math.round(11*Math.min(scale,1.5)));
   ctx.font=fw+' '+fs+'px "Noto Sans JP",sans-serif';
   for(var c=sC;c<=eC+1;c++){
-    var x=colX(c),w=cW(c); if(x+w<0||x>wrapW) continue;
+    var x=colX(c),w=cW(c); if(x+w<0||x>wrapW||w<=0) continue;
     ctx.fillStyle=_colInAnySel(c)?'#1E88E5':C_HDR_TXT;
     ctx.fillText(colLetter(c),x+w/2,HDR_H/2);
   }
@@ -1665,7 +1795,7 @@ function _doRender() {
   var rf=Math.max(9,Math.round(11*Math.min(scale,1.5)));
   ctx.font=rf+'px "Noto Sans JP",sans-serif';
   for(var r=sR;r<=eR+1;r++){
-    var y=rowY(r),h=rH(r); if(y+h<0||y>wrapH) continue;
+    var y=rowY(r),h=rH(r); if(y+h<0||y>wrapH||h<=0) continue;
     ctx.fillStyle=_rowInAnySel(r)?'#1E88E5':C_HDR_TXT;
     ctx.fillText(r+1,HDR_W-4,y+h/2);
   }
@@ -1794,12 +1924,11 @@ function _doRender() {
     drawColoredFormulaOnCell(_editR, _editC, _editVal);
   }
 
-  // ⋮ボタン位置を更新
-  if(typeof updateActionBtn==='function') updateActionBtn();
 }
 
 function drawText(r,c){
   var x=colX(c),y=rowY(r),w=cW(c),h=rH(r);
+  if(w<=0||h<=0) return;
   if(x+w<HDR_W||x>wrapW||y+h<HDR_H||y>wrapH) return;
   var cell=getCell(r,c);
 
@@ -1815,7 +1944,8 @@ function drawText(r,c){
   var fontSize = Math.max(9, Math.min(72, Math.round((cell.fontSize||12)*scale)));
   var weight = cell.bold ? 'bold' : 'normal';
   var style  = cell.italic ? 'italic' : 'normal';
-  ctx.font = style+' '+weight+' '+fontSize+'px "Noto Sans JP",sans-serif';
+  var fam = cell.fontFamily ? '"'+cell.fontFamily+'",sans-serif' : '"Noto Sans JP",sans-serif';
+  ctx.font = style+' '+weight+' '+fontSize+'px '+fam;
 
   // 文字色
   var isFormula = cell.f && cell.f[0]==='=';
@@ -1829,6 +1959,7 @@ function drawText(r,c){
   ctx.save();
   ctx.rect(x+1,y,w-2,h); ctx.clip();
 
+  var valign = cell.valign||'middle';
   var tx;
   var indentPx = (cell.indent||0) * 12;
   if(align==='center') { ctx.textAlign='center'; tx=x+w/2; }
@@ -1854,12 +1985,18 @@ function drawText(r,c){
     }
     var lh = fontSize * 1.4;
     var totalH = wLines.length * lh;
-    var startY = y + Math.max(lh/2, (h - totalH)/2 + lh/2);
+    var startY;
+    if(valign==='top') startY = y + lh/2 + 2;
+    else if(valign==='bottom') startY = y + h - totalH + lh/2 - 2;
+    else startY = y + Math.max(lh/2, (h - totalH)/2 + lh/2);
     for(var li=0;li<wLines.length;li++){
       ctx.fillText(wLines[li], tx, startY + li*lh);
     }
   } else {
-    ctx.fillText(display, tx, y+h/2);
+    var ty = valign==='top' ? y + fontSize*0.6 + 2
+           : valign==='bottom' ? y + h - fontSize*0.6 - 2
+           : y + h/2;
+    ctx.fillText(display, tx, ty);
   }
 
   // 下線・取り消し線
@@ -1867,18 +2004,21 @@ function drawText(r,c){
     var metrics = ctx.measureText(display);
     var ux = align==='center' ? x+w/2-metrics.width/2 :
              align==='right'  ? x+w-4-metrics.width : x+4;
+    var lineY = valign==='top' ? y + fontSize*0.6 + 2
+              : valign==='bottom' ? y + h - fontSize*0.6 - 2
+              : y + h/2;
     ctx.strokeStyle = cell.color||C_CELL_TXT;
     ctx.lineWidth = 1;
     if(cell.underline){
       ctx.beginPath();
-      ctx.moveTo(ux, y+h/2+fontSize*0.6);
-      ctx.lineTo(ux+metrics.width, y+h/2+fontSize*0.6);
+      ctx.moveTo(ux, lineY+fontSize*0.6);
+      ctx.lineTo(ux+metrics.width, lineY+fontSize*0.6);
       ctx.stroke();
     }
     if(cell.strike){
       ctx.beginPath();
-      ctx.moveTo(ux, y+h/2);
-      ctx.lineTo(ux+metrics.width, y+h/2);
+      ctx.moveTo(ux, lineY);
+      ctx.lineTo(ux+metrics.width, lineY);
       ctx.stroke();
     }
   }
@@ -1892,6 +2032,7 @@ function drawBorder(r,c){
   if(!cell.border) return; // borderなし → 即return（最適化）
   var b=cell.border;
   var x=colX(c),y=rowY(r),w=cW(c),h=rH(r);
+  if(w<=0||h<=0) return;
   if(x+w<HDR_W||x>wrapW||y+h<HDR_H||y>wrapH) return;
   ctx.save();
   if(b.top){
@@ -2472,8 +2613,6 @@ function detectTimePattern(values){
 
 <div id="loading"><div class="spinner"></div><p>グリッドを起動中...</p></div>
 
-<button id="cell-action-btn" ontouchstart="event.stopPropagation()" ontouchend="event.stopPropagation();event.preventDefault();onActionBtn(event);" onclick="onActionBtn(event)">▼</button>
-
 <!-- 解説ポップアップ -->
 
 <div id="explain-popup">
@@ -2501,6 +2640,9 @@ function detectTimePattern(values){
   <div class="ctx-item" onclick="ctxDelete()">🗑️ 削除 <span style="color:#aaa;font-size:11px;margin-left:auto">Del</span></div>
   <div class="ctx-divider"></div>
   <div class="ctx-item" onclick="ctxFormat()">🎨 セルの書式設定</div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item" onclick="openSortModal()">↕️ 並べ替え...</div>
+  <div class="ctx-item" id="ctx-filter" onclick="toggleFilter()">🔽 フィルター</div>
   <div class="ctx-divider"></div>
   <div class="ctx-item" onclick="ctxInsertRow()">➕ 行を挿入（上）</div>
   <div class="ctx-item" onclick="ctxInsertCol()">➕ 列を挿入（左）</div>
@@ -2581,29 +2723,127 @@ function detectTimePattern(values){
       <button class="fmtmd-cl" onclick="closeFmtModal()">×</button>
     </div>
     <div class="fmtmd-tabs">
-      <button class="fmtmd-tab active" data-tab="number">表示形式</button>
-      <button class="fmtmd-tab" disabled>フォント</button>
-      <button class="fmtmd-tab" disabled>罫線</button>
-      <button class="fmtmd-tab" disabled>配置</button>
-      <button class="fmtmd-tab" disabled>塗りつぶし</button>
+      <button class="fmtmd-tab active" data-tab="number" onclick="switchFmtTab('number')">表示形式</button>
+      <button class="fmtmd-tab" data-tab="font" onclick="switchFmtTab('font')">フォント</button>
+      <button class="fmtmd-tab" data-tab="border" onclick="switchFmtTab('border')">罫線</button>
+      <button class="fmtmd-tab" data-tab="align" onclick="switchFmtTab('align')">配置</button>
+      <button class="fmtmd-tab" data-tab="fill" onclick="switchFmtTab('fill')">塗りつぶし</button>
     </div>
     <div class="fmtmd-bd">
-      <div class="fmtmd-cat" id="fmtModalCat">
-        <div class="fmtmd-cat-it disabled" data-cat="general">標準</div>
-        <div class="fmtmd-cat-it disabled" data-cat="number">数値</div>
-        <div class="fmtmd-cat-it disabled" data-cat="currency">通貨</div>
-        <div class="fmtmd-cat-it active" data-cat="date" onclick="switchFmtCategory('date')">日付</div>
-        <div class="fmtmd-cat-it" data-cat="time" onclick="switchFmtCategory('time')">時刻</div>
-        <div class="fmtmd-cat-it disabled" data-cat="percent">パーセンテージ</div>
-        <div class="fmtmd-cat-it disabled" data-cat="text">文字列</div>
-      </div>
-      <div class="fmtmd-right">
-        <div class="fmtmd-pv-lb">プレビュー</div>
-        <div class="fmtmd-pv" id="fmtModalPreview">—</div>
-        <div class="fmtmd-types-lb">種類</div>
-        <div class="fmtmd-types" id="fmtModalTypes">
-          <!-- JSで動的に生成 -->
+      <!-- 表示形式 -->
+      <div class="fmtmd-panel active" id="fmtPanel-number">
+        <div class="fmtmd-cat" id="fmtModalCat">
+          <div class="fmtmd-cat-it disabled" data-cat="general">標準</div>
+          <div class="fmtmd-cat-it disabled" data-cat="number">数値</div>
+          <div class="fmtmd-cat-it disabled" data-cat="currency">通貨</div>
+          <div class="fmtmd-cat-it active" data-cat="date" onclick="switchFmtCategory('date')">日付</div>
+          <div class="fmtmd-cat-it" data-cat="time" onclick="switchFmtCategory('time')">時刻</div>
+          <div class="fmtmd-cat-it disabled" data-cat="percent">パーセンテージ</div>
+          <div class="fmtmd-cat-it disabled" data-cat="text">文字列</div>
         </div>
+        <div class="fmtmd-right">
+          <div class="fmtmd-pv-lb">プレビュー</div>
+          <div class="fmtmd-pv" id="fmtModalPreview">—</div>
+          <div class="fmtmd-types-lb">種類</div>
+          <div class="fmtmd-types" id="fmtModalTypes">
+            <!-- JSで動的に生成 -->
+          </div>
+        </div>
+      </div>
+      <!-- フォント -->
+      <div class="fmtmd-panel" id="fmtPanel-font">
+        <div class="fmtf-row">
+          <span class="fmtf-lb">スタイル</span>
+          <button class="fmtf-tg" id="fmtf-bold" onclick="fmtToggle('bold',this)" style="font-weight:700;">B</button>
+          <button class="fmtf-tg" id="fmtf-italic" onclick="fmtToggle('italic',this)" style="font-style:italic;">I</button>
+          <button class="fmtf-tg" id="fmtf-underline" onclick="fmtToggle('underline',this)" style="text-decoration:underline;">U</button>
+          <button class="fmtf-tg" id="fmtf-strike" onclick="fmtToggle('strike',this)" style="text-decoration:line-through;">S</button>
+        </div>
+        <div class="fmtf-row">
+          <span class="fmtf-lb">フォント</span>
+          <select class="fmtf-sel" id="fmtf-family" onchange="fmtSet('fontFamily',this.value)">
+            <option value="Noto Sans JP">Noto Sans JP</option>
+            <option value="DM Mono">DM Mono</option>
+            <option value="Yu Gothic">游ゴシック</option>
+            <option value="Meiryo">メイリオ</option>
+            <option value="MS PGothic">ＭＳ Ｐゴシック</option>
+            <option value="serif">明朝 (serif)</option>
+            <option value="monospace">等幅 (monospace)</option>
+            <option value="Arial">Arial</option>
+          </select>
+        </div>
+        <div class="fmtf-row">
+          <span class="fmtf-lb">サイズ</span>
+          <select class="fmtf-sel" id="fmtf-size" onchange="fmtSet('fontSize',parseInt(this.value))">
+            <option>8</option><option>9</option><option>10</option><option>11</option><option>12</option><option>14</option><option>16</option><option>18</option><option>20</option><option>24</option><option>28</option><option>36</option><option>48</option><option>72</option>
+          </select>
+        </div>
+        <div class="fmtf-row">
+          <span class="fmtf-lb">文字色</span>
+          <input type="color" class="fmtf-sw" id="fmtf-color" value="#1A4A2E" oninput="fmtSet('color',this.value)">
+        </div>
+        <div class="fmtf-prev" id="fmtf-preview">プレビュー Aa 123</div>
+      </div>
+      <!-- 罫線 -->
+      <div class="fmtmd-panel" id="fmtPanel-border">
+        <div class="fmtf-row">
+          <span class="fmtf-lb">線の太さ</span>
+          <button class="fmtf-tg active" id="fmtbd-thin" onclick="fmtBorderStyle(1)">細線</button>
+          <button class="fmtf-tg" id="fmtbd-thick" onclick="fmtBorderStyle(2)">太線</button>
+        </div>
+        <div class="fmtf-row">
+          <div class="fmtf-bd-btns">
+            <button class="fmtf-bd-btn" onclick="applyBorderAll(_fmtBorderStyle)"><span class="fmtf-bd-ico">⊞</span>格子</button>
+            <button class="fmtf-bd-btn" onclick="applyBorderOuter(_fmtBorderStyle)"><span class="fmtf-bd-ico">□</span>外枠</button>
+            <button class="fmtf-bd-btn" onclick="applyBorderInner(_fmtBorderStyle)"><span class="fmtf-bd-ico">田</span>内側</button>
+            <button class="fmtf-bd-btn" onclick="applyBorderSide('top',_fmtBorderStyle)"><span class="fmtf-bd-ico">▔</span>上</button>
+            <button class="fmtf-bd-btn" onclick="applyBorderSide('bottom',_fmtBorderStyle)"><span class="fmtf-bd-ico">▁</span>下</button>
+            <button class="fmtf-bd-btn" onclick="applyBorderSide('left',_fmtBorderStyle)"><span class="fmtf-bd-ico">▏</span>左</button>
+            <button class="fmtf-bd-btn" onclick="applyBorderSide('right',_fmtBorderStyle)"><span class="fmtf-bd-ico">▕</span>右</button>
+            <button class="fmtf-bd-btn" onclick="applyBorderAll(0)"><span class="fmtf-bd-ico">∅</span>なし</button>
+          </div>
+        </div>
+        <div style="font-size:11px;color:#7A9A87;">※罫線は選択範囲に即時適用されます</div>
+      </div>
+      <!-- 配置 -->
+      <div class="fmtmd-panel" id="fmtPanel-align">
+        <div class="fmtf-row">
+          <span class="fmtf-lb">横位置</span>
+          <button class="fmtf-tg" data-align="left" onclick="fmtSetAlign('align','left')">左</button>
+          <button class="fmtf-tg" data-align="center" onclick="fmtSetAlign('align','center')">中央</button>
+          <button class="fmtf-tg" data-align="right" onclick="fmtSetAlign('align','right')">右</button>
+        </div>
+        <div class="fmtf-row">
+          <span class="fmtf-lb">縦位置</span>
+          <button class="fmtf-tg" data-valign="top" onclick="fmtSetAlign('valign','top')">上</button>
+          <button class="fmtf-tg" data-valign="middle" onclick="fmtSetAlign('valign','middle')">中央</button>
+          <button class="fmtf-tg" data-valign="bottom" onclick="fmtSetAlign('valign','bottom')">下</button>
+        </div>
+        <div class="fmtf-row">
+          <span class="fmtf-lb">折り返し</span>
+          <button class="fmtf-tg" id="fmtf-wrap" onclick="fmtToggle('wrap',this)">折り返して全体を表示</button>
+        </div>
+        <div class="fmtf-row">
+          <span class="fmtf-lb">インデント</span>
+          <button class="fmtf-tg" onclick="fmtIndent(-1)">－</button>
+          <span id="fmtf-indent-val" style="min-width:24px;text-align:center;font-size:13px;color:#1A4A2E;">0</span>
+          <button class="fmtf-tg" onclick="fmtIndent(1)">＋</button>
+        </div>
+        <div class="fmtf-row">
+          <span class="fmtf-lb">セル結合</span>
+          <button class="fmtf-tg" onclick="applyMergeCells()">結合</button>
+          <button class="fmtf-tg" onclick="unmergeCells()">解除</button>
+        </div>
+      </div>
+      <!-- 塗りつぶし -->
+      <div class="fmtmd-panel" id="fmtPanel-fill">
+        <div class="fmtf-row">
+          <span class="fmtf-lb">背景色</span>
+          <button class="fmtf-tg" id="fmtf-nofill" onclick="fmtSetFill('')">塗りなし</button>
+          <input type="color" class="fmtf-sw" id="fmtf-fillcustom" value="#FFFF00" oninput="fmtSetFill(this.value)">
+        </div>
+        <div class="fmtf-grid" id="fmtf-fillgrid"></div>
+        <div class="fmtf-prev" id="fmtf-fillpreview">プレビュー</div>
       </div>
     </div>
     <div class="fmtmd-ft">
@@ -2646,6 +2886,73 @@ function selectBookVer(v){try{localStorage.setItem('exally_excel_version',v);}ca
 document.getElementById('bookVerOverlay').addEventListener('click',function(e){if(e.target===this)closeBookVerModal();});
 window.addEventListener('load',updateBookVerBadge);
 </script>
+
+<!-- 検索・置換パネル -->
+<div id="findPanel">
+  <div class="find-hd">
+    <span class="tt" id="find-title">検索</span>
+    <button class="cl" onclick="closeFind()">×</button>
+  </div>
+  <div class="find-bd">
+    <div class="find-row">
+      <label>検索</label>
+      <input class="find-inp" id="find-term" type="text" placeholder="検索する文字列" autocomplete="off" oninput="_findRecompute()" onkeydown="if(event.key==='Enter'){event.preventDefault();event.shiftKey?findPrev():findNext();}else if(event.key==='Escape'){event.preventDefault();closeFind();}">
+    </div>
+    <div class="find-row find-replace-only">
+      <label>置換後</label>
+      <input class="find-inp" id="find-repl" type="text" placeholder="置換後の文字列" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();replaceOne();}else if(event.key==='Escape'){event.preventDefault();closeFind();}">
+    </div>
+    <div class="find-opts">
+      <label><input type="checkbox" id="find-case" onchange="_findRecompute()">大文字小文字を区別</label>
+      <label><input type="checkbox" id="find-whole" onchange="_findRecompute()">完全一致</label>
+      <label><input type="checkbox" id="find-formula" onchange="_findRecompute()">数式を対象</label>
+      <label><input type="checkbox" id="find-highlight" onchange="render()">ヒットを色付け</label>
+    </div>
+    <div class="find-cnt" id="find-count"></div>
+    <div class="find-btns">
+      <button class="find-btn" onclick="findPrev()">前を検索</button>
+      <button class="find-btn find-btn-pr" onclick="findNext()">次を検索</button>
+      <button class="find-btn find-replace-only" onclick="replaceOne()">置換</button>
+      <button class="find-btn find-replace-only" onclick="replaceAll()">すべて置換</button>
+    </div>
+  </div>
+</div>
+
+<!-- フィルターのドロップダウン -->
+<div id="filterMenu">
+  <div class="fm-sort">
+    <button onclick="_fmSort(true)">▲ 昇順で並べ替え</button>
+    <button onclick="_fmSort(false)">▼ 降順で並べ替え</button>
+  </div>
+  <div class="fm-search">
+    <input id="fm-search" type="text" placeholder="検索..." autocomplete="off" oninput="_fmFilterList()">
+  </div>
+  <div class="fm-list" id="fm-list"></div>
+  <div class="fm-btns">
+    <button onclick="closeFilterMenu()">キャンセル</button>
+    <button onclick="_fmClear()">クリア</button>
+    <button class="pr" onclick="applyFilterMenu()">OK</button>
+  </div>
+</div>
+
+<!-- 並べ替えモーダル -->
+<div id="sortModal">
+  <div class="sm-box">
+    <div class="sm-hd">
+      <span class="tt">並べ替え</span>
+      <button class="cl" onclick="closeSortModal()">×</button>
+    </div>
+    <div class="sm-bd">
+      <label class="sm-opt"><input type="checkbox" id="sm-header" checked onchange="_smRebuildCols()">先頭行をデータの見出しとして使用する</label>
+      <div id="sm-levels"></div>
+      <button class="sm-add" onclick="_smAddLevel()">＋ レベルの追加</button>
+    </div>
+    <div class="sm-ft">
+      <button onclick="closeSortModal()">キャンセル</button>
+      <button class="pr" onclick="applySortModal()">OK</button>
+    </div>
+  </div>
+</div>
 
 <div id="formula-bar">
   <input id="cell-addr" type="text" value="A1" readonly>
@@ -2781,7 +3088,17 @@ window.addEventListener('load',updateBookVerBadge);
   </div>
 </div>
 
-<!-- ツールバー1段目<!-- ツールバー1段目（常時表示） -->
+<!-- リボンのタブ -->
+<div id="ribbon-tabs">
+  <button class="rb-tab rb-file" onclick="switchRibbonTab('file')">ファイル</button>
+  <button class="rb-tab active" id="rbtab-home" onclick="switchRibbonTab('home')">ホーム</button>
+  <button class="rb-tab" id="rbtab-insert" onclick="switchRibbonTab('insert')">挿入</button>
+  <button class="rb-tab" id="rbtab-formula" onclick="switchRibbonTab('formula')">数式</button>
+  <button class="rb-tab" id="rbtab-data" onclick="switchRibbonTab('data')">データ</button>
+  <button class="rb-tab" id="rbtab-view" onclick="switchRibbonTab('view')">表示</button>
+</div>
+
+<!-- ツールバー1段目<!-- ツールバー1段目（常時表示・ホームタブ） -->
 
 <div id="fmt-bar1">
   <!-- 戻る・進む（左端sticky）-->
@@ -2848,6 +3165,70 @@ window.addEventListener('load',updateBookVerBadge);
   <button class="fmt-btn" onclick="insertLineBreak()" title="任意改行（Alt+Enter）" style="font-size:11px;letter-spacing:-0.5px;">改行</button>
   <button class="fmt-btn" onclick="applyIndent(1)"       title="インデント増">▷+</button>
   <button class="fmt-btn" onclick="applyIndent(-1)"      title="インデント減">◁−</button>
+</div>
+
+<!-- リボン: ファイル タブ -->
+<div class="ribbon-panel" id="ribbon-file">
+  <button class="rb-btn" onclick="newBook()"><span class="ic">🆕</span>新規</button>
+  <button class="rb-btn" onclick="saveXlsx()"><span class="ic">💾</span>Excelでダウンロード</button>
+  <button class="rb-btn" onclick="printBook()"><span class="ic">🖨️</span>印刷</button>
+  <div class="rb-grp"></div>
+  <button class="rb-btn" onclick="location.href='home.html'"><span class="ic">🏠</span>ホーム画面</button>
+  <button class="rb-btn" onclick="openBookVerModal()"><span class="ic">📊</span>バージョン</button>
+</div>
+
+<!-- リボン: 挿入 タブ -->
+<div class="ribbon-panel" id="ribbon-insert">
+  <span class="rb-grp-lb">テーブル</span>
+  <button class="rb-btn" onclick="toggleFilter()"><span class="ic">▦</span>テーブル/フィルター</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">図</span>
+  <button class="rb-btn" onclick="insertChart()"><span class="ic">📊</span>グラフ</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">セル</span>
+  <button class="rb-btn" onclick="ctxInsertRow()"><span class="ic">➕</span>行を挿入</button>
+  <button class="rb-btn" onclick="ctxInsertCol()"><span class="ic">➕</span>列を挿入</button>
+  <button class="rb-btn" onclick="addSheet()"><span class="ic">📄</span>シート追加</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">関数</span>
+  <button class="rb-btn" onclick="openFnPalette()"><span class="ic">ƒx</span>関数の挿入</button>
+</div>
+
+<!-- リボン: 数式 タブ -->
+<div class="ribbon-panel" id="ribbon-formula">
+  <span class="rb-grp-lb">オート集計</span>
+  <button class="rb-btn" onclick="quickAgg('SUM')"><span class="ic">Σ</span>合計</button>
+  <button class="rb-btn" onclick="quickAgg('AVERAGE')"><span class="ic">x̄</span>平均</button>
+  <button class="rb-btn" onclick="quickAgg('COUNT')"><span class="ic">#</span>個数</button>
+  <button class="rb-btn" onclick="quickAgg('MAX')"><span class="ic">↑</span>最大</button>
+  <button class="rb-btn" onclick="quickAgg('MIN')"><span class="ic">↓</span>最小</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">関数ライブラリ</span>
+  <button class="rb-btn" onclick="openFnPalette()"><span class="ic">ƒx</span>関数の挿入</button>
+</div>
+
+<!-- リボン: データ タブ -->
+<div class="ribbon-panel" id="ribbon-data">
+  <span class="rb-grp-lb">並べ替えとフィルター</span>
+  <button class="rb-btn" onclick="dataSort(true)"><span class="ic">🔼</span>昇順</button>
+  <button class="rb-btn" onclick="dataSort(false)"><span class="ic">🔽</span>降順</button>
+  <button class="rb-btn" onclick="openSortModal()"><span class="ic">↕️</span>並べ替え</button>
+  <button class="rb-btn" onclick="toggleFilter()"><span class="ic">▽</span>フィルター</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">検索</span>
+  <button class="rb-btn" onclick="openFind(false)"><span class="ic">🔍</span>検索</button>
+  <button class="rb-btn" onclick="openFind(true)"><span class="ic">🔁</span>置換</button>
+</div>
+
+<!-- リボン: 表示 タブ -->
+<div class="ribbon-panel" id="ribbon-view">
+  <span class="rb-grp-lb">ズーム</span>
+  <button class="rb-btn" onclick="zoomBy(0.1)"><span class="ic">➕</span>拡大</button>
+  <button class="rb-btn" onclick="zoomBy(-0.1)"><span class="ic">➖</span>縮小</button>
+  <button class="rb-btn" onclick="zoomReset()"><span class="ic">🔄</span>100%</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">ウィンドウ</span>
+  <button class="rb-btn" onclick="freezePanes()"><span class="ic">🧊</span>ウィンドウ枠の固定</button>
 </div>
 
 <div id="grid-wrap">
@@ -3746,19 +4127,17 @@ function bindEvents(){
     if(!editingCell){
       if(e.key==='ArrowDown'||e.key==='ArrowUp'||e.key==='ArrowLeft'||e.key==='ArrowRight'||
          e.key==='Tab'||e.key==='Home'||e.key==='End'||e.key==='Delete'||e.key==='Backspace'||
-         e.key==='F2'||e.key==='PageUp'||e.key==='PageDown'){
-        // onKD が処理する（スキップ）
+         e.key==='F2'||e.key==='PageUp'||e.key==='PageDown'||e.key==='Enter'){
+        // onKD が処理する（スキップ、Enterも編集中でなければExcelと同様に下移動のみ）
         return;
       }
       // Ctrl/Cmd ショートカットも onKD へ
       if(e.ctrlKey||e.metaKey) return;
-      // Enter: F2相当で編集開始（既存値を初期値に）
-      if(e.key==='Enter'){ e.preventDefault(); startEdit(selR1,selC1); return; }
     }
-    // 編集モード中
-    if(e.key==='Enter'&&!e.shiftKey){if(e.isComposing||e.keyCode===229)return;e.preventDefault();refMode=false;refStartR=-1;commitEdit();moveSel(1,0);}
-    else if(e.key==='Tab'){e.preventDefault();refMode=false;refStartR=-1;commitEdit();moveSel(0,1);}
-    else if(e.key==='Escape'){refMode=false;refStartR=-1;cancelEdit();}
+    // 編集モード中（ここで完結して処理するので、onKDへの二重伝播を止める）
+    if(e.key==='Enter'&&!e.shiftKey){if(e.isComposing||e.keyCode===229)return;e.preventDefault();e.stopPropagation();refMode=false;refStartR=-1;commitEdit();moveSel(1,0);}
+    else if(e.key==='Tab'){e.preventDefault();e.stopPropagation();refMode=false;refStartR=-1;commitEdit();moveSel(0,e.shiftKey?-1:1);}
+    else if(e.key==='Escape'){e.stopPropagation();refMode=false;refStartR=-1;cancelEdit();}
   });
   ci.addEventListener('input',function(){
     var v=this.value;
@@ -3770,6 +4149,7 @@ function bindEvents(){
       this.style.width=Math.max(w,80)+'px';
       this.style.height=h+'px';
       this.classList.add('editing');
+      _applyCellFontToInput(this,selR1,selC1);
     }
     // 数式モード判定＋ref色付け
     refMode=(editingCell&&this.classList.contains('editing')&&v.length>0&&(v[0]==='='||v[0]==='＝'));
@@ -3965,6 +4345,7 @@ function onMD(e){
     }
   }
   commitEdit(); hideCtxMenu();
+  if(typeof closeFilterMenu==='function') closeFilterMenu();
   // cell-input に focus 強制（マウス操作で奪われた focus を取り戻す）
   var _ci=document.getElementById('cell-input');
   if(_ci && !editingCell) setTimeout(function(){ _ci.focus(); },0);
@@ -4017,6 +4398,12 @@ function onMD(e){
     return;
   }
   var c=xToC(p.x),r=yToR(p.y);
+
+  // フィルターのドロップダウンボタン判定（セル選択より優先）
+  if(typeof _filterBtnHit==='function'){
+    var _fbc=_filterBtnHit(p.x,p.y);
+    if(_fbc>=0){ openFilterMenu(_fbc); return; }
+  }
 
   // STEP3: 複数選択モード ON 時の挙動（PC・スマホ共通）
   if(multiSelectMode && !e.shiftKey){
@@ -4441,6 +4828,8 @@ function onKD(e){
     if(ek==='z' && !e.shiftKey){ e.preventDefault(); doUndo(); return; }
     if(ek==='y' || (ek==='z' && e.shiftKey)){ e.preventDefault(); doRedo(); return; }
     if(ek==='a'){ e.preventDefault(); sel(0,0,ROWS-1,COLS-1); render(); return; }
+    if(ek==='f'){ e.preventDefault(); openFind(false); return; }
+    if(ek==='h'){ e.preventDefault(); openFind(true); return; }
     if(e.key==='Home'){ e.preventDefault(); sel(0,0,0,0); scrollTop=0; scrollLeft=0; render(); return; }
     if(e.key==='End'){
       var lr=0,lc=0;
@@ -4472,7 +4861,7 @@ function onKD(e){
     if(e.key==='ArrowLeft') {moveSel(0,-1);moved=true;}
   }
 
-  if(e.key==='Enter'){startEdit(selR1,selC1);moved=true;}
+  if(e.key==='Enter'){moveSel(e.shiftKey?-1:1,0);moved=true;}
   if(e.key==='Delete'||e.key==='Backspace'){setCell(selR1,selC1,'');updateBar();render();moved=true;}
   if(e.key==='Home'){ sel(selR1,0,selR1,0); moved=true; }
   if(e.key==='End'){  sel(selR1,COLS-1,selR1,COLS-1); moved=true; }
@@ -4499,8 +4888,20 @@ function showCtxMenu(x,y){
   document.getElementById('ctx-unhide-col').style.display=hasHC?'block':'none';
   m.classList.add('show');
   var rect=m.getBoundingClientRect();
-  if(rect.right>window.innerWidth) m.style.left=(x-rect.width)+'px';
-  if(rect.bottom>window.innerHeight) m.style.top=(y-rect.height)+'px';
+  var pad=6;
+  var vw=window.innerWidth, vh=window.innerHeight;
+  var left=x, top=y;
+  // 右にはみ出す → 左側に出す
+  if(left+rect.width>vw-pad) left=x-rect.width;
+  if(left<pad) left=pad;
+  if(left+rect.width>vw-pad) left=Math.max(pad, vw-rect.width-pad);
+  // 下にはみ出す → 上向きに反転
+  if(top+rect.height>vh-pad) top=y-rect.height;
+  // 上端が画面外に出ないようクランプ（メニューが長い時に上が切れるのを防ぐ）
+  if(top<pad) top=pad;
+  // それでも下にはみ出す（画面より高い）→ 上端揃え＋スクロール
+  if(top+rect.height>vh-pad) top=Math.max(pad, vh-rect.height-pad);
+  m.style.left=left+'px'; m.style.top=top+'px';
 }
 function hideCtxMenu(){ document.getElementById('ctx-menu').classList.remove('show'); }
 
@@ -4708,6 +5109,17 @@ function moveSel(dr,dc){
 }
 
 // セル編集
+// セルの書式（フォントサイズ/太字/斜体/フォント種別/色）を編集欄にも反映（表示と一致させる）
+function _applyCellFontToInput(el,r,c){
+  var cell=getCell(r,c);
+  var fontSize=Math.max(9,Math.min(72,Math.round((cell.fontSize||12)*scale)));
+  var fam=cell.fontFamily?'"'+cell.fontFamily+'",sans-serif':'"Noto Sans JP",sans-serif';
+  el.style.fontSize=fontSize+'px';
+  el.style.fontFamily=fam;
+  el.style.fontWeight=cell.bold?'bold':'normal';
+  el.style.fontStyle=cell.italic?'italic':'normal';
+  el.style.color=cell.color||'#1A2B22';
+}
 function startEdit(r,c,init){
   commitEdit();
   editingCell={r:r,c:c};
@@ -4716,6 +5128,7 @@ function startEdit(r,c,init){
   el.style.left=x+'px'; el.style.top=y+'px';
   el.style.width=Math.max(w,80)+'px'; el.style.height=h+'px';
   el.classList.add('editing');
+  _applyCellFontToInput(el,r,c);
   el.value=init!==undefined?init:(getCell(r,c).v||'');
   el.focus();
   if(init!==undefined) el.setSelectionRange(init.length,init.length);
@@ -4854,14 +5267,27 @@ function cancelEdit(){
 // シート
 function switchSheet(idx){
   commitEdit();
+  // 現シートの選択セル・スクロール位置を記憶（Excelと同様、シート毎に保持）
+  if(sheets[activeSheet]){
+    sheets[activeSheet]._lastSel={r1:selR1,c1:selC1,r2:selR2,c2:selC2,scrollTop:scrollTop,scrollLeft:scrollLeft};
+  }
   if(multiSelectMode){
     // 複数選択モード中：メイン退避 & 新シート範囲を昇格
     _switchSheetWithMultiSelect(idx);
   } else {
     activeSheet=idx;
-    selR1=0;selC1=0;selR2=0;selC2=0;
+    var ls=sheets[idx]._lastSel;
+    if(ls){
+      selR1=ls.r1;selC1=ls.c1;selR2=ls.r2;selC2=ls.c2;
+      anchorR=ls.r1;anchorC=ls.c1;activeR=ls.r2;activeC=ls.c2;
+      scrollTop=ls.scrollTop;scrollLeft=ls.scrollLeft;
+    } else {
+      selR1=0;selC1=0;selR2=0;selC2=0;
+      anchorR=0;anchorC=0;activeR=0;activeC=0;
+      scrollTop=0;scrollLeft=0;
+    }
   }
-  scrollTop=0;scrollLeft=0;scale=1;
+  scale=1;
   updateBar(); render();
   document.querySelectorAll('.sheet-tab').forEach(function(t,i){t.classList.toggle('active',i===idx);});
   // モード中はサブバーも更新（別シート範囲のチップ表示に反映）
@@ -4925,6 +5351,107 @@ function toggleFmtBar2() {
   if(btn) btn.textContent = open ? '▲' : '▼';
 }
 
+/* ===== リボンのタブ切り替え ===== */
+var _ribbonTab='home';
+function switchRibbonTab(name){
+  // ファイルはタブ状態を変えずパネルだけトグル（Excelのバックステージ相当）
+  var panels=['file','insert','formula','data','view'];
+  if(name==='home'){
+    _ribbonTab='home';
+  } else if(name==='file'){
+    // 開いていれば閉じる
+    var f=document.getElementById('ribbon-file');
+    if(f.classList.contains('show')){ switchRibbonTab(_ribbonTab); return; }
+  } else {
+    _ribbonTab=name;
+  }
+  // タブの見た目（ファイルは常にボタン扱いでactive付けない）
+  ['home','insert','formula','data','view'].forEach(function(t){
+    var el=document.getElementById('rbtab-'+t);
+    if(el) el.classList.toggle('active', t===_ribbonTab && name!=='file');
+  });
+  // ホーム用ツールバーの表示
+  var showHome=(name==='home');
+  document.getElementById('fmt-bar1').style.display=showHome?'flex':'none';
+  var bar2=document.getElementById('fmt-bar2');
+  bar2.style.display=showHome?'':'none';
+  // 各パネルの表示
+  panels.forEach(function(t){
+    var el=document.getElementById('ribbon-'+t);
+    if(el) el.classList.toggle('show', t===name && name!=='home');
+  });
+  _syncGridSize();
+}
+function _syncGridSize(){
+  // ツールバーの高さが変わったのでグリッドを再計測して再描画
+  if(typeof resize==='function') resize();
+  if(typeof render==='function') render();
+}
+function _ribbonToast(msg){
+  var t=document.getElementById('toast');
+  if(t){ t.textContent=msg; t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); },2200); }
+  else alert(msg);
+}
+
+/* ===== ファイル タブ ===== */
+function newBook(){
+  if(!confirm('現在のシートの内容をすべて消去して新規にします。よろしいですか？')) return;
+  var s=sheets[activeSheet];
+  s.data={}; s.hiddenRows={}; s.hiddenCols={}; s._af=null;
+  undoStack=[]; redoStack=[];
+  if(hf){ try{ recalcSheet(activeSheet, s.data); }catch(e){} }
+  sel(0,0,0,0); render(); updateBar();
+  _ribbonToast('🆕 新しいシートにしました');
+}
+function printBook(){ window.print(); }
+
+/* ===== 挿入 / 表示 タブ（Phase 6・7 は準備中トースト） ===== */
+function insertChart(){ _ribbonToast('📊 グラフは Phase 7 で実装予定です'); }
+function freezePanes(){ _ribbonToast('🧊 ウィンドウ枠の固定は Phase 6 で実装予定です'); }
+
+/* ===== 数式 タブ: オート集計 ===== */
+function quickAgg(fn){
+  var r1=selR1,c1=selC1,r2=selR2,c2=selC2;
+  if(r1===r2&&c1===c2){
+    // 単一セル: 直上の連続する数値を集計（なければ左方向）
+    var top=r1, rr=r1-1;
+    while(rr>=0 && _isNum(_cellDisp(rr,c1))){ top=rr; rr--; }
+    if(top<r1){ setCell(r1,c1,'='+fn+'('+cellAddr(top,c1)+':'+cellAddr(r1-1,c1)+')'); }
+    else {
+      var left=c1, cc=c1-1;
+      while(cc>=0 && _isNum(_cellDisp(r1,cc))){ left=cc; cc--; }
+      if(left<c1) setCell(r1,c1,'='+fn+'('+cellAddr(r1,left)+':'+cellAddr(r1,c1-1)+')');
+      else { startEdit(r1,c1); var ci=document.getElementById('cell-input'); if(ci) ci.value='='+fn+'('; return; }
+    }
+    sel(r1,c1,r1,c1);
+  } else if(c1===c2){
+    // 縦一列の選択 → すぐ下に集計
+    setCell(r2+1,c1,'='+fn+'('+cellAddr(r1,c1)+':'+cellAddr(r2,c1)+')');
+    sel(r2+1,c1,r2+1,c1);
+  } else {
+    // 複数列 → 各列の下に集計
+    for(var c=c1;c<=c2;c++) setCell(r2+1,c,'='+fn+'('+cellAddr(r1,c)+':'+cellAddr(r2,c)+')');
+    sel(r2+1,c1,r2+1,c2);
+  }
+  render(); updateBar();
+}
+
+/* ===== データ タブ: アクティブ列で並べ替え ===== */
+function dataSort(asc){
+  var rng=getFilterRange();
+  var col=selC1<rng.c1?rng.c1:(selC1>rng.c2?rng.c2:selC1);
+  _sortRange(rng, [{col:col,asc:asc}], true);
+  _ribbonToast((asc?'🔼 昇順':'🔽 降順')+'で並べ替えました');
+}
+
+/* ===== 表示 タブ: ズーム ===== */
+function zoomBy(delta){
+  scale=Math.max(0.5, Math.min(2, Math.round((scale+delta)*10)/10));
+  render();
+  _ribbonToast('🔍 ズーム '+Math.round(scale*100)+'%');
+}
+function zoomReset(){ scale=1; render(); _ribbonToast('🔍 ズーム 100%'); }
+
 // ===== セル書式設定モーダル =====
 var FMT_DATE_TYPES=[
   {fmt:'m/d',           label:'4/18'},
@@ -4966,6 +5493,8 @@ function openFmtModal(){
   if(timeFmtList.indexOf(currentFmt)>=0) _fmtModalCategory='time';
   else if(dateFmtList.indexOf(currentFmt)>=0) _fmtModalCategory='date';
   renderFmtModalCategory(currentFmt);
+  _loadFmtState();
+  switchFmtTab('number');
   document.getElementById('fmtModal').classList.add('show');
 }
 function renderFmtModalCategory(currentFmt){
@@ -5023,8 +5552,635 @@ function applyFmtModal(){
   if(_fmtModalSelectedFmt){
     applyFormat('numFmt', _fmtModalSelectedFmt);
   }
+  _applyFmtStateToSelection();
+  render(); updateBar();
   closeFmtModal();
 }
+
+// ===== 書式モーダル タブ（フォント/罫線/配置/塗りつぶし） =====
+var _fmtState={};
+var _fmtBorderStyle=1;
+
+function switchFmtTab(tab){
+  document.querySelectorAll('.fmtmd-tab').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-tab')===tab);
+  });
+  document.querySelectorAll('.fmtmd-panel').forEach(function(p){
+    p.classList.toggle('active', p.id==='fmtPanel-'+tab);
+  });
+}
+
+function _loadFmtState(){
+  var cell=getCell(selR1,selC1);
+  _fmtState={
+    bold:!!cell.bold, italic:!!cell.italic, underline:!!cell.underline, strike:!!cell.strike,
+    fontSize:cell.fontSize||12, fontFamily:cell.fontFamily||'Noto Sans JP',
+    color:cell.color||'#1A4A2E', bgColor:cell.bgColor||'',
+    align:cell.align||'left', valign:cell.valign||'middle',
+    wrap:!!cell.wrap, indent:cell.indent||0
+  };
+  // フォントタブ反映
+  ['bold','italic','underline','strike','wrap'].forEach(function(k){
+    var el=document.getElementById('fmtf-'+k);
+    if(el) el.classList.toggle('active', !!_fmtState[k]);
+  });
+  var fam=document.getElementById('fmtf-family'); if(fam) fam.value=_fmtState.fontFamily;
+  var sz=document.getElementById('fmtf-size'); if(sz) sz.value=String(_fmtState.fontSize);
+  var col=document.getElementById('fmtf-color'); if(col) col.value=_fmtState.color;
+  // 配置タブ反映
+  document.querySelectorAll('#fmtPanel-align [data-align]').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-align')===_fmtState.align);
+  });
+  document.querySelectorAll('#fmtPanel-align [data-valign]').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-valign')===_fmtState.valign);
+  });
+  var iv=document.getElementById('fmtf-indent-val'); if(iv) iv.textContent=_fmtState.indent;
+  // 塗りつぶしタブ反映
+  _buildFillGrid();
+  _updateFmtPreview();
+}
+
+function fmtToggle(key, btn){
+  _fmtState[key]=!_fmtState[key];
+  if(btn) btn.classList.toggle('active', _fmtState[key]);
+  _updateFmtPreview();
+}
+function fmtSet(key, val){
+  _fmtState[key]=val;
+  _updateFmtPreview();
+}
+function fmtSetAlign(key, val){
+  _fmtState[key]=val;
+  var attr=(key==='align')?'data-align':'data-valign';
+  document.querySelectorAll('#fmtPanel-align ['+attr+']').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute(attr)===val);
+  });
+}
+function fmtIndent(delta){
+  _fmtState.indent=Math.max(0,(_fmtState.indent||0)+delta);
+  var iv=document.getElementById('fmtf-indent-val'); if(iv) iv.textContent=_fmtState.indent;
+}
+function fmtBorderStyle(n){
+  _fmtBorderStyle=n;
+  var t=document.getElementById('fmtbd-thin'), k=document.getElementById('fmtbd-thick');
+  if(t) t.classList.toggle('active', n===1);
+  if(k) k.classList.toggle('active', n===2);
+}
+function fmtSetFill(val){
+  _fmtState.bgColor=val;
+  if(val){ var c=document.getElementById('fmtf-fillcustom'); if(c) c.value=val; }
+  document.querySelectorAll('#fmtf-fillgrid .sw').forEach(function(s){
+    s.classList.toggle('active', s.getAttribute('data-color')===val);
+  });
+  var nf=document.getElementById('fmtf-nofill'); if(nf) nf.classList.toggle('active', val==='');
+  _updateFmtPreview();
+}
+function _buildFillGrid(){
+  var grid=document.getElementById('fmtf-fillgrid');
+  if(!grid) return;
+  if(!grid.dataset.built){
+    var all=CPALETTE_BASIC.concat(CPALETTE_THEMES).concat(CPALETTE_STD);
+    all.forEach(function(c){
+      var d=document.createElement('div');
+      d.className='sw'; d.style.background=c; d.setAttribute('data-color',c);
+      d.onclick=function(){ fmtSetFill(c); };
+      grid.appendChild(d);
+    });
+    grid.dataset.built='1';
+  }
+  document.querySelectorAll('#fmtf-fillgrid .sw').forEach(function(s){
+    s.classList.toggle('active', s.getAttribute('data-color')===_fmtState.bgColor);
+  });
+  var nf=document.getElementById('fmtf-nofill'); if(nf) nf.classList.toggle('active', !_fmtState.bgColor);
+}
+function _updateFmtPreview(){
+  var s=_fmtState;
+  var p=document.getElementById('fmtf-preview');
+  if(p){
+    p.style.fontWeight=s.bold?'700':'400';
+    p.style.fontStyle=s.italic?'italic':'normal';
+    p.style.textDecoration=(s.underline?'underline ':'')+(s.strike?'line-through':'');
+    p.style.fontFamily='"'+s.fontFamily+'",sans-serif';
+    p.style.fontSize=Math.min(40,s.fontSize*1.3)+'px';
+    p.style.color=s.color;
+  }
+  var fp=document.getElementById('fmtf-fillpreview');
+  if(fp){
+    fp.style.background=s.bgColor||'#F0FAF4';
+    fp.style.color=s.bgColor?'#000':'#7A9A87';
+  }
+}
+function _applyFmtStateToSelection(){
+  var s=_fmtState; var snap=[];
+  var props=['bold','italic','underline','strike','fontSize','fontFamily','color','align','valign','wrap','indent'];
+  for(var r=selR1;r<=selR2;r++) for(var c=selC1;c<=selC2;c++){
+    var k=r+','+c;
+    if(!sheets[activeSheet].data[k]) sheets[activeSheet].data[k]={v:'',f:'',d:''};
+    var cell=sheets[activeSheet].data[k];
+    props.forEach(function(p){
+      snap.push({key:k,prop:p,old:cell[p],nw:s[p]});
+      cell[p]=s[p];
+    });
+    snap.push({key:k,prop:'bgColor',old:cell.bgColor,nw:s.bgColor||undefined});
+    if(s.bgColor) cell.bgColor=s.bgColor; else delete cell.bgColor;
+  }
+  undoStack.push({type:'format',snap:snap}); redoStack=[];
+}
+// 単一辺の罫線（選択範囲の該当エッジのみ）
+function applyBorderSide(side, style){
+  var snap=[];
+  for(var r=selR1;r<=selR2;r++) for(var c=selC1;c<=selC2;c++){
+    var onEdge=(side==='top'&&r===selR1)||(side==='bottom'&&r===selR2)||(side==='left'&&c===selC1)||(side==='right'&&c===selC2);
+    if(!onEdge) continue;
+    var k=r+','+c;
+    if(!sheets[activeSheet].data[k]) sheets[activeSheet].data[k]={v:'',f:'',d:''};
+    var cell=sheets[activeSheet].data[k];
+    var oldB=Object.assign({},cell.border||{});
+    var b=Object.assign({},cell.border||{});
+    if(style===0) delete b[side]; else b[side]=style;
+    snap.push({key:k,prop:'border',old:oldB,nw:b});
+    cell.border=b;
+  }
+  undoStack.push({type:'format',snap:snap}); redoStack=[];
+  render();
+}
+// セル結合の解除
+function unmergeCells(){
+  var snap=[];
+  for(var r=selR1;r<=selR2;r++) for(var c=selC1;c<=selC2;c++){
+    var k=r+','+c;
+    var cell=sheets[activeSheet].data[k];
+    if(!cell) continue;
+    if(cell.merged!==undefined){ snap.push({key:k,prop:'merged',old:cell.merged,nw:undefined}); delete cell.merged; }
+    if(cell.mergeEnd!==undefined){ snap.push({key:k,prop:'mergeEnd',old:cell.mergeEnd,nw:undefined}); delete cell.mergeEnd; }
+  }
+  if(snap.length){ undoStack.push({type:'format',snap:snap}); redoStack=[]; }
+  render();
+}
+
+// ===== 検索・置換（Ctrl+F / Ctrl+H） =====
+var _findState={term:'',matches:[],idx:-1};
+
+function openFind(replaceMode){
+  var p=document.getElementById('findPanel');
+  p.classList.add('show');
+  p.classList.toggle('replace-mode', !!replaceMode);
+  document.getElementById('find-title').textContent=replaceMode?'検索と置換':'検索';
+  var term=document.getElementById('find-term');
+  // 既存の選択セルの値を初期検索語に
+  if(!term.value){
+    var c0=getCell(selR1,selC1);
+    var v0=(c0.d!==undefined&&c0.d!=='')?c0.d:c0.v;
+    if(v0) term.value=String(v0);
+  }
+  _findRecompute();
+  term.focus(); term.select();
+}
+function closeFind(){
+  document.getElementById('findPanel').classList.remove('show');
+  _findState={term:'',matches:[],idx:-1};
+  render();
+}
+// ヒット色付けが有効か（チェックON かつ パネル表示中）
+function _findHighlightOn(){
+  var cb=document.getElementById('find-highlight');
+  var p=document.getElementById('findPanel');
+  return !!(cb&&cb.checked&&p&&p.classList.contains('show'));
+}
+// ヒットセルを下地として塗る
+function drawFindHighlights(sR,eR,sC,eC){
+  if(!_findState.matches.length) return;
+  ctx.save();
+  ctx.fillStyle='rgba(82,183,136,0.30)';
+  ctx.strokeStyle='rgba(61,158,114,0.9)';
+  ctx.lineWidth=1;
+  for(var i=0;i<_findState.matches.length;i++){
+    var m=_findState.matches[i];
+    if(m.r<sR-1||m.r>eR+2||m.c<sC-1||m.c>eC+2) continue;
+    var x=colX(m.c),y=rowY(m.r),w=cW(m.c),h=rH(m.r);
+    if(x+w<HDR_W||x>wrapW||y+h<HDR_H||y>wrapH) continue;
+    ctx.fillRect(x,y,w,h);
+    ctx.strokeRect(x+0.5,y+0.5,w-1,h-1);
+  }
+  ctx.restore();
+}
+/* ===== Phase 3: 並べ替え・フィルター ===== */
+
+function _afGet(){ return sheets[activeSheet]._af || null; }
+function _cellDisp(r,c){
+  var cell=sheets[activeSheet].data[r+','+c];
+  if(!cell) return '';
+  var v=(cell.d!==undefined&&cell.d!=='')?cell.d:cell.v;
+  return (v===undefined||v===null)?'':String(v);
+}
+function _hasVal(r,c){ return _cellDisp(r,c)!==''; }
+function _rowHasAny(r,c1,c2){ for(var c=c1;c<=c2;c++) if(_hasVal(r,c)) return true; return false; }
+function _colHasAny(c,r1,r2){ for(var r=r1;r<=r2;r++) if(_hasVal(r,c)) return true; return false; }
+function _detectRegion(r0,c0){
+  if(!_hasVal(r0,c0)) return {r1:r0,c1:c0,r2:r0,c2:c0};
+  var r1=r0,r2=r0,c1=c0,c2=c0,changed=true;
+  while(changed){
+    changed=false;
+    if(r1>0&&_rowHasAny(r1-1,c1,c2)){ r1--; changed=true; }
+    if(r2<ROWS-1&&_rowHasAny(r2+1,c1,c2)){ r2++; changed=true; }
+    if(c1>0&&_colHasAny(c1-1,r1,r2)){ c1--; changed=true; }
+    if(c2<COLS-1&&_colHasAny(c2+1,r1,r2)){ c2++; changed=true; }
+  }
+  return {r1:r1,c1:c1,r2:r2,c2:c2};
+}
+function getFilterRange(){
+  if(selR1!==selR2||selC1!==selC2) return {r1:selR1,c1:selC1,r2:selR2,c2:selC2};
+  return _detectRegion(selR1,selC1);
+}
+
+// 並べ替えの値比較
+function _isNum(x){ return x!=='' && !isNaN(x) && isFinite(Number(x)); }
+function _cmpVals(a,b){
+  var ae=(a===undefined||a===null||String(a)===''), be=(b===undefined||b===null||String(b)==='');
+  if(ae&&be) return 0; if(ae) return 1; if(be) return -1;
+  a=String(a); b=String(b);
+  if(_isNum(a)&&_isNum(b)) return Number(a)-Number(b);
+  return a.localeCompare(b,'ja');
+}
+function _sortRange(rng, keys, hasHeader){
+  if(!keys.length) return;
+  _pushRowColUndo();
+  var s=sheets[activeSheet];
+  var startR=hasHeader?rng.r1+1:rng.r1;
+  var rows=[];
+  for(var r=startR;r<=rng.r2;r++){
+    var slice={};
+    for(var c=rng.c1;c<=rng.c2;c++){ var k=r+','+c; if(s.data[k]) slice[c]=s.data[k]; }
+    rows.push(slice);
+  }
+  rows.sort(function(a,b){
+    for(var i=0;i<keys.length;i++){
+      var col=keys[i].col;
+      var va=a[col]?_cellDispFromCell(a[col]):'';
+      var vb=b[col]?_cellDispFromCell(b[col]):'';
+      var cmp=_cmpVals(va,vb);
+      if(cmp!==0) return keys[i].asc?cmp:-cmp;
+    }
+    return 0;
+  });
+  for(var i2=0;i2<rows.length;i2++){
+    var rr=startR+i2;
+    for(var c2=rng.c1;c2<=rng.c2;c2++){
+      var k2=rr+','+c2;
+      if(rows[i2][c2]) s.data[k2]=rows[i2][c2];
+      else delete s.data[k2];
+    }
+  }
+  recalcSheet(activeSheet, s.data);
+  if(s._af) _afApply();
+  render(); updateBar();
+}
+function _cellDispFromCell(cell){
+  var v=(cell.d!==undefined&&cell.d!=='')?cell.d:cell.v;
+  return (v===undefined||v===null)?'':String(v);
+}
+
+// フィルターの適用（見出し行以下を非表示制御）
+function _afApply(){
+  var af=_afGet(); if(!af) return;
+  var s=sheets[activeSheet];
+  if(!s.hiddenRows) s.hiddenRows={};
+  if(af.hiddenByFilter) Object.keys(af.hiddenByFilter).forEach(function(r){ delete s.hiddenRows[r]; });
+  af.hiddenByFilter={};
+  var cols=af.crit?Object.keys(af.crit):[];
+  if(cols.length){
+    for(var r=af.r1+1;r<=af.r2;r++){
+      var show=true;
+      for(var ci=0;ci<cols.length;ci++){
+        var col=parseInt(cols[ci]);
+        var allowed=af.crit[col];
+        if(!allowed[_cellDisp(r,col)]){ show=false; break; }
+      }
+      if(!show){ s.hiddenRows[r]=true; af.hiddenByFilter[r]=true; }
+    }
+  }
+  render();
+}
+function toggleFilter(){
+  hideCtxMenu();
+  var s=sheets[activeSheet];
+  if(s._af){
+    if(s._af.hiddenByFilter&&s.hiddenRows) Object.keys(s._af.hiddenByFilter).forEach(function(r){ delete s.hiddenRows[r]; });
+    s._af=null;
+  } else {
+    var rng=getFilterRange();
+    s._af={r1:rng.r1,c1:rng.c1,r2:rng.r2,c2:rng.c2,crit:{},hiddenByFilter:{}};
+  }
+  render();
+}
+
+// フィルターボタンの描画
+function _rrPath(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function _filterBtnRect(c){
+  var af=_afGet(); if(!af) return null;
+  if(c<af.c1||c>af.c2) return null;
+  if(sheets[activeSheet].hiddenCols&&sheets[activeSheet].hiddenCols[c]) return null;
+  var x=colX(c),w=cW(c),y=rowY(af.r1),h=rH(af.r1);
+  if(w<10||h<8) return null;
+  var bw=Math.min(15,w-2), bh=Math.min(15,h-2);
+  var bx=x+w-bw-1, by=y+(h-bh)/2;
+  if(bx+bw<HDR_W||bx>wrapW||by+bh<HDR_H||by>wrapH) return null;
+  return {x:bx,y:by,w:bw,h:bh};
+}
+function drawFilterButtons(sR,eR,sC,eC){
+  var af=_afGet(); if(!af) return;
+  if(af.r1<sR-1||af.r1>eR+2) return;
+  ctx.save();
+  for(var c=Math.max(af.c1,sC-1);c<=Math.min(af.c2,eC+1);c++){
+    var rect=_filterBtnRect(c); if(!rect) continue;
+    var active=!!(af.crit&&af.crit[c]);
+    _rrPath(rect.x,rect.y,rect.w,rect.h,3);
+    ctx.fillStyle=active?'#52B788':'#FFFFFF';
+    ctx.fill();
+    ctx.strokeStyle=active?'#3D9E72':'#9CC5B0';
+    ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=active?'#FFFFFF':'#3D9E72';
+    var tx=rect.x+rect.w/2, ty=rect.y+rect.h/2-1, t=3;
+    ctx.beginPath(); ctx.moveTo(tx-t,ty-1); ctx.lineTo(tx+t,ty-1); ctx.lineTo(tx,ty+t+1); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+function _filterBtnHit(px,py){
+  var af=_afGet(); if(!af) return -1;
+  for(var c=af.c1;c<=af.c2;c++){
+    var rect=_filterBtnRect(c); if(!rect) continue;
+    if(px>=rect.x-2&&px<=rect.x+rect.w+2&&py>=rect.y-2&&py<=rect.y+rect.h+2) return c;
+  }
+  return -1;
+}
+
+// フィルターメニュー
+var _fmCol=-1;
+function _uniqueValues(col){
+  var af=_afGet(); if(!af) return [];
+  var seen={}, out=[];
+  for(var r=af.r1+1;r<=af.r2;r++){
+    var v=_cellDisp(r,col);
+    if(!seen.hasOwnProperty(v)){ seen[v]=true; out.push(v); }
+  }
+  out.sort(function(a,b){ return _cmpVals(a,b); });
+  return out;
+}
+function openFilterMenu(col){
+  var af=_afGet(); if(!af) return;
+  _fmCol=col;
+  var vals=_uniqueValues(col);
+  var allowed=(af.crit&&af.crit[col])?af.crit[col]:null;
+  var list=document.getElementById('fm-list');
+  var html='<label class="fm-all"><input type="checkbox" id="fm-all" checked onchange="_fmToggleAll(this.checked)">(すべて選択)</label>';
+  for(var i=0;i<vals.length;i++){
+    var v=vals[i];
+    var checked=(!allowed||allowed[v])?'checked':'';
+    var label=(v==='')?'(空白)':_fmEsc(v);
+    html+='<label><input type="checkbox" class="fm-cb" data-val="'+_fmEscAttr(v)+'" '+checked+' onchange="_fmSyncAll()">'+label+'</label>';
+  }
+  list.innerHTML=html;
+  document.getElementById('fm-search').value='';
+  _fmSyncAll();
+  var menu=document.getElementById('filterMenu');
+  menu.classList.add('show');
+  // 位置：ボタンの真下（画面内に収める）
+  var rect=_filterBtnRect(col);
+  var cr=canvas.getBoundingClientRect();
+  var mw=menu.offsetWidth||240, mh=menu.offsetHeight||300;
+  var left=cr.left+(rect?rect.x:HDR_W), top=cr.top+(rect?rect.y+rect.h:HDR_H)+2;
+  if(left+mw>window.innerWidth) left=window.innerWidth-mw-8;
+  if(left<8) left=8;
+  if(top+mh>window.innerHeight) top=Math.max(8, window.innerHeight-mh-8);
+  menu.style.left=left+'px'; menu.style.top=top+'px';
+}
+function _fmEsc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function _fmEscAttr(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function closeFilterMenu(){ var m=document.getElementById('filterMenu'); if(m) m.classList.remove('show'); }
+function _fmToggleAll(on){
+  var cbs=document.querySelectorAll('#fm-list .fm-cb');
+  for(var i=0;i<cbs.length;i++){ if(cbs[i].parentNode.style.display!=='none') cbs[i].checked=on; }
+}
+function _fmSyncAll(){
+  var cbs=document.querySelectorAll('#fm-list .fm-cb'), all=document.getElementById('fm-all');
+  if(!all) return;
+  var total=0, on=0;
+  for(var i=0;i<cbs.length;i++){ total++; if(cbs[i].checked) on++; }
+  all.checked=(on===total);
+  all.indeterminate=(on>0&&on<total);
+}
+function _fmFilterList(){
+  var q=document.getElementById('fm-search').value.toLowerCase();
+  var labels=document.querySelectorAll('#fm-list label');
+  for(var i=0;i<labels.length;i++){
+    if(labels[i].classList.contains('fm-all')) continue;
+    var t=labels[i].textContent.toLowerCase();
+    labels[i].style.display=(t.indexOf(q)>=0)?'flex':'none';
+  }
+}
+function applyFilterMenu(){
+  var af=_afGet(); if(!af||_fmCol<0){ closeFilterMenu(); return; }
+  var cbs=document.querySelectorAll('#fm-list .fm-cb');
+  var allowed={}, total=0, on=0;
+  for(var i=0;i<cbs.length;i++){
+    total++;
+    if(cbs[i].checked){ on++; allowed[cbs[i].getAttribute('data-val')]=true; }
+  }
+  if(!af.crit) af.crit={};
+  if(on===total) delete af.crit[_fmCol];
+  else af.crit[_fmCol]=allowed;
+  _afApply();
+  closeFilterMenu();
+}
+function _fmClear(){
+  var af=_afGet(); if(af&&af.crit) delete af.crit[_fmCol];
+  _afApply();
+  closeFilterMenu();
+}
+function _fmSort(asc){
+  var af=_afGet(); if(!af||_fmCol<0){ closeFilterMenu(); return; }
+  _sortRange({r1:af.r1,c1:af.c1,r2:af.r2,c2:af.c2}, [{col:_fmCol,asc:asc}], true);
+  closeFilterMenu();
+}
+
+// 並べ替えモーダル
+var _smRange=null;
+function openSortModal(){
+  hideCtxMenu();
+  _smRange=getFilterRange();
+  document.getElementById('sm-header').checked=true;
+  document.getElementById('sm-levels').innerHTML='';
+  _smAddLevel();
+  document.getElementById('sortModal').classList.add('show');
+}
+function closeSortModal(){ document.getElementById('sortModal').classList.remove('show'); }
+function _smColOptions(){
+  var rng=_smRange, hasH=document.getElementById('sm-header').checked;
+  var html='';
+  for(var c=rng.c1;c<=rng.c2;c++){
+    var name=hasH?_cellDisp(rng.r1,c):'';
+    if(!name) name='列 '+colLetter(c);
+    html+='<option value="'+c+'">'+_fmEsc(name)+'</option>';
+  }
+  return html;
+}
+function _smAddLevel(){
+  var box=document.getElementById('sm-levels');
+  if(box.children.length>=3) return;
+  var opts=_smColOptions();
+  var isFirst=box.children.length===0;
+  var div=document.createElement('div');
+  div.className='sm-lv';
+  div.innerHTML='<span class="lb">'+(isFirst?'最優先':'次に優先')+'</span>'
+    +'<select class="col">'+opts+'</select>'
+    +'<select class="ord"><option value="asc">昇順</option><option value="desc">降順</option></select>';
+  box.appendChild(div);
+}
+function _smRebuildCols(){
+  var opts=_smColOptions();
+  var sels=document.querySelectorAll('#sm-levels .col');
+  for(var i=0;i<sels.length;i++){ var v=sels[i].value; sels[i].innerHTML=opts; sels[i].value=v; }
+}
+function applySortModal(){
+  var levels=document.querySelectorAll('#sm-levels .sm-lv');
+  var keys=[], used={};
+  for(var i=0;i<levels.length;i++){
+    var col=parseInt(levels[i].querySelector('.col').value);
+    var asc=levels[i].querySelector('.ord').value==='asc';
+    if(used[col]) continue;
+    used[col]=true;
+    keys.push({col:col,asc:asc});
+  }
+  var hasH=document.getElementById('sm-header').checked;
+  _sortRange(_smRange, keys, hasH);
+  closeSortModal();
+}
+
+function _findCellText(cell, inFormula){
+  if(inFormula) return String(cell.f||cell.v||'');
+  return String((cell.d!==undefined&&cell.d!=='')?cell.d:cell.v||'');
+}
+function _findMatch(text){
+  var term=_findState.term;
+  if(term==='') return false;
+  var cs=document.getElementById('find-case').checked;
+  var whole=document.getElementById('find-whole').checked;
+  var hay=cs?text:text.toLowerCase();
+  var needle=cs?term:term.toLowerCase();
+  if(whole) return hay===needle;
+  return hay.indexOf(needle)>=0;
+}
+function _findRecompute(){
+  var term=document.getElementById('find-term').value;
+  _findState.term=term;
+  _findState.matches=[];
+  _findState.idx=-1;
+  if(term!==''){
+    var inFormula=document.getElementById('find-formula').checked;
+    var dat=sheets[activeSheet].data;
+    var keys=Object.keys(dat).map(function(k){var p=k.split(',');return {r:parseInt(p[0]),c:parseInt(p[1]),k:k};});
+    keys.sort(function(a,b){return a.r-b.r||a.c-b.c;});
+    for(var i=0;i<keys.length;i++){
+      var cell=dat[keys[i].k];
+      if(_findMatch(_findCellText(cell,inFormula))) _findState.matches.push({r:keys[i].r,c:keys[i].c});
+    }
+  }
+  _findUpdateCount();
+  if(_findHighlightOn()) render();
+}
+function _findUpdateCount(){
+  var el=document.getElementById('find-count');
+  var n=_findState.matches.length;
+  if(_findState.term===''){ el.textContent=''; return; }
+  if(n===0){ el.textContent='見つかりませんでした'; return; }
+  el.textContent=(_findState.idx>=0?(_findState.idx+1)+' / ':'')+n+' 件';
+}
+function _findGoto(){
+  var m=_findState.matches[_findState.idx];
+  if(!m) return;
+  sel(m.r,m.c,m.r,m.c);
+  _findUpdateCount();
+}
+function findNext(){
+  if(_findState.term!==document.getElementById('find-term').value) _findRecompute();
+  if(!_findState.matches.length){ _findUpdateCount(); return; }
+  _findState.idx=(_findState.idx+1)%_findState.matches.length;
+  _findGoto();
+}
+function findPrev(){
+  if(_findState.term!==document.getElementById('find-term').value) _findRecompute();
+  if(!_findState.matches.length){ _findUpdateCount(); return; }
+  _findState.idx=(_findState.idx-1+_findState.matches.length)%_findState.matches.length;
+  _findGoto();
+}
+function _replaceInCell(r,c){
+  var term=_findState.term;
+  if(term==='') return false;
+  var cs=document.getElementById('find-case').checked;
+  var whole=document.getElementById('find-whole').checked;
+  var repl=document.getElementById('find-repl').value;
+  var inFormula=document.getElementById('find-formula').checked;
+  var cell=getCell(r,c);
+  var src=inFormula?String(cell.f||cell.v||''):String((cell.d!==undefined&&cell.d!=='')?cell.d:cell.v||'');
+  // 数式セルは編集元(f)を対象にする（表示結果を壊さない）
+  if(!inFormula && cell.f && cell.f[0]==='='){ src=String(cell.f); }
+  var out;
+  if(whole){
+    var hay=cs?src:src.toLowerCase();
+    var needle=cs?term:term.toLowerCase();
+    if(hay!==needle) return false;
+    out=repl;
+  } else {
+    out=_strReplaceAll(src, term, repl, cs);
+    if(out===src) return false;
+  }
+  setCell(r,c,out);
+  return true;
+}
+function _strReplaceAll(src, term, repl, caseSensitive){
+  if(term==='') return src;
+  var out=''; var i=0;
+  var hay=caseSensitive?src:src.toLowerCase();
+  var needle=caseSensitive?term:term.toLowerCase();
+  while(i<src.length){
+    if(hay.substr(i,needle.length)===needle && needle.length>0){
+      out+=repl; i+=needle.length;
+    } else { out+=src[i]; i++; }
+  }
+  return out;
+}
+function replaceOne(){
+  if(_findState.term!==document.getElementById('find-term').value) _findRecompute();
+  if(_findState.idx<0){ findNext(); return; }
+  var m=_findState.matches[_findState.idx];
+  if(!m) return;
+  if(_replaceInCell(m.r,m.c)){
+    render(); updateBar();
+    _findRecompute();
+    // 同じ位置以降の次の一致へ
+    if(_findState.matches.length){
+      var nextIdx=0;
+      for(var i=0;i<_findState.matches.length;i++){
+        var mm=_findState.matches[i];
+        if(mm.r>m.r||(mm.r===m.r&&mm.c>=m.c)){ nextIdx=i; break; }
+      }
+      _findState.idx=nextIdx; _findGoto();
+    }
+  } else { findNext(); }
+}
+function replaceAll(){
+  _findRecompute();
+  var n=0;
+  // matchesは置換で変動するので、スナップショットをコピーして実行
+  var targets=_findState.matches.slice();
+  for(var i=0;i<targets.length;i++){
+    if(_replaceInCell(targets[i].r,targets[i].c)) n++;
+  }
+  render(); updateBar();
+  _findRecompute();
+  document.getElementById('find-count').textContent=n+' 件を置換しました';
+}
+
 // ===== カラーパレット（文字色・背景色共用） =====
 // 基本色：モノクロ10段階
 var CPALETTE_BASIC=[
