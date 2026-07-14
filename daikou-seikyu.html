@@ -9431,11 +9431,10 @@
           (m.noteSummary ? "checked" : "") +
           " onchange=\"setMasterField('" +
           esc(co) +
-          "','noteSummary',this.checked)\"> 備考で集計ボックスを出す（例：役職別）</label>" +
-          '<div class="frow" style="margin-top:6px;' +
-          (m.noteSummary ? "" : "display:none;") +
-          '"><div class="flabel">集計の並び（読点区切り）</div>' +
-          '<input class="finput" value="' +
+          "','noteSummary',this.checked)\"> 備考で集計ボックスを出す（例：役職別や名前別など）</label>" +
+          '<div class="frow" style="margin-top:6px;">' +
+          '<div class="flabel">集計の並び（読点区切り）</div>' +
+          '<input class="finput" placeholder="会長、社長、専務" value="' +
           esc(noteG) +
           '" onchange="setNoteGroups(\'' +
           esc(co) +
@@ -9657,8 +9656,7 @@
       function setMasterField(co, field, v) {
         MASTER[co][field] = v;
         saveMaster();
-        if (field === "noteSummary") reopen(co);
-        else toastDebounced("保存しました（請求書に反映）");
+        toastDebounced("保存しました（請求書に反映）");
       }
       function setNoteGroups(co, v) {
         MASTER[co].noteGroups = v
