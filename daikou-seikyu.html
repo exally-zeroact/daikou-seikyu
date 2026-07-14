@@ -3469,6 +3469,7 @@
         "距離",
         "人数",
         "名前",
+        "_created", // 読み取り専用の並び替え鍵(created_at)。extraに書き込ませないため除外リストに入れる。
       ];
       function _numOrNull(v) {
         if (v === "" || v == null) return null;
@@ -3486,6 +3487,7 @@
           距離: r.distance == null ? "" : r.distance,
           人数: r.people == null ? "" : r.people,
           名前: r.name || "",
+          _created: r.created_at || "", // 一覧の並び替え用(同日付は登録の新しい順)。書き戻さない。
         };
         if (r.extra && typeof r.extra === "object")
           Object.keys(r.extra).forEach(function (k) {
@@ -6214,7 +6216,8 @@
           rows.map(function (r) {
             var o = {};
             Object.keys(r).forEach(function (k) {
-              if (k !== "id" && k !== "account_id" && k !== "_dbid") o[k] = r[k];
+              if (k !== "id" && k !== "account_id" && k !== "_dbid" && k !== "_created")
+                o[k] = r[k];
             });
             return o;
           })
@@ -8916,14 +8919,15 @@
           });
           return rec;
         });
-        // クラウドに一括insert→返ってきたuuidを各明細のidにして in-memory に追加
-        var ins = await SB.from("meisai").insert(recs.map(meisaiToDb)).select("id");
+        // クラウドに一括insert→返ってきたuuid＋created_atを各明細に載せて in-memory に追加
+        var ins = await SB.from("meisai").insert(recs.map(meisaiToDb)).select("id, created_at");
         if (ins.error) {
           cloudErr("明細追加", ins.error);
           return;
         }
         ins.data.forEach(function (r, i) {
           recs[i].id = r.id;
+          recs[i]._created = r.created_at || ""; // 一覧で「今入れた明細」を最上部に出すため
           DB.push(recs[i]);
         });
         try {
@@ -8972,7 +8976,9 @@
           if (mo && !inMonth(r.日付, mo)) return false;
           return true;
         }).sort(function (a, b) {
-          return (b.日付 || "").localeCompare(a.日付 || "");
+          var d = (b.日付 || "").localeCompare(a.日付 || "");
+          if (d !== 0) return d;
+          return (b._created || "").localeCompare(a._created || ""); // 同じ日付は後から入れた明細を上へ(最新が上)
         });
         var box = document.getElementById("listBody");
         if (!rows.length) {
