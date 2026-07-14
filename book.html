@@ -163,10 +163,10 @@ body {
   align-items:center;
   background:#F8FEFC;
   border-bottom:1px solid #C8ECD8;
-  padding:0 6px;
-  gap:2px;
+  padding:4px 8px;
+  gap:4px;
   flex-shrink:0;
-  height:34px;
+  height:90px;
   overflow-x:auto;
   overflow-y:hidden;
   scrollbar-width:none;
@@ -180,24 +180,25 @@ body {
   font-size:12px;
   font-weight:600;
   color:#1A4A2E;
-  padding:5px 9px;
-  border-radius:7px;
+  padding:7px 12px;
+  border-radius:8px;
   cursor:pointer;
   white-space:nowrap;
   display:inline-flex;
   align-items:center;
-  gap:4px;
+  gap:5px;
   flex-shrink:0;
 }
 .rb-btn:hover{ background:#EAF7F0; border-color:#D4EDE1; }
-.rb-btn .ic{ font-size:14px; }
+.rb-btn.active{ background:#D4EDE1; border-color:#52B788; }
+.rb-btn .ic{ font-size:17px; }
 .rb-grp{
   display:inline-flex;
   align-items:center;
-  gap:2px;
-  padding:0 4px;
+  gap:3px;
+  padding:0 6px;
   border-right:1px solid #E0EFE7;
-  height:26px;
+  height:48px;
 }
 .rb-grp:last-child{ border-right:none; }
 .rb-grp-lb{
@@ -206,6 +207,63 @@ body {
   padding:0 4px;
   flex-shrink:0;
 }
+/* ===== ホームタブ密集グループ用: Excel同様の3段レイアウト ===== */
+.rb-grp-tall{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  gap:2px;
+  height:82px;
+  padding:3px 8px;
+  border-right:1px solid #E0EFE7;
+  flex-shrink:0;
+  box-sizing:border-box;
+}
+.rb-grp-tall:last-child{ border-right:none; }
+.rb-grp-body{
+  display:flex;
+  align-items:center;
+  gap:4px;
+  flex:1;
+  min-height:0;
+}
+.rb-grp-rows{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  justify-content:center;
+  height:100%;
+}
+.rb-row{
+  display:flex;
+  align-items:center;
+  gap:2px;
+}
+.rb-btn-big{
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  height:100%;
+  padding:4px 6px;
+  gap:2px;
+  font-size:10px;
+  white-space:normal;
+  text-align:center;
+  line-height:1.15;
+  max-width:60px;
+}
+.rb-btn-big .ic{ font-size:20px; }
+.rb-btn-sm{
+  padding:2px 6px;
+  font-size:11px;
+  height:19px;
+  min-width:19px;
+  justify-content:center;
+  border-radius:5px;
+}
+.rb-btn-sm .ic{ font-size:12px; }
+.rb-grp-tall .rb-grp-lb{ padding:0; }
 /* スマホ：▼ボタンを右端にsticky固定（見切れ防止）*/
 @media(max-width:768px){
   #fmt-toggle {
@@ -395,6 +453,15 @@ body {
   font-size:11px; text-align:center; background:#fff; font-family:inherit;
   color:#1A2B22; flex-shrink:0;
 }
+.rb-dd-wrap{position:relative;display:inline-flex;flex-shrink:0;}
+.rb-dd-menu{position:fixed;display:none;flex-direction:column;background:#fff;border:1px solid #D4EDE1;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.18);z-index:1750;min-width:170px;padding:4px;}
+.rb-dd-menu.show{display:flex;}
+.rb-dd-menu button{background:none;border:none;text-align:left;padding:7px 10px;font-size:12px;color:#1A4A2E;border-radius:6px;cursor:pointer;font-family:inherit;white-space:nowrap;}
+.rb-dd-menu button:hover{background:#EAF7F0;}
+.rb-sel{font-size:11.5px;padding:4px 6px;border:1px solid transparent;border-radius:7px;background:none;color:#1A4A2E;font-family:inherit;cursor:pointer;max-width:110px;flex-shrink:0;}
+.rb-sel:hover{background:#EAF7F0;border-color:#D4EDE1;}
+.rb-num{width:36px;font-size:12px;padding:4px 3px;border:1px solid transparent;border-radius:7px;background:none;color:#1A4A2E;font-family:inherit;text-align:center;flex-shrink:0;}
+.rb-num:hover,.rb-num:focus{background:#EAF7F0;border-color:#D4EDE1;}
 .fmt-color-wrap {
   position:relative; width:26px; height:26px; cursor:pointer; flex-shrink:0;
 }
@@ -1201,6 +1268,18 @@ touch-action:manipulation;
 .sm-ft button{padding:8px 16px;border:1px solid #D4EDE1;border-radius:9px;background:#fff;color:#1A4A2E;font-size:13px;font-weight:600;cursor:pointer;}
 .sm-ft button.pr{background:#52B788;color:#fff;border-color:#52B788;}
 
+/* ヘルプ: ショートカット / ガイド モーダル（sortModalと同型） */
+#shortcutsModal,#helpGuideModal,#protectModal{position:fixed;inset:0;z-index:1700;background:rgba(0,0,0,0.35);display:none;align-items:center;justify-content:center;font-family:'Noto Sans JP',sans-serif;}
+#shortcutsModal.show,#helpGuideModal.show,#protectModal.show{display:flex;}
+.hk-list{list-style:none;margin:0;padding:0;}
+.hk-list li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid #F0FAF4;font-size:12.5px;color:#333;}
+.hk-list li:last-child{border-bottom:none;}
+.hk-list kbd{background:#F0FAF4;border:1px solid #D4EDE1;border-radius:5px;padding:2px 7px;font-size:11.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#1A4A2E;white-space:nowrap;}
+.hg-sec{margin-bottom:12px;}
+.hg-sec:last-child{margin-bottom:0;}
+.hg-sec .hg-tt{font-size:12.5px;font-weight:700;color:#1A4A2E;margin-bottom:4px;}
+.hg-sec p{margin:0;font-size:12px;color:#4A6B5A;line-height:1.6;}
+
 /* トースト通知 */
 #toast {
 position:fixed;
@@ -1503,10 +1582,18 @@ function updateFormatBar(cell) {
   if((el=document.getElementById('fmt-align-left')))   el.classList.toggle('active',(cell.align||'left')==='left');
   if((el=document.getElementById('fmt-align-center'))) el.classList.toggle('active',cell.align==='center');
   if((el=document.getElementById('fmt-align-right')))  el.classList.toggle('active',cell.align==='right');
+  if((el=document.getElementById('fmt-valign-top')))    el.classList.toggle('active',cell.valign==='top');
+  if((el=document.getElementById('fmt-valign-middle'))) el.classList.toggle('active',(cell.valign||'middle')==='middle');
+  if((el=document.getElementById('fmt-valign-bottom'))) el.classList.toggle('active',cell.valign==='bottom');
   // フォントサイズ
   if((el=document.getElementById('fmt-font-size'))){
     var fs = cell.fontSize||12;
     if(parseInt(el.value)!==fs) el.value=String(fs);
+  }
+  // フォント名
+  if((el=document.getElementById('fmt-font-family'))){
+    var ff = cell.fontFamily||'Noto Sans JP';
+    if(el.value!==ff && [].slice.call(el.options).some(function(o){return o.value===ff;})) el.value=ff;
   }
   // 文字色アイコン
   var colorIcon=document.getElementById('fmt-color-icon');
@@ -1680,6 +1767,21 @@ function render(){
   _renderPending=true;
   requestAnimationFrame(function(){ _renderPending=false; _doRender(); });
 }
+
+// 選択範囲(r1,c1,r2,c2)内のグリッド線だけを現在のパスに追加する（呼び出し元でstroke()する）
+function _drawSelGridLines(r1,c1,r2,c2,sR,eR,sC,eC){
+  var x1=Math.max(HDR_W,colX(c1)), x2=Math.min(wrapW,colX(c2)+cW(c2));
+  var y1=Math.max(HDR_H,rowY(r1)), y2=Math.min(wrapH,rowY(r2)+rH(r2));
+  if(x2<=x1||y2<=y1) return;
+  for(var r=Math.max(sR,r1);r<=Math.min(eR+1,r2+1);r++){
+    var ly=Math.round(rowY(r))+0.5; if(ly<=HDR_H||ly>wrapH) continue;
+    ctx.moveTo(x1,ly); ctx.lineTo(x2,ly);
+  }
+  for(var c=Math.max(sC,c1);c<=Math.min(eC+1,c2+1);c++){
+    var lx=Math.round(colX(c))+0.5; if(lx<=HDR_W||lx>wrapW) continue;
+    ctx.moveTo(lx,y1); ctx.lineTo(lx,y2);
+  }
+}
 function _doRender() {
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,wrapW,wrapH);
@@ -1691,6 +1793,49 @@ function _doRender() {
   // 1. 全体白背景（高速）
   ctx.fillStyle=C_CELL_BG;
   ctx.fillRect(HDR_W,HDR_H,wrapW,wrapH);
+
+  // 1.5 テーブルデザイン: 縞模様（行）。個別セルのbgColorは次のパスで上書きされ優先される
+  var _tbl=_tableGet();
+  if(_tbl && _tbl.bandedRows){
+    var bandColor=(TABLE_STYLES[_tbl.style]||TABLE_STYLES.mint1).band;
+    var bodyStart=_tbl.headerRow?_tbl.r1+1:_tbl.r1;
+    for(var _br=Math.max(sR,bodyStart);_br<=Math.min(eR+1,_tbl.r2);_br++){
+      if((_br-bodyStart)%2!==1) continue;
+      var _by=rowY(_br), _bh=rH(_br);
+      if(_bh<=0||_by+_bh<HDR_H||_by>wrapH) continue;
+      var _bx1=colX(_tbl.c1), _bx2=colX(_tbl.c2)+cW(_tbl.c2);
+      if(_bx2<HDR_W||_bx1>wrapW) continue;
+      ctx.fillStyle=bandColor;
+      ctx.fillRect(Math.max(_bx1,HDR_W),_by,Math.min(_bx2,wrapW)-Math.max(_bx1,HDR_W),_bh);
+    }
+  }
+
+  // 1.6 条件付き書式（軽量版）。セル個別のbgColorは次のパスで上書きされ優先される
+  var _cfList=sheets[activeSheet].condFormats;
+  if(_cfList && _cfList.length){
+    _cfList.forEach(function(cfR){
+      var matchFn;
+      if(cfR.type==='dup'){
+        var counts={};
+        for(var _drr=cfR.r1;_drr<=cfR.r2;_drr++) for(var _dcc=cfR.c1;_dcc<=cfR.c2;_dcc++){
+          var _dv=getCell(_drr,_dcc).d; if(_dv==='') continue;
+          counts[_dv]=(counts[_dv]||0)+1;
+        }
+        matchFn=function(r,c){ var v=getCell(r,c).d; return v!=='' && counts[v]>1; };
+      } else {
+        matchFn=function(r,c){ var v=parseFloat(getCell(r,c).d); if(isNaN(v)) return false; return cfR.type==='gt'?v>cfR.value:v<cfR.value; };
+      }
+      ctx.fillStyle='#FFC7CE';
+      for(var _cr=Math.max(sR,cfR.r1);_cr<=Math.min(eR+1,cfR.r2);_cr++){
+        for(var _cc=Math.max(sC,cfR.c1);_cc<=Math.min(eC+1,cfR.c2);_cc++){
+          if(!matchFn(_cr,_cc)) continue;
+          var _fx=colX(_cc),_fy=rowY(_cr),_fw=cW(_cc),_fh=rH(_cr);
+          if(_fw<=0||_fx+_fw<HDR_W||_fx>wrapW||_fy+_fh<HDR_H||_fy>wrapH) continue;
+          ctx.fillRect(_fx,_fy,_fw,_fh);
+        }
+      }
+    });
+  }
 
   // 2. bgColorあるセルを上塗り
   for(var r=sR;r<=eR+1;r++) for(var c=sC;c<=eC+1;c++){
@@ -1730,6 +1875,16 @@ function _doRender() {
   }
   ctx.stroke();
 
+  // 2.5 選択範囲内のグリッド線を少し濃く重ね描き（青みの背景でコントラスト不足になるのを防ぐ）
+  ctx.strokeStyle='rgba(30,136,229,0.4)'; ctx.lineWidth=0.5; ctx.beginPath();
+  if(!multiSelectAutoMainReset) _drawSelGridLines(selR1,selC1,selR2,selC2,sR,eR,sC,eC);
+  for(var _sgi=0;_sgi<selRanges.length;_sgi++){
+    var _sgr=selRanges[_sgi];
+    if(_sgr.sheet && _sgr.sheet!==sheets[activeSheet].name) continue;
+    _drawSelGridLines(_sgr.r1,_sgr.c1,_sgr.r2,_sgr.c2,sR,eR,sC,eC);
+  }
+  ctx.stroke();
+
   // 検索ヒットのハイライト（テキストの下地）
   if(typeof _findHighlightOn==='function' && _findHighlightOn()) drawFindHighlights(sR,eR,sC,eC);
 
@@ -1738,6 +1893,31 @@ function _doRender() {
 
   // 4. 罫線（グリッド線の上に描画）
   for(var r=sR;r<=eR+1;r++) for(var c=sC;c<=eC+1;c++) drawBorder(r,c);
+
+  // 校閲: コメント付きセルの右上に三角バッジを表示
+  for(var r=sR;r<=eR+1;r++) for(var c=sC;c<=eC+1;c++){
+    var cmCell=sheets[activeSheet].data[r+','+c];
+    if(!cmCell||!cmCell.comment) continue;
+    var cx2=colX(c), cy2=rowY(r), cw2=cW(c);
+    if(cw2<=0||cx2+cw2<HDR_W||cx2>wrapW||cy2<HDR_H) continue;
+    ctx.fillStyle='#3D9E72';
+    ctx.beginPath();
+    ctx.moveTo(cx2+cw2-7,cy2);
+    ctx.lineTo(cx2+cw2,cy2);
+    ctx.lineTo(cx2+cw2,cy2+7);
+    ctx.closePath();
+    ctx.fill();
+  }
+  // 校閲: 重複データチェックの一時ハイライト
+  if(_dupHighlightKeys){
+    ctx.fillStyle='rgba(214,69,69,0.18)';
+    _dupHighlightKeys.forEach(function(k){
+      var p=k.split(','); var dr=parseInt(p[0]),dc=parseInt(p[1]);
+      var dx=colX(dc),dy=rowY(dr),dw=cW(dc),dh=rH(dr);
+      if(dw<=0||dx+dw<HDR_W||dx>wrapW||dy+dh<HDR_H||dy>wrapH) return;
+      ctx.fillRect(dx,dy,dw,dh);
+    });
+  }
 
   // フィルターのドロップダウンボタン（見出し行に描画）
   if(typeof drawFilterButtons==='function') drawFilterButtons(sR,eR,sC,eC);
@@ -1829,6 +2009,49 @@ function _doRender() {
   // 10. 選択枠（最前面）
   drawSel();
   drawFillPreview();
+  // 10.4 描画レイヤー（ペンの書き込み）
+  // 既知の制約: 座標は画面ピクセル+スクロール量で保存するためズーム変更に追従しない
+  var _strokes=sheets[activeSheet].strokes;
+  if(_strokes && _strokes.length){
+    ctx.save();
+    ctx.rect(HDR_W,HDR_H,wrapW-HDR_W,wrapH-HDR_H);
+    ctx.clip();
+    ctx.lineJoin='round'; ctx.lineCap='round';
+    _strokes.forEach(function(st){
+      if(!st.points||st.points.length<2) return;
+      ctx.beginPath();
+      ctx.strokeStyle=st.color; ctx.lineWidth=st.width;
+      ctx.moveTo(st.points[0].x-scrollLeft, st.points[0].y-scrollTop);
+      for(var _pi=1;_pi<st.points.length;_pi++) ctx.lineTo(st.points[_pi].x-scrollLeft, st.points[_pi].y-scrollTop);
+      ctx.stroke();
+    });
+    if(_drawStroke && _drawStroke.points.length>1){
+      ctx.beginPath();
+      ctx.strokeStyle=_drawStroke.color; ctx.lineWidth=_drawStroke.width;
+      ctx.moveTo(_drawStroke.points[0].x-scrollLeft, _drawStroke.points[0].y-scrollTop);
+      for(var _pj=1;_pj<_drawStroke.points.length;_pj++) ctx.lineTo(_drawStroke.points[_pj].x-scrollLeft, _drawStroke.points[_pj].y-scrollTop);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // 10.5 改ページプレビュー（点線・近似表示）
+  if(_pageSetupGet().showBreaks){
+    ctx.save();
+    ctx.strokeStyle='#3D9E72';
+    ctx.lineWidth=1;
+    ctx.setLineDash([4,3]);
+    _pageBreakCols().forEach(function(c){
+      var x=colX(c);
+      if(x<HDR_W||x>wrapW) return;
+      ctx.beginPath(); ctx.moveTo(x,HDR_H); ctx.lineTo(x,wrapH); ctx.stroke();
+    });
+    _pageBreakRows().forEach(function(r){
+      var y=rowY(r);
+      if(y<HDR_H||y>wrapH) return;
+      ctx.beginPath(); ctx.moveTo(HDR_W,y); ctx.lineTo(wrapW,y); ctx.stroke();
+    });
+    ctx.restore();
+  }
   // 11. refMode中: 参照セルハイライト
   // 複数参照ハイライト（Excelスタイル）
   // 結合セル描画パス（通常描画の上から上書き）
@@ -2520,6 +2743,12 @@ function detectTimePattern(values){
 
 </script>
 
+<style id="print-page-style"></style>
+<style>
+@media print{
+  #ribbon-tabs,.ribbon-panel,#ai-float-btn,#ai-panel-wrap,#formula-bar,#sheet-tabs{display:none!important;}
+}
+</style>
 </head>
 <body>
 
@@ -2954,6 +3183,95 @@ window.addEventListener('load',updateBookVerBadge);
   </div>
 </div>
 
+<!-- ヘルプ: キーボードショートカット -->
+<div id="shortcutsModal">
+  <div class="sm-box">
+    <div class="sm-hd">
+      <span class="tt">キーボードショートカット</span>
+      <button class="cl" onclick="closeShortcutsModal()">×</button>
+    </div>
+    <div class="sm-bd">
+      <ul class="hk-list">
+        <li><span>コピー</span><kbd>Ctrl/Cmd + C</kbd></li>
+        <li><span>切り取り</span><kbd>Ctrl/Cmd + X</kbd></li>
+        <li><span>貼り付け</span><kbd>Ctrl/Cmd + V</kbd></li>
+        <li><span>元に戻す</span><kbd>Ctrl/Cmd + Z</kbd></li>
+        <li><span>やり直し</span><kbd>Ctrl/Cmd + Y</kbd></li>
+        <li><span>すべて選択</span><kbd>Ctrl/Cmd + A</kbd></li>
+        <li><span>検索</span><kbd>Ctrl/Cmd + F</kbd></li>
+        <li><span>置換</span><kbd>Ctrl/Cmd + H</kbd></li>
+        <li><span>先頭セルへ移動</span><kbd>Ctrl/Cmd + Home</kbd></li>
+        <li><span>データ末尾へ移動</span><kbd>Ctrl/Cmd + End</kbd></li>
+        <li><span>セルの編集開始</span><kbd>Enter / F2</kbd></li>
+        <li><span>セルの内容を削除</span><kbd>Delete / Backspace</kbd></li>
+        <li><span>選択範囲の拡張</span><kbd>Shift + 矢印キー</kbd></li>
+        <li><span>次/前のセルへ移動</span><kbd>Tab / Shift + Tab</kbd></li>
+      </ul>
+    </div>
+    <div class="sm-ft">
+      <button class="pr" onclick="closeShortcutsModal()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ヘルプ: 使い方ガイド -->
+<div id="helpGuideModal">
+  <div class="sm-box">
+    <div class="sm-hd">
+      <span class="tt">使い方ガイド</span>
+      <button class="cl" onclick="closeHelpGuideModal()">×</button>
+    </div>
+    <div class="sm-bd">
+      <div class="hg-sec"><div class="hg-tt">ホーム</div><p>文字の書式（太字/色/罫線/配置/数値書式）をツールバーからすぐに設定できます。</p></div>
+      <div class="hg-sec"><div class="hg-tt">挿入</div><p>テーブル化・行/列の挿入・シート追加・関数の挿入ができます。</p></div>
+      <div class="hg-sec"><div class="hg-tt">ページレイアウト</div><p>余白・印刷の向き・用紙サイズ・印刷範囲を設定できます。</p></div>
+      <div class="hg-sec"><div class="hg-tt">数式</div><p>合計/平均/個数/最大/最小のオート集計や、関数の挿入ができます。</p></div>
+      <div class="hg-sec"><div class="hg-tt">データ</div><p>並べ替え・フィルター・検索/置換ができます。</p></div>
+      <div class="hg-sec"><div class="hg-tt">校閲</div><p>セルへのコメント追加、重複データのチェック、シートの保護ができます。</p></div>
+      <div class="hg-sec"><div class="hg-tt">テーブルデザイン</div><p>テーブル範囲にスタイル（見出し行・縞模様）を適用できます。</p></div>
+      <div class="hg-sec"><div class="hg-tt">描画</div><p>ペンでシート上に自由に書き込みができます。</p></div>
+      <div class="hg-sec"><div class="hg-tt">表示</div><p>ズームやウィンドウ枠の固定ができます。</p></div>
+      <div class="hg-sec"><div class="hg-tt">共有</div><p>リンクのコピー・メールでの共有・印刷ができます。</p></div>
+    </div>
+    <div class="sm-ft">
+      <button class="pr" onclick="closeHelpGuideModal()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- 校閲: コメント編集ポップオーバー -->
+<div id="commentPopover" style="position:absolute;display:none;z-index:1700;background:#fff;border:1px solid #D4EDE1;border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,0.2);width:220px;font-family:'Noto Sans JP',sans-serif;">
+  <div style="padding:8px 10px;border-bottom:1px solid #E8F5EE;font-size:12px;font-weight:700;color:#1A4A2E;">コメント</div>
+  <div style="padding:8px 10px;">
+    <textarea id="comment-text" rows="4" style="width:100%;box-sizing:border-box;border:1px solid #D4EDE1;border-radius:7px;padding:6px 8px;font-size:12px;font-family:inherit;resize:vertical;" placeholder="コメントを入力"></textarea>
+  </div>
+  <div style="display:flex;gap:6px;justify-content:flex-end;padding:8px 10px;border-top:1px solid #E8F5EE;">
+    <button onclick="deleteCommentPopover()" style="padding:6px 10px;border:1px solid #D4EDE1;border-radius:7px;background:#fff;color:#D64545;font-size:11.5px;font-weight:600;cursor:pointer;">削除</button>
+    <button onclick="closeCommentPopover()" style="padding:6px 10px;border:1px solid #D4EDE1;border-radius:7px;background:#fff;color:#1A4A2E;font-size:11.5px;font-weight:600;cursor:pointer;">キャンセル</button>
+    <button onclick="saveCommentPopover()" style="padding:6px 10px;border:1px solid #52B788;border-radius:7px;background:#52B788;color:#fff;font-size:11.5px;font-weight:700;cursor:pointer;">保存</button>
+  </div>
+</div>
+
+<!-- 校閲: シートの保護モーダル -->
+<div id="protectModal">
+  <div class="sm-box">
+    <div class="sm-hd">
+      <span class="tt">シートの保護</span>
+      <button class="cl" onclick="closeProtectModal()">×</button>
+    </div>
+    <div class="sm-bd">
+      <label class="sm-opt"><input type="checkbox" id="protect-enable">このシートを保護する（編集をブロック）</label>
+      <p style="font-size:11px;color:#7A9A87;margin:0 0 10px;line-height:1.6;">※ クライアント側だけの簡易ロックです。本当のセキュリティ機能ではありません。</p>
+      <label class="sm-opt"><input type="checkbox" id="protect-usepass" onchange="document.getElementById('protect-pass').disabled=!this.checked">パスワードを設定する（任意）</label>
+      <input type="password" id="protect-pass" disabled style="width:100%;box-sizing:border-box;border:1px solid #D4EDE1;border-radius:7px;padding:6px 8px;font-size:12px;margin-top:4px;" placeholder="パスワード（任意）">
+    </div>
+    <div class="sm-ft">
+      <button onclick="closeProtectModal()">キャンセル</button>
+      <button class="pr" onclick="applyProtectModal()">OK</button>
+    </div>
+  </div>
+</div>
+
 <div id="formula-bar">
   <input id="cell-addr" type="text" value="A1" readonly>
   <span id="fx-icon" title="関数の挿入" onclick="openFnPalette()">fx</span>
@@ -3093,78 +3411,211 @@ window.addEventListener('load',updateBookVerBadge);
   <button class="rb-tab rb-file" onclick="switchRibbonTab('file')">ファイル</button>
   <button class="rb-tab active" id="rbtab-home" onclick="switchRibbonTab('home')">ホーム</button>
   <button class="rb-tab" id="rbtab-insert" onclick="switchRibbonTab('insert')">挿入</button>
+  <button class="rb-tab" id="rbtab-pagelayout" onclick="switchRibbonTab('pagelayout')">ページレイアウト</button>
   <button class="rb-tab" id="rbtab-formula" onclick="switchRibbonTab('formula')">数式</button>
   <button class="rb-tab" id="rbtab-data" onclick="switchRibbonTab('data')">データ</button>
+  <button class="rb-tab" id="rbtab-review" onclick="switchRibbonTab('review')">校閲</button>
   <button class="rb-tab" id="rbtab-view" onclick="switchRibbonTab('view')">表示</button>
+  <button class="rb-tab" id="rbtab-help" onclick="switchRibbonTab('help')">ヘルプ</button>
+  <button class="rb-tab" id="rbtab-tabledesign" onclick="switchRibbonTab('tabledesign')">テーブルデザイン</button>
+  <button class="rb-tab" id="rbtab-draw" onclick="switchRibbonTab('draw')">描画</button>
+  <button class="rb-tab" id="rbtab-share" style="margin-left:auto;" onclick="switchRibbonTab('share')">共有</button>
 </div>
 
-<!-- ツールバー1段目<!-- ツールバー1段目（常時表示・ホームタブ） -->
-
-<div id="fmt-bar1">
-  <!-- 戻る・進む（左端sticky）-->
-  <button class="fmt-undo-redo" onclick="doUndo()" title="元に戻す">↩</button>
-  <button class="fmt-undo-redo fmt-undo-redo-right" onclick="doRedo()" title="やり直す">↪</button>
-  <div class="fmt-sep"></div>
-  <!-- 文字スタイル -->
-  <button class="fmt-btn fmt-btn-b" id="fmt-bold"      onclick="toggleFormat('bold')"      title="太字">B</button>
-  <button class="fmt-btn fmt-btn-i" id="fmt-italic"    onclick="toggleFormat('italic')"    title="斜体">I</button>
-  <button class="fmt-btn fmt-btn-u" id="fmt-underline" onclick="toggleFormat('underline')" title="下線">U</button>
-  <button class="fmt-btn fmt-btn-s" id="fmt-strike"    onclick="toggleFormat('strike')"    title="取り消し線">S</button>
-  <div class="fmt-sep"></div>
-  <!-- フォントサイズ -->
-  <input id="fmt-font-size" type="number" value="12" min="6" max="72" title="フォントサイズ"
-    onfocus="window._fsCell=[selR1,selC1]; this.select()"
-    onblur="(function(el){var r=window._fsCell[0],cc=window._fsCell[1],sz=parseInt(el.value)||12;if(!window._toolbarUpdating){var k=r+','+cc;if(!sheets[activeSheet].data[k])sheets[activeSheet].data[k]={v:'',f:'',d:''};sheets[activeSheet].data[k].fontSize=sz;render();updateBar();}})(this)"
-    ontouchend="event.stopPropagation()">
-  <div class="fmt-sep"></div>
-  <!-- 文字色（パレット選択ポップオーバー） -->
-  <div class="fmt-color-wrap" title="文字色" onclick="openColorPalette(event)">
-    <div class="fmt-color-icon" id="fmt-color-icon" style="pointer-events:none;">
-      <span style="line-height:1;">A</span>
-      <div class="fmt-color-bar" id="fmt-color-bar" style="background:#1A2B22;"></div>
+<!-- リボン: ホーム タブ（実Excelの7グループ構成に準拠） -->
+<div class="ribbon-panel show" id="ribbon-home">
+  <div class="rb-grp-tall">
+    <div class="rb-grp-body">
+      <button class="rb-btn rb-btn-big" onclick="ctxPaste()" title="貼り付け"><span class="ic">📋</span>貼り付け</button>
+      <div class="rb-grp-rows">
+        <div class="rb-row"><button class="rb-btn rb-btn-sm" onclick="ctxCut()" title="切り取り"><span class="ic">✂️</span>切り取り</button></div>
+        <div class="rb-row"><button class="rb-btn rb-btn-sm" onclick="ctxCopy()" title="コピー"><span class="ic">📄</span>コピー</button></div>
+        <div class="rb-row"><button class="rb-btn rb-btn-sm" id="fmt-painter" onclick="toggleFormatPainter()" title="書式のコピー/貼り付け"><span class="ic">🖌️</span>書式のコピー</button></div>
+      </div>
     </div>
+    <span class="rb-grp-lb">クリップボード</span>
   </div>
-  <input type="color" id="fmt-color" value="#1A2B22" style="display:none;" onchange="applyFormat('color',this.value)">
-  <!-- 背景色（パレット選択ポップオーバー） -->
-  <div class="fmt-color-wrap" title="背景色" onclick="openColorPalette(event, 'bgColor')">
-    <div class="fmt-color-icon fmt-bg-only" id="fmt-bg-icon" style="pointer-events:none;">🎨</div>
+
+  <div class="rb-grp-tall">
+    <div class="rb-grp-body">
+      <div class="rb-grp-rows">
+        <div class="rb-row">
+          <select class="rb-sel" id="fmt-font-family" onchange="applyFormat('fontFamily',this.value)" title="フォント">
+            <option value="Noto Sans JP">Noto Sans JP</option>
+            <option value="Yu Gothic">游ゴシック</option>
+            <option value="Meiryo">メイリオ</option>
+            <option value="MS PGothic">ＭＳ Ｐゴシック</option>
+            <option value="serif">明朝</option>
+            <option value="Arial">Arial</option>
+          </select>
+          <input id="fmt-font-size" type="number" value="12" min="6" max="72" class="rb-num" title="フォントサイズ"
+            onfocus="window._fsCell=[selR1,selC1]; this.select()"
+            onblur="(function(el){var r=window._fsCell[0],cc=window._fsCell[1],sz=parseInt(el.value)||12;if(!window._toolbarUpdating){var k=r+','+cc;if(!sheets[activeSheet].data[k])sheets[activeSheet].data[k]={v:'',f:'',d:''};sheets[activeSheet].data[k].fontSize=sz;render();updateBar();}})(this)"
+            ontouchend="event.stopPropagation()">
+          <button class="rb-btn rb-btn-sm" onclick="stepFontSize(1)" title="フォントサイズの拡大">A˄</button>
+          <button class="rb-btn rb-btn-sm" onclick="stepFontSize(-1)" title="フォントサイズの縮小">A˅</button>
+        </div>
+        <div class="rb-row">
+          <button class="rb-btn rb-btn-sm fmt-btn-b" id="fmt-bold"      onclick="toggleFormat('bold')"      title="太字">B</button>
+          <button class="rb-btn rb-btn-sm fmt-btn-i" id="fmt-italic"    onclick="toggleFormat('italic')"    title="斜体">I</button>
+          <button class="rb-btn rb-btn-sm fmt-btn-u" id="fmt-underline" onclick="toggleFormat('underline')" title="下線">U</button>
+          <button class="rb-btn rb-btn-sm fmt-btn-s" id="fmt-strike"    onclick="toggleFormat('strike')"    title="取り消し線">S</button>
+          <div class="fmt-color-wrap" title="塗りつぶしの色" onclick="openColorPalette(event, 'bgColor')">
+            <div class="fmt-color-icon fmt-bg-only" id="fmt-bg-icon" style="pointer-events:none;">🎨</div>
+          </div>
+          <input type="color" id="fmt-bg" value="#ffffff" style="display:none;" onchange="applyFormat('bgColor',this.value)">
+          <div class="fmt-color-wrap" title="フォントの色" onclick="openColorPalette(event)">
+            <div class="fmt-color-icon" id="fmt-color-icon" style="pointer-events:none;">
+              <span style="line-height:1;">A</span>
+              <div class="fmt-color-bar" id="fmt-color-bar" style="background:#1A2B22;"></div>
+            </div>
+          </div>
+          <input type="color" id="fmt-color" value="#1A2B22" style="display:none;" onchange="applyFormat('color',this.value)">
+          <div class="rb-dd-wrap">
+            <button class="rb-btn rb-btn-sm" onclick="_toggleRbDropdown(event,'borderMenu')" title="罫線"><span class="ic">⊞</span>▾</button>
+            <div class="rb-dd-menu" id="borderMenu">
+              <button onclick="applyBorderAll(1);_closeRbMenu()">全ての罫線</button>
+              <button onclick="applyBorderOuter(1);_closeRbMenu()">外枠</button>
+              <button onclick="applyBorderInner(1);_closeRbMenu()">内側</button>
+              <button onclick="applyBorderAll(0);_closeRbMenu()">枠なし</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <span class="rb-grp-lb">フォント</span>
   </div>
-  <input type="color" id="fmt-bg" value="#ffffff" style="display:none;" onchange="applyFormat('bgColor',this.value)">
-  <div class="fmt-sep"></div>
-  <!-- 文字揃え -->
-  <button class="fmt-btn active" id="fmt-align-left"   onclick="applyFormat('align','left')"   title="左揃え"><svg width="14" height="12" viewBox="0 0 14 12"><line x1="0" y1="2" x2="14" y2="2" stroke="currentColor" stroke-width="1.5"/><line x1="0" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.5"/><line x1="0" y1="10" x2="14" y2="10" stroke="currentColor" stroke-width="1.5"/></svg></button>
-  <button class="fmt-btn"        id="fmt-align-center" onclick="applyFormat('align','center')" title="中央揃え"><svg width="14" height="12" viewBox="0 0 14 12"><line x1="0" y1="2" x2="14" y2="2" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="6" x2="12" y2="6" stroke="currentColor" stroke-width="1.5"/><line x1="0" y1="10" x2="14" y2="10" stroke="currentColor" stroke-width="1.5"/></svg></button>
-  <button class="fmt-btn"        id="fmt-align-right"  onclick="applyFormat('align','right')"  title="右揃え"><svg width="14" height="12" viewBox="0 0 14 12"><line x1="0" y1="2" x2="14" y2="2" stroke="currentColor" stroke-width="1.5"/><line x1="4" y1="6" x2="14" y2="6" stroke="currentColor" stroke-width="1.5"/><line x1="0" y1="10" x2="14" y2="10" stroke="currentColor" stroke-width="1.5"/></svg></button>
-  <div class="fmt-sep"></div>
-  <!-- 数値書式 -->
-  <button class="fmt-btn" onclick="applyFormat('numFmt','0%')"    title="パーセント">%</button>
-  <button class="fmt-btn" onclick="applyFormat('numFmt','#,##0')" title="桁区切り">,</button>
-  <button class="fmt-btn" onclick="toggleDecimal()"               title="小数点増減">.0</button>
-  <button class="fmt-btn" onclick="applyFormat('numFmt','¥#,##0')" title="通貨(¥)">¥</button>
-  <div class="fmt-sep"></div>
-  <!-- セル書式設定モーダル起動 -->
-  <button class="fmt-btn" onclick="openFmtModal()" title="セルの書式設定" style="font-size:12px;font-weight:600;padding:0 6px;">書式</button>
-  <div class="fmt-sep"></div>
-  <!-- 2段目展開ボタン -->
-  <button class="fmt-btn" id="fmt-toggle" onclick="toggleFmtBar2()" title="その他書式">▼</button>
-</div>
 
-<!-- ツールバー2段目（折りたたみ） -->
+  <div class="rb-grp-tall">
+    <div class="rb-grp-body">
+      <div class="rb-grp-rows">
+        <div class="rb-row">
+          <button class="rb-btn rb-btn-sm" id="fmt-valign-top"    onclick="applyFormat('valign','top')"    title="上揃え">⬆</button>
+          <button class="rb-btn rb-btn-sm" id="fmt-valign-middle" onclick="applyFormat('valign','middle')" title="上下中央揃え">⬍</button>
+          <button class="rb-btn rb-btn-sm" id="fmt-valign-bottom" onclick="applyFormat('valign','bottom')" title="下揃え">⬇</button>
+          <button class="rb-btn rb-btn-sm" onclick="applyIndent(-1)" title="インデントを減らす">◁−</button>
+          <button class="rb-btn rb-btn-sm" onclick="applyIndent(1)"  title="インデントを増やす">▷+</button>
+        </div>
+        <div class="rb-row">
+          <button class="rb-btn rb-btn-sm active" id="fmt-align-left"   onclick="applyFormat('align','left')"   title="左揃え"><svg width="14" height="12" viewBox="0 0 14 12"><line x1="0" y1="2" x2="14" y2="2" stroke="currentColor" stroke-width="1.5"/><line x1="0" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.5"/><line x1="0" y1="10" x2="14" y2="10" stroke="currentColor" stroke-width="1.5"/></svg></button>
+          <button class="rb-btn rb-btn-sm"        id="fmt-align-center" onclick="applyFormat('align','center')" title="中央揃え"><svg width="14" height="12" viewBox="0 0 14 12"><line x1="0" y1="2" x2="14" y2="2" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="6" x2="12" y2="6" stroke="currentColor" stroke-width="1.5"/><line x1="0" y1="10" x2="14" y2="10" stroke="currentColor" stroke-width="1.5"/></svg></button>
+          <button class="rb-btn rb-btn-sm"        id="fmt-align-right"  onclick="applyFormat('align','right')"  title="右揃え"><svg width="14" height="12" viewBox="0 0 14 12"><line x1="0" y1="2" x2="14" y2="2" stroke="currentColor" stroke-width="1.5"/><line x1="4" y1="6" x2="14" y2="6" stroke="currentColor" stroke-width="1.5"/><line x1="0" y1="10" x2="14" y2="10" stroke="currentColor" stroke-width="1.5"/></svg></button>
+          <button class="rb-btn rb-btn-sm" id="fmt-wrap" onclick="toggleFormat('wrap')" title="折り返して全体を表示">↵</button>
+          <button class="rb-btn rb-btn-sm" onclick="_ribbonToast('文字列の方向は準備中です')" title="方向">🔤</button>
+        </div>
+        <div class="rb-row">
+          <button class="rb-btn rb-btn-sm" onclick="insertLineBreak()" title="任意改行（Alt+Enter）" style="font-size:11px;letter-spacing:-0.5px;">改行</button>
+          <button class="rb-btn rb-btn-sm" onclick="applyMergeCells()" title="セルを結合して中央揃え">⊡結合</button>
+        </div>
+      </div>
+    </div>
+    <span class="rb-grp-lb">配置</span>
+  </div>
 
-<div id="fmt-bar2">
-  <!-- 罫線 -->
-  <button class="fmt-btn" onclick="applyBorderAll(1)"    title="全罫線">⊞全</button>
-  <button class="fmt-btn" onclick="applyBorderOuter(1)"  title="外枠罫線">⊟外</button>
-  <button class="fmt-btn" onclick="applyBorderInner(1)"  title="内側罫線">⊠内</button>
-  <button class="fmt-btn" onclick="applyBorderAll(0)"    title="罫線なし">✕</button>
-  <div class="fmt-sep"></div>
-  <!-- 配置 -->
-  <button class="fmt-btn" onclick="applyMergeCells()"    title="セル結合">⊡結合</button>
-  <button class="fmt-btn" id="fmt-wrap" onclick="toggleFormat('wrap')" title="折り返して全体を表示">↵</button>
-  <div class="fmt-sep"></div>
-  <button class="fmt-btn" onclick="insertLineBreak()" title="任意改行（Alt+Enter）" style="font-size:11px;letter-spacing:-0.5px;">改行</button>
-  <button class="fmt-btn" onclick="applyIndent(1)"       title="インデント増">▷+</button>
-  <button class="fmt-btn" onclick="applyIndent(-1)"      title="インデント減">◁−</button>
+  <div class="rb-grp-tall">
+    <div class="rb-grp-body">
+      <div class="rb-grp-rows">
+        <div class="rb-row">
+          <select class="rb-sel" onchange="applyNumFmtPreset(this.value)" title="表示形式">
+            <option value="">標準</option>
+            <option value="num">数値</option>
+            <option value="cur">通貨</option>
+            <option value="pct">パーセンテージ</option>
+            <option value="date">日付</option>
+          </select>
+        </div>
+        <div class="rb-row">
+          <button class="rb-btn rb-btn-sm" onclick="applyFormat('numFmt','¥#,##0')" title="通貨表示形式">¥</button>
+          <button class="rb-btn rb-btn-sm" onclick="applyFormat('numFmt','0%')"    title="パーセントスタイル">%</button>
+          <button class="rb-btn rb-btn-sm" onclick="applyFormat('numFmt','#,##0')" title="桁区切りスタイル">,</button>
+          <button class="rb-btn rb-btn-sm" onclick="applyDecimalStep(1)"  title="小数点以下の桁数を増やす">.0₊</button>
+          <button class="rb-btn rb-btn-sm" onclick="applyDecimalStep(-1)" title="小数点以下の桁数を減らす">.0₋</button>
+        </div>
+      </div>
+    </div>
+    <span class="rb-grp-lb">数値</span>
+  </div>
+
+  <div class="rb-grp-tall">
+    <div class="rb-grp-body">
+      <div class="rb-dd-wrap">
+        <button class="rb-btn rb-btn-big" onclick="_toggleRbDropdown(event,'condFormatMenu')"><span class="ic">🎯</span>条件付き書式</button>
+        <div class="rb-dd-menu" id="condFormatMenu">
+          <button onclick="applyCondFormat('gt');_closeRbMenu()">指定の値より大きい...</button>
+          <button onclick="applyCondFormat('lt');_closeRbMenu()">指定の値より小さい...</button>
+          <button onclick="applyCondFormat('dup');_closeRbMenu()">重複する値</button>
+          <button onclick="clearCondFormat();_closeRbMenu()">ルールのクリア</button>
+        </div>
+      </div>
+      <div class="rb-dd-wrap">
+        <button class="rb-btn rb-btn-big" onclick="_toggleRbDropdown(event,'tableStyleMenu')"><span class="ic">📊</span>テーブルとして<br>書式設定</button>
+        <div class="rb-dd-menu" id="tableStyleMenu">
+          <button onclick="applyTableStyle('mint1');_closeRbMenu()">🟩 ミント（淡）</button>
+          <button onclick="applyTableStyle('mint2');_closeRbMenu()">🟢 ミント（濃）</button>
+          <button onclick="applyTableStyle('mono');_closeRbMenu()">⬜ モノトーン</button>
+        </div>
+      </div>
+      <div class="rb-dd-wrap">
+        <button class="rb-btn rb-btn-big" onclick="_toggleRbDropdown(event,'cellStyleMenu')"><span class="ic">🎨</span>セルの<br>スタイル</button>
+        <div class="rb-dd-menu" id="cellStyleMenu">
+          <button onclick="applyCellStyle('good');_closeRbMenu()">良い</button>
+          <button onclick="applyCellStyle('bad');_closeRbMenu()">悪い</button>
+          <button onclick="applyCellStyle('warn');_closeRbMenu()">注意</button>
+          <button onclick="applyCellStyle('heading');_closeRbMenu()">見出し</button>
+        </div>
+      </div>
+    </div>
+    <span class="rb-grp-lb">スタイル</span>
+  </div>
+
+  <div class="rb-grp-tall">
+    <div class="rb-grp-body">
+      <div class="rb-dd-wrap">
+        <button class="rb-btn rb-btn-big" onclick="_toggleRbDropdown(event,'insertMenu')"><span class="ic">➕</span>挿入</button>
+        <div class="rb-dd-menu" id="insertMenu">
+          <button onclick="ctxInsertRow();_closeRbMenu()">シートの行を挿入</button>
+          <button onclick="ctxInsertCol();_closeRbMenu()">シートの列を挿入</button>
+        </div>
+      </div>
+      <div class="rb-dd-wrap">
+        <button class="rb-btn rb-btn-big" onclick="_toggleRbDropdown(event,'deleteMenu')"><span class="ic">➖</span>削除</button>
+        <div class="rb-dd-menu" id="deleteMenu">
+          <button onclick="ctxDeleteRow();_closeRbMenu()">シートの行を削除</button>
+          <button onclick="ctxDeleteCol();_closeRbMenu()">シートの列を削除</button>
+        </div>
+      </div>
+      <div class="rb-dd-wrap">
+        <button class="rb-btn rb-btn-big" onclick="_toggleRbDropdown(event,'cellFormatMenu')"><span class="ic">📐</span>書式</button>
+        <div class="rb-dd-menu" id="cellFormatMenu">
+          <button onclick="openFmtModal();_closeRbMenu()">セルの書式設定</button>
+          <button onclick="openProtectModal();_closeRbMenu()">シートの保護</button>
+        </div>
+      </div>
+    </div>
+    <span class="rb-grp-lb">セル</span>
+  </div>
+
+  <div class="rb-grp-tall">
+    <div class="rb-grp-body">
+      <button class="rb-btn rb-btn-big" onclick="quickAgg('SUM')" title="合計"><span class="ic">Σ</span>合計</button>
+      <div class="rb-dd-wrap">
+        <button class="rb-btn rb-btn-big" onclick="_toggleRbDropdown(event,'sortFilterMenu')"><span class="ic">↕️</span>並べ替えと<br>フィルター</button>
+        <div class="rb-dd-menu" id="sortFilterMenu">
+          <button onclick="dataSort(true);_closeRbMenu()">昇順</button>
+          <button onclick="dataSort(false);_closeRbMenu()">降順</button>
+          <button onclick="toggleFilter();_closeRbMenu()">フィルター</button>
+        </div>
+      </div>
+      <div class="rb-dd-wrap">
+        <button class="rb-btn rb-btn-big" onclick="_toggleRbDropdown(event,'findSelectMenu')"><span class="ic">🔍</span>検索と選択</button>
+        <div class="rb-dd-menu" id="findSelectMenu">
+          <button onclick="openFind(false);_closeRbMenu()">検索</button>
+          <button onclick="openFind(true);_closeRbMenu()">置換</button>
+        </div>
+      </div>
+    </div>
+    <span class="rb-grp-lb">編集</span>
+  </div>
 </div>
 
 <!-- リボン: ファイル タブ -->
@@ -3231,6 +3682,95 @@ window.addEventListener('load',updateBookVerBadge);
   <button class="rb-btn" onclick="freezePanes()"><span class="ic">🧊</span>ウィンドウ枠の固定</button>
 </div>
 
+<!-- リボン: ヘルプ タブ -->
+<div class="ribbon-panel" id="ribbon-help">
+  <span class="rb-grp-lb">ヘルプ</span>
+  <button class="rb-btn" onclick="openShortcutsModal()"><span class="ic">⌨️</span>キーボードショートカット</button>
+  <button class="rb-btn" onclick="openHelpGuideModal()"><span class="ic">📖</span>使い方ガイド</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">サポート</span>
+  <button class="rb-btn" onclick="handleAIBtn()"><span class="ic">💬</span>AIに質問する</button>
+</div>
+
+<!-- リボン: 共有 タブ -->
+<div class="ribbon-panel" id="ribbon-share">
+  <span class="rb-grp-lb">共有</span>
+  <button class="rb-btn" onclick="shareCopyLink()" title="このページのURLをコピーします（このシートの内容そのものが開けるリンクではありません）"><span class="ic">🔗</span>リンクをコピー</button>
+  <button class="rb-btn" onclick="shareByMail()" title="メールソフトを開きます。ファイルは自動添付されません"><span class="ic">✉️</span>メールで送る</button>
+  <button class="rb-btn" onclick="printBook()"><span class="ic">🖨️</span>印刷して共有</button>
+</div>
+
+<!-- リボン: ページレイアウト タブ -->
+<div class="ribbon-panel" id="ribbon-pagelayout">
+  <span class="rb-grp-lb">余白</span>
+  <button class="rb-btn" onclick="setPageMargin('normal')"><span class="ic">▭</span>標準</button>
+  <button class="rb-btn" onclick="setPageMargin('narrow')"><span class="ic">▯</span>狭い</button>
+  <button class="rb-btn" onclick="setPageMargin('wide')"><span class="ic">▮</span>広い</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">印刷の向き</span>
+  <button class="rb-btn" onclick="setPageOrientation('portrait')"><span class="ic">📄</span>縦</button>
+  <button class="rb-btn" onclick="setPageOrientation('landscape')"><span class="ic">📃</span>横</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">サイズ</span>
+  <button class="rb-btn" onclick="setPagePaper('A4')">A4</button>
+  <button class="rb-btn" onclick="setPagePaper('A3')">A3</button>
+  <button class="rb-btn" onclick="setPagePaper('letter')">Letter</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">印刷範囲</span>
+  <button class="rb-btn" onclick="setPrintRangeFromSelection()"><span class="ic">🎯</span>選択範囲を印刷範囲に設定</button>
+  <button class="rb-btn" onclick="clearPrintRange()"><span class="ic">✖️</span>印刷範囲のクリア</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">プレビュー</span>
+  <button class="rb-btn" id="btn-pagebreak" onclick="togglePageBreakPreview()"><span class="ic">🔲</span>改ページプレビュー</button>
+</div>
+
+<!-- リボン: 校閲 タブ -->
+<div class="ribbon-panel" id="ribbon-review">
+  <span class="rb-grp-lb">コメント</span>
+  <button class="rb-btn" onclick="toggleCommentAt(selR1,selC1)"><span class="ic">💬</span>コメント</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">チェック</span>
+  <button class="rb-btn" onclick="checkDuplicates()"><span class="ic">🔁</span>重複データのチェック</button>
+  <button class="rb-btn" id="btn-spellcheck" onclick="toggleSpellcheck()"><span class="ic">🔤</span>入力時のスペルチェック</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">保護</span>
+  <button class="rb-btn" id="btn-protect" onclick="openProtectModal()"><span class="ic">🔒</span>シートの保護</button>
+</div>
+
+<!-- リボン: テーブルデザイン タブ -->
+<div class="ribbon-panel" id="ribbon-tabledesign">
+  <span class="rb-grp-lb">テーブルスタイル</span>
+  <button class="rb-btn tbl-swatch" style="background:#F0FAF4;border-color:#52B788;" onclick="applyTableStyle('mint1')" title="ミント（淡）">🟩 mint1</button>
+  <button class="rb-btn tbl-swatch" style="background:#D4EDE1;border-color:#3D9E72;" onclick="applyTableStyle('mint2')" title="ミント（濃）">🟢 mint2</button>
+  <button class="rb-btn tbl-swatch" style="background:#F1F1EE;border-color:#9CA69E;" onclick="applyTableStyle('mono')" title="モノトーン">⬜ mono</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">オプション</span>
+  <button class="rb-btn" id="btn-tbl-header" onclick="toggleTableOption('headerRow')"><span class="ic">🔤</span>見出し行</button>
+  <button class="rb-btn" id="btn-tbl-band" onclick="toggleTableOption('bandedRows')"><span class="ic">🟫</span>縞模様(行)</button>
+  <button class="rb-btn" id="btn-tbl-total" onclick="toggleTableOption('totalRow')"><span class="ic">Σ</span>集計行</button>
+</div>
+
+<!-- リボン: 描画 タブ -->
+<div class="ribbon-panel" id="ribbon-draw">
+  <span class="rb-grp-lb">ペン</span>
+  <button class="rb-btn draw-swatch" style="color:#52B788;" onclick="setDrawColor('#52B788')">🟢</button>
+  <button class="rb-btn draw-swatch" style="color:#3D9E72;" onclick="setDrawColor('#3D9E72')">🟩</button>
+  <button class="rb-btn draw-swatch" style="color:#1A4A2E;" onclick="setDrawColor('#1A4A2E')">⚫</button>
+  <button class="rb-btn draw-swatch" style="color:#D64545;" onclick="setDrawColor('#D64545')">🔴</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">太さ</span>
+  <button class="rb-btn" onclick="setDrawWidth(1)">細</button>
+  <button class="rb-btn" onclick="setDrawWidth(2)">中</button>
+  <button class="rb-btn" onclick="setDrawWidth(4)">太</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">モード</span>
+  <button class="rb-btn" id="btn-drawmode" onclick="toggleDrawingMode()"><span class="ic">✏️</span>描画モード</button>
+  <div class="rb-grp"></div>
+  <span class="rb-grp-lb">消去</span>
+  <button class="rb-btn" id="btn-eraser" onclick="setDrawTool('eraser')"><span class="ic">🧹</span>消しゴム</button>
+  <button class="rb-btn" onclick="clearAllStrokes()"><span class="ic">🗑️</span>すべての描画を消去</button>
+</div>
+
 <div id="grid-wrap">
 
 <canvas id="grid-canvas" tabindex="0"></canvas>
@@ -3283,6 +3823,12 @@ var selR1=0, selC1=0, selR2=0, selC2=0;
 var selRanges = [];
 // 複数選択モード: true=モードON（タップで追加/削除）, false=OFF（通常動作）
 var multiSelectMode = false;
+// 描画モード: true=ペンで描き込み中, false=通常のセル選択操作
+var drawingMode = false;
+var _drawStroke = null;
+var _drawColor = '#3D9E72', _drawWidth = 2, _drawTool = 'pen';
+// 校閲: 重複データチェックの一時ハイライト対象キー（セルデータには書き込まない）
+var _dupHighlightKeys = null;
 // メイン範囲を含む全選択範囲を走査する（描画用の統合ヘルパー）
 function _forEachSelRange(cb){
   // メイン範囲
@@ -3704,7 +4250,13 @@ function resize() {
 // ===== データ =====
 function getCell(r,c){ return sheets[activeSheet].data[r+','+c] || {v:'',f:'',d:''}; }
 var undoStack = [], redoStack = [];
+// 校閲: シート保護中は編集系操作をブロック（クライアント側のみの簡易ロック）
+function _checkProtected(){
+  if(sheets[activeSheet].protected){ _ribbonToast('🔒 シートが保護されています'); return true; }
+  return false;
+}
 function setCell(r,c,v,noUndo){
+  if(_checkProtected()) return;
   // 全角→半角正規化（日本語IMEキーボード対応）
   if(v && typeof v==='string'){
     v = v.replace(/[！-～]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-0xFEE0); });
@@ -3744,7 +4296,7 @@ function setCell(r,c,v,noUndo){
 function doUndo(){
   if(!undoStack.length) return;
   var op = undoStack.pop();
-  redoStack.push({type:op.type, snap:op.type==='rowcol'?JSON.parse(JSON.stringify(sheets[activeSheet])):op.snap, kind:op.kind, sheet:op.sheet, idx:op.idx, old:op.old, nw:op.nw, key:op.key, new_:op.new_});
+  redoStack.push({type:op.type, snap:op.type==='rowcol'?JSON.parse(JSON.stringify(sheets[activeSheet])):op.snap, kind:op.kind, sheet:op.sheet, idx:op.idx, old:op.old, nw:op.nw, key:op.key, new_:op.new_, stroke:op.stroke, erase:op.erase});
   // 行列操作Undo（スナップショット復元）
   if(op.type==='rowcol'){
     sheets[activeSheet]=op.snap; render(); updateBar(); return;
@@ -3753,6 +4305,13 @@ function doUndo(){
   if(op.type==='resize'){
     if(op.kind==='col') sheets[op.sheet].colW[op.idx]=op.old;
     else sheets[op.sheet].rowH[op.idx]=op.old;
+    render(); return;
+  }
+  // 描画Undo（追加は削除、消しゴムは再挿入）
+  if(op.type==='draw'){
+    var _dsArr=sheets[op.sheet].strokes=sheets[op.sheet].strokes||[];
+    if(op.erase) _dsArr.splice(op.idx,0,op.stroke);
+    else if(_dsArr.length>op.idx) _dsArr.splice(op.idx,1);
     render(); return;
   }
   // 書式Undo
@@ -3795,6 +4354,13 @@ function doRedo(){
   if(op.type==='resize'){
     if(op.kind==='col') sheets[op.sheet].colW[op.idx]=op.nw;
     else sheets[op.sheet].rowH[op.idx]=op.nw;
+    render(); return;
+  }
+  // 描画Redo（追加は再挿入、消しゴムは再削除）
+  if(op.type==='draw'){
+    var _dsArr2=sheets[op.sheet].strokes=sheets[op.sheet].strokes||[];
+    if(op.erase){ if(_dsArr2.length>op.idx) _dsArr2.splice(op.idx,1); }
+    else _dsArr2.splice(op.idx,0,op.stroke);
     render(); return;
   }
   if(op.type==='format'){
@@ -4014,6 +4580,18 @@ function bindEvents(){
         fillPreview=null; updateBar();
       }
       canvas.style.cursor='default'; touchState=null; render(); return;
+    }
+    if(touchState.type==='draw'){
+      if(_drawStroke && _drawStroke.points.length>1){
+        sheets[activeSheet].strokes=sheets[activeSheet].strokes||[];
+        sheets[activeSheet].strokes.push(_drawStroke);
+        undoStack.push({type:'draw',sheet:activeSheet,idx:sheets[activeSheet].strokes.length-1,stroke:_drawStroke});
+        redoStack=[];
+      }
+      _drawStroke=null;
+      touchState=null;
+      render();
+      return;
     }
     if(touchState.type==='msel'){
       // 複数選択モード中：タップかドラッグかで挙動を分岐（スマホと統一）
@@ -4391,6 +4969,22 @@ function onMD(e){
   }
 
   if(p.x<HDR_W||p.y<HDR_H) return;
+  // ホーム: 書式のコピー/貼り付け（クリックしたセルに適用、セル選択より優先）
+  if(_paintedFormat){
+    _applyPaintedFormatTo(yToR(p.y),xToC(p.x));
+    return;
+  }
+  // 描画モード: ペン/消しゴムでの書き込み（セル選択より優先）
+  if(drawingMode){
+    if(_drawTool==='eraser'){
+      _eraseStrokeNear(p.x+scrollLeft,p.y+scrollTop);
+      touchState=null;
+      return;
+    }
+    _drawStroke={color:_drawColor,width:_drawWidth,points:[{x:p.x+scrollLeft,y:p.y+scrollTop}]};
+    touchState={type:'draw'};
+    return;
+  }
   // フィルハンドル判定（選択範囲内のクリックより先に）
   if(nearHandle(p.x,p.y)){
     touchState={type:'handle', origR2:selR2, origC2:selC2};
@@ -4404,6 +4998,9 @@ function onMD(e){
     var _fbc=_filterBtnHit(p.x,p.y);
     if(_fbc>=0){ openFilterMenu(_fbc); return; }
   }
+
+  // 校閲: コメントバッジ判定（セル右上の小さな三角、セル選択より優先）
+  if(_commentBtnHit(p.x,p.y,c,r)){ openCommentPopover(r,c); return; }
 
   // STEP3: 複数選択モード ON 時の挙動（PC・スマホ共通）
   if(multiSelectMode && !e.shiftKey){
@@ -4440,6 +5037,11 @@ function onMD(e){
 }
 function onMM(e){
   var p=cPos(e);
+  if(touchState&&touchState.type==='draw'&&_drawStroke){
+    _drawStroke.points.push({x:p.x+scrollLeft,y:p.y+scrollTop});
+    render();
+    return;
+  }
   if(touchState&&touchState.type==='mrefsel'&&p.x>HDR_W&&p.y>HDR_H){
     var tr=yToR(p.y),tc=xToC(p.x);
     var el=getRefInput(); if(!el) return;
@@ -4986,6 +5588,7 @@ function ctxPaste(){
 }
 
 function ctxDelete(){
+  if(_checkProtected()) return;
   for(var r=selR1;r<=selR2;r++)
     for(var c=selC1;c<=selC2;c++) setCell(r,c,'');
   updateBar(); render(); hideCtxMenu();
@@ -4999,6 +5602,7 @@ function _pushRowColUndo(){
   redoStack=[];
 }
 function ctxInsertRow(){
+  if(_checkProtected()) return;
   _pushRowColUndo();
   var s=sheets[activeSheet], nd={}, nrh={};
   Object.keys(s.data).forEach(function(k){
@@ -5016,6 +5620,7 @@ function ctxInsertRow(){
   render(); hideCtxMenu();
 }
 function ctxInsertCol(){
+  if(_checkProtected()) return;
   _pushRowColUndo();
   var s=sheets[activeSheet], nd={}, ncw={};
   Object.keys(s.data).forEach(function(k){
@@ -5033,6 +5638,7 @@ function ctxInsertCol(){
   render(); hideCtxMenu();
 }
 function ctxDeleteRow(){
+  if(_checkProtected()) return;
   _pushRowColUndo();
   var s=sheets[activeSheet], nd={}, nrh={};
   Object.keys(s.data).forEach(function(k){
@@ -5056,6 +5662,7 @@ function ctxDeleteRow(){
   render(); hideCtxMenu();
 }
 function ctxDeleteCol(){
+  if(_checkProtected()) return;
   _pushRowColUndo();
   var s=sheets[activeSheet], nd={}, ncw={};
   Object.keys(s.data).forEach(function(k){
@@ -5343,19 +5950,11 @@ function addSheet(){
 
 // ===== セル書式 =====
 
-// 2段目ツールバー折りたたみ
-function toggleFmtBar2() {
-  var bar2 = document.getElementById('fmt-bar2');
-  var btn = document.getElementById('fmt-toggle');
-  var open = bar2.classList.toggle('open');
-  if(btn) btn.textContent = open ? '▲' : '▼';
-}
-
 /* ===== リボンのタブ切り替え ===== */
 var _ribbonTab='home';
 function switchRibbonTab(name){
   // ファイルはタブ状態を変えずパネルだけトグル（Excelのバックステージ相当）
-  var panels=['file','insert','formula','data','view'];
+  var panels=['home','file','insert','formula','data','view','help','share','pagelayout','review','tabledesign','draw'];
   if(name==='home'){
     _ribbonTab='home';
   } else if(name==='file'){
@@ -5366,19 +5965,14 @@ function switchRibbonTab(name){
     _ribbonTab=name;
   }
   // タブの見た目（ファイルは常にボタン扱いでactive付けない）
-  ['home','insert','formula','data','view'].forEach(function(t){
+  ['home','insert','formula','data','view','help','share','pagelayout','review','tabledesign','draw'].forEach(function(t){
     var el=document.getElementById('rbtab-'+t);
     if(el) el.classList.toggle('active', t===_ribbonTab && name!=='file');
   });
-  // ホーム用ツールバーの表示
-  var showHome=(name==='home');
-  document.getElementById('fmt-bar1').style.display=showHome?'flex':'none';
-  var bar2=document.getElementById('fmt-bar2');
-  bar2.style.display=showHome?'':'none';
-  // 各パネルの表示
+  // 各パネルの表示（ホームも他タブと同じ.ribbon-panelとして扱う）
   panels.forEach(function(t){
     var el=document.getElementById('ribbon-'+t);
-    if(el) el.classList.toggle('show', t===name && name!=='home');
+    if(el) el.classList.toggle('show', t===name);
   });
   _syncGridSize();
 }
@@ -5391,6 +5985,135 @@ function _ribbonToast(msg){
   var t=document.getElementById('toast');
   if(t){ t.textContent=msg; t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); },2200); }
   else alert(msg);
+}
+
+/* ===== 汎用ドロップダウンメニュー（ホームタブの罫線/スタイル/セル/編集グループで使用） ===== */
+var _openRbMenu=null;
+function _toggleRbDropdown(evt, menuId){
+  evt.stopPropagation();
+  var menu=document.getElementById(menuId);
+  if(!menu) return;
+  if(_openRbMenu && _openRbMenu!==menu) _openRbMenu.classList.remove('show');
+  if(menu.classList.contains('show')){ menu.classList.remove('show'); _openRbMenu=null; return; }
+  var rect=evt.currentTarget.getBoundingClientRect();
+  menu.style.left=rect.left+'px';
+  menu.style.top=rect.bottom+'px';
+  menu.classList.add('show');
+  _openRbMenu=menu;
+  setTimeout(function(){
+    var mr=menu.getBoundingClientRect();
+    if(mr.right>window.innerWidth-8) menu.style.left=(window.innerWidth-mr.width-8)+'px';
+    if(mr.bottom>window.innerHeight-8) menu.style.top=(rect.top-mr.height)+'px';
+  },0);
+}
+function _closeRbMenu(){ if(_openRbMenu){ _openRbMenu.classList.remove('show'); _openRbMenu=null; } }
+document.addEventListener('click', function(e){
+  if(_openRbMenu && !_openRbMenu.contains(e.target)) _closeRbMenu();
+});
+
+/* ===== ホーム タブ: 書式のコピー/貼り付け（書式ペインター） ===== */
+var _paintedFormat=null;
+var _FORMAT_PAINTER_PROPS=['bold','italic','underline','strike','color','bgColor','align','valign','wrap','indent','fontSize','fontFamily','numFmt','border'];
+function toggleFormatPainter(){
+  var btn=document.getElementById('fmt-painter');
+  if(_paintedFormat){
+    _paintedFormat=null;
+    if(btn) btn.classList.remove('active');
+    canvas.style.cursor='default';
+    return;
+  }
+  var cell=getCell(selR1,selC1);
+  _paintedFormat={};
+  _FORMAT_PAINTER_PROPS.forEach(function(k){ if(cell[k]!==undefined) _paintedFormat[k]=cell[k]; });
+  if(btn) btn.classList.add('active');
+  canvas.style.cursor='cell';
+}
+// クリックされたセルに書式ペインターの内容を適用する（onMDから呼ばれる）
+function _applyPaintedFormatTo(r,c){
+  if(!_paintedFormat) return;
+  var k=r+','+c;
+  if(!sheets[activeSheet].data[k]) sheets[activeSheet].data[k]={v:'',f:'',d:''};
+  var snap=[];
+  _FORMAT_PAINTER_PROPS.forEach(function(p){
+    if(_paintedFormat[p]===undefined) return;
+    snap.push({key:k,prop:p,old:sheets[activeSheet].data[k][p],nw:_paintedFormat[p]});
+    sheets[activeSheet].data[k][p]=_paintedFormat[p];
+  });
+  if(snap.length){ undoStack.push({type:'format',snap:snap}); redoStack=[]; }
+  _paintedFormat=null;
+  var btn=document.getElementById('fmt-painter'); if(btn) btn.classList.remove('active');
+  canvas.style.cursor='default';
+  render(); updateBar();
+}
+
+/* ===== ホーム タブ: フォントサイズ増減 ===== */
+function stepFontSize(delta){
+  var cell=getCell(selR1,selC1);
+  var fs=Math.max(6,Math.min(72,(cell.fontSize||12)+delta*2));
+  applyFormat('fontSize',fs);
+}
+
+/* ===== ホーム タブ: 表示形式プリセット / 小数点桁数の増減 ===== */
+function applyNumFmtPreset(key){
+  var map={'':'', num:'0.00', cur:'¥#,##0', pct:'0%', date:'yyyy/mm/dd'};
+  applyFormat('numFmt', map.hasOwnProperty(key)?map[key]:'');
+}
+function applyDecimalStep(delta){
+  var cell=getCell(selR1,selC1);
+  var fmt=cell.numFmt||'';
+  var prefix = fmt[0]==='¥' ? '¥' : '';
+  var suffix = fmt.slice(-1)==='%' ? '%' : '';
+  var m=fmt.match(/\.(0+)/);
+  var decimals=Math.max(0,Math.min(6,(m?m[1].length:0)+delta));
+  var core='#,##0'+(decimals>0?'.'+new Array(decimals+1).join('0'):'');
+  applyFormat('numFmt', prefix+core+suffix);
+}
+
+/* ===== ホーム タブ: セルのスタイル（軽量プリセット） ===== */
+var CELL_STYLE_PRESETS={
+  good:{bgColor:'#EAF7F0', color:'#1A7A50'},
+  bad:{bgColor:'#FBE7E7', color:'#B03030'},
+  warn:{bgColor:'#FFF6DD', color:'#8A6A17'},
+  heading:{bgColor:'#3D9E72', color:'#FFFFFF', bold:true}
+};
+function applyCellStyle(name){
+  var preset=CELL_STYLE_PRESETS[name];
+  if(!preset) return;
+  var snap=[];
+  for(var r=selR1;r<=selR2;r++) for(var c=selC1;c<=selC2;c++){
+    var k=r+','+c;
+    if(!sheets[activeSheet].data[k]) sheets[activeSheet].data[k]={v:'',f:'',d:''};
+    Object.keys(preset).forEach(function(p){
+      snap.push({key:k,prop:p,old:sheets[activeSheet].data[k][p],nw:preset[p]});
+      sheets[activeSheet].data[k][p]=preset[p];
+    });
+  }
+  undoStack.push({type:'format',snap:snap}); redoStack=[];
+  render();
+}
+
+/* ===== ホーム タブ: 条件付き書式（軽量版） =====
+   本格的なルールエンジンではなく、指定の値より大きい/小さい/重複する値の3種類のみ。
+   既定のExcelと同じ「薄い赤の背景+濃い赤の文字」相当の見た目で強調する。 */
+function applyCondFormat(type){
+  var rule={type:type};
+  if(type!=='dup'){
+    var label = type==='gt' ? '指定の値より大きいセルを強調します。値を入力してください:' : '指定の値より小さいセルを強調します。値を入力してください:';
+    var val=prompt(label,'0');
+    if(val===null||val==='') return;
+    rule.value=parseFloat(val);
+    if(isNaN(rule.value)) return;
+  }
+  var s=sheets[activeSheet];
+  s.condFormats=s.condFormats||[];
+  s.condFormats.push(Object.assign({r1:selR1,c1:selC1,r2:selR2,c2:selC2},rule));
+  render();
+  _ribbonToast('条件付き書式を適用しました');
+}
+function clearCondFormat(){
+  sheets[activeSheet].condFormats=[];
+  render();
+  _ribbonToast('条件付き書式をクリアしました');
 }
 
 /* ===== ファイル タブ ===== */
@@ -5408,6 +6131,258 @@ function printBook(){ window.print(); }
 /* ===== 挿入 / 表示 タブ（Phase 6・7 は準備中トースト） ===== */
 function insertChart(){ _ribbonToast('📊 グラフは Phase 7 で実装予定です'); }
 function freezePanes(){ _ribbonToast('🧊 ウィンドウ枠の固定は Phase 6 で実装予定です'); }
+
+/* ===== ヘルプ タブ ===== */
+function openShortcutsModal(){ document.getElementById('shortcutsModal').classList.add('show'); }
+function closeShortcutsModal(){ document.getElementById('shortcutsModal').classList.remove('show'); }
+function openHelpGuideModal(){ document.getElementById('helpGuideModal').classList.add('show'); }
+function closeHelpGuideModal(){ document.getElementById('helpGuideModal').classList.remove('show'); }
+
+/* ===== 共有 タブ ===== */
+function shareCopyLink(){
+  navigator.clipboard.writeText(location.href).then(function(){
+    _ribbonToast('🔗 ページのURLをコピーしました');
+  }, function(){
+    _ribbonToast('コピーに失敗しました');
+  });
+}
+function shareByMail(){
+  var subj=encodeURIComponent(sheets[activeSheet].name+' - Exally');
+  location.href='mailto:?subject='+subj;
+}
+
+/* ===== ページレイアウト タブ ===== */
+var PAGE_MARGIN_MM={narrow:10,normal:19,wide:25};
+var PAGE_PAPER_MM={A4:{w:210,h:297},A3:{w:297,h:420},letter:{w:215.9,h:279.4}};
+function _pageSetupGet(){
+  var s=sheets[activeSheet];
+  if(!s.pageSetup) s.pageSetup={margin:'normal',paper:'A4',orientation:'portrait',printRange:null,showBreaks:false};
+  return s.pageSetup;
+}
+function _applyPrintCss(){
+  var ps=_pageSetupGet();
+  var mm=PAGE_PAPER_MM[ps.paper]||PAGE_PAPER_MM.A4;
+  var w=mm.w, h=mm.h;
+  if(ps.orientation==='landscape'){ var t=w; w=h; h=t; }
+  var marginMm=PAGE_MARGIN_MM[ps.margin]||PAGE_MARGIN_MM.normal;
+  var st=document.getElementById('print-page-style');
+  if(st) st.textContent='@page{size:'+w+'mm '+h+'mm;margin:'+marginMm+'mm;}';
+}
+function setPageMargin(m){ _pageSetupGet().margin=m; _applyPrintCss(); _ribbonToast('余白: '+m); }
+function setPageOrientation(o){ _pageSetupGet().orientation=o; _applyPrintCss(); _ribbonToast('印刷の向き: '+(o==='landscape'?'横':'縦')); }
+function setPagePaper(p){ _pageSetupGet().paper=p; _applyPrintCss(); _ribbonToast('用紙サイズ: '+p); }
+function setPrintRangeFromSelection(){
+  _pageSetupGet().printRange={r1:selR1,c1:selC1,r2:selR2,c2:selC2};
+  _ribbonToast('選択範囲を印刷範囲に設定しました');
+}
+function clearPrintRange(){ _pageSetupGet().printRange=null; _ribbonToast('印刷範囲をクリアしました'); }
+function togglePageBreakPreview(){
+  var ps=_pageSetupGet();
+  ps.showBreaks=!ps.showBreaks;
+  var btn=document.getElementById('btn-pagebreak');
+  if(btn) btn.classList.toggle('active', ps.showBreaks);
+  render();
+}
+// 改ページの目安位置（プレビュー用の近似計算。実際の印刷はブラウザの@pageに従う）
+function _pagePxDims(){
+  var mmToPx=96/25.4;
+  var ps=_pageSetupGet();
+  var mm=PAGE_PAPER_MM[ps.paper]||PAGE_PAPER_MM.A4;
+  var w=mm.w, h=mm.h;
+  if(ps.orientation==='landscape'){ var t=w; w=h; h=t; }
+  var marginMm=PAGE_MARGIN_MM[ps.margin]||PAGE_MARGIN_MM.normal;
+  return { pageW:(w-2*marginMm)*mmToPx*scale, pageH:(h-2*marginMm)*mmToPx*scale };
+}
+function _pageBreakCols(){
+  var d=_pagePxDims();
+  var perPage=Math.max(1,Math.floor(d.pageW/(COL_W*scale)));
+  var out=[], eC=xToC(wrapW);
+  for(var c=perPage;c<=eC;c+=perPage) out.push(c);
+  return out;
+}
+function _pageBreakRows(){
+  var d=_pagePxDims();
+  var perPage=Math.max(1,Math.floor(d.pageH/(ROW_H*scale)));
+  var out=[], eR=yToR(wrapH);
+  for(var r=perPage;r<=eR;r+=perPage) out.push(r);
+  return out;
+}
+
+/* ===== 校閲 タブ: コメント ===== */
+var _commentR=null, _commentC=null;
+// クリック位置がセル(r,c)右上のコメントバッジ(7x7)に当たっているか判定
+function _commentBtnHit(px,py,c,r){
+  var cell=sheets[activeSheet].data[r+','+c];
+  if(!cell||!cell.comment) return false;
+  var x=colX(c), y=rowY(r), w=cW(c);
+  return px>=x+w-9 && px<=x+w && py>=y && py<=y+9;
+}
+function toggleCommentAt(r,c){ openCommentPopover(r,c); }
+function openCommentPopover(r,c){
+  _commentR=r; _commentC=c;
+  var cell=getCell(r,c);
+  var pop=document.getElementById('commentPopover');
+  document.getElementById('comment-text').value=(cell.comment&&cell.comment.text)||'';
+  var x=colX(c), y=rowY(r)+rH(r);
+  pop.style.left=Math.max(4,x)+'px';
+  pop.style.top=Math.max(4,y)+'px';
+  pop.style.display='block';
+  document.getElementById('comment-text').focus();
+}
+function closeCommentPopover(){ document.getElementById('commentPopover').style.display='none'; }
+function saveCommentPopover(){
+  if(_commentR===null) return;
+  var text=document.getElementById('comment-text').value;
+  var k=_commentR+','+_commentC;
+  var old=sheets[activeSheet].data[k]?sheets[activeSheet].data[k].comment:undefined;
+  var nw=text?{text:text,author:'you',date:new Date().toISOString()}:undefined;
+  var snap=[{key:k,prop:'comment',old:old,nw:nw}];
+  if(!sheets[activeSheet].data[k]) sheets[activeSheet].data[k]={v:'',f:'',d:''};
+  if(nw===undefined) delete sheets[activeSheet].data[k].comment;
+  else sheets[activeSheet].data[k].comment=nw;
+  undoStack.push({type:'format',snap:snap}); redoStack=[];
+  closeCommentPopover();
+  render();
+}
+function deleteCommentPopover(){
+  document.getElementById('comment-text').value='';
+  saveCommentPopover();
+}
+
+/* ===== 校閲 タブ: 重複データのチェック / スペルチェック ===== */
+function checkDuplicates(){
+  var counts={};
+  _forEachSelRange(function(rng){
+    for(var r=rng.r1;r<=rng.r2;r++) for(var c=rng.c1;c<=rng.c2;c++){
+      var v=getCell(r,c).d;
+      if(v===''||v===undefined||v===null) continue;
+      var k=r+','+c;
+      counts[v]=counts[v]||[];
+      counts[v].push(k);
+    }
+  });
+  var dup=[];
+  Object.keys(counts).forEach(function(v){ if(counts[v].length>1) dup=dup.concat(counts[v]); });
+  _dupHighlightKeys=dup.length?dup:null;
+  render();
+  _ribbonToast(dup.length ? ('🔁 重複を'+dup.length+'件見つけました') : '重複はありませんでした');
+}
+function toggleSpellcheck(){
+  var input=document.getElementById('cell-input');
+  var on=!(input.spellcheck===true);
+  input.spellcheck=on;
+  try{ localStorage.setItem('exally_spellcheck', on?'1':'0'); }catch(e){}
+  var btn=document.getElementById('btn-spellcheck');
+  if(btn) btn.classList.toggle('active', on);
+  _ribbonToast('入力時のスペルチェック: '+(on?'ON':'OFF'));
+}
+
+/* ===== 校閲 タブ: シートの保護 ===== */
+function openProtectModal(){
+  var s=sheets[activeSheet];
+  document.getElementById('protect-enable').checked=!!s.protected;
+  document.getElementById('protect-usepass').checked=!!s.protectPass;
+  document.getElementById('protect-pass').disabled=!s.protectPass;
+  document.getElementById('protect-pass').value=s.protectPass||'';
+  document.getElementById('protectModal').classList.add('show');
+}
+function closeProtectModal(){ document.getElementById('protectModal').classList.remove('show'); }
+function applyProtectModal(){
+  var s=sheets[activeSheet];
+  s.protected=document.getElementById('protect-enable').checked;
+  var usePass=document.getElementById('protect-usepass').checked;
+  s.protectPass=usePass?document.getElementById('protect-pass').value:null;
+  var btn=document.getElementById('btn-protect');
+  if(btn) btn.classList.toggle('active', s.protected);
+  closeProtectModal();
+  _ribbonToast(s.protected?'🔒 シートを保護しました':'保護を解除しました');
+}
+
+/* ===== テーブルデザイン タブ ===== */
+// 既存フィルター機能(_af)の上に構築。ミントパレットのみ使用（新色は追加しない）
+var TABLE_STYLES={
+  mint1:{band:'#F0FAF4'},
+  mint2:{band:'#D4EDE1'},
+  mono:{band:'#F1F1EE'}
+};
+function _tableGet(){
+  var s=sheets[activeSheet];
+  return (s.tables && s.tables[0]) || null;
+}
+function applyTableStyle(styleId){
+  if(_checkProtected()) return;
+  var s=sheets[activeSheet];
+  var tbl=_tableGet();
+  if(!tbl){
+    _pushRowColUndo();
+    var rng=getFilterRange();
+    s.tables=[{r1:rng.r1,c1:rng.c1,r2:rng.r2,c2:rng.c2,style:styleId,headerRow:true,bandedRows:true,totalRow:false}];
+    if(!s._af) s._af={r1:rng.r1,c1:rng.c1,r2:rng.r2,c2:rng.c2,crit:{},hiddenByFilter:{}};
+    tbl=s.tables[0];
+  } else {
+    tbl.style=styleId;
+  }
+  _syncTableButtons();
+  render();
+  _ribbonToast('テーブルスタイルを適用しました');
+}
+function toggleTableOption(prop){
+  var tbl=_tableGet();
+  if(!tbl){ _ribbonToast('先にテーブルスタイルを適用してください'); return; }
+  tbl[prop]=!tbl[prop];
+  _syncTableButtons();
+  render();
+}
+function _syncTableButtons(){
+  var tbl=_tableGet();
+  var h=document.getElementById('btn-tbl-header'), b=document.getElementById('btn-tbl-band'), t=document.getElementById('btn-tbl-total');
+  if(h) h.classList.toggle('active', !!(tbl&&tbl.headerRow));
+  if(b) b.classList.toggle('active', !!(tbl&&tbl.bandedRows));
+  if(t) t.classList.toggle('active', !!(tbl&&tbl.totalRow));
+}
+
+/* ===== 描画 タブ ===== */
+function setDrawColor(c){ _drawColor=c; _drawTool='pen'; _syncDrawButtons(); }
+function setDrawWidth(w){ _drawWidth=w; }
+function setDrawTool(t){ _drawTool=t; _syncDrawButtons(); }
+function toggleDrawingMode(){
+  drawingMode=!drawingMode;
+  var btn=document.getElementById('btn-drawmode');
+  if(btn) btn.classList.toggle('active', drawingMode);
+  canvas.style.cursor = drawingMode ? 'crosshair' : 'default';
+  _ribbonToast(drawingMode?'✏️ 描画モードON':'描画モードOFF');
+}
+function _syncDrawButtons(){
+  var e=document.getElementById('btn-eraser');
+  if(e) e.classList.toggle('active', _drawTool==='eraser');
+}
+// 指定座標(グリッド内容座標系)に最も近いストロークを探して削除
+function _eraseStrokeNear(x,y){
+  var arr=sheets[activeSheet].strokes;
+  if(!arr||!arr.length) return;
+  var hitIdx=-1;
+  for(var i=arr.length-1;i>=0;i--){
+    var pts=arr[i].points;
+    for(var j=0;j<pts.length;j++){
+      var dx=pts[j].x-x, dy=pts[j].y-y;
+      if(dx*dx+dy*dy <= 100){ hitIdx=i; break; }
+    }
+    if(hitIdx>=0) break;
+  }
+  if(hitIdx<0) return;
+  var removed=arr[hitIdx];
+  arr.splice(hitIdx,1);
+  undoStack.push({type:'draw',sheet:activeSheet,idx:hitIdx,stroke:removed,erase:true});
+  redoStack=[];
+  render();
+}
+function clearAllStrokes(){
+  var s=sheets[activeSheet];
+  if(!s.strokes||!s.strokes.length) return;
+  s.strokes=[];
+  render();
+  _ribbonToast('すべての描画を消去しました');
+}
 
 /* ===== 数式 タブ: オート集計 ===== */
 function quickAgg(fn){
@@ -5804,6 +6779,7 @@ function _cmpVals(a,b){
 }
 function _sortRange(rng, keys, hasHeader){
   if(!keys.length) return;
+  if(_checkProtected()) return;
   _pushRowColUndo();
   var s=sheets[activeSheet];
   var startR=hasHeader?rng.r1+1:rng.r1;
