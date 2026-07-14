@@ -3405,25 +3405,22 @@
           })
           .slice(0, n);
       }
-      // ★会社セレクトの<option>群を「最近使った会社(上位3)＋すべての会社(全件)」のoptgroup二段で返す。
-      //   記録なし/4社以下は単段(後方互換)。入力/一覧/編集すべてで共通利用＝「使った順に上へ」を全箇所統一。
+      // ★会社セレクトの<option>群を1枚のリストで返す：最近使った会社を使った順(新→古)で上へ寄せ、
+      //   残りは元の順で下に。重複なし・ラベルなし。入力/一覧/編集すべてで共通＝「使った順に上へ」を全箇所統一。
       function _companyOptsHtml(names) {
         var opt = function (n) {
           return '<option value="' + esc(n) + '">' + esc(n) + "</option>";
         };
-        var allOpts = names.map(opt).join("");
-        var N = 3;
-        var recent = names.length > N + 1 ? topRecentCompanies(names, N) : [];
-        if (recent.length) {
-          return (
-            '<optgroup label="最近使った会社">' +
-            recent.map(opt).join("") +
-            '</optgroup><optgroup label="すべての会社">' +
-            allOpts +
-            "</optgroup>"
-          );
-        }
-        return allOpts;
+        // 記録のある会社を全部、新しい順に。残りは names の元順を保つ。
+        var recent = topRecentCompanies(names, names.length);
+        var used = {};
+        recent.forEach(function (n) {
+          used[n] = 1;
+        });
+        var rest = names.filter(function (n) {
+          return !used[n];
+        });
+        return recent.concat(rest).map(opt).join("");
       }
 
       // ===== テナント（マルチテナントの土台） =====
