@@ -445,11 +445,12 @@
     function drawGrandBox(page, topY) {
       _curBlk = "grand";
       var by = topY;
-      var gBold = function (str, x, size, color) {
+      var gBold = function (str, x, size, color, top) {
+        var ty = top == null ? by : top;
         var o = size * 0.025;
-        T(page, font, str, x, by, size, { color: color });
-        T(page, font, str, x + o, by, size, { color: color });
-        T(page, font, str, x + o * 2, by, size, { color: color });
+        T(page, font, str, x, ty, size, { color: color });
+        T(page, font, str, x + o, ty, size, { color: color });
+        T(page, font, str, x + o * 2, ty, size, { color: color });
         return font.widthOfTextAtSize(_sanitize(str), size);
       };
       var lbl = "御請求金額（税込）";
@@ -462,7 +463,9 @@
       var gL = gpos === "center" ? CX - gw / 2 : gpos === "right" ? RXp - gw : M;
       if (gL + gw > RXp) gL = RXp - gw;
       if (gL < M) gL = M;
-      gBold(lbl, gL, 12, TEXT);
+      // ラベルは金額とベースラインを揃える（T()は top-size*0.82 でベースライン化＝同じtopだと
+      // 小さい文字ほど浮く）。差 (20-12)*0.82 ぶん下げて下線の直上に置く。_g で文字サイズ係数に連動。
+      gBold(lbl, gL, 12, TEXT, by - _g((20 - 12) * 0.82));
       gBold(gv, gL + lblW + 50, 20, TEXT);
       line(page, gL, by - _g(25), gL + Math.min(gw + 10, 330), by - _g(25), MINT, 1.2); // 下線
       _curBlk = null;
