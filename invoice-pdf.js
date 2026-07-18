@@ -476,18 +476,40 @@
       };
       var lbl = "御請求金額（税込）";
       var gv = yen(grand);
-      var lblW = font.widthOfTextAtSize(_sanitize(lbl), 12);
-      var gvW = font.widthOfTextAtSize(_sanitize(gv), 20);
-      var gw = lblW + 50 + gvW;
+      // ★文字サイズ係数(_scaleOf)を幅計算に反映。反映しないと係数を上げた時に実描画幅が
+      //   算出幅より大きくなり、右寄せ/クランプがすり抜けて金額がA4右端を突き抜ける。
+      var sc = _scaleOf("grand");
+      var lblSize = 12,
+        gvSize = 20,
+        gap = 50;
+      var measure = function () {
+        return {
+          lw: font.widthOfTextAtSize(_sanitize(lbl), lblSize * sc),
+          vw: font.widthOfTextAtSize(_sanitize(gv), gvSize * sc),
+          gp: gap * sc,
+        };
+      };
+      var mm = measure();
+      var gw = mm.lw + mm.gp + mm.vw;
+      // ★本文幅(CW)を超えるならラベル＋金額を同率で縮小して紙内に収める
+      //   （右寄せ＋最大文字＋巨大金額でも欠けない）。通常サイズは縮小されず従来どおり。
+      if (gw > CW) {
+        var shrink = CW / gw;
+        lblSize *= shrink;
+        gvSize *= shrink;
+        gap *= shrink;
+        mm = measure();
+        gw = mm.lw + mm.gp + mm.vw;
+      }
       // 位置揃え（既定 left=従来どおり左端 M）。塊ごと左/中/右へ。
       var gpos = blkAlignOf(iss, "posGrand", "left");
       var gL = gpos === "center" ? CX - gw / 2 : gpos === "right" ? RXp - gw : M;
       if (gL + gw > RXp) gL = RXp - gw;
       if (gL < M) gL = M;
       // ラベルは金額とベースラインを揃える（T()は top-size*0.82 でベースライン化＝同じtopだと
-      // 小さい文字ほど浮く）。差 (20-12)*0.82 ぶん下げて下線の直上に置く。_g で文字サイズ係数に連動。
-      gBold(lbl, gL, 12, TEXT, by - _g((20 - 12) * 0.82));
-      gBold(gv, gL + lblW + 50, 20, TEXT);
+      // 小さい文字ほど浮く）。差 (gvSize-lblSize)*0.82 ぶん下げて下線の直上に置く。_g で係数に連動。
+      gBold(lbl, gL, lblSize, TEXT, by - _g((gvSize - lblSize) * 0.82));
+      gBold(gv, gL + mm.lw + mm.gp, gvSize, TEXT);
       line(page, gL, by - _g(25), gL + Math.min(gw + 10, 330), by - _g(25), MINT, 1.2); // 下線
       _curBlk = null;
       return by - _g(25) - _g(16);
@@ -670,14 +692,17 @@
         var hankoX = nameRight - hs * 0.45; // 社名末尾に重なる
         if (hankoX + hs > infoRB) hankoX = infoRB - hs; // 自社情報の右限（ロゴの左）を越えない
         if (hankoX < M) hankoX = M; // 左マージンより内側に
+        // ★判子の下端が紙の下余白を割らないようクランプ（最大サイズ時の紙下端はみ出し防止）。
+        var hy = textTop - hs + 9;
+        if (hy < 20) hy = 20;
         page.drawImage(hanko, {
           x: hankoX,
-          y: textTop - hs + 9,
+          y: hy,
           width: hs,
           height: hs,
           opacity: 0.95,
         });
-        _accBox(page, hankoX, hankoX + hs, textTop + 9, textTop - hs + 9);
+        _accBox(page, hankoX, hankoX + hs, hy + hs, hy);
         _curBlk = null;
       }
       pageNum += 1;
@@ -887,6 +912,7 @@
         T(page, font, ln, M + CW, iy, idx === 0 ? 11 : 9.5, {
           align: "right",
           color: INKC, // ★塊の中は同じ濃さ（会社名は大きさで立たせる・住所をフェードさせない）
+          maxW: CW * 0.4, // ★長文が左＝宛名側へ突き抜けて重なる/紙外に出るのを防ぐ（…詰め）
         });
         iy -= idx === 0 ? 15 : 13;
       });

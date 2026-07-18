@@ -1,0 +1,197 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>PDF overflow test harness</title>
+<body style="font: 13px/1.6 monospace; padding: 12px; background: #f4f7f5">
+  <div id="log" style="white-space: pre"></div>
+
+  <script src="../vendor/pdf-lib.min.js"></script>
+  <script src="../vendor/fontkit.umd.min.js"></script>
+  <script src="../invoice-pdf.js"></script>
+  <script>
+    const A4 = { w: 595.28, h: 841.89 };
+    const L = (s) => {
+      document.getElementById("log").textContent += s + "\n";
+    };
+
+    // 赤い四角の判子ダミー（#6用）
+    function dummyHanko() {
+      const c = document.createElement("canvas");
+      c.width = 120;
+      c.height = 120;
+      const x = c.getContext("2d");
+      x.strokeStyle = "#c0392b";
+      x.lineWidth = 6;
+      x.strokeRect(6, 6, 108, 108);
+      x.fillStyle = "#c0392b";
+      x.font = "700 34px sans-serif";
+      x.textAlign = "center";
+      x.textBaseline = "middle";
+      x.fillText("印", 60, 60);
+      return c.toDataURL("image/png");
+    }
+
+    function makeIss(over) {
+      const base = {
+        lines: ["サンプル合同会社", "サンプル市1-2-3", "TEL 000-0000-0000"],
+        bank: ["お振込先", "サンプル銀行　本店　普通　0000000"],
+        lineAlign: "left",
+        bankAlign: "left",
+        alignIssuer: "auto",
+        lineIssuer: "auto",
+        posGrand: "auto",
+        posLead: "auto",
+        posDue: "auto",
+        dateEra: "seireki",
+        showInvoiceNo: false,
+        paymentDue: "",
+        hanko: null,
+        hankoSizeMm: 21,
+        logo: null,
+        logoSizeMm: 40,
+        pdfDesign: "elegant",
+        headerStyle: "B",
+        logoMode: "hide",
+        templateId: "elegant_plain",
+        pdfFont: "BIZ UDPゴシック",
+        fontScale: 1,
+        blkFs: null,
+      };
+      return Object.assign(base, over);
+    }
+
+    const MASTER = {}; // 空マスタ＝孤児会社扱い（デフォルト項目で描画）
+
+    function rows(n, amt) {
+      const r = [];
+      for (let i = 0; i < n; i++)
+        r.push({
+          会社名: "X",
+          日付: "2026-08-0" + ((i % 9) + 1),
+          行き先: "A〜B",
+          金額: amt,
+          備考: "",
+        });
+      return r;
+    }
+
+    // はみ出し判定：塊は x∈[x,x+w], y∈[y-h,y]（y=上端・PDF y-up）
+    function overflow(blocks) {
+      const bad = [];
+      blocks.forEach((b) => {
+        const left = b.x,
+          right = b.x + b.w,
+          top = b.y,
+          bot = b.y - b.h;
+        const errs = [];
+        if (left < -0.5) errs.push("左紙外 x=" + left.toFixed(1));
+        if (right > A4.w + 0.5) errs.push("右はみ出し x2=" + right.toFixed(1) + ">" + A4.w);
+        if (bot < -0.5) errs.push("下はみ出し y2=" + bot.toFixed(1));
+        if (top > A4.h + 0.5) errs.push("上はみ出し y=" + top.toFixed(1) + ">" + A4.h);
+        if (errs.length) bad.push({ key: b.key, page: b.page, errs });
+      });
+      return bad;
+    }
+
+    const CASES = [
+      {
+        name: "#4 エレガント 御請求金額 右寄せ+最大文字+巨大金額",
+        co: "X",
+        month: "2026-08",
+        n: 2,
+        amt: 999999999,
+        iss: makeIss({
+          pdfDesign: "elegant",
+          logoMode: "hide",
+          blkFs: { grand: 1.4 },
+          posGrand: "right",
+          fontScale: 1,
+        }),
+      },
+      {
+        name: "#5 クラシック 自社情報 長文（右寄せ左突き抜け）",
+        co: "株式会社とても長い名前の運送サービスセンター御中テスト",
+        month: "2026-08",
+        n: 2,
+        amt: 12000,
+        iss: makeIss({
+          pdfDesign: "classic",
+          headerStyle: "B",
+          logoMode: "hide",
+          lines: [
+            "株式会社" + "長".repeat(55),
+            "今治市本町7-3-40" + "とても長い住所".repeat(6) + "00コーポ1号室",
+            "登録番号：T3500003003293456789",
+          ],
+        }),
+      },
+      {
+        name: "#6 エレガント 判子 最大40mm+自社情報1行",
+        co: "X",
+        month: "2026-08",
+        n: 2,
+        amt: 12000,
+        iss: makeIss({
+          pdfDesign: "elegant",
+          logoMode: "hide",
+          hankoSizeMm: 40,
+          hanko: dummyHanko(),
+          lines: ["サンプル合同会社"],
+        }),
+      },
+      // 回帰：通常サイズ（既定）でも当然はみ出さない＝正常ケースを壊していないこと
+      {
+        name: "回帰 エレガント 通常（既定サイズ・標準金額）",
+        co: "X",
+        month: "2026-08",
+        n: 3,
+        amt: 6600,
+        iss: makeIss({ pdfDesign: "elegant", logoMode: "hide" }),
+      },
+      {
+        name: "回帰 クラシック 通常（既定サイズ・標準金額）",
+        co: "X",
+        month: "2026-08",
+        n: 3,
+        amt: 6600,
+        iss: makeIss({ pdfDesign: "classic", headerStyle: "B", logoMode: "hide" }),
+      },
+    ];
+
+    (async () => {
+      window.__results = [];
+      let allPass = true;
+      for (const c of CASES) {
+        try {
+          const bytes = await InvoicePDF.buildOne(
+            MASTER,
+            c.co,
+            rows(c.n, c.amt),
+            c.month,
+            c.iss,
+            "2026-08-01"
+          );
+          const blocks = InvoicePDF.lastBlocks();
+          const bad = overflow(blocks);
+          const pass = bad.length === 0;
+          allPass = allPass && pass;
+          window.__results.push({
+            name: c.name,
+            pass,
+            bad,
+            blockCount: blocks.length,
+            bytes: bytes.length,
+          });
+          L((pass ? "✅ PASS " : "❌ FAIL ") + c.name);
+          bad.forEach((b) => L("     [" + b.key + " p" + b.page + "] " + b.errs.join(" / ")));
+        } catch (e) {
+          allPass = false;
+          window.__results.push({ name: c.name, pass: false, error: String((e && e.stack) || e) });
+          L("💥 ERROR " + c.name + " : " + e);
+        }
+      }
+      window.__allPass = allPass;
+      window.__done = true;
+      L("\n" + (allPass ? "=== 全ケース PASS（はみ出しなし）===" : "=== はみ出し検出あり ==="));
+    })();
+  </script>
+</body>
