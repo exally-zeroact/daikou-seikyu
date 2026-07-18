@@ -180,10 +180,31 @@
     if (era === "reiwa") return "令和" + (y - 2018) + "年" + m + "月1日";
     return y + "/" + m + "/1";
   }
-  function invoiceNoFor(master, accountId, month, co) {
-    var cos = Object.keys(master).filter(function (c) {
-      return accountId == null || master[c].account_id === accountId;
+  // 請求対象の会社順＝会社マスタ(登録順) ∪ DBに明細だけ残る「孤児」会社(名前順)。
+  // ★マスタ削除後も明細が残れば請求書に出す＝サイレント請求漏れの防止。db省略時は従来どおりマスタのみ。
+  function billableCompanies(master, db, accountId) {
+    var out = [],
+      seen = {};
+    Object.keys(master).forEach(function (c) {
+      if ((accountId == null || (master[c] && master[c].account_id === accountId)) && !seen[c]) {
+        seen[c] = 1;
+        out.push(c);
+      }
     });
+    var orphans = [];
+    (db || []).forEach(function (r) {
+      var c = r && r.会社名;
+      if (!c || seen[c]) return;
+      if (accountId != null && r.account_id !== accountId) return;
+      seen[c] = 1;
+      orphans.push(c);
+    });
+    orphans.sort();
+    return out.concat(orphans);
+  }
+
+  function invoiceNoFor(master, accountId, month, co, db) {
+    var cos = billableCompanies(master, db, accountId);
     var i = cos.indexOf(co);
     return month + "-" + (i < 0 ? 1 : i + 1 < 10 ? "0" + (i + 1) : i + 1);
   }
@@ -1168,9 +1189,8 @@
     var inMonth = function (iso) {
       return iso && iso.slice(0, 7) === month;
     };
-    var cos = Object.keys(master).filter(function (c) {
-      return accountId == null || master[c].account_id === accountId;
-    });
+    // ★会社マスタの会社に加え、マスタから消えても明細が残る孤児会社も回す＝請求漏れ防止。
+    var cos = billableCompanies(master, db, accountId);
     var any = false;
     for (var ci = 0; ci < cos.length; ci++) {
       var co = cos[ci];
@@ -1196,7 +1216,7 @@
         rows,
         month,
         issCo,
-        invoiceNoFor(master, accountId, month, co)
+        invoiceNoFor(master, accountId, month, co, db)
       );
     }
     if (!any) return null;
@@ -1222,6 +1242,8 @@
   global.InvoicePDF = {
     buildOne: buildOne,
     buildMonth: buildMonth,
+    billableCompanies: billableCompanies, // ★会社マスタ∪孤児会社（請求漏れ防止・UIの会社リスト共有用）
+    invoiceNoFor: invoiceNoFor,
     save: save,
     fonts: function () {
       return Object.keys(FONT_FILES);

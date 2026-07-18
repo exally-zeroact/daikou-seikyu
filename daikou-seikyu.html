@@ -6120,9 +6120,9 @@
         else if (months.length) ms.value = months[0]; // 既定＝最新月
         var cs = document.getElementById("invCompany");
         var keepC = cs.value;
-        var names = Object.keys(MASTER).filter(function (n) {
-          return MASTER[n].account_id === CURRENT_ACCOUNT;
-        });
+        // ★会社マスタの会社に加え、マスタから消えても明細が残る孤児会社も選べる＝請求漏れ防止。
+        //   InvoicePDF.billableCompanies と同じ並び（マスタ順→孤児名前順）で全社PDFと一致させる。
+        var names = InvoicePDF.billableCompanies(MASTER, DB, CURRENT_ACCOUNT);
         cs.innerHTML =
           '<option value="">全社</option>' +
           names
@@ -6298,7 +6298,7 @@
                 rows,
                 month,
                 _coIss,
-                MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, onlyCo)
+                InvoicePDF.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, onlyCo, DB)
               );
               blocks = window.InvoicePDF && InvoicePDF.lastBlocks ? InvoicePDF.lastBlocks() : [];
               _invCache = { sig: sig, bytes: bytes, blocks: blocks };
