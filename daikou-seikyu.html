@@ -7398,17 +7398,23 @@
           "posDue",
           "dateEra",
           "paymentDueEra",
+          "pdfFont", // ★書体も初期化（無いと初期に戻しても書体だけカスタムのまま残った）
         ].forEach(function (k) {
           setIssuer(k, def[k]);
         });
         // ★今回追加した「文字サイズ」も初期化（これが無いと初期に戻しても文字サイズが戻らなかった）。
         setIssuer("blkFs", null); // 範囲別の文字サイズ
         setIssuer("fontScale", 1); // 全体の文字サイズ
-        // 現在表示中の会社の列幅を既定（自動）へ
+        // 現在表示中の会社の列幅・揃え・会社専用テンプレを既定（自動＝全体設定に従う）へ。
+        // ★専用テンプレを残すと「初期に戻す」後もその会社だけ別デザインが残る非対称になる
+        //   （列幅/揃えは消すのにデザインだけ残っていた）。
         var co = editCurrentCo();
         if (MASTER[co]) {
           MASTER[co].widths = {};
           MASTER[co].aligns = {};
+          MASTER[co].pdfDesign = null;
+          MASTER[co].elegantVariant = null;
+          MASTER[co].classicVariant = null;
           saveMaster();
         }
         INV_OVERRIDE = null;
