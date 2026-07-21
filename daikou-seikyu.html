@@ -5949,62 +5949,6 @@
         else renderIssuer();
       }
       // ===== デザイン×種類ギャラリー（サムネ＝デザイン別SVG・サンプル固定でテナント安全） =====
-      function tplThumbSvg(design, v) {
-        var els = '<rect width="100" height="141" fill="#fff"/>';
-        if (design === "elegant") {
-          els +=
-            '<text x="50" y="14" font-size="8" font-weight="700" fill="#1a4a2e" text-anchor="middle">請 求 書</text>';
-          els +=
-            '<line x1="8" y1="18" x2="44" y2="18" stroke="#52b788" stroke-width="0.5"/><line x1="56" y1="18" x2="92" y2="18" stroke="#52b788" stroke-width="0.5"/>';
-          els +=
-            '<path d="M50 16 L52 18 L50 20 L48 18 Z" fill="none" stroke="#52b788" stroke-width="0.5"/>';
-          els += '<rect x="8" y="26" width="34" height="3" rx="1" fill="#1a4a2e"/>';
-          els +=
-            '<rect x="8" y="34" width="20" height="2.6" rx="1" fill="#3d9e72"/><rect x="40" y="33.4" width="22" height="3.6" rx="1" fill="#1a4a2e"/><line x1="8" y1="39.5" x2="62" y2="39.5" stroke="#52b788" stroke-width="0.8"/>';
-          els += '<rect x="8" y="44" width="84" height="6" fill="#eaf7f0"/>';
-          for (var i = 0; i < 8; i++)
-            els +=
-              '<line x1="8" y1="' +
-              (50 + i * 6) +
-              '" x2="92" y2="' +
-              (50 + i * 6) +
-              '" stroke="#e3ede8" stroke-width="0.4"/>';
-          if (v.logoMode === "show")
-            els += '<rect x="42" y="124" width="16" height="8" rx="1.5" fill="#52b788"/>';
-          else
-            els +=
-              '<circle cx="50" cy="126" r="4" fill="none" stroke="#52b788" stroke-width="0.6"/>';
-          els += '<rect x="38" y="135" width="24" height="2" rx="1" fill="#9fb3aa"/>';
-        } else {
-          var A = v.headerStyle === "A";
-          if (A) {
-            els += '<text x="8" y="14" font-size="8" font-weight="700" fill="#111">請 求 書</text>';
-            if (v.logoMode === "show")
-              els += '<rect x="74" y="6" width="18" height="11" rx="1.5" fill="#52b788"/>';
-          } else {
-            els +=
-              '<text x="50" y="14" font-size="8" font-weight="700" fill="#111" text-anchor="middle">請 求 書</text>';
-          }
-          els += '<rect x="8" y="24" width="30" height="3" rx="1" fill="#222"/>';
-          els +=
-            '<rect x="64" y="23" width="28" height="2" rx="1" fill="#bbb"/><rect x="68" y="27" width="24" height="2" rx="1" fill="#bbb"/>';
-          els +=
-            '<rect x="8" y="34" width="40" height="3" rx="1" fill="#111"/><line x1="8" y1="39.5" x2="60" y2="39.5" stroke="#111" stroke-width="0.8"/>';
-          els += '<rect x="8" y="44" width="84" height="6" fill="#dcefe6"/>';
-          for (var j = 0; j < 8; j++)
-            els +=
-              '<line x1="8" y1="' +
-              (50 + j * 6) +
-              '" x2="92" y2="' +
-              (50 + j * 6) +
-              '" stroke="#ccc" stroke-width="0.4"/>';
-        }
-        return (
-          '<svg viewBox="0 0 100 141" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block">' +
-          els +
-          "</svg>"
-        );
-      }
       function renderTemplates() {
         var g = document.getElementById("tplGallery");
         if (!g) return;
@@ -8215,7 +8159,7 @@
           {
             key: "plain",
             label: "ロゴなし",
-            desc: "頭文字の丸で締める",
+            desc: "中央タイトル・ロゴなし",
             logoMode: "hide",
             headerStyle: "B",
           },
