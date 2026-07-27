@@ -9,6 +9,7 @@ const PAGES = [
   { path: "/seikyusyo.html", name: "請求書" },
   { path: "/mitsumoriyo.html", name: "見積書" },
   { path: "/kyuuryoumeisai.html", name: "給料明細" },
+  { path: "/nomiya-uriage.html", name: "売上管理(飲み屋)" },
 ];
 
 for (const p of PAGES) {
