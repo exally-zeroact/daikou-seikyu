@@ -9,6 +9,13 @@ const PAGE = "/nomiya-uriage.html";
 async function open(page) {
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
+  // 印刷ダイアログは自動テストで開けないので、呼ばれた回数だけ数える
+  await page.addInitScript(() => {
+    window.__printed = 0;
+    window.print = function () {
+      window.__printed++;
+    };
+  });
   await page.goto(PAGE, { waitUntil: "load" });
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: "load" });
@@ -348,7 +355,7 @@ test.describe("飲み屋 売上管理", () => {
     // ★不要（振込・カード）= PayPay12,000。領収書なしを外しても消えない分
     await page.locator("#sumRecTabs button[data-srec='na']").click();
     await expect(page.locator("#sumStats .stat-v").nth(0)).toHaveText("¥12,000");
-    await expect(page.locator("#sumSheets .sh-meta")).toContainText("領収書不要");
+    await expect(page.locator("#sumSheets .sh-meta")).toContainText("振込・カードの分");
 
     await page.locator("#sumRecTabs button[data-srec='all']").click();
     await expect(page.locator("#sumStats .stat-v").nth(0)).toHaveText("¥82,000");
@@ -374,12 +381,11 @@ test.describe("飲み屋 売上管理", () => {
       .evaluate((el) => el.offsetHeight);
     expect(h).toBe(1123);
 
-    // 領収書ありだけ → 紙に「売上全体ではありません」と出る
+    // 領収書ありだけ → 紙に「対象：領収書あり分のみ」だけ短く出る
     await page.locator("#taxRecTabs button[data-trec='yes']").click();
     await expect(page.locator("#taxStrip .strip-v").nth(2)).toHaveText("¥57,000");
     await expect(page.locator("#taxSheets .sh-meta")).toContainText("領収書あり分のみ");
-    await expect(page.locator("#taxSheets .sh-meta")).toContainText("売上全体ではありません");
-    await expect(page.locator("#taxSheets .sm-note")).toContainText("売上全体ではありません");
+    await expect(page.locator("#taxSheets .sh-meta")).not.toContainText("売上全体ではありません");
 
     await page.locator("#taxRecTabs button[data-trec='no']").click();
     await expect(page.locator("#taxStrip .strip-v").nth(2)).toHaveText("¥13,000");
@@ -388,23 +394,23 @@ test.describe("飲み屋 売上管理", () => {
     // ★振込・カードは「領収書なし」に落ちない＝外しても残る
     await page.locator("#taxRecTabs button[data-trec='na']").click();
     await expect(page.locator("#taxStrip .strip-v").nth(2)).toHaveText("¥12,000");
-    await expect(page.locator("#taxSheets .sh-meta")).toContainText("領収書不要");
+    await expect(page.locator("#taxSheets .sh-meta")).toContainText("振込・カードの分");
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 
-  test("税理士タブ: 印刷用ウィンドウが原寸A4で開く", async ({ page, context }) => {
+  test("税理士タブ: 印刷は同じ画面のまま（別タブを開かない）", async ({ page, context }) => {
     const errors = await open(page);
     await seed(page);
     await page.locator(".nav-item[data-scr='tax']").click();
-    const [popup] = await Promise.all([
-      context.waitForEvent("page"),
-      page.locator("#btnPrintTax").click(),
-    ]);
-    await popup.waitForLoadState("domcontentloaded");
-    const html = await popup.content();
-    expect(html).toContain("@page{size:A4 portrait");
-    expect(html).toContain("売 上 報 告 書");
-    await popup.close();
+    const before = context.pages().length;
+    await page.locator("#btnPrintTax").click();
+    await page.waitForTimeout(300);
+    // 別タブが増えない＝iPhoneで戻れなくならない
+    expect(context.pages().length, "別タブが開いている").toBe(before);
+    expect(await page.evaluate(() => window.__printed)).toBe(1);
+    // 印刷に渡す中身が入っている
+    await expect(page.locator("#printArea .sheet")).toHaveCount(1);
+    await expect(page.locator("#printArea .sh-title")).toHaveText("売 上 報 告 書");
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 
@@ -646,16 +652,20 @@ test.describe("飲み屋 売上管理", () => {
     await page.locator("#setLogoPos button[data-lpos='top']").click();
     await page.locator(".nav-item[data-scr='inv']").click();
 
-    // 印刷の窓にも色と書体が乗る（画面だけ変わって紙が変わらない、を防ぐ）
-    const [popup] = await Promise.all([
-      context.waitForEvent("page"),
-      page.locator("#btnPrintInv").click(),
-    ]);
-    await popup.waitForLoadState("domcontentloaded");
-    const html = await popup.content();
-    expect(html).toContain("#7d3a44");
-    expect(html).toContain("Noto Sans JP");
-    await popup.close();
+    // 印刷に渡す紙にも色と書体が乗る（画面だけ変わって紙が変わらない、を防ぐ）
+    await page.locator("#btnPrintInv").click();
+    await page.waitForTimeout(300);
+    expect(context.pages().length, "別タブが開いている").toBe(1);
+    const printed = await page.evaluate(() => {
+      const el = document.querySelector("#printArea .iv-cap");
+      const t = document.querySelector("#printArea .iv-title");
+      return {
+        color: el ? getComputedStyle(el).color : "",
+        font: t ? getComputedStyle(t).fontFamily : "",
+      };
+    });
+    expect(printed.color).toBe("rgb(125, 58, 68)"); // #7d3a44 が紙にも乗る
+    expect(printed.font).toContain("Noto Sans JP");
 
     // 「デザインのまま」で元に戻る
     await page.locator(".nav-item[data-scr='set']").click();
@@ -821,30 +831,67 @@ test.describe("飲み屋 売上管理", () => {
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 
-  test("印刷/PDFボタンで、原寸A4の印刷用ウィンドウが開く", async ({ page, context }) => {
+  test("印刷/PDFは同じ画面のまま出す（別タブを開かない・原寸A4）", async ({ page, context }) => {
     const errors = await open(page);
     await seed(page);
 
     for (const btn of ["#btnPrintList", "#btnPdfList"]) {
-      const [popup] = await Promise.all([context.waitForEvent("page"), page.locator(btn).click()]);
-      await popup.waitForLoadState("domcontentloaded");
-      const html = await popup.content();
-      expect(html).toContain("@page{size:A4 portrait");
-      expect(html).toContain("width:794px");
-      expect(html).toContain("売 上 帳");
-      await popup.close(); // print()が走る前に閉じる
-      await page.locator(".nav-item[data-scr='list']").click();
+      await page.locator(btn).click();
+      await page.waitForTimeout(300);
+      expect(context.pages().length, "別タブが開いている").toBe(1);
+      // 印刷の見た目で確かめる（画面の部品が隠れ、紙だけが原寸A4で出る）
+      await page.emulateMedia({ media: "print" });
+      const m = await page.evaluate(() => {
+        const sheet = document.querySelector("#printArea .sheet");
+        const cs = (sel) => getComputedStyle(document.querySelector(sel)).display;
+        return {
+          w: sheet ? sheet.offsetWidth : 0,
+          h: sheet ? sheet.offsetHeight : 0,
+          title: document.querySelector("#printArea .sh-title").textContent.trim(),
+          header: cs(".app-header"),
+          nav: cs(".bottom-nav"),
+          screen: cs(".screen.active"),
+          area: cs("#printArea"),
+        };
+      });
+      await page.emulateMedia({ media: "screen" });
+      expect(m.title).toBe("売 上 帳");
+      expect(m.w, "紙が原寸A4(794px)でない").toBe(794);
+      expect(m.h).toBe(1123);
+      expect([m.header, m.nav, m.screen]).toEqual(["none", "none", "none"]);
+      expect(m.area).toBe("block");
     }
 
     await page.locator(".nav-item[data-scr='sum']").click();
-    const [p2] = await Promise.all([
-      context.waitForEvent("page"),
-      page.locator("#btnPrintSum").click(),
-    ]);
-    await p2.waitForLoadState("domcontentloaded");
-    expect(await p2.content()).toContain("売 上 集 計 表");
-    await p2.close();
+    await page.locator("#btnPrintSum").click();
+    await page.waitForTimeout(300);
+    await expect(page.locator("#printArea .sh-title").first()).toHaveText("売 上 集 計 表");
+    expect(context.pages().length).toBe(1);
+    // 印刷が終われば中身は片付けられる
+    await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+    await expect(page.locator("#printArea .sheet")).toHaveCount(0);
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
 
+  test("iPhone幅で下に余分な空白が出ない", async ({ page }) => {
+    const errors = await open(page);
+    await page.setViewportSize({ width: 390, height: 664 });
+    await seed(page);
+    for (const scr of ["input", "list", "sum", "inv", "tax", "set"]) {
+      await page.locator(`.nav-item[data-scr='${scr}']`).click();
+      await page.waitForTimeout(250);
+      const m = await page.evaluate(() => {
+        const active = document.querySelector(".screen.active");
+        const r = active.getBoundingClientRect();
+        return {
+          doc: Math.round(document.documentElement.scrollHeight),
+          contentBottom: Math.round(r.bottom + window.scrollY),
+        };
+      });
+      // 中身の下から、下ナビのぶん(72px)＋少しの余白しか無いこと
+      const gap = m.doc - m.contentBottom;
+      expect(gap, `${scr} の下に余分な空白 ${gap}px`).toBeLessThanOrEqual(90);
+    }
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 

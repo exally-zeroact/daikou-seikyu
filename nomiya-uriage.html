@@ -19,13 +19,13 @@
       html {
         font-size: 14px;
         -webkit-text-size-adjust: 100%;
+        background: #f0faf4;
       }
       body {
         font-family: "Noto Sans JP", sans-serif;
         background: #f0faf4;
         color: #1a4a2e;
-        min-height: 100vh;
-        padding-bottom: 76px;
+        padding-bottom: calc(72px + env(safe-area-inset-bottom));
       }
 
       /* ===== HEADER ===== */
@@ -699,12 +699,40 @@
         white-space: pre-line;
       }
 
-      /* ===== 画面そのものの印刷は使わない（印刷は新しい窓で原寸A4） ===== */
+      /* ===== 印刷 ===== */
+      #printArea {
+        display: none;
+      }
       @media print {
+        @page {
+          size: A4 portrait;
+          margin: 0;
+        }
+        html,
+        body {
+          background: #ffffff;
+          padding: 0;
+        }
+        /* 画面のものは全部隠して、紙だけ出す */
         .app-header,
         .bottom-nav,
+        .screen,
+        .modal-ov,
+        .toast,
         .no-print {
           display: none !important;
+        }
+        #printArea {
+          display: block;
+        }
+        #printArea .sheet {
+          border: none;
+          box-shadow: none;
+          margin: 0 auto;
+          page-break-after: always;
+        }
+        #printArea .sheet:last-child {
+          page-break-after: auto;
         }
       }
     </style>
@@ -816,7 +844,7 @@
           <button class="chip chip-sm on" type="button" data-rec="all">すべて</button>
           <button class="chip chip-sm" type="button" data-rec="yes">あり</button>
           <button class="chip chip-sm" type="button" data-rec="no">なし</button>
-          <button class="chip chip-sm" type="button" data-rec="na">不要（振込・カード）</button>
+          <button class="chip chip-sm" type="button" data-rec="na">振込・カード</button>
           <button class="chip chip-sm" type="button" data-rec="later">あとで渡す分</button>
         </div>
       </div>
@@ -846,7 +874,7 @@
           <button class="chip chip-sm on" type="button" data-srec="all">全体</button>
           <button class="chip chip-sm" type="button" data-srec="yes">領収書あり</button>
           <button class="chip chip-sm" type="button" data-srec="no">領収書なし</button>
-          <button class="chip chip-sm" type="button" data-srec="na">不要（振込・カード）</button>
+          <button class="chip chip-sm" type="button" data-srec="na">振込・カード</button>
         </div>
       </div>
 
@@ -942,12 +970,7 @@
           <button class="chip chip-sm on" type="button" data-trec="all">全体</button>
           <button class="chip chip-sm" type="button" data-trec="yes">領収書あり</button>
           <button class="chip chip-sm" type="button" data-trec="no">領収書なし</button>
-          <button class="chip chip-sm" type="button" data-trec="na">不要（振込・カード）</button>
-        </div>
-        <div class="hint" style="margin-top: 10px">
-          「領収書あり」「領収書なし」を選ぶと、その分だけを集めた紙になります。紙には
-          <b>どれを集めたか</b
-          >が印字されます（例：対象＝領収書あり分のみ／売上全体ではありません）。
+          <button class="chip chip-sm" type="button" data-trec="na">振込・カード</button>
         </div>
       </div>
 
@@ -1123,6 +1146,9 @@
         <div id="modalBody"></div>
       </div>
     </div>
+
+    <!-- 印刷のときだけ中身が入る（画面には出ない） -->
+    <div id="printArea"></div>
 
     <div class="toast" id="toast"></div>
 
@@ -1667,7 +1693,7 @@
               : UI.filRec === "later"
                 ? "領収書はあとで渡す分"
                 : UI.filRec === "na"
-                  ? "領収書不要（振込・カード）"
+                  ? "振込・カードの分"
                   : "領収書なし";
         return p + " / " + r;
       }
@@ -1832,7 +1858,7 @@
       function scopeLabel(rec) {
         if (rec === "yes") return "領収書あり分のみ";
         if (rec === "no") return "領収書なし分のみ";
-        if (rec === "na") return "領収書不要（振込・カード）分のみ";
+        if (rec === "na") return "振込・カードの分";
         return "全体";
       }
 
@@ -2294,7 +2320,6 @@
           esc(periodLabel()) +
           "</span><span>対象：" +
           esc(scopeLabel(UI.taxRec)) +
-          (scoped ? "（売上全体ではありません）" : "") +
           "</span></div></div>" +
           '<div class="sm-stats">' +
           '<div class="sm-s"><span>売上（税込）</span><b>¥' +
@@ -2364,15 +2389,11 @@
                 .join("") +
               "</tbody></table></div>") +
           dayColsHtml(days) +
-          '<div class="sm-note">この紙は上の「対象」で集めた売上です。' +
-          (scoped
-            ? "選んだ分だけの合計で、売上全体ではありません。"
-            : "期間内のすべての売上です。") +
-          "　1件＝1組のお会計。金額は税込。" +
+          '<div class="sm-note">1件＝1組のお会計。金額は税込。' +
           (C.laterReceipts(rows).count
             ? "　領収書を「あとで渡す」約束が " +
               C.laterReceipts(rows).count +
-              "件（回収時に渡す分・未発行のため領収書なしに含む）。"
+              "件（回収時に渡す分）。"
             : "") +
           "</div>" +
           "</div>"
@@ -2960,45 +2981,30 @@
         return out;
       }
 
-      // 印刷用の新しい窓（原寸A4でそのまま出す）
+      /* 印刷／PDF ─ 別のタブを開かず、この画面のまま印刷する。
+         （新しいタブだと iPhone で戻れなくなり、タスクを切る羽目になるため）
+         紙の中身だけを #printArea に移し、印刷のときはそこだけを出す。 */
+      var _printTitle = "";
       function printSheets(innerId, title) {
         var inner = $(innerId);
         if (!inner || !inner.innerHTML.trim()) {
           toast("⚠️ 印刷するものがありません");
           return;
         }
-        var w = window.open("", "_blank", "width=900,height=700");
-        if (!w) {
-          toast("⚠️ ポップアップがブロックされました。許可してください。");
-          return;
-        }
-        var css =
-          "*{box-sizing:border-box;margin:0;padding:0;}" +
-          "@page{size:A4 portrait;margin:0;}" +
-          "body{font-family:'Noto Sans JP',sans-serif;background:#ffffff;}" +
-          SHEET_CSS +
-          invoiceSkinCss() +
-          ".sheet{border:none;box-shadow:none;margin:0 auto;page-break-after:always;}" +
-          ".sheet:last-child{page-break-after:auto;}";
-        w.document.write(
-          '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">' +
-            '<meta name="viewport" content="width=794">' +
-            "<title>" +
-            esc(title) +
-            "</title>" +
-            '<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@400;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">' +
-            "<style>" +
-            css +
-            "</style></head><body>" +
-            inner.innerHTML +
-            "</body></html>"
-        );
-        w.document.close();
-        w.focus();
-        setTimeout(function () {
-          w.print();
-        }, 1200);
+        $("printArea").innerHTML = inner.innerHTML;
+        // 印刷の見出しに出る名前（iPhoneはページ名が上に出る）
+        _printTitle = document.title;
+        document.title = title;
+        window.print();
       }
+      // 印刷が終わったら元に戻す（画面はそのまま・戻る操作が要らない）
+      window.addEventListener("afterprint", function () {
+        $("printArea").innerHTML = "";
+        if (_printTitle) {
+          document.title = _printTitle;
+          _printTitle = "";
+        }
+      });
 
       /* ===================================================================
          設定・データ
