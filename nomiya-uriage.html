@@ -640,13 +640,51 @@
         color: #7aa08c;
         line-height: 1.6;
       }
-      .acc-dot {
-        display: inline-block;
-        width: 10px;
-        height: 10px;
+      /* 色見本（丸）。押すとその色になる */
+      .acc-sw {
+        width: 34px;
+        height: 34px;
+        border: 2px solid #ffffff;
         border-radius: 50%;
-        margin-right: 6px;
-        vertical-align: -1px;
+        padding: 0;
+        background: #ffffff;
+        box-shadow: 0 0 0 1.5px #d4eae0;
+        cursor: pointer;
+      }
+      .acc-sw > i {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+      }
+      .acc-sw.on {
+        box-shadow: 0 0 0 2.5px #3d9e72;
+      }
+      .acc-pick {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #ffffff;
+        border: 1.5px solid #d4eae0;
+        border-radius: 999px;
+        padding: 6px 10px 6px 12px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #3d6b53;
+        cursor: pointer;
+      }
+      .acc-pick.on {
+        border-color: #3d9e72;
+        background: #3d9e72;
+        color: #ffffff;
+      }
+      .acc-pick input {
+        width: 26px;
+        height: 26px;
+        border: none;
+        padding: 0;
+        background: none;
+        cursor: pointer;
       }
       .hanko-row {
         display: flex;
@@ -917,6 +955,15 @@
 
       <div class="card">
         <div class="frow">
+          <span class="flabel">デザイン（3種類・タップで切り替え）</span>
+          <div class="chips" id="invTpl">
+            <button class="chip chip-sm" type="button" data-tpl="card">カード</button>
+            <button class="chip chip-sm" type="button" data-tpl="band">帯</button>
+            <button class="chip chip-sm" type="button" data-tpl="tate">縦組み</button>
+          </div>
+          <span class="hint">色・ロゴ・書体は「設定」で変えられます。</span>
+        </div>
+        <div class="frow">
           <span class="flabel">請求する相手</span>
           <select class="fselect" id="invName"></select>
         </div>
@@ -934,14 +981,10 @@
             <input class="finput" type="date" id="invTo" />
           </div>
         </div>
-        <div class="frow">
-          <span class="flabel">デザイン</span>
-          <div class="chips" id="invTpl">
-            <button class="chip chip-sm" type="button" data-tpl="card">カード</button>
-            <button class="chip chip-sm" type="button" data-tpl="band">帯</button>
-            <button class="chip chip-sm" type="button" data-tpl="tate">縦組み</button>
-          </div>
-        </div>
+      </div>
+
+      <div class="hint" id="invSample" style="margin: 0 2px 10px">
+        これは<b>見本</b>です。請求書送り・ツケの売上が入ると、本物の請求書になります。
       </div>
 
       <div class="btn-row no-print">
@@ -1052,7 +1095,9 @@
         <div class="frow">
           <span class="flabel">店の色</span>
           <div class="chips" id="setAccent"></div>
-          <span class="hint">罫線や見出しの色が変わります。「デザインのまま」で元に戻ります。</span>
+          <span class="hint"
+            >罫線や見出しの色が変わります。好きな色が無ければ「自分で選ぶ」で指定できます。</span
+          >
         </div>
 
         <div class="frow">
@@ -1115,15 +1160,19 @@
     </section>
 
     <!-- ==================== NAV ==================== -->
+    <!-- 一番使う「入力」を真ん中に置く（親指が届く位置） -->
     <nav class="bottom-nav">
+      <button class="nav-item" data-scr="set" type="button">
+        <span class="nav-ic">⚙️</span><span class="nav-lb">設定</span>
+      </button>
+      <button class="nav-item" data-scr="sum" type="button">
+        <span class="nav-ic">📊</span><span class="nav-lb">集計</span>
+      </button>
       <button class="nav-item active" data-scr="input" type="button">
         <span class="nav-ic">✍️</span><span class="nav-lb">入力</span>
       </button>
       <button class="nav-item" data-scr="list" type="button">
         <span class="nav-ic">📋</span><span class="nav-lb">一覧</span>
-      </button>
-      <button class="nav-item" data-scr="sum" type="button">
-        <span class="nav-ic">📊</span><span class="nav-lb">集計</span>
       </button>
       <button class="nav-item" data-scr="inv" type="button">
         <span class="nav-ic">🧾</span><span class="nav-lb">請求書</span>
@@ -1131,9 +1180,6 @@
       </button>
       <button class="nav-item" data-scr="tax" type="button">
         <span class="nav-ic">🧮</span><span class="nav-lb">税理士</span>
-      </button>
-      <button class="nav-item" data-scr="set" type="button">
-        <span class="nav-ic">⚙️</span><span class="nav-lb">設定</span>
       </button>
     </nav>
 
@@ -2481,16 +2527,48 @@
         return no;
       }
 
+      // 相手がいないときに見せる「見本」の請求書（デザインを選ぶために中身は架空）
+      function sampleInvoice() {
+        var mk = function (d, ppl, amt, memo) {
+          return {
+            id: "sample" + d,
+            date: "2026-07-" + d,
+            name: "◯◯",
+            people: ppl,
+            amount: amt,
+            pay: "invoice",
+            receipt: "na",
+            memo: memo || "",
+            paidDate: null,
+          };
+        };
+        var rows = [
+          mk("05", 2, 12000, "ボトル入れ"),
+          mk("14", 3, 18000, ""),
+          mk("26", 2, 9000, "紹介で来店"),
+        ];
+        var total = 39000;
+        var tx = C.taxIncluded(total, SETTINGS.rate);
+        return {
+          name: "◯◯",
+          from: "",
+          to: "",
+          rows: rows,
+          count: rows.length,
+          people: 7,
+          total: tx.total,
+          tax: tx.tax,
+          net: tx.net,
+          rate: tx.rate,
+          no: "202607-001",
+        };
+      }
+
       function renderInv() {
         renderInvControls();
-        if (!UI.invName) {
-          $("invSheets").innerHTML =
-            '<div class="sheet"><div class="sh-head"><div class="sh-title">請 求 書</div></div>' +
-            '<div class="iv-empty">請求書送り・ツケの売上が入ると、ここに請求書が出ます。</div></div>';
-          fitSheets("invScale", "invSheets");
-          return;
-        }
-        $("invSheets").innerHTML = invoiceSheetHtml(currentInvoice());
+        var isSample = !UI.invName;
+        $("invSample").style.display = isSample ? "" : "none";
+        $("invSheets").innerHTML = invoiceSheetHtml(isSample ? sampleInvoice() : currentInvoice());
         $("invSkin").textContent = invoiceSkinCss();
         fitSheets("invScale", "invSheets");
       }
@@ -2887,20 +2965,37 @@
 
       /* 店の色・書体の上書き（選んだときだけ足す）。
          塗りは薄く（14%）、罫は選んだ色そのまま＝印刷でインクを食わない。 */
+      // 店の色。よく使う色を並べ、足りなければ自分で選べる（色コードをそのまま持つ）。
       var ACCENTS = [
-        { key: "", label: "デザインのまま", hex: "" },
-        { key: "wine", label: "ワイン", hex: "#7d3a44" },
-        { key: "navy", label: "紺", hex: "#1b2b45" },
-        { key: "sumi", label: "墨", hex: "#2b2b2b" },
-        { key: "sakura", label: "桜", hex: "#b5827e" },
-        { key: "moss", label: "若草", hex: "#4a6b45" },
-        { key: "gold", label: "金茶", hex: "#8c6f3f" },
+        { label: "ワイン", hex: "#7d3a44" },
+        { label: "朱", hex: "#b04a3e" },
+        { label: "桜", hex: "#b5827e" },
+        { label: "桃", hex: "#c98f8a" },
+        { label: "藤", hex: "#7b6aa0" },
+        { label: "紺", hex: "#1b2b45" },
+        { label: "藍", hex: "#2f5d7c" },
+        { label: "空", hex: "#5b8ca8" },
+        { label: "深緑", hex: "#2f5d4a" },
+        { label: "若草", hex: "#4a6b45" },
+        { label: "金茶", hex: "#8c6f3f" },
+        { label: "銅", hex: "#96603c" },
+        { label: "墨", hex: "#2b2b2b" },
+        { label: "灰", hex: "#6b6f73" },
       ];
+      // 旧データ（色の名前で保存していたもの）を色コードに読み替える
+      var ACCENT_OLD = {
+        wine: "#7d3a44",
+        navy: "#1b2b45",
+        sumi: "#2b2b2b",
+        sakura: "#b5827e",
+        moss: "#4a6b45",
+        gold: "#8c6f3f",
+      };
       function accentHex() {
-        for (var i = 0; i < ACCENTS.length; i++) {
-          if (ACCENTS[i].key === (SETTINGS.accent || "")) return ACCENTS[i].hex;
-        }
-        return "";
+        var a = SETTINGS.accent || "";
+        if (!a) return "";
+        if (ACCENT_OLD[a]) return ACCENT_OLD[a];
+        return /^#[0-9a-fA-F]{6}$/.test(a) ? a : "";
       }
       function hexToRgba(hex, a) {
         var h = String(hex).replace("#", "");
@@ -3025,22 +3120,34 @@
           .forEach(function (b) {
             b.classList.toggle("on", b.getAttribute("data-tpl") === (SETTINGS.tpl || "card"));
           });
-        $("setAccent").innerHTML = ACCENTS.map(function (a) {
-          return (
-            '<button class="chip chip-sm" type="button" data-accent="' +
-            a.key +
-            '"' +
-            (a.hex ? ' style="border-color:' + a.hex + '"' : "") +
-            ">" +
-            (a.hex ? '<i class="acc-dot" style="background:' + a.hex + '"></i>' : "") +
-            esc(a.label) +
-            "</button>"
-          );
-        }).join("");
+        var curHex = accentHex();
+        var isPreset = ACCENTS.some(function (a) {
+          return a.hex === curHex;
+        });
+        $("setAccent").innerHTML =
+          '<button class="chip chip-sm" type="button" data-accent="">デザインのまま</button>' +
+          ACCENTS.map(function (a) {
+            return (
+              '<button class="acc-sw" type="button" data-accent="' +
+              a.hex +
+              '" title="' +
+              esc(a.label) +
+              '" aria-label="' +
+              esc(a.label) +
+              '"><i style="background:' +
+              a.hex +
+              '"></i></button>'
+            );
+          }).join("") +
+          '<label class="acc-pick' +
+          (curHex && !isPreset ? " on" : "") +
+          '">自分で選ぶ<input type="color" id="setAccentPick" value="' +
+          (curHex || "#7d3a44") +
+          '"></label>';
         $("setAccent")
           .querySelectorAll("[data-accent]")
           .forEach(function (b) {
-            b.classList.toggle("on", b.getAttribute("data-accent") === (SETTINGS.accent || ""));
+            b.classList.toggle("on", b.getAttribute("data-accent") === curHex);
             b.onclick = function () {
               SETTINGS.accent = b.getAttribute("data-accent");
               saveSettings();
@@ -3048,6 +3155,15 @@
               renderInv();
             };
           });
+        $("setAccentPick").oninput = function () {
+          SETTINGS.accent = this.value;
+          saveSettings();
+          $("invSkin").textContent = invoiceSkinCss();
+          renderInv();
+        };
+        $("setAccentPick").onchange = function () {
+          renderSettings();
+        };
         $("setFont")
           .querySelectorAll("[data-font]")
           .forEach(function (b) {

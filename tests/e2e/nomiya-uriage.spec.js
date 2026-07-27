@@ -609,8 +609,8 @@ test.describe("飲み屋 売上管理", () => {
     await page.locator(".nav-item[data-scr='set']").click();
 
     // 色（ワイン）を選ぶ → 紙の見出し・罫の色が変わる
-    await page.locator("#setAccent button[data-accent='wine']").click();
-    await expect(page.locator("#setAccent button[data-accent='wine']")).toHaveClass(/on/);
+    await page.locator("#setAccent [data-accent='#7d3a44']").click();
+    await expect(page.locator("#setAccent [data-accent='#7d3a44']")).toHaveClass(/on/);
     const skin = () => page.locator("#invSkin").innerText();
     expect(await skin()).toContain("#7d3a44");
 
@@ -669,7 +669,7 @@ test.describe("飲み屋 売上管理", () => {
 
     // 「デザインのまま」で元に戻る
     await page.locator(".nav-item[data-scr='set']").click();
-    await page.locator("#setAccent button[data-accent='']").click();
+    await page.locator("#setAccent [data-accent='']").click();
     expect(await skin()).not.toContain("#7d3a44");
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
@@ -750,7 +750,9 @@ test.describe("飲み屋 売上管理", () => {
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 
-  test("請求書タブ: 未回収がゼロなら案内が出る（真っ白にならない）", async ({ page }) => {
+  test("請求書タブ: 未回収がゼロでも見本の請求書が出る（デザインを比べられる）", async ({
+    page,
+  }) => {
     const errors = await open(page);
     await addSale(page, {
       date: "2026-07-01",
@@ -761,7 +763,20 @@ test.describe("飲み屋 売上管理", () => {
       receipt: false,
     });
     await page.locator(".nav-item[data-scr='inv']").click();
-    await expect(page.locator("#invSheets .iv-empty")).toBeVisible();
+    // 紙が出る（真っ白にならない）＋「見本」と分かる
+    await expect(page.locator("#invSheets .iv-title")).toContainText("請");
+    await expect(page.locator("#invSample")).toBeVisible();
+    await expect(page.locator("#invSheets .iv-tbl tbody tr")).toHaveCount(3);
+    const h = await page
+      .locator("#invSheets .sheet")
+      .first()
+      .evaluate((el) => el.offsetHeight);
+    expect(h).toBe(1123);
+    // デザインは3つとも見本で切り替えられる
+    for (const tpl of ["band", "tate", "card"]) {
+      await page.locator(`#invTpl button[data-tpl="${tpl}"]`).click();
+      await expect(page.locator("#invSheets .sheet")).toHaveClass(new RegExp("iv-" + tpl));
+    }
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 
