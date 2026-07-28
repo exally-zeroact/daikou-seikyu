@@ -318,9 +318,10 @@ describe("領収書の3通り（なし / あり / あとで）", () => {
     expect(C.normalizeSale({ ...base, receipt: "later" }).receiptDate).toBe(null);
     expect(C.normalizeSale({ ...base, receipt: "none" }).receiptDate).toBe(null);
   });
-  it("紙に出す印は ○ / 後 / 空", () => {
+  it("紙に出す印は集計と同じ2つ（あり側=○ / なし側=空）", () => {
     expect(C.receiptMark("issued")).toBe("○");
-    expect(C.receiptMark("later")).toBe("後");
+    expect(C.receiptMark("na")).toBe("○"); // 振込・カードも「あり」側
+    expect(C.receiptMark("later")).toBe(""); // あとで渡す＝まだ出していない
     expect(C.receiptMark("none")).toBe("");
     expect(C.receiptMark(true)).toBe("○");
   });
@@ -403,10 +404,10 @@ describe("領収書は支払い方法で「要る/要らない」が違う", () 
     expect(r.reduce((a, x) => a + x.amount, 0)).toBe(C.summarize(MIX2).amount);
     expect(r.reduce((a, x) => a + x.count, 0)).toBe(5);
   });
-  it("紙の印は ○ / – / 後 / 空", () => {
-    expect(C.receiptMark("na")).toBe("–");
+  it("紙の印も集計の2区分と揃っている", () => {
+    expect(C.receiptMark("na")).toBe("○");
     expect(C.receiptMark("issued")).toBe("○");
-    expect(C.receiptMark("later")).toBe("後");
+    expect(C.receiptMark("later")).toBe("");
     expect(C.receiptMark("none")).toBe("");
   });
   it("振込・カードの「不要」は理由を説明する", () => {

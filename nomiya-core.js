@@ -59,11 +59,13 @@
   var RECEIPT_STATES = [
     { key: "none", label: "なし", mark: "" },
     { key: "issued", label: "あり", mark: "○" },
-    { key: "later", label: "あとで", mark: "後" },
+    // あとで渡す分はまだ出していない＝「なし」側なので、紙の印も空にする
+    { key: "later", label: "あとで", mark: "" },
     // na = 領収書はいらない。振込(請求書が証憑)・カード/PayPay(売上票・利用明細が証憑)のとき。
     // 「なし(none)」と分けるのが肝。まとめると、振込やカードの売上まで
     // 「領収書なし」として落とされてしまう。
-    { key: "na", label: "不要", mark: "–" },
+    // 振込・カードは領収書が要らない分。集計で「あり」側に数えるので、紙の印も○で揃える。
+    { key: "na", label: "不要", mark: "○" },
   ];
   // 旧データ(true/false)や画面の 'yes'/'no' もここで吸収する
   function normalizeReceipt(v) {

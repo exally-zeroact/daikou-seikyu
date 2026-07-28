@@ -452,14 +452,14 @@ test.describe("飲み屋 売上管理", () => {
     });
     await addSale(page, { date: "2026-07-01", name: "田中", people: 2, amount: 8000, pay: "cash" });
 
-    // 紙の領収書欄は 振込=「–」（不要）/ 現金=空
+    // 紙の領収書欄は 振込=○（領収書あり側）/ 現金=空
     await page.locator(".nav-item[data-scr='list']").click();
     await page.locator("#periodList .period-lb").click();
     await page.locator("#mdFrom").fill("2026-07-01");
     await page.locator("#mdTo").fill("2026-07-31");
     await page.locator("#mdOk").click();
     const marks = await page.locator("#listSheets tr[data-id] .c-r").allInnerTexts();
-    expect(marks.map((m) => m.trim())).toEqual(["–", ""]);
+    expect(marks.map((m) => m.trim())).toEqual(["○", ""]);
 
     // 「領収書なし」で絞ると現金だけ（振込は落ちない）
     await page.locator("#filRec button[data-rec='no']").click();
@@ -508,13 +508,13 @@ test.describe("飲み屋 売上管理", () => {
       pay: "tsuke",
       receipt: "later",
     });
-    // 売上帳では「後」と出る（○ではない）
+    // 売上帳では空（まだ渡していない＝「なし」側）
     await page.locator(".nav-item[data-scr='list']").click();
     await page.locator("#periodList .period-lb").click();
     await page.locator("#mdFrom").fill("2026-07-01");
     await page.locator("#mdTo").fill("2026-07-31");
     await page.locator("#mdOk").click();
-    await expect(page.locator("#listSheets tr[data-id] .c-r")).toHaveText("後");
+    await expect(page.locator("#listSheets tr[data-id] .c-r")).toHaveText("");
     // 「あとで渡す分」で絞れる
     await page.locator("#filRec button[data-rec='later']").click();
     await expect(page.locator("#listSheets tr[data-id]")).toHaveCount(1);
