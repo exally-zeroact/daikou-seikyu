@@ -355,7 +355,7 @@
           return normalizeReceipt(s.receipt) === "none" || isLater(s);
         },
       },
-      { key: "na", label: "振込・カード（領収書なしでよい分）", test: isNa },
+      { key: "na", label: "振込・カード", test: isNa },
     ].map(function (g) {
       var rows = list.filter(function (s) {
         return g.test(s);

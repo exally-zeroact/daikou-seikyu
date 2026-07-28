@@ -227,6 +227,19 @@
         flex-wrap: wrap;
         gap: 6px;
       }
+      /* 画面の上に置く1行のタブ（カードで囲まず場所を取らない） */
+      .chips-bar {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding: 2px 2px 8px;
+        -webkit-overflow-scrolling: touch;
+      }
+      .chips-bar::-webkit-scrollbar {
+        display: none;
+      }
+      .chips-bar .chip {
+        flex: 0 0 auto;
+      }
       .chip {
         background: #ffffff;
         border: 1.5px solid #d4eae0;
@@ -357,6 +370,7 @@
       .brk {
         width: 100%;
         border-collapse: collapse;
+        table-layout: fixed;
       }
       .brk th {
         font-size: 10px;
@@ -382,6 +396,8 @@
         font-family: "Noto Sans JP", sans-serif;
         font-weight: 700;
         color: #1a4a2e;
+        white-space: normal;
+        word-break: break-all;
       }
       .brk tr:last-child td {
         border-bottom: none;
@@ -403,7 +419,18 @@
         border-radius: 4px;
       }
       .barcell {
-        min-width: 84px;
+        width: 68px;
+        min-width: 68px;
+      }
+      .brk th:nth-child(2),
+      .brk td:nth-child(2),
+      .brk th:nth-child(4),
+      .brk td:nth-child(4) {
+        width: 46px;
+      }
+      .brk th:nth-child(3),
+      .brk td:nth-child(3) {
+        width: 76px;
       }
 
       /* ===== 明細リスト（入力画面のその日の分・未回収） ===== */
@@ -899,24 +926,16 @@
       </div>
     </section>
 
-    <!-- ==================== 集計 ==================== -->
+    <!-- ==================== 集計（画面で見るだけ。紙は税理士タブ） ==================== -->
     <section class="screen" id="scr-sum">
-      <div class="scr-title">集計</div>
-      <div class="scr-sub">期間の売上を、支払い方法別・領収書別・日別で見られます。</div>
-
       <div class="period" id="periodSum"></div>
-
-      <div class="card">
-        <div class="card-label">どれで見る</div>
-        <div class="chips" id="sumRecTabs">
-          <button class="chip chip-sm on" type="button" data-srec="all">全体</button>
-          <button class="chip chip-sm" type="button" data-srec="yes">領収書あり</button>
-          <button class="chip chip-sm" type="button" data-srec="no">領収書なし</button>
-          <button class="chip chip-sm" type="button" data-srec="na">振込・カード</button>
-        </div>
+      <div class="chips chips-bar" id="sumRecTabs">
+        <button class="chip chip-sm on" type="button" data-srec="all">全体</button>
+        <button class="chip chip-sm" type="button" data-srec="yes">領収書あり</button>
+        <button class="chip chip-sm" type="button" data-srec="no">領収書なし</button>
+        <button class="chip chip-sm" type="button" data-srec="na">振込・カード</button>
       </div>
-
-      <div class="stat-grid" id="sumStats"></div>
+      <div class="strip" id="sumStrip"></div>
 
       <div class="card">
         <div class="card-label">支払い方法別</div>
@@ -932,20 +951,6 @@
         <div class="card-label">日別</div>
         <div id="sumDay"></div>
       </div>
-
-      <div class="card">
-        <div class="card-label">未回収（請求書送り・ツケ / 期間に関係なく全部）</div>
-        <div id="sumUnpaid"></div>
-      </div>
-
-      <div class="btn-row no-print">
-        <button class="btn btn-ghost" id="btnPrintSum">🖨 印刷</button>
-        <button class="btn btn-ghost" id="btnPdfSum">📄 PDFで保存</button>
-      </div>
-
-      <div class="sheet-scale" id="sumScale">
-        <div class="sheet-scale-inner" id="sumSheets"></div>
-      </div>
     </section>
 
     <!-- ==================== 請求書 ==================== -->
@@ -955,13 +960,31 @@
 
       <div class="card">
         <div class="frow">
-          <span class="flabel">デザイン（3種類・タップで切り替え）</span>
+          <span class="flabel">デザイン</span>
           <div class="chips" id="invTpl">
             <button class="chip chip-sm" type="button" data-tpl="card">カード</button>
             <button class="chip chip-sm" type="button" data-tpl="band">帯</button>
             <button class="chip chip-sm" type="button" data-tpl="tate">縦組み</button>
           </div>
-          <span class="hint">色・ロゴ・書体は「設定」で変えられます。</span>
+        </div>
+        <div class="frow">
+          <span class="flabel">色</span>
+          <div class="chips" id="invAccent"></div>
+        </div>
+        <div class="frow">
+          <span class="flabel">書体</span>
+          <div class="chips" id="invFont">
+            <button class="chip chip-sm" type="button" data-font="mincho">明朝</button>
+            <button class="chip chip-sm" type="button" data-font="gothic">ゴシック</button>
+          </div>
+        </div>
+        <div class="frow">
+          <span class="flabel">ロゴの位置</span>
+          <div class="chips" id="invLogoPos">
+            <button class="chip chip-sm" type="button" data-lpos="top">右上</button>
+            <button class="chip chip-sm" type="button" data-lpos="bottom">店名の上</button>
+          </div>
+          <span class="hint">ロゴと判子の画像は「設定」で入れます。</span>
         </div>
         <div class="frow">
           <span class="flabel">請求する相手</span>
@@ -997,6 +1020,11 @@
 
       <div class="sheet-scale" id="invScale">
         <div class="sheet-scale-inner" id="invSheets"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">未回収（請求書送り・ツケ / 期間に関係なく全部）</div>
+        <div id="invUnpaid"></div>
       </div>
     </section>
 
@@ -1057,16 +1085,6 @@
           <input class="finput" type="text" id="setBank" placeholder="◯◯銀行 ◯◯支店 普通 1234567" />
         </div>
         <div class="frow">
-          <span class="flabel">請求書のデザイン</span>
-          <div class="chips" id="setTpl">
-            <button class="chip chip-sm" type="button" data-tpl="card">カード</button>
-            <button class="chip chip-sm" type="button" data-tpl="band">帯</button>
-            <button class="chip chip-sm" type="button" data-tpl="tate">縦組み</button>
-          </div>
-          <span class="hint">請求書タブでも切り替えられます。選んだものが保存されます。</span>
-        </div>
-
-        <div class="frow">
           <span class="flabel">店のロゴ（請求書に載ります・任意）</span>
           <div class="hanko-row">
             <div class="hanko-prev" id="logoPrev"></div>
@@ -1086,28 +1104,6 @@
             </div>
           </div>
           <input type="file" id="fileLogo" accept="image/*" style="display: none" />
-          <div class="chips" id="setLogoPos" style="margin-top: 8px">
-            <button class="chip chip-sm" type="button" data-lpos="top">上（右上・定番）</button>
-            <button class="chip chip-sm" type="button" data-lpos="bottom">下（店名の上）</button>
-          </div>
-        </div>
-
-        <div class="frow">
-          <span class="flabel">店の色</span>
-          <div class="chips" id="setAccent"></div>
-          <span class="hint"
-            >罫線や見出しの色が変わります。好きな色が無ければ「自分で選ぶ」で指定できます。</span
-          >
-        </div>
-
-        <div class="frow">
-          <span class="flabel">書体</span>
-          <div class="chips" id="setFont">
-            <button class="chip chip-sm" type="button" data-font="mincho">明朝（落ち着き）</button>
-            <button class="chip chip-sm" type="button" data-font="gothic">
-              ゴシック（見やすさ）
-            </button>
-          </div>
         </div>
 
         <div class="frow">
@@ -1168,11 +1164,11 @@
       <button class="nav-item" data-scr="sum" type="button">
         <span class="nav-ic">📊</span><span class="nav-lb">集計</span>
       </button>
-      <button class="nav-item active" data-scr="input" type="button">
-        <span class="nav-ic">✍️</span><span class="nav-lb">入力</span>
-      </button>
       <button class="nav-item" data-scr="list" type="button">
         <span class="nav-ic">📋</span><span class="nav-lb">一覧</span>
+      </button>
+      <button class="nav-item active" data-scr="input" type="button">
+        <span class="nav-ic">✍️</span><span class="nav-lb">入力</span>
       </button>
       <button class="nav-item" data-scr="inv" type="button">
         <span class="nav-ic">🧾</span><span class="nav-lb">請求書</span>
@@ -1920,11 +1916,12 @@
         var rows = sumScopeRows();
         var sum = C.summarize(rows);
 
-        $("sumStats").innerHTML =
-          statCard("売上（税込）", "¥" + C.comma(sum.amount)) +
-          statCard("組数", sum.count + " <small>組</small>") +
-          statCard("のべ人数", sum.people + " <small>人</small>") +
-          statCard("客単価（1人）", "¥" + C.comma(sum.perPerson));
+        // 数字は横1列に詰める（上の塊で場所を取らないように）
+        $("sumStrip").innerHTML =
+          stripItem("売上", C.yen(sum.amount)) +
+          stripItem("組数", sum.count + " 組") +
+          stripItem("のべ人数", sum.people + " 人") +
+          stripItem("客単価", C.yen(sum.perPerson));
 
         $("sumPay").innerHTML = brkTable(C.byPayMethod(rows), sum.amount);
         var later = C.laterReceipts(rows);
@@ -1968,9 +1965,6 @@
           : '<div class="empty">この期間の売上はまだありません</div>';
 
         renderUnpaid();
-
-        $("sumSheets").innerHTML = sumSheetHtml(rows);
-        fitSheets("sumScale", "sumSheets");
       }
 
       function statCard(k, v) {
@@ -2023,7 +2017,7 @@
       // 未回収は「請求書送り」と「ツケ」で性質が違うので、混ぜずに分けて出す。
       function renderUnpaid() {
         var groups = C.unpaidGroups(SALES);
-        var box = $("sumUnpaid");
+        var box = $("invUnpaid");
         var nameCount = 0;
         var html = groups
           .map(function (g) {
@@ -2190,139 +2184,6 @@
         );
       }
 
-      // 集計表のA4（1枚に収める）
-      function sumSheetHtml(rows) {
-        var sum = C.summarize(rows);
-        var pays = C.byPayMethod(rows);
-        var recs = C.byReceipt(rows);
-        var days = C.byDay(rows);
-        var unpaid = C.unpaidGroups(SALES);
-
-        function tbl(title, list, cols) {
-          return (
-            '<div class="sm-blk"><div class="sm-h">' +
-            esc(title) +
-            '</div><table class="sm-tbl"><thead><tr>' +
-            cols.head
-              .map(function (h, i) {
-                return '<th class="' + (i === 0 ? "l" : "r") + '">' + esc(h) + "</th>";
-              })
-              .join("") +
-            "</tr></thead><tbody>" +
-            (list.length
-              ? list.map(cols.row).join("")
-              : '<tr><td class="l" colspan="' + cols.head.length + '">なし</td></tr>') +
-            "</tbody></table></div>"
-          );
-        }
-
-        return (
-          '<div class="sheet">' +
-          '<div class="sh-head"><div class="sh-store">' +
-          esc(SETTINGS.store || "") +
-          '</div><div class="sh-title">売 上 集 計 表</div>' +
-          '<div class="sh-meta"><span>' +
-          esc(periodLabel()) +
-          "</span><span>対象：" +
-          esc(scopeLabel(UI.sumRec)) +
-          "</span></div></div>" +
-          '<div class="sm-stats">' +
-          '<div class="sm-s"><span>売上（税込）</span><b>¥' +
-          C.comma(sum.amount) +
-          "</b></div>" +
-          '<div class="sm-s"><span>組数</span><b>' +
-          sum.count +
-          "</b></div>" +
-          '<div class="sm-s"><span>のべ人数</span><b>' +
-          sum.people +
-          "</b></div>" +
-          '<div class="sm-s"><span>客単価</span><b>¥' +
-          C.comma(sum.perPerson) +
-          "</b></div>" +
-          "</div>" +
-          tbl("支払い方法別", pays, {
-            head: ["区分", "件数", "人数", "金額", "割合"],
-            row: function (r) {
-              return (
-                '<tr><td class="l">' +
-                esc(r.label) +
-                '</td><td class="r">' +
-                r.count +
-                '</td><td class="r">' +
-                r.people +
-                '</td><td class="r">' +
-                C.comma(r.amount) +
-                '</td><td class="r">' +
-                Math.round(r.ratio * 100) +
-                "%</td></tr>"
-              );
-            },
-          }) +
-          tbl("領収書 あり / なし", recs, {
-            head: ["区分", "件数", "人数", "金額", "割合"],
-            row: function (r) {
-              return (
-                '<tr><td class="l">' +
-                esc(r.label) +
-                '</td><td class="r">' +
-                r.count +
-                '</td><td class="r">' +
-                r.people +
-                '</td><td class="r">' +
-                C.comma(r.amount) +
-                '</td><td class="r">' +
-                Math.round(r.ratio * 100) +
-                "%</td></tr>"
-              );
-            },
-          }) +
-          dayColsHtml(days) +
-          // 未回収は「請求書送り」と「ツケ」を分けて2つ並べる（性質が違うので混ぜない）
-          '<div class="sm-blk"><div class="sm-h">未回収（期間に関係なく全部）</div><div class="sm-2col">' +
-          unpaid
-            .map(function (g) {
-              var shown = g.names.slice(0, 6);
-              return (
-                "<div>" +
-                '<div class="sm-sub">' +
-                esc(g.label) +
-                "　" +
-                g.count +
-                "件　¥" +
-                C.comma(g.amount) +
-                "</div>" +
-                '<table class="sm-tbl"><thead><tr><th class="l">相手</th><th class="r">件</th>' +
-                '<th class="r">最後</th><th class="r">残高</th></tr></thead><tbody>' +
-                (shown.length
-                  ? shown
-                      .map(function (u) {
-                        return (
-                          '<tr><td class="l">' +
-                          esc(u.name) +
-                          '</td><td class="r">' +
-                          u.count +
-                          '</td><td class="r">' +
-                          esc(C.mdShort(u.last)) +
-                          '</td><td class="r">' +
-                          C.comma(u.amount) +
-                          "</td></tr>"
-                        );
-                      })
-                      .join("")
-                  : '<tr><td class="l" colspan="4">なし</td></tr>') +
-                "</tbody></table>" +
-                (g.names.length > 6
-                  ? '<div class="sm-note">ほか ' + (g.names.length - 6) + " 件</div>"
-                  : "") +
-                "</div>"
-              );
-            })
-            .join("") +
-          "</div></div>" +
-          "</div>"
-        );
-      }
-
       /* ===================================================================
          税理士用の紙（1ヶ月の売上まとめ）
          ─ 対象（全体 / 領収書あり / 領収書なし）を紙に必ず印字する。
@@ -2364,8 +2225,6 @@
           '</div><div class="sh-title">売 上 報 告 書</div>' +
           '<div class="sh-meta"><span>' +
           esc(periodLabel()) +
-          "</span><span>対象：" +
-          esc(scopeLabel(UI.taxRec)) +
           "</span></div></div>" +
           '<div class="sm-stats">' +
           '<div class="sm-s"><span>売上（税込）</span><b>¥' +
@@ -2461,6 +2320,67 @@
         return order;
       }
 
+      // 請求書タブの「見た目」（デザイン・色・書体・ロゴ位置）の状態を出す
+      function renderInvLook() {
+        $("invTpl")
+          .querySelectorAll("[data-tpl]")
+          .forEach(function (b) {
+            b.classList.toggle("on", b.getAttribute("data-tpl") === (SETTINGS.tpl || "card"));
+          });
+        $("invFont")
+          .querySelectorAll("[data-font]")
+          .forEach(function (b) {
+            b.classList.toggle("on", b.getAttribute("data-font") === (SETTINGS.font || "mincho"));
+          });
+        $("invLogoPos")
+          .querySelectorAll("[data-lpos]")
+          .forEach(function (b) {
+            b.classList.toggle("on", b.getAttribute("data-lpos") === (SETTINGS.logoPos || "top"));
+          });
+        var curHex = accentHex();
+        var isPreset = ACCENTS.some(function (a) {
+          return a.hex === curHex;
+        });
+        $("invAccent").innerHTML =
+          '<button class="chip chip-sm" type="button" data-accent="">デザインのまま</button>' +
+          ACCENTS.map(function (a) {
+            return (
+              '<button class="acc-sw" type="button" data-accent="' +
+              a.hex +
+              '" title="' +
+              esc(a.label) +
+              '" aria-label="' +
+              esc(a.label) +
+              '"><i style="background:' +
+              a.hex +
+              '"></i></button>'
+            );
+          }).join("") +
+          '<label class="acc-pick' +
+          (curHex && !isPreset ? " on" : "") +
+          '">自分で選ぶ<input type="color" id="invAccentPick" value="' +
+          (curHex || "#7d3a44") +
+          '"></label>';
+        $("invAccent")
+          .querySelectorAll("[data-accent]")
+          .forEach(function (b) {
+            b.classList.toggle("on", b.getAttribute("data-accent") === curHex);
+            b.onclick = function () {
+              SETTINGS.accent = b.getAttribute("data-accent");
+              saveSettings();
+              renderInv();
+            };
+          });
+        $("invAccentPick").oninput = function () {
+          SETTINGS.accent = this.value;
+          saveSettings();
+          $("invSkin").textContent = invoiceSkinCss();
+        };
+        $("invAccentPick").onchange = function () {
+          renderInv();
+        };
+      }
+
       function renderInvControls() {
         var names = invoiceTargets();
         var sel = $("invName");
@@ -2480,11 +2400,6 @@
             b.classList.toggle("on", b.getAttribute("data-scope") === UI.invScope);
           });
         $("invPeriodRow").style.display = UI.invScope === "period" ? "" : "none";
-        $("invTpl")
-          .querySelectorAll("[data-tpl]")
-          .forEach(function (b) {
-            b.classList.toggle("on", b.getAttribute("data-tpl") === (SETTINGS.tpl || "card"));
-          });
       }
 
       function invRange() {
@@ -2566,6 +2481,7 @@
 
       function renderInv() {
         renderInvControls();
+        renderInvLook();
         var isSample = !UI.invName;
         $("invSample").style.display = isSample ? "" : "none";
         $("invSheets").innerHTML = invoiceSheetHtml(isSample ? sampleInvoice() : currentInvoice());
@@ -2777,7 +2693,6 @@
       }
       function fitAll() {
         fitSheets("listScale", "listSheets");
-        fitSheets("sumScale", "sumSheets");
         fitSheets("taxScale", "taxSheets");
         fitSheets("invScale", "invSheets");
       }
@@ -3115,65 +3030,6 @@
           .forEach(function (b) {
             b.classList.toggle("on", Number(b.getAttribute("data-rate")) === Number(SETTINGS.rate));
           });
-        $("setTpl")
-          .querySelectorAll("[data-tpl]")
-          .forEach(function (b) {
-            b.classList.toggle("on", b.getAttribute("data-tpl") === (SETTINGS.tpl || "card"));
-          });
-        var curHex = accentHex();
-        var isPreset = ACCENTS.some(function (a) {
-          return a.hex === curHex;
-        });
-        $("setAccent").innerHTML =
-          '<button class="chip chip-sm" type="button" data-accent="">デザインのまま</button>' +
-          ACCENTS.map(function (a) {
-            return (
-              '<button class="acc-sw" type="button" data-accent="' +
-              a.hex +
-              '" title="' +
-              esc(a.label) +
-              '" aria-label="' +
-              esc(a.label) +
-              '"><i style="background:' +
-              a.hex +
-              '"></i></button>'
-            );
-          }).join("") +
-          '<label class="acc-pick' +
-          (curHex && !isPreset ? " on" : "") +
-          '">自分で選ぶ<input type="color" id="setAccentPick" value="' +
-          (curHex || "#7d3a44") +
-          '"></label>';
-        $("setAccent")
-          .querySelectorAll("[data-accent]")
-          .forEach(function (b) {
-            b.classList.toggle("on", b.getAttribute("data-accent") === curHex);
-            b.onclick = function () {
-              SETTINGS.accent = b.getAttribute("data-accent");
-              saveSettings();
-              renderSettings();
-              renderInv();
-            };
-          });
-        $("setAccentPick").oninput = function () {
-          SETTINGS.accent = this.value;
-          saveSettings();
-          $("invSkin").textContent = invoiceSkinCss();
-          renderInv();
-        };
-        $("setAccentPick").onchange = function () {
-          renderSettings();
-        };
-        $("setFont")
-          .querySelectorAll("[data-font]")
-          .forEach(function (b) {
-            b.classList.toggle("on", b.getAttribute("data-font") === (SETTINGS.font || "mincho"));
-          });
-        $("setLogoPos")
-          .querySelectorAll("[data-lpos]")
-          .forEach(function (b) {
-            b.classList.toggle("on", b.getAttribute("data-lpos") === (SETTINGS.logoPos || "top"));
-          });
         $("logoPrev").innerHTML = SETTINGS.logo
           ? '<img src="' + esc(SETTINGS.logo) + '" alt="ロゴ">'
           : "なし";
@@ -3371,7 +3227,6 @@
             b.onclick = function () {
               UI.sumRec = b.getAttribute("data-srec");
               renderSum();
-              fitSheets("sumScale", "sumSheets");
             };
           });
         $("taxRecTabs")
@@ -3389,13 +3244,6 @@
         $("btnPdfTax").onclick = function () {
           toast("📄 印刷の画面で「PDFとして保存」を選んでください");
           printSheets("taxSheets", "売上報告書");
-        };
-        $("btnPrintSum").onclick = function () {
-          printSheets("sumSheets", "売上集計表");
-        };
-        $("btnPdfSum").onclick = function () {
-          toast("📄 印刷の画面で「PDFとして保存」を選んでください");
-          printSheets("sumSheets", "売上集計表");
         };
         $("btnPrintInv").onclick = function () {
           printSheets("invSheets", "請求書");
@@ -3449,35 +3297,21 @@
             };
           });
         // 判子の画像（白い背景は hanko.js で自動的に抜く。処理に失敗しても元画像で載せる）
-        $("setTpl")
-          .querySelectorAll("[data-tpl]")
-          .forEach(function (b) {
-            b.onclick = function () {
-              SETTINGS.tpl = b.getAttribute("data-tpl");
-              saveSettings();
-              renderSettings();
-              renderInv();
-              fitSheets("invScale", "invSheets");
-              toast("✅ デザインを変えました");
-            };
-          });
-        $("setFont")
+        $("invFont")
           .querySelectorAll("[data-font]")
           .forEach(function (b) {
             b.onclick = function () {
               SETTINGS.font = b.getAttribute("data-font");
               saveSettings();
-              renderSettings();
               renderInv();
             };
           });
-        $("setLogoPos")
+        $("invLogoPos")
           .querySelectorAll("[data-lpos]")
           .forEach(function (b) {
             b.onclick = function () {
               SETTINGS.logoPos = b.getAttribute("data-lpos");
               saveSettings();
-              renderSettings();
               renderInv();
             };
           });
