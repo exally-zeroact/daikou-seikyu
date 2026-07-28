@@ -146,10 +146,11 @@ test.describe("飲み屋 売上管理", () => {
     await expect(page.locator("#listSheets tr[data-id]")).toHaveCount(1);
     await expect(page.locator("#listStrip .strip-v").nth(2)).toHaveText("¥32,000");
 
+    // 「領収書あり」には振込・カード（領収書が要らない分）も入る
     await page.locator("#filPay button[data-fp='all']").click();
     await page.locator("#filRec button[data-rec='yes']").click();
-    await expect(page.locator("#listSheets tr[data-id]")).toHaveCount(2);
-    await expect(page.locator("#listStrip .strip-v").nth(2)).toHaveText("¥57,000");
+    await expect(page.locator("#listSheets tr[data-id]")).toHaveCount(3);
+    await expect(page.locator("#listStrip .strip-v").nth(2)).toHaveText("¥69,000");
 
     // 重ねがけ（領収書ありのクレジットだけ）
     await page.locator("#filPay button[data-fp='credit']").click();
@@ -217,12 +218,11 @@ test.describe("飲み屋 売上管理", () => {
     await expect(payRows.nth(3)).toContainText("32,000");
     await expect(page.locator("#sumPay tfoot")).toContainText("82,000");
 
-    // 領収書別（あり / なし / 不要 の3区分。合計は全体と一致する）
+    // 領収書別は2区分（振込・カードは「あり」に含める）。合計は全体と一致する
     const recRows = page.locator("#sumRec tbody tr");
-    await expect(recRows).toHaveCount(3);
-    await expect(recRows.nth(0)).toContainText("57,000"); // あり(請求書送り+クレカ)
+    await expect(recRows).toHaveCount(2);
+    await expect(recRows.nth(0)).toContainText("69,000"); // あり(請求書送り32,000+クレカ25,000+PayPay12,000)
     await expect(recRows.nth(1)).toContainText("13,000"); // なし(現金8,000+ツケ5,000)
-    await expect(recRows.nth(2)).toContainText("12,000"); // 不要(PayPay)
 
     // 日別（3日分）
     await expect(page.locator("#sumDay tbody tr")).toHaveCount(3);
@@ -336,21 +336,18 @@ test.describe("飲み屋 売上管理", () => {
     await expect(page.locator("#sumStrip .strip-v").nth(0)).toHaveText("¥82,000");
     await expect(page.locator("#sumRecCard")).toBeVisible();
 
-    // 領収書あり = 山本商事32,000 + 鈴木25,000
+    // 領収書あり = 山本商事32,000 + 鈴木25,000 + PayPay12,000（振込・カードを含む）
     await page.locator("#sumRecTabs button[data-srec='yes']").click();
-    await expect(page.locator("#sumStrip .strip-v").nth(0)).toHaveText("¥57,000");
-    await expect(page.locator("#sumStrip .strip-v").nth(1)).toContainText("2");
+    await expect(page.locator("#sumStrip .strip-v").nth(0)).toHaveText("¥69,000");
+    await expect(page.locator("#sumStrip .strip-v").nth(1)).toContainText("3");
     // 絞っているときは「領収書あり/なし別」は出さない
     await expect(page.locator("#sumRecCard")).toBeHidden();
     // 支払い方法別も絞った中身になる（現金は領収書なしなので0）
     await expect(page.locator("#sumPay tbody tr").nth(0)).toContainText("現金");
-    await expect(page.locator("#sumPay tfoot")).toContainText("57,000");
-    // 領収書なし = 現金8,000 + ツケ5,000（PayPayは「不要」なので入らない）
+    await expect(page.locator("#sumPay tfoot")).toContainText("69,000");
+    // 領収書なし = 現金8,000 + ツケ5,000（振込・カードは「あり」側なので入らない）
     await page.locator("#sumRecTabs button[data-srec='no']").click();
     await expect(page.locator("#sumStrip .strip-v").nth(0)).toHaveText("¥13,000");
-    // ★不要（振込・カード）= PayPay12,000。領収書なしを外しても消えない分
-    await page.locator("#sumRecTabs button[data-srec='na']").click();
-    await expect(page.locator("#sumStrip .strip-v").nth(0)).toHaveText("¥12,000");
     await page.locator("#sumRecTabs button[data-srec='all']").click();
     await expect(page.locator("#sumStrip .strip-v").nth(0)).toHaveText("¥82,000");
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
@@ -376,18 +373,14 @@ test.describe("飲み屋 売上管理", () => {
 
     // 領収書ありだけに絞ると紙の中身が変わる（紙に注意書きは出さない）
     await page.locator("#taxRecTabs button[data-trec='yes']").click();
-    await expect(page.locator("#taxStrip .strip-v").nth(2)).toHaveText("¥57,000");
-    await expect(page.locator("#taxSheets .sm-stats")).toContainText("57,000");
+    await expect(page.locator("#taxStrip .strip-v").nth(2)).toHaveText("¥69,000");
+    await expect(page.locator("#taxSheets .sm-stats")).toContainText("69,000");
     await expect(page.locator("#taxSheets .sh-meta")).not.toContainText("対象");
 
     await page.locator("#taxRecTabs button[data-trec='no']").click();
     await expect(page.locator("#taxStrip .strip-v").nth(2)).toHaveText("¥13,000");
     await expect(page.locator("#taxSheets .sm-stats")).toContainText("13,000");
 
-    // ★振込・カードは「領収書なし」に落ちない＝外しても残る
-    await page.locator("#taxRecTabs button[data-trec='na']").click();
-    await expect(page.locator("#taxStrip .strip-v").nth(2)).toHaveText("¥12,000");
-    await expect(page.locator("#taxSheets .sm-stats")).toContainText("12,000");
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 
@@ -468,11 +461,13 @@ test.describe("飲み屋 売上管理", () => {
     const marks = await page.locator("#listSheets tr[data-id] .c-r").allInnerTexts();
     expect(marks.map((m) => m.trim())).toEqual(["–", ""]);
 
-    // 「領収書なし」で絞ると現金だけ（振込は残る＝落ちない）
+    // 「領収書なし」で絞ると現金だけ（振込は落ちない）
     await page.locator("#filRec button[data-rec='no']").click();
     await expect(page.locator("#listSheets tr[data-id]")).toHaveCount(1);
     await expect(page.locator("#listStrip .strip-v").nth(2)).toHaveText("¥8,000");
-    await page.locator("#filRec button[data-rec='na']").click();
+    // 振込は「領収書あり」側に入る
+    await page.locator("#filRec button[data-rec='yes']").click();
+    await expect(page.locator("#listSheets tr[data-id]")).toHaveCount(1);
     await expect(page.locator("#listStrip .strip-v").nth(2)).toHaveText("¥30,000");
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });

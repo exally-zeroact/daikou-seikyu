@@ -332,7 +332,7 @@ describe("領収書の3通り（なし / あり / あとで）", () => {
     sale({ name: "請求書あとで", pay: "invoice", amount: 40000, receipt: "later" }),
   ];
 
-  it("「あり」は発行済みだけ・「なし」は未発行(なし＋あとで)", () => {
+  it("「あり」は発行済み＋振込・カード・「なし」は未発行(なし＋あとで)", () => {
     expect(C.filterSales(MIX, { receipt: "yes" }).map((s) => s.name)).toEqual(["現金あり"]);
     expect(C.filterSales(MIX, { receipt: "no" }).map((s) => s.name)).toEqual([
       "現金なし",
@@ -385,19 +385,21 @@ describe("領収書は支払い方法で「要る/要らない」が違う", () 
     sale({ name: "ツケ", pay: "tsuke", amount: 50000, receipt: "later" }),
   ];
 
-  it("★領収書なしを外しても、振込とカードは残る（ここが肝）", () => {
+  it("★振込・カードは「領収書あり」側に入る（なしを外しても落ちない）", () => {
+    const yes = C.filterSales(MIX2, { receipt: "yes" });
+    expect(yes.map((s) => s.name)).toEqual(["現金あり", "振込", "カード"]);
     const no = C.filterSales(MIX2, { receipt: "no" });
     expect(no.map((s) => s.name)).toEqual(["現金なし", "ツケ"]); // 振込・カードは入らない
+    // 細かく見たいときだけ振込・カードだけを取り出せる
     const na = C.filterSales(MIX2, { receipt: "na" });
     expect(na.map((s) => s.name)).toEqual(["振込", "カード"]);
     expect(C.summarize(na).amount).toBe(70000);
   });
-  it("集計は あり / なし / 不要 の3区分で、合計は必ず全体と一致", () => {
+  it("集計は あり / なし の2区分で、合計は必ず全体と一致", () => {
     const r = C.byReceipt(MIX2);
-    expect(r.map((x) => x.key)).toEqual(["yes", "no", "na"]);
-    expect(r[0].amount).toBe(20000); // 現金あり
-    expect(r[1].amount).toBe(60000); // 現金なし + ツケ(あとで)
-    expect(r[2].amount).toBe(70000); // 振込 + カード
+    expect(r.map((x) => x.key)).toEqual(["yes", "no"]);
+    expect(r[0].amount).toBe(90000); // 現金あり20,000 + 振込30,000 + カード40,000
+    expect(r[1].amount).toBe(60000); // 現金なし10,000 + ツケ(あとで)50,000
     expect(r.reduce((a, x) => a + x.amount, 0)).toBe(C.summarize(MIX2).amount);
     expect(r.reduce((a, x) => a + x.count, 0)).toBe(5);
   });

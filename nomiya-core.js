@@ -51,9 +51,10 @@
        issued = 出した（発行済み）
        later  = あとで渡す（ツケはその場でお金を受け取っていないので出せない。回収時に渡す）
        na     = 要らない（振込＝請求書が証憑 / カード・PayPay＝売上票・利用明細が証憑）
-     ※ 集計の「領収書あり」は issued だけ。later は未発行なので「なし」側。
-       na を「なし」に混ぜないのが肝＝混ぜると振込やカードの売上まで
-       「領収書なし」として外されてしまう。
+     ※ 集計は2つに分ける。
+       「領収書あり」= issued（出した）＋ na（振込・カード＝そもそも要らない。請求書や
+         売上票が証憑として残るので、領収書ありと同じ側で数える）
+       「領収書なし」= none（出していない）＋ later（あとで渡す＝まだ出していない）
      =================================================================== */
   var RECEIPT_STATES = [
     { key: "none", label: "なし", mark: "" },
@@ -273,8 +274,8 @@
       if (o.from && s.date < o.from) return false;
       if (o.to && s.date > o.to) return false;
       if (o.pay && o.pay !== "all" && s.pay !== o.pay) return false;
-      // 'yes'=発行済みだけ / 'no'=出していない(なし＋あとで) / 'later'=あとで だけ
-      if (o.receipt === "yes" && !isIssued(s)) return false;
+      // 'yes'=発行済み＋振込・カード / 'no'=出していない(なし＋あとで) / 'later','na'=細かく見る用
+      if (o.receipt === "yes" && !(isIssued(s) || isNa(s))) return false;
       if (o.receipt === "no" && !(normalizeReceipt(s.receipt) === "none" || isLater(s)))
         return false;
       if (o.receipt === "na" && !isNa(s)) return false;
@@ -347,7 +348,14 @@
     var list = (sales || []).filter(isAlive);
     var total = summarize(list).amount;
     return [
-      { key: "yes", label: "領収書あり", test: isIssued },
+      {
+        key: "yes",
+        label: "領収書あり",
+        test: function (s) {
+          // 振込・カードは領収書が要らない分。証憑が残るので「あり」と同じ側で数える。
+          return isIssued(s) || isNa(s);
+        },
+      },
       {
         key: "no",
         label: "領収書なし",
@@ -355,7 +363,6 @@
           return normalizeReceipt(s.receipt) === "none" || isLater(s);
         },
       },
-      { key: "na", label: "振込・カード", test: isNa },
     ].map(function (g) {
       var rows = list.filter(function (s) {
         return g.test(s);
