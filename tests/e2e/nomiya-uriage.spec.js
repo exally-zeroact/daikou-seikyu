@@ -46,6 +46,13 @@ const SEED = [
   { date: "2026-07-05", name: "鈴木", people: 5, amount: 25000, pay: "credit", receipt: true },
 ];
 
+// 請求書タブの「見た目を変える」は畳んである。開いてから触る。
+async function openLook(page) {
+  await page.locator(".nav-item[data-scr='inv']").click();
+  const d = page.locator("#scr-inv .look");
+  if (!(await d.evaluate((el) => el.open))) await d.locator("summary").click();
+}
+
 async function seed(page) {
   for (const s of SEED) await addSale(page, s);
   // 期間を7月に合わせる（今日が7月とは限らないので範囲指定で固定）
@@ -227,16 +234,13 @@ test.describe("飲み屋 売上管理", () => {
     // 日別（3日分）
     await expect(page.locator("#sumDay tbody tr")).toHaveCount(3);
 
-    // 未回収は請求書タブに移した（お金の回収はそこ1箇所）
+    // 未回収は請求書タブの「請求する相手」に残高つきで出る
     await page.locator(".nav-item[data-scr='inv']").click();
-    const ug = page.locator("#invUnpaid .ug");
-    await expect(ug).toHaveCount(2);
-    await expect(ug.nth(0).locator(".ug-t")).toHaveText("請求書送り");
-    await expect(ug.nth(0).locator(".ug-v")).toHaveText("¥32,000");
-    await expect(ug.nth(0).locator(".li-nm")).toHaveText("山本商事");
-    await expect(ug.nth(1).locator(".ug-t")).toHaveText("ツケ");
-    await expect(ug.nth(1).locator(".ug-v")).toHaveText("¥5,000");
-    await expect(ug.nth(1).locator(".li-nm")).toHaveText("田中");
+    const opts = await page.locator("#invName option").allInnerTexts();
+    expect(opts.map((t) => t.replace(/\s+/g, " ").trim())).toEqual([
+      "山本商事 ¥32,000",
+      "田中 ¥5,000",
+    ]);
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 
@@ -253,16 +257,15 @@ test.describe("飲み屋 売上管理", () => {
       receipt: false,
     });
     await page.locator(".nav-item[data-scr='inv']").click();
+    // 田中は ツケ5,000 + 請求書送り7,000 = 12,000
+    await expect(page.locator("#invName option[value='田中']")).toContainText("¥12,000");
 
-    const ug = page.locator("#invUnpaid .ug");
-    await expect(ug.nth(0).locator(".ug-v")).toHaveText("¥39,000"); // 32,000 + 7,000
-    await expect(ug.nth(1).locator(".ug-v")).toHaveText("¥5,000");
-
-    // ツケ側の田中だけ入金 → 請求書送りの田中7,000は残る
-    await ug.nth(1).locator("button[data-paid='田中']").click();
+    // 田中の請求分（未入金すべて）を入金済みにする → 相手からいなくなる
+    await page.locator("#invName").selectOption("田中");
+    await page.locator("#btnPaid").click();
     await page.locator("#mdPaidOk").click();
-    await expect(page.locator("#invUnpaid .ug").nth(1).locator(".ug-v")).toHaveText("¥0");
-    await expect(page.locator("#invUnpaid .ug").nth(0).locator(".ug-v")).toHaveText("¥39,000");
+    await expect(page.locator("#invName option[value='田中']")).toHaveCount(0);
+    await expect(page.locator("#invName option[value='山本商事']")).toContainText("¥32,000");
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 
@@ -312,15 +315,16 @@ test.describe("飲み屋 売上管理", () => {
     await seed(page);
     await page.locator(".nav-item[data-scr='inv']").click();
 
-    await page.locator("#invUnpaid button[data-paid='山本商事']").click();
+    await page.locator("#invName").selectOption("山本商事");
+    await page.locator("#btnPaid").click();
     await page.locator("#mdPaidDate").fill("2026-08-10");
     await page.locator("#mdPaidOk").click();
 
-    // 請求書送りは0になり、ツケの5,000だけ残る
-    await expect(page.locator("#invUnpaid .ug").nth(0).locator(".ug-v")).toHaveText("¥0");
-    await expect(page.locator("#invUnpaid .ug").nth(1).locator(".ug-v")).toHaveText("¥5,000");
-    await expect(page.locator("#invUnpaid .li")).toHaveCount(1);
+    // 山本商事は消え、田中のツケ5,000だけ残る
+    await expect(page.locator("#invName option[value='山本商事']")).toHaveCount(0);
+    await expect(page.locator("#invName option[value='田中']")).toContainText("¥5,000");
     // 売上は変わらない
+    await page.locator(".nav-item[data-scr='sum']").click();
     await expect(page.locator("#sumStrip .strip-v").nth(0)).toHaveText("¥82,000");
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
@@ -523,7 +527,8 @@ test.describe("飲み屋 売上管理", () => {
 
     // 入金のときに「領収書も渡した」で発行済みになる
     await page.locator(".nav-item[data-scr='inv']").click();
-    await page.locator("#invUnpaid button[data-paid='鈴木']").click();
+    await page.locator("#invName").selectOption("鈴木");
+    await page.locator("#btnPaid").click();
     await expect(page.locator("#mdPaidRc")).toBeChecked();
     await page.locator("#mdPaidDate").fill("2026-08-10");
     await page.locator("#mdPaidOk").click();
@@ -544,6 +549,7 @@ test.describe("飲み屋 売上管理", () => {
     await seed(page);
     await page.locator(".nav-item[data-scr='inv']").click();
 
+    await openLook(page);
     for (const tpl of ["card", "band", "tate"]) {
       await page.locator(`#invTpl button[data-tpl="${tpl}"]`).click();
       await expect(page.locator("#invSheets .sheet")).toHaveClass(new RegExp("iv-" + tpl));
@@ -567,7 +573,7 @@ test.describe("飲み屋 売上管理", () => {
   }) => {
     const errors = await open(page);
     await seed(page);
-    await page.locator(".nav-item[data-scr='inv']").click();
+    await openLook(page);
 
     // 設定タブには見た目の選択を置いていない（画像を入れる場所だけ）
     await expect(page.locator("#setTpl")).toHaveCount(0);
@@ -580,7 +586,7 @@ test.describe("飲み屋 売上管理", () => {
     await page.locator("#invLogoPos button[data-lpos='bottom']").click();
 
     await page.reload({ waitUntil: "load" });
-    await page.locator(".nav-item[data-scr='inv']").click();
+    await openLook(page);
     await expect(page.locator("#invTpl button[data-tpl='tate']")).toHaveClass(/on/);
     await expect(page.locator("#invFont button[data-font='gothic']")).toHaveClass(/on/);
     await expect(page.locator("#invLogoPos button[data-lpos='bottom']")).toHaveClass(/on/);
@@ -594,7 +600,7 @@ test.describe("飲み屋 売上管理", () => {
   }) => {
     const errors = await open(page);
     await seed(page);
-    await page.locator(".nav-item[data-scr='inv']").click();
+    await openLook(page);
 
     // 色（ワイン）を選ぶ → 紙の見出し・罫の色が変わる
     await page.locator("#invAccent [data-accent='#7d3a44']").click();
@@ -695,8 +701,8 @@ test.describe("飲み屋 売上管理", () => {
     await page.locator("#btnPaid").click();
     await page.locator("#mdPaidOk").click();
     await page.locator(".nav-item[data-scr='inv']").click();
-    await expect(page.locator("#invUnpaid .ug").nth(0).locator(".ug-v")).toHaveText("¥0");
-    await expect(page.locator("#invUnpaid .ug").nth(1).locator(".li-nm")).toHaveText("田中");
+    await expect(page.locator("#invName option[value='山本商事']")).toHaveCount(0);
+    await expect(page.locator("#invName option[value='田中']")).toContainText("¥5,000");
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 
@@ -713,7 +719,7 @@ test.describe("飲み屋 売上管理", () => {
         memo: i % 5 === 0 ? "ボトル入れ" : "",
       });
     }
-    await page.locator(".nav-item[data-scr='inv']").click();
+    await openLook(page);
     // 1枚に載る行数はレイアウトごとに違う（カード14 / 帯13 / 縦組み14）。
     // どのレイアウトでも「載らない分は ほかn件」で受けて、A4を割らないこと。
     const rowsByTpl = { card: 14, band: 13, tate: 14 };
@@ -754,6 +760,7 @@ test.describe("飲み屋 売上管理", () => {
       .evaluate((el) => el.offsetHeight);
     expect(h).toBe(1123);
     // デザインは3つとも見本で切り替えられる
+    await openLook(page);
     for (const tpl of ["band", "tate", "card"]) {
       await page.locator(`#invTpl button[data-tpl="${tpl}"]`).click();
       await expect(page.locator("#invSheets .sheet")).toHaveClass(new RegExp("iv-" + tpl));
@@ -831,7 +838,7 @@ test.describe("飲み屋 売上管理", () => {
     const errors = await open(page);
     await seed(page);
 
-    for (const btn of ["#btnPrintList", "#btnPdfList"]) {
+    for (const btn of ["#btnPrintList"]) {
       await page.locator(btn).click();
       await page.waitForTimeout(300);
       expect(context.pages().length, "別タブが開いている").toBe(1);
@@ -927,7 +934,7 @@ test.describe("飲み屋 売上管理", () => {
     await page.reload({ waitUntil: "load" });
     expect(await page.evaluate(() => window.__NOMIYA.sales.length)).toBe(1);
     await page.locator(".nav-item[data-scr='inv']").click();
-    await expect(page.locator("#invUnpaid .li")).toHaveCount(1);
+    await expect(page.locator("#invName option[value='田中']")).toContainText("¥8,000");
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 });

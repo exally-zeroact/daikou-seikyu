@@ -713,6 +713,45 @@
         background: none;
         cursor: pointer;
       }
+      /* ふだんは閉じておく設定（開くと中身が出る） */
+      .look {
+        background: #ffffff;
+        border: 1px solid #d4eae0;
+        border-radius: 16px;
+        box-shadow: 0 1px 4px rgba(30, 80, 46, 0.06);
+        padding: 0 14px;
+        margin-bottom: 12px;
+      }
+      .look > summary {
+        list-style: none;
+        cursor: pointer;
+        font-size: 12.5px;
+        font-weight: 700;
+        color: #3d6b53;
+        padding: 13px 0;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .look > summary::-webkit-details-marker {
+        display: none;
+      }
+      .look > summary::after {
+        content: "▼";
+        margin-left: auto;
+        font-size: 10px;
+        color: #7aa08c;
+      }
+      .look[open] > summary {
+        border-bottom: 1px solid #eaf5ef;
+        margin-bottom: 12px;
+      }
+      .look[open] > summary::after {
+        content: "▲";
+      }
+      .look > .frow:last-child {
+        margin-bottom: 14px;
+      }
       .hanko-row {
         display: flex;
         align-items: center;
@@ -814,9 +853,6 @@
 
     <!-- ==================== 入力 ==================== -->
     <section class="screen active" id="scr-input">
-      <div class="scr-title">売上を入れる</div>
-      <div class="scr-sub">1組のお会計を1件ずつ。支払い方法と領収書はタップで選ぶだけ。</div>
-
       <div class="card">
         <div class="card-label" id="inputMode">新しい売上</div>
 
@@ -896,9 +932,6 @@
 
     <!-- ==================== 一覧（売上帳） ==================== -->
     <section class="screen" id="scr-list">
-      <div class="scr-title">売上帳</div>
-      <div class="scr-sub">A4に収まった紙のまま印刷・PDFにできます。行をタップすると直せます。</div>
-
       <div class="period" id="periodList"></div>
 
       <div class="card">
@@ -916,8 +949,7 @@
       <div class="strip" id="listStrip"></div>
 
       <div class="btn-row no-print">
-        <button class="btn btn-ghost" id="btnPrintList">🖨 印刷</button>
-        <button class="btn btn-ghost" id="btnPdfList">📄 PDFで保存</button>
+        <button class="btn btn-ghost" id="btnPrintList">🖨 印刷 / PDFにする</button>
       </div>
 
       <div class="sheet-scale" id="listScale">
@@ -953,10 +985,8 @@
 
     <!-- ==================== 請求書 ==================== -->
     <section class="screen" id="scr-inv">
-      <div class="scr-title">請求書</div>
-      <div class="scr-sub">請求書送り・ツケの分を、相手ごとに1枚にまとめます。</div>
-
-      <div class="card">
+      <details class="look">
+        <summary>見た目を変える（デザイン・色・書体・ロゴ）</summary>
         <div class="frow">
           <span class="flabel">デザイン</span>
           <div class="chips" id="invTpl">
@@ -984,6 +1014,9 @@
           </div>
           <span class="hint">ロゴと判子の画像は「設定」で入れます。</span>
         </div>
+      </details>
+
+      <div class="card">
         <div class="frow">
           <span class="flabel">請求する相手</span>
           <select class="fselect" id="invName"></select>
@@ -1009,8 +1042,7 @@
       </div>
 
       <div class="btn-row no-print">
-        <button class="btn btn-ghost" id="btnPrintInv">🖨 印刷</button>
-        <button class="btn btn-ghost" id="btnPdfInv">📄 PDFで保存</button>
+        <button class="btn btn-ghost" id="btnPrintInv">🖨 印刷 / PDFにする</button>
       </div>
       <div class="btn-row no-print">
         <button class="btn btn-ghost" id="btnPaid">この請求分を入金済みにする</button>
@@ -1019,18 +1051,10 @@
       <div class="sheet-scale" id="invScale">
         <div class="sheet-scale-inner" id="invSheets"></div>
       </div>
-
-      <div class="card">
-        <div class="card-label">未回収（請求書送り・ツケ / 期間に関係なく全部）</div>
-        <div id="invUnpaid"></div>
-      </div>
     </section>
 
     <!-- ==================== 税理士用 ==================== -->
     <section class="screen" id="scr-tax">
-      <div class="scr-title">税理士さんに渡す紙</div>
-      <div class="scr-sub">1ヶ月の売上のまとめを1枚にして、印刷・PDFで渡せます。</div>
-
       <div class="period" id="periodTax"></div>
 
       <div class="card">
@@ -1045,8 +1069,7 @@
       <div class="strip" id="taxStrip"></div>
 
       <div class="btn-row no-print">
-        <button class="btn btn-ghost" id="btnPrintTax">🖨 印刷</button>
-        <button class="btn btn-ghost" id="btnPdfTax">📄 PDFで保存</button>
+        <button class="btn btn-ghost" id="btnPrintTax">🖨 印刷 / PDFにする</button>
       </div>
 
       <div class="sheet-scale" id="taxScale">
@@ -1056,9 +1079,6 @@
 
     <!-- ==================== 設定 ==================== -->
     <section class="screen" id="scr-set">
-      <div class="scr-title">設定</div>
-      <div class="scr-sub">請求書と売上帳に出るお店の情報です。</div>
-
       <div class="card">
         <div class="card-label">お店の情報</div>
         <div class="frow">
@@ -1961,7 +1981,7 @@
             "</tbody></table>"
           : '<div class="empty">この期間の売上はまだありません</div>';
 
-        renderUnpaid();
+        updateBadge(C.unpaidByName(SALES).length);
       }
 
       function statCard(k, v) {
@@ -2009,58 +2029,6 @@
           C.comma(total) +
           "</td><td></td><td></td></tr></tfoot></table>"
         );
-      }
-
-      // 未回収は「請求書送り」と「ツケ」で性質が違うので、混ぜずに分けて出す。
-      function renderUnpaid() {
-        var groups = C.unpaidGroups(SALES);
-        var box = $("invUnpaid");
-        var nameCount = 0;
-        var html = groups
-          .map(function (g) {
-            nameCount += g.names.length;
-            var head =
-              '<div class="ug-head"><span class="ug-t">' +
-              esc(g.label) +
-              '</span><span class="ug-c">' +
-              g.count +
-              '件</span><span class="ug-v">' +
-              C.yen(g.amount) +
-              "</span></div>";
-            var body = g.names.length
-              ? g.names
-                  .map(function (x) {
-                    return (
-                      '<div class="li"><div class="li-main"><div class="li-nm">' +
-                      esc(x.name) +
-                      '</div><div class="li-sub">' +
-                      x.count +
-                      "件・" +
-                      esc(C.mdShort(x.first)) +
-                      " 〜 " +
-                      esc(C.mdShort(x.last)) +
-                      '</div></div><div class="li-amt">' +
-                      C.yen(x.amount) +
-                      '</div><button class="btn btn-ghost btn-sm" type="button" data-paid="' +
-                      esc(x.name) +
-                      '" data-paidpay="' +
-                      esc(g.key) +
-                      '">入金</button></div>'
-                    );
-                  })
-                  .join("")
-              : '<div class="empty">なし</div>';
-            return '<div class="ug">' + head + body + "</div>";
-          })
-          .join("");
-        box.innerHTML = html;
-        box.querySelectorAll("[data-paid]").forEach(function (b) {
-          b.onclick = function (ev) {
-            ev.stopPropagation();
-            askPaid(b.getAttribute("data-paid"), null, null, b.getAttribute("data-paidpay"));
-          };
-        });
-        updateBadge(nameCount);
       }
 
       function updateBadge(n) {
@@ -2382,10 +2350,23 @@
         var names = invoiceTargets();
         var sel = $("invName");
         var cur = UI.invName;
+        // 相手の後ろに未回収の残高を出す（別に一覧を置かなくても分かるように）
+        var bal = {};
+        C.unpaidByName(SALES).forEach(function (u) {
+          bal[u.name] = u.amount;
+        });
         sel.innerHTML = names.length
           ? names
               .map(function (n) {
-                return '<option value="' + esc(n) + '">' + esc(n) + "</option>";
+                return (
+                  '<option value="' +
+                  esc(n) +
+                  '">' +
+                  esc(n) +
+                  "　" +
+                  C.yen(bal[n] || 0) +
+                  "</option>"
+                );
               })
               .join("")
           : '<option value="">（未回収の相手はいません）</option>';
@@ -2998,6 +2979,8 @@
           toast("⚠️ 印刷するものがありません");
           return;
         }
+        // iPhoneは印刷画面から「PDFとして保存」も選べる（同じ画面なのでボタンは1つ）
+        toast("🖨 PDFにするときは、この画面で「PDFとして保存」を選んでください");
         $("printArea").innerHTML = inner.innerHTML;
         // 印刷の見出しに出る名前（iPhoneはページ名が上に出る）
         _printTitle = document.title;
@@ -3214,10 +3197,6 @@
         $("btnPrintList").onclick = function () {
           printSheets("listSheets", "売上帳");
         };
-        $("btnPdfList").onclick = function () {
-          toast("📄 印刷の画面で「PDFとして保存」を選んでください");
-          printSheets("listSheets", "売上帳");
-        };
         $("sumRecTabs")
           .querySelectorAll("[data-srec]")
           .forEach(function (b) {
@@ -3238,15 +3217,7 @@
         $("btnPrintTax").onclick = function () {
           printSheets("taxSheets", "売上報告書");
         };
-        $("btnPdfTax").onclick = function () {
-          toast("📄 印刷の画面で「PDFとして保存」を選んでください");
-          printSheets("taxSheets", "売上報告書");
-        };
         $("btnPrintInv").onclick = function () {
-          printSheets("invSheets", "請求書");
-        };
-        $("btnPdfInv").onclick = function () {
-          toast("📄 印刷の画面で「PDFとして保存」を選んでください");
           printSheets("invSheets", "請求書");
         };
 
