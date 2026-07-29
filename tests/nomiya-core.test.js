@@ -739,3 +739,138 @@ describe("売上帳のページ割り（合計欄が最後のページに載る�
     }
   });
 });
+
+describe("クラウド同期（端末が作業台・クラウドは控え）", () => {
+  const mkSale = (o) =>
+    Object.assign(
+      {
+        id: "s1",
+        date: "2026-07-01",
+        name: "田中",
+        people: 2,
+        amount: 8000,
+        pay: "cash",
+        receipt: "none",
+        receiptDate: null,
+        memo: "",
+        paidDate: null,
+        staff: "",
+        createdAt: "2026-07-01T00:00:00.000Z",
+        updatedAt: "2026-07-01T00:00:00.000Z",
+        deletedAt: null,
+      },
+      o
+    );
+
+  it("売上 ⇄ DBの行 を往復しても中身が変わらない", () => {
+    const s = mkSale({
+      pay: "invoice",
+      receipt: "issued",
+      receiptDate: "2026-07-02",
+      paidDate: "2026-08-10",
+      memo: "ボトル入れ",
+      staff: "あかり",
+    });
+    const row = C.saleToRow(s);
+    expect(row.cid).toBe("s1");
+    expect(row.ymd).toBe("2026-07-01");
+    expect(row.receipt_date).toBe("2026-07-02");
+    expect(row.paid_date).toBe("2026-08-10");
+    expect(row.staff).toBe("あかり");
+    expect(C.saleFromRow(row)).toEqual(s);
+  });
+  it("宛先 ⇄ DBの行 を往復しても中身が変わらない", () => {
+    const p = C.normalizePartner(
+      { name: "株式会社山本商事", honor: "様", person: "総務部 山本 様" },
+      "2026-07-20T00:00:00.000Z"
+    );
+    p.lastUsedAt = "2026-07-25T00:00:00.000Z";
+    const row = C.partnerToRow(p);
+    expect(row.name).toBe("株式会社山本商事");
+    expect(row.honor).toBe("様");
+    expect(row.last_used_at).toBe("2026-07-25T00:00:00.000Z");
+    const back = C.partnerFromRow(row);
+    expect(back.name).toBe(p.name);
+    expect(back.to).toBe(p.name);
+    expect(back.honor).toBe("様");
+    expect(back.person).toBe("総務部 山本 様");
+    expect(back.deletedAt).toBe(null);
+  });
+
+  it("端末にしか無いものは送る／クラウドにしか無いものは取り込む", () => {
+    const local = [mkSale({ id: "a" })];
+    const remote = [C.saleToRow(mkSale({ id: "b" }))].map(C.saleFromRow);
+    const plan = C.syncPlanSales(local, remote);
+    expect(plan.merged.map((s) => s.id).sort()).toEqual(["a", "b"]);
+    expect(plan.push.map((s) => s.id)).toEqual(["a"]); // bは送らない（もう向こうにある）
+  });
+  it("ぶつかったら新しい方が勝つ（端末が新しければ送る）", () => {
+    const old = mkSale({ id: "a", amount: 8000, updatedAt: "2026-07-01T00:00:00.000Z" });
+    const neo = mkSale({ id: "a", amount: 9000, updatedAt: "2026-07-02T00:00:00.000Z" });
+    // 端末が新しい
+    let plan = C.syncPlanSales([neo], [old]);
+    expect(plan.merged[0].amount).toBe(9000);
+    expect(plan.push.length).toBe(1);
+    // クラウドが新しい（別のスマホで直した）
+    plan = C.syncPlanSales([old], [neo]);
+    expect(plan.merged[0].amount).toBe(9000);
+    expect(plan.push.length).toBe(0);
+    // 同じ時刻なら端末を残して送らない
+    plan = C.syncPlanSales([old], [mkSale({ id: "a", amount: 8000 })]);
+    expect(plan.push.length).toBe(0);
+  });
+  it("消したものは復活しない（消したのも“新しい更新”として扱う）", () => {
+    const alive = mkSale({ id: "a", updatedAt: "2026-07-01T00:00:00.000Z" });
+    const removed = mkSale({
+      id: "a",
+      updatedAt: "2026-07-05T00:00:00.000Z",
+      deletedAt: "2026-07-05T00:00:00.000Z",
+    });
+    // 別のスマホで消した → 端末側でも消える
+    const plan = C.syncPlanSales([alive], [removed]);
+    expect(plan.merged[0].deletedAt).toBe("2026-07-05T00:00:00.000Z");
+    expect(C.filterSales(plan.merged, {}).length).toBe(0);
+    // こちらで消した → 送る
+    const plan2 = C.syncPlanSales([removed], [alive]);
+    expect(plan2.push.length).toBe(1);
+    expect(plan2.push[0].deletedAt).toBe("2026-07-05T00:00:00.000Z");
+  });
+  it("宛先は会社名で突合する（消した宛先は一覧から消えるが控えは残る）", () => {
+    const local = {
+      A社: C.normalizePartner({ name: "A社" }, "2026-07-01T00:00:00.000Z"),
+      B社: C.normalizePartner({ name: "B社" }, "2026-07-01T00:00:00.000Z"),
+    };
+    local["B社"].deletedAt = "2026-07-09T00:00:00.000Z";
+    local["B社"].updatedAt = "2026-07-09T00:00:00.000Z";
+    const remote = [C.partnerFromRow(C.partnerToRow(C.normalizePartner({ name: "C社" })))];
+    const plan = C.syncPlanPartners(local, remote);
+    expect(Object.keys(plan.merged).sort()).toEqual(["A社", "B社", "C社"]);
+    expect(plan.push.map((p) => p.name).sort()).toEqual(["A社", "B社"]);
+    // 画面に出るのは生きているものだけ
+    expect(C.partnerList(plan.merged).map((p) => p.name)).toEqual(["A社", "C社"]);
+    expect(
+      C.partnerRecent(plan.merged)
+        .map((p) => p.name)
+        .sort()
+    ).toEqual(["A社", "C社"]);
+    // 消した宛先は「登録していない」扱い＝名前＋御中に戻る
+    expect(C.invoiceTo(plan.merged, "B社").registered).toBe(false);
+  });
+  it("設定は新しい方が勝つ（クラウドに無ければ送る）", () => {
+    const l = { store: "まりも" };
+    const r = { store: "MARIMO" };
+    expect(C.syncPlanSettings(l, "2026-07-02T00:00:00.000Z", null, null)).toEqual({
+      merged: l,
+      push: true,
+    });
+    expect(
+      C.syncPlanSettings(l, "2026-07-01T00:00:00.000Z", r, "2026-07-02T00:00:00.000Z").merged
+    ).toBe(r);
+    expect(
+      C.syncPlanSettings(l, "2026-07-03T00:00:00.000Z", r, "2026-07-02T00:00:00.000Z")
+    ).toEqual({ merged: l, push: true });
+    expect(
+      C.syncPlanSettings(l, "2026-07-02T00:00:00.000Z", r, "2026-07-02T00:00:00.000Z")
+    ).toEqual({ merged: l, push: false });
+  });
+});

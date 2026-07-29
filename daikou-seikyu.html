@@ -29,81 +29,6 @@
       }
 
       /* ===== HEADER ===== */
-      /* ===== ログイン画面 ===== */
-      .login-ov {
-        display: none;
-        position: fixed;
-        inset: 0;
-        z-index: 300;
-        background: #eef7f1;
-        align-items: center;
-        justify-content: center;
-        padding: 24px 18px;
-      }
-      .login-ov.on {
-        display: flex;
-      }
-      .login-card {
-        width: 100%;
-        max-width: 380px;
-        background: #ffffff;
-        border: 1.5px solid #d4eae0;
-        border-radius: 18px;
-        padding: 26px 22px 22px;
-        box-shadow: 0 10px 30px rgba(30, 80, 46, 0.12);
-        text-align: center;
-      }
-      .login-logo {
-        font-family: "DM Mono", monospace;
-        font-size: 24px;
-        font-weight: 500;
-        color: #52b788;
-      }
-      .login-logo span {
-        font-family: "Noto Sans JP", sans-serif;
-        font-size: 12px;
-        color: #7aa08c;
-      }
-      .login-title {
-        font-size: 16px;
-        font-weight: 800;
-        color: #1a4a2e;
-        margin-top: 4px;
-      }
-      .login-sub {
-        font-size: 12px;
-        color: #7aa08c;
-        margin: 4px 0 18px;
-      }
-      .login-inp {
-        width: 100%;
-        padding: 12px 14px;
-        margin-bottom: 10px;
-        border: 1.5px solid #d4eae0;
-        border-radius: 11px;
-        font-size: 15px;
-        font-family: "Noto Sans JP", sans-serif;
-        color: #1a4a2e;
-        outline: none;
-        -webkit-appearance: none;
-        box-sizing: border-box;
-      }
-      .login-inp:focus {
-        border-color: #52b788;
-      }
-      .login-err {
-        min-height: 16px;
-        font-size: 12px;
-        font-weight: 700;
-        color: #c0392b;
-        margin-bottom: 8px;
-      }
-      .login-note {
-        font-size: 11px;
-        color: #a9c4b6;
-        margin-top: 14px;
-        line-height: 1.6;
-      }
       /* 読み込み中／通信エラー */
       .load-ov {
         display: none;
@@ -2705,38 +2630,6 @@
     </style>
   </head>
   <body>
-    <!-- ===== ログイン画面（初回だけ／以後はセッション保持で自動） ===== -->
-    <div class="login-ov" id="loginOverlay">
-      <div class="login-card">
-        <div class="login-logo">Exally <span>エクサリー</span></div>
-        <div class="login-title">代行請求</div>
-        <div class="login-sub" id="loginSub">メールでログイン</div>
-        <input
-          class="login-inp"
-          id="loginEmail"
-          type="email"
-          inputmode="email"
-          autocomplete="email"
-          placeholder="メールアドレス"
-        />
-        <input
-          class="login-inp"
-          id="loginPass"
-          type="password"
-          autocomplete="current-password"
-          placeholder="パスワード（6文字以上）"
-        />
-        <div class="login-err" id="loginErr"></div>
-        <button class="btn btn-primary" id="loginBtn" onclick="doLogin()">ログイン</button>
-        <button class="btn btn-ghost" style="margin-top: 8px" onclick="doSignup()">
-          新規登録（はじめての方）
-        </button>
-        <div class="login-note">
-          一度ログインすれば、次回からは自動で入れます（このスマホで覚えます）。
-        </div>
-      </div>
-    </div>
-
     <!-- ===== 読み込み中／通信エラー ===== -->
     <div class="load-ov" id="loadOverlay">
       <div class="load-card">
@@ -3331,6 +3224,8 @@
     <script src="hanko.js"></script>
     <!-- Supabase クライアント（クラウドDB＋ログイン） -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- ログイン画面は全アプリ共通の部品（見た目も文言もここが一次情報） -->
+    <script src="exally-login.js"></script>
     <!-- JSZip：書き出したxlsxのフォントをExcel初期フォントに差し替えるのに使用 -->
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script>
@@ -3343,7 +3238,9 @@
       var SUPABASE_URL = "https://tnfwipbgfgjaymlszeid.supabase.co";
       var SUPABASE_ANON =
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZndpcGJnZmdqYXltbHN6ZWlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1Nzk4MzQsImV4cCI6MjA5NzE1NTgzNH0.zhKPLSlW4zxsdjsXNvqDHvtP3wBqp-EKaxbjqLGW_ek";
-      var SB = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+      // テストは偽のクラウドを差し込む（本物に通信せず配線だけ確かめる）
+      var SB =
+        window.__EXALLY_FAKE_SB__ || window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
       /* ===================================================================
    定数・固定情報
@@ -10059,55 +9956,19 @@
       /* ===================================================================
    ログイン（初回だけ・以後はセッション保持で自動）
    =================================================================== */
-      function loginErr(msg) {
-        document.getElementById("loginErr").textContent = msg || "";
-      }
-      function loginBusy(on) {
-        document.getElementById("loginBtn").disabled = on;
-      }
-      async function doLogin() {
-        var email = document.getElementById("loginEmail").value.trim();
-        var pass = document.getElementById("loginPass").value;
-        if (!email || !pass) {
-          loginErr("メールとパスワードを入れてください");
-          return;
+      // ログイン画面は全アプリ共通の部品（exally-login.js）。ここでは出す・閉じるだけ。
+      var LOGIN = null;
+      function ensureLogin() {
+        if (!LOGIN) {
+          LOGIN = ExallyLogin.mount({
+            app: "代行請求",
+            sb: SB,
+            onLogin: function (user) {
+              onLoggedIn(user);
+            },
+          });
         }
-        loginErr("");
-        loginBusy(true);
-        var res = await SB.auth.signInWithPassword({ email: email, password: pass });
-        loginBusy(false);
-        if (res.error) {
-          loginErr("ログインできません：" + res.error.message);
-          return;
-        }
-        onLoggedIn(res.data.user);
-      }
-      async function doSignup() {
-        var email = document.getElementById("loginEmail").value.trim();
-        var pass = document.getElementById("loginPass").value;
-        if (!email || pass.length < 6) {
-          loginErr("メールと6文字以上のパスワードを入れてください");
-          return;
-        }
-        loginErr("");
-        loginBusy(true);
-        var res = await SB.auth.signUp({ email: email, password: pass });
-        loginBusy(false);
-        if (res.error) {
-          loginErr("登録できません：" + res.error.message);
-          return;
-        }
-        // メール確認オフ（autoconfirm）なので、登録後そのままログインを試みる
-        if (res.data.session) {
-          onLoggedIn(res.data.user);
-        } else {
-          var li = await SB.auth.signInWithPassword({ email: email, password: pass });
-          if (li.error) {
-            loginErr("登録はできました。ログインしてください");
-            return;
-          }
-          onLoggedIn(li.data.user);
-        }
+        return LOGIN;
       }
       async function doLogout() {
         await SB.auth.signOut();
@@ -10115,7 +9976,7 @@
       }
       function onLoggedIn(user) {
         CURRENT_ACCOUNT = user.id; // 各業者＝ログインユーザー
-        document.getElementById("loginOverlay").classList.remove("on");
+        ensureLogin().hide();
         var al = document.getElementById("acctLine");
         if (al) al.textContent = "ログイン中：" + (user.email || "");
         startApp();
@@ -10221,7 +10082,7 @@
         if (session && session.user) {
           onLoggedIn(session.user); // 既にログイン済み＝自動で入る
         } else {
-          document.getElementById("loginOverlay").classList.add("on"); // 初回＝ログイン画面
+          ensureLogin().show(); // 初回＝ログイン画面
         }
       }
       // ★数字入力欄(.fnum)に予測変換・オートフィルで文章が混入するのを防ぐ：

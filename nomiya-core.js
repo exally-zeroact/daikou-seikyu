@@ -235,6 +235,8 @@
       // 領収書を渡した日（あとで渡す場合は入金日が入る。出していなければ null）
       receiptDate: normalizeReceipt(r.receipt) === "issued" ? r.receiptDate || r.date : null,
       memo: String(r.memo == null ? "" : r.memo).trim(),
+      // 担当（誰の客か）。今は画面に出さないが、後からキャスト別に出せるよう器だけ持つ
+      staff: String(r.staff == null ? "" : r.staff).trim(),
       // 未回収でない支払い方法は「その場で回収済み」＝ paidDate は持たない
       paidDate: isUnpaidMethod(r.pay) ? r.paidDate || null : null,
       createdAt: r.createdAt || nowIso,
@@ -590,20 +592,15 @@
    *  最近選んだ順。まだ選んでいないものは、あとから登録したものを先に。
    */
   function partnerRecent(partners) {
-    var m = partners || {};
-    return Object.keys(m)
-      .map(function (k) {
-        return m[k];
-      })
-      .sort(function (a, b) {
-        var al = a.lastUsedAt || "";
-        var bl = b.lastUsedAt || "";
-        if (al !== bl) return al < bl ? 1 : -1; // 最近選んだものが上
-        var au = a.updatedAt || "";
-        var bu = b.updatedAt || "";
-        if (au !== bu) return au < bu ? 1 : -1;
-        return String(a.name) < String(b.name) ? -1 : 1;
-      });
+    return alivePartners(partners).sort(function (a, b) {
+      var al = a.lastUsedAt || "";
+      var bl = b.lastUsedAt || "";
+      if (al !== bl) return al < bl ? 1 : -1; // 最近選んだものが上
+      var au = a.updatedAt || "";
+      var bu = b.updatedAt || "";
+      if (au !== bu) return au < bu ? 1 : -1;
+      return String(a.name) < String(b.name) ? -1 : 1;
+    });
   }
   /**
    * invoiceTo(partners, name)
@@ -611,22 +608,31 @@
    */
   function invoiceTo(partners, name) {
     var nm = String(name == null ? "" : name).trim();
-    var p = (partners || {})[nm] || {};
+    var all = partners || {};
+    var p = all[nm] && !all[nm].deletedAt ? all[nm] : {};
     return {
       to: String(p.to || nm).trim(),
       honor: p.honor === "様" ? "様" : "御中",
       person: String(p.person || "").trim(),
-      registered: !!(partners || {})[nm],
+      registered: !!(all[nm] && !all[nm].deletedAt),
     };
   }
-  // 登録済みの宛先を名前順で並べる
-  function partnerList(partners) {
+  // 生きている宛先だけ（消したものは控えとして残るが、画面には出さない）
+  function alivePartners(partners) {
     var m = partners || {};
     return Object.keys(m)
-      .sort()
+      .filter(function (k) {
+        return m[k] && !m[k].deletedAt;
+      })
       .map(function (k) {
         return m[k];
       });
+  }
+  // 登録済みの宛先を名前順で並べる
+  function partnerList(partners) {
+    return alivePartners(partners).sort(function (a, b) {
+      return String(a.name) < String(b.name) ? -1 : 1;
+    });
   }
 
   /* ===================================================================
@@ -741,6 +747,152 @@
   }
 
   /* ===================================================================
+     クラウド同期（純ロジック。通信そのものは画面側）
+     ─ 考え方：端末の中が作業台、クラウドは同じ物の控え。
+       電波が無くても打てて、つながったときに送る。
+       突合の鍵は「端末が作ったid（売上）」「会社名（宛先）」。
+       ぶつかったら updatedAt が新しい方が勝つ（消したのも“新しい更新”として扱う）。
+     =================================================================== */
+  function _s(v) {
+    return String(v == null ? "" : v);
+  }
+  // 売上 → DBの行
+  function saleToRow(s) {
+    return {
+      cid: _s(s.id),
+      ymd: s.date,
+      name: _s(s.name),
+      people: Math.floor(Number(s.people) || 0),
+      amount: Math.floor(Number(s.amount) || 0),
+      pay: _s(s.pay),
+      receipt: normalizeReceipt(s.receipt),
+      receipt_date: s.receiptDate || null,
+      memo: _s(s.memo),
+      paid_date: s.paidDate || null,
+      staff: _s(s.staff),
+      created_at: s.createdAt || null,
+      updated_at: s.updatedAt || null,
+      deleted_at: s.deletedAt || null,
+    };
+  }
+  // DBの行 → 売上（normalizeSale は updatedAt を今にしてしまうので通さない）
+  function saleFromRow(r) {
+    return {
+      id: _s(r.cid),
+      date: _s(r.ymd),
+      name: _s(r.name),
+      people: Math.floor(Number(r.people) || 0),
+      amount: Math.floor(Number(r.amount) || 0),
+      pay: _s(r.pay),
+      receipt: normalizeReceipt(r.receipt),
+      receiptDate: r.receipt_date || null,
+      memo: _s(r.memo),
+      paidDate: r.paid_date || null,
+      staff: _s(r.staff),
+      createdAt: r.created_at || "",
+      updatedAt: r.updated_at || "",
+      deletedAt: r.deleted_at || null,
+    };
+  }
+  function partnerToRow(p) {
+    return {
+      name: _s(p.name),
+      honor: p.honor === "様" ? "様" : "御中",
+      person: _s(p.person),
+      last_used_at: p.lastUsedAt || null,
+      updated_at: p.updatedAt || null,
+      deleted_at: p.deletedAt || null,
+    };
+  }
+  function partnerFromRow(r) {
+    var name = _s(r.name);
+    return {
+      name: name,
+      to: name, // 宛名は会社名そのまま（昔のデータだけ to を別に持つ）
+      honor: r.honor === "様" ? "様" : "御中",
+      person: _s(r.person),
+      lastUsedAt: r.last_used_at || "",
+      updatedAt: r.updated_at || "",
+      deletedAt: r.deleted_at || null,
+    };
+  }
+
+  /**
+   * syncPlan(localArr, remoteArr, keyOf)
+   *  端末とクラウドを突き合わせて「これが最新」と「これを送る」を出す。
+   *  - 片方にしか無い → それが最新（端末だけにある物は送る）
+   *  - 両方にある → updatedAt が新しい方が最新。端末が新しければ送る
+   *  - 同じ updatedAt → 端末を残す（同じ物なので送らない）
+   */
+  function syncPlan(localArr, remoteArr, keyOf) {
+    var L = {};
+    var R = {};
+    var keys = [];
+    var k;
+    (localArr || []).forEach(function (r) {
+      k = keyOf(r);
+      if (!k) return;
+      if (!L[k]) keys.push(k);
+      L[k] = r;
+    });
+    (remoteArr || []).forEach(function (r) {
+      k = keyOf(r);
+      if (!k) return;
+      if (!L[k] && !R[k]) keys.push(k);
+      R[k] = r;
+    });
+    var merged = [];
+    var push = [];
+    keys.forEach(function (key) {
+      var l = L[key];
+      var r = R[key];
+      if (l && !r) {
+        merged.push(l);
+        push.push(l);
+        return;
+      }
+      if (!l && r) {
+        merged.push(r);
+        return;
+      }
+      if (_s(l.updatedAt) > _s(r.updatedAt)) {
+        merged.push(l);
+        push.push(l);
+      } else {
+        merged.push(r);
+      }
+    });
+    return { merged: merged, push: push };
+  }
+  // 売上の同期計画（鍵＝端末が作ったid）
+  function syncPlanSales(localArr, remoteArr) {
+    return syncPlan(localArr, remoteArr, function (s) {
+      return s && s.id;
+    });
+  }
+  // 宛先の同期計画（鍵＝会社名）。持ち方が { 名前: 宛先 } なので出入りで詰め替える
+  function syncPlanPartners(localMap, remoteArr) {
+    var localArr = Object.keys(localMap || {}).map(function (k) {
+      return (localMap || {})[k];
+    });
+    var plan = syncPlan(localArr, remoteArr, function (p) {
+      return p && p.name;
+    });
+    var map = {};
+    plan.merged.forEach(function (p) {
+      map[p.name] = p;
+    });
+    return { merged: map, push: plan.push };
+  }
+  // 設定は1アカウント1つ。新しい方が勝つ（同時刻なら端末を残す）
+  function syncPlanSettings(localCfg, localAt, remoteCfg, remoteAt) {
+    if (!remoteCfg) return { merged: localCfg, push: true };
+    if (_s(remoteAt) > _s(localAt)) return { merged: remoteCfg, push: false };
+    if (_s(remoteAt) === _s(localAt)) return { merged: localCfg, push: false };
+    return { merged: localCfg, push: true };
+  }
+
+  /* ===================================================================
      A4のページ分け（1ページに入る行数で切る）
      =================================================================== */
   /**
@@ -833,6 +985,15 @@
     nextInvoiceSeq: nextInvoiceSeq,
     invoiceKey: invoiceKey,
     billableNames: billableNames,
+    alivePartners: alivePartners,
+    saleToRow: saleToRow,
+    saleFromRow: saleFromRow,
+    partnerToRow: partnerToRow,
+    partnerFromRow: partnerFromRow,
+    syncPlan: syncPlan,
+    syncPlanSales: syncPlanSales,
+    syncPlanPartners: syncPlanPartners,
+    syncPlanSettings: syncPlanSettings,
     buildInvoice: buildInvoice,
     paginate: paginate,
     ledgerPages: ledgerPages,

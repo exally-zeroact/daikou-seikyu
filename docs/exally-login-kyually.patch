@@ -1,0 +1,78 @@
+diff --git a/index.html b/index.html
+index 2ff349e..952067d 100644
+--- a/index.html
++++ b/index.html
+@@ -188,6 +188,7 @@
+ <script src="js/render.js?v=e82dc69e"></script>
+ <script src="js/store.js?v=e82dc69e"></script>
+ <script src="js/app.js?v=e82dc69e"></script>
++<script src="js/exally-login.js?v=1"></script>
+ <script src="js/auth.js?v=e82dc69e"></script>
+ <!-- ★Service Workerは登録しない=キャッシュで古い版が居座り更新が反映されない問題(既知)を根絶。開くたびに既存SWを登録解除+全キャッシュ削除して常に最新にする。 --><script>try{if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister();});});}if(window.caches){caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k);});});}}catch(e){}</script>
+ </body>
+diff --git a/js/auth.js b/js/auth.js
+index ce8a632..a528ce2 100644
+--- a/js/auth.js
++++ b/js/auth.js
+@@ -7,34 +7,25 @@
+   if(!(window.Store && Store.auth)) return; // クラウド未設定→ログイン不要
+   var A=Store.auth;
+ 
+-  var st=document.createElement('style');
+-  st.textContent='#auth-overlay{position:fixed;inset:0;z-index:1000;background:linear-gradient(160deg,#EAF6EF,#F0FAF4);display:none;align-items:center;justify-content:center;padding:20px;font-family:"Noto Sans JP",sans-serif;}'
+-    +'.auth-card{width:100%;max-width:360px;background:#fff;border:1px solid #d4eae0;border-radius:18px;box-shadow:0 10px 36px rgba(30,60,40,.12);padding:26px 22px;}'
+-    +'.auth-logo{font-family:\'DM Mono\',monospace;font-size:30px;font-weight:500;letter-spacing:-0.5px;color:#52B788;text-align:center;margin-bottom:10px;}'
+-    +'.auth-card p.lead{font-size:12px;color:#7aa08c;text-align:center;margin:8px 0 16px;}'
+-    +'.auth-card input{width:100%;padding:12px 12px;margin-bottom:10px;border:1.5px solid #d4eae0;border-radius:10px;font-size:15px;color:#1a4a2e;-webkit-appearance:none;}'
+-    +'.auth-card input:focus{outline:none;border-color:#52B788;}'
+-    +'#auth-msg{font-size:12px;min-height:16px;margin:2px 0 10px;text-align:center;}'
+-    +'.auth-card .b1{width:100%;padding:12px;border:none;border-radius:10px;background:#3D9E72;color:#fff;font-size:15px;font-weight:700;cursor:pointer;}'
+-    +'.auth-card .b2{width:100%;padding:11px;margin-top:8px;border:1.5px solid #d4eae0;border-radius:10px;background:#fff;color:#3D6B53;font-size:14px;font-weight:700;cursor:pointer;}'
+-    +'.auth-out{margin-left:8px;color:#C0392B;text-decoration:underline;cursor:pointer;font-size:12px;}';
+-  document.head.appendChild(st);
+-
+-  var ov=document.createElement('div'); ov.id='auth-overlay';
+-  ov.innerHTML='<div class="auth-card"><div class="auth-logo">Kyually</div>'
+-    +'<p class="lead">ログインすると、どの端末でも同じ内容で使えます。</p>'
+-    +'<input id="auth-email" type="email" placeholder="メールアドレス" autocomplete="username">'
+-    +'<input id="auth-pw" type="password" placeholder="パスワード（6文字以上）" autocomplete="current-password">'
+-    +'<div id="auth-msg"></div>'
+-    +'<button class="b1" id="auth-login">ログイン</button>'
+-    +'<button class="b2" id="auth-signup">新規登録（はじめての方）</button></div>';
+-  document.body.appendChild(ov);
++  // ログイン画面は全アプリ共通の部品(js/exally-login.js)。見た目も文言もそこが一次情報。
++  var LOGIN = window.ExallyLogin.mount({
++    app: '給料明細',
++    // Store.auth を supabase と同じ形にして渡す
++    sb: { auth: {
++      signInWithPassword: function(c){ return A.signIn(c.email, c.password); },
++      signUp: function(c){ return A.signUp(c.email, c.password); }
++    } },
++    note: 'ログインすると、どの端末でも同じ内容で使えます。',
++    onLogin: function(user){ afterLogin((user && user.email) || ''); }
++  });
++  var ov = LOGIN.el;
+ 
+   function $(id){ return document.getElementById(id); }
+-  function show(){ ov.style.display='flex'; }
+-  function hide(){ ov.style.display='none'; }
+-  function msg(t,err){ var m=$('auth-msg'); m.textContent=t||''; m.style.color=err?'#C0392B':'#3D6B53'; }
+-  function jpErr(s){ s=String(s||''); if(/Invalid login/i.test(s))return 'メールかパスワードが違います'; if(/already registered|User already/i.test(s))return 'このメールは登録済みです。ログインしてください'; if(/at least 6/i.test(s))return 'パスワードは6文字以上にしてください'; if(/valid email/i.test(s))return 'メールアドレスの形式が正しくありません'; return s; }
++  function show(){ LOGIN.show(); }
++  function hide(){ LOGIN.hide(); }
++  function msg(t,err){ if(err) LOGIN.error(t||''); }
++  function jpErr(s){ if(window.ExallyLogin) return ExallyLogin.friendly({message:s});
++    /* eslint-disable-next-line no-unreachable */ s=String(s||''); if(/Invalid login/i.test(s))return 'メールかパスワードが違います'; if(/already registered|User already/i.test(s))return 'このメールは登録済みです。ログインしてください'; if(/at least 6/i.test(s))return 'パスワードは6文字以上にしてください'; if(/valid email/i.test(s))return 'メールアドレスの形式が正しくありません'; return s; }
+ 
+   var curEmail='';
+   // プラン状態ゲート: 停止/期限切れなら利用させない。取得失敗やAccess未読込時は"締めない"(誤ロック回避)。
+@@ -67,9 +58,6 @@
+   }
+   function showLogout(){ var sm=$('store-mode'); if(sm){ sm.innerHTML='ログイン中: '+ (curEmail||'') +'<span class="auth-out" id="auth-logout">ログアウト</span>'; var lo=$('auth-logout'); if(lo) lo.onclick=function(){ A.signOut().then(function(){ location.reload(); }); }; } }
+ 
+-  $('auth-login').onclick=function(){ var e=$('auth-email').value.trim(), p=$('auth-pw').value; if(!e||!p){msg('メールとパスワードを入力してください',true);return;} msg('ログイン中…'); A.signIn(e,p).then(function(r){ if(r.error)msg(jpErr(r.error.message),true); else afterLogin(e); }); };
+-  $('auth-signup').onclick=function(){ var e=$('auth-email').value.trim(), p=$('auth-pw').value; if(!e){msg('メールアドレスを入力してください',true);return;} if(p.length<6){msg('パスワードは6文字以上にしてください',true);return;} msg('登録中…'); A.signUp(e,p).then(function(r){ if(r.error)msg(jpErr(r.error.message),true); else { afterLogin(e); } }); };
+-  $('auth-pw').addEventListener('keydown',function(ev){ if(ev.key==='Enter') $('auth-login').click(); });
+ 
+   // 起動時: セッションがあればそのまま、無ければログイン画面
+   // ★初回のセッション復元(setSessionを含む)が終わるまで onChange の null で早まってログイン画面を出さない。

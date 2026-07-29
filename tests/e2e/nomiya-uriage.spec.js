@@ -6,9 +6,14 @@ import { test, expect } from "@playwright/test";
 
 const PAGE = "/nomiya-uriage.html";
 
-async function open(page) {
+// 本物のクラウドには触らない。偽のクラウド（tests/e2e/fake-supabase.js）を差し込み、
+// ログイン済みの状態から始める（ログインそのものの試験は下の専用テストで行う）。
+async function install(page, opts) {
+  const o = opts || {};
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
+  // 本物の supabase-js は読ませない（テストは通信しない）
+  await page.route(/cdn\.jsdelivr\.net/, (r) => r.abort());
   // 印刷ダイアログは自動テストで開けないので、呼ばれた回数だけ数える
   await page.addInitScript(() => {
     window.__printed = 0;
@@ -16,10 +21,20 @@ async function open(page) {
       window.__printed++;
     };
   });
+  if (o.noSession) await page.addInitScript(() => (window.__FAKE_NO_SESSION__ = true));
+  await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
+  return errors;
+}
+
+async function open(page, opts) {
+  const errors = await install(page, opts);
   await page.goto(PAGE, { waitUntil: "load" });
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: "load" });
-  await expect(page.locator("#scr-input")).toBeVisible();
+  if (!(opts && opts.noSession)) {
+    await expect(page.locator("#scr-input")).toBeVisible();
+    await expect(page.locator("#loginOv")).not.toHaveClass(/open/);
+  }
   return errors;
 }
 
@@ -816,7 +831,16 @@ test.describe("飲み屋 売上管理", () => {
     await page.locator(".nav-item[data-scr='set']").click();
     await page.locator("#btnWipe").click();
     await page.locator("#mdYes").click();
-    expect(await page.evaluate(() => window.__NOMIYA.sales.length)).toBe(0);
+    // 消した印が付く（クラウドにも「消した」を伝えるため、控えとしては残る）
+    expect(
+      await page.evaluate(() => window.__NOMIYA.sales.filter((s) => !s.deletedAt).length)
+    ).toBe(0);
+    await page.locator(".nav-item[data-scr='list']").click();
+    await expect(page.locator("#listSheets tr[data-id]")).toHaveCount(0);
+
+    // 開き直してクラウドと同期しても、消したものは戻ってこない
+    await page.reload({ waitUntil: "load" });
+    await expect(page.locator("#acctInfo")).toContainText("同期済み");
     await page.locator(".nav-item[data-scr='list']").click();
     await expect(page.locator("#listSheets tr[data-id]")).toHaveCount(0);
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
@@ -1146,6 +1170,243 @@ test.describe("飲み屋 売上管理", () => {
     await page.locator("#invName").selectOption("株式会社山本商事");
     await expect(page.locator("#invSheets .iv-to")).toHaveText("株式会社山本商事　御中");
     expect(await page.evaluate(() => window.__NOMIYA.sales.length)).toBe(5);
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("ログイン: 初めては登録から入り、次からは自動で入る", async ({ page }) => {
+    const errors = await install(page, { noSession: true });
+    await page.goto(PAGE, { waitUntil: "load" });
+    await page.evaluate(() => localStorage.clear());
+    await page.reload({ waitUntil: "load" });
+
+    // ログイン画面が出る
+    await expect(page.locator("#loginOv")).toHaveClass(/open/);
+
+    // 空のまま押すと理由が出る
+    await page.locator("#btnLogin").click();
+    await expect(page.locator("#loginErr")).toContainText("メールとパスワード");
+    // 登録していないメールでは入れない
+    await page.locator("#loginEmail").fill("mama@snack.example");
+    await page.locator("#loginPass").fill("himitsu123");
+    await page.locator("#btnLogin").click();
+    await expect(page.locator("#loginErr")).toContainText("メールかパスワードが違います");
+    // 短いパスワードでは登録できない
+    await page.locator("#loginPass").fill("123");
+    await page.locator("#btnSignup").click();
+    await expect(page.locator("#loginErr")).toContainText("6文字以上");
+
+    // 登録するとそのまま入れる
+    await page.locator("#loginPass").fill("himitsu123");
+    await page.locator("#btnSignup").click();
+    await expect(page.locator("#loginOv")).not.toHaveClass(/open/);
+    await expect(page.locator("#scr-input")).toBeVisible();
+
+    // 打った売上はクラウドに送られ、開き直してもログインし直さずに見られる
+    await addSale(page, {
+      date: "2026-07-01",
+      name: "田中",
+      people: 2,
+      amount: 8000,
+      pay: "cash",
+      receipt: false,
+    });
+    await page.locator(".nav-item[data-scr='set']").click();
+    await expect(page.locator("#acctInfo")).toContainText("mama@snack.example");
+    await page.reload({ waitUntil: "load" });
+    await expect(page.locator("#loginOv")).not.toHaveClass(/open/);
+    expect(await page.evaluate(() => window.__NOMIYA.sales.length)).toBe(1);
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("ログアウトすると次はログイン画面（別の店で入ると前の店の売上は出ない）", async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await addSale(page, {
+      date: "2026-07-01",
+      name: "田中",
+      people: 2,
+      amount: 8000,
+      pay: "cash",
+      receipt: false,
+    });
+    await page.locator(".nav-item[data-scr='set']").click();
+    await page.locator("#btnLogout").click();
+    await expect(page.locator("#loginOv")).toHaveClass(/open/);
+
+    // 別の店のアカウントで入る → 前の店の売上は見えない
+    await page.locator("#loginEmail").fill("betten@snack.example");
+    await page.locator("#loginPass").fill("himitsu123");
+    await page.locator("#btnSignup").click();
+    await expect(page.locator("#loginOv")).not.toHaveClass(/open/);
+    expect(await page.evaluate(() => window.__NOMIYA.sales.length)).toBe(0);
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("別のスマホで打った分が入ってくる（同じ売上は新しい方が残る）", async ({ page }) => {
+    const errors = await open(page);
+    await addSale(page, {
+      date: "2026-07-01",
+      name: "田中",
+      people: 2,
+      amount: 8000,
+      pay: "cash",
+      receipt: false,
+    });
+    // 「別のスマホ」＝同じアカウントでクラウドに直接1件足す
+    await page.evaluate(async () => {
+      const sb = window.__NOMIYA_FAKE_SB__;
+      await sb.from("nomiya_sales").upsert(
+        [
+          {
+            account_id: window.__NOMIYA.account,
+            cid: "phone2",
+            ymd: "2026-07-02",
+            name: "佐藤",
+            people: 3,
+            amount: 12000,
+            pay: "cash",
+            receipt: "none",
+            memo: "別のスマホ",
+            created_at: "2026-07-02T10:00:00.000Z",
+            updated_at: "2026-07-02T10:00:00.000Z",
+          },
+        ],
+        { onConflict: "account_id,cid" }
+      );
+    });
+    await page.evaluate(() => window.__NOMIYA.syncNow(false));
+    expect(await page.evaluate(() => window.__NOMIYA.sales.length)).toBe(2);
+    await page.locator(".nav-item[data-scr='list']").click();
+    await expect(page.locator("#listSheets")).toContainText("佐藤");
+
+    // 同じ売上を「別のスマホ」で新しく直す → 同期すると新しい方が残る
+    await page.evaluate(async () => {
+      const sb = window.__NOMIYA_FAKE_SB__;
+      const mine = window.__NOMIYA.sales.find((s) => s.name === "田中");
+      await sb.from("nomiya_sales").upsert(
+        [
+          {
+            account_id: window.__NOMIYA.account,
+            cid: mine.id,
+            ymd: mine.date,
+            name: "田中",
+            people: 2,
+            amount: 9500,
+            pay: "cash",
+            receipt: "none",
+            memo: "",
+            created_at: mine.createdAt,
+            updated_at: "2099-01-01T00:00:00.000Z",
+          },
+        ],
+        { onConflict: "account_id,cid" }
+      );
+    });
+    await page.evaluate(() => window.__NOMIYA.syncNow(false));
+    expect(
+      await page.evaluate(() => window.__NOMIYA.sales.find((s) => s.name === "田中").amount)
+    ).toBe(9500);
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("打ったらすぐクラウドに送られる（同期ボタンを押さなくていい）", async ({ page }) => {
+    const errors = await open(page);
+    await addSale(page, {
+      date: "2026-07-01",
+      name: "田中",
+      people: 2,
+      amount: 8000,
+      pay: "cash",
+      receipt: false,
+    });
+    await page.locator(".nav-item[data-scr='set']").click();
+    // 未送信が0になる＝送れた（同期ボタンもリロードもしていない）
+    await expect(page.locator("#acctInfo")).toContainText("同期済み");
+    const rows = await page.evaluate(async () => {
+      const r = await window.__NOMIYA_FAKE_SB__.from("nomiya_sales").select("*").range(0, 999);
+      return r.data;
+    });
+    expect(rows.length).toBe(1);
+    expect(rows[0].name).toBe("田中");
+    expect(rows[0].amount).toBe(8000);
+    expect(rows[0].ymd).toBe("2026-07-01");
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("オフラインでも打てて、つながったら送られる", async ({ page }) => {
+    const errors = await open(page);
+    // 電波が無い状態にする
+    await page.evaluate(() => {
+      window.__FAKE_OFFLINE__ = true;
+      Object.defineProperty(window.navigator, "onLine", { get: () => false, configurable: true });
+      window.dispatchEvent(new Event("offline"));
+    });
+    await addSale(page, {
+      date: "2026-07-01",
+      name: "田中",
+      people: 2,
+      amount: 8000,
+      pay: "cash",
+      receipt: false,
+    });
+    // 打てているし、未送信だと画面で分かる
+    expect(await page.evaluate(() => window.__NOMIYA.sales.length)).toBe(1);
+    await page.locator(".nav-item[data-scr='set']").click();
+    await expect(page.locator("#acctInfo")).toContainText("オフライン");
+    await expect(page.locator("#acctInfo")).toContainText("未送信 1 件");
+
+    // つながったら自動で送られる
+    await page.evaluate(() => {
+      window.__FAKE_OFFLINE__ = false;
+      Object.defineProperty(window.navigator, "onLine", { get: () => true, configurable: true });
+      window.dispatchEvent(new Event("online"));
+    });
+    await expect(page.locator("#acctInfo")).toContainText("同期済み");
+    expect(await page.evaluate(() => window.__NOMIYA.pending)).toBe(0);
+
+    // 端末の控えを消しても、クラウドから戻ってくる（機種変しても消えない）
+    await page.evaluate(() => {
+      ["nomiya_sales_v1", "nomiya_partners_v1", "nomiya_sync_at_v1", "nomiya_sync_ok_v1"].forEach(
+        (k) => localStorage.removeItem(k)
+      );
+    });
+    await page.reload({ waitUntil: "load" });
+    await page.locator(".nav-item[data-scr='set']").click();
+    await expect(page.locator("#acctInfo")).toContainText("同期済み");
+    expect(await page.evaluate(() => window.__NOMIYA.sales.length)).toBe(1);
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("宛先と店の設定もクラウドに残る（新しいスマホでも出てくる）", async ({ page }) => {
+    const errors = await open(page);
+    await openPartners(page);
+    await page.locator("#btnPartnerNew").click();
+    await page.locator("#ptName").fill("株式会社山本商事");
+    await page.locator("#ptPerson").fill("総務部 山本 様");
+    await page.locator("#ptOk").click();
+    await page.locator(".nav-item[data-scr='set']").click();
+    await page.locator("#setStore").fill("スナック まりも");
+    await page.locator("#btnSaveSet").click();
+    await expect(page.locator("#acctInfo")).toContainText("同期済み");
+
+    // 端末の控えを全部消して開き直す＝新しいスマホと同じ
+    await page.evaluate(() => {
+      [
+        "nomiya_sales_v1",
+        "nomiya_partners_v1",
+        "nomiya_settings_v1",
+        "nomiya_set_at_v1",
+        "nomiya_sync_at_v1",
+        "nomiya_sync_ok_v1",
+      ].forEach((k) => localStorage.removeItem(k));
+    });
+    await page.reload({ waitUntil: "load" });
+    await page.locator(".nav-item[data-scr='set']").click();
+    await expect(page.locator("#acctInfo")).toContainText("同期済み");
+    await expect(page.locator("#setStore")).toHaveValue("スナック まりも");
+    await openPartners(page);
+    await expect(page.locator("#partnerList .li-nm")).toHaveText("株式会社山本商事　御中");
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 

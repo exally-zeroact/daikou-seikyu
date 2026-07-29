@@ -28,6 +28,7 @@
   "devDependencies": {
     "@eslint/js": "^9.16.0",
     "@playwright/test": "^1.49.0",
+    "@supabase/supabase-js": "^2.111.0",
     "eslint": "^9.16.0",
     "http-server": "^14.1.1",
     "husky": "^9.1.7",

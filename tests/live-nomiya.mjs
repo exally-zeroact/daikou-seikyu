@@ -1,0 +1,196 @@
+/* live-nomiya.mjs — 本物のSupabase（テスト用DB）に往復して、棚とRLSが効いているか確かめる
+ * ------------------------------------------------------------------------------
+ *  使い方:  node tests/live-nomiya.mjs
+ *  前提:
+ *   ① supabase/schema-nomiya.sql を DB-test の SQL Editor で1回 Run してある
+ *   ② テスト用アカウントの合言葉が %TEMP%\nomiya-test-cred.json にある
+ *      { "email": "exally.supoort+nomiya@gmail.com", "password": "…" }
+ *  安全のため:
+ *   - 本番の倉庫には繋がない（URLを固定・別URLなら即中止）
+ *   - 決めたテスト用メール以外では即中止（本物のお店のデータに触らない）
+ *   - 自分が作った行だけ、最後に必ず片付ける
+ */
+import { createClient } from "@supabase/supabase-js";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+
+const URL = "https://khawdrnvssdenumbiwfg.supabase.co"; // ★テスト用DB（DB-test）
+const KEY = "sb_publishable_UrRIobyVFbaJI_85RBxBOA_GZ4OUxPm";
+const ALLOW_EMAIL = /^exally\.supoort\+nomiya@gmail\.com$/;
+const CRED = path.join(os.tmpdir(), "nomiya-test-cred.json");
+
+const TAG = "LIVE-" + Date.now(); // このセッションで作った行の目印
+
+let ok = 0;
+let ng = 0;
+function check(name, cond, extra) {
+  if (cond) {
+    ok++;
+    console.log("  ✓ " + name);
+  } else {
+    ng++;
+    console.log("  ✗ " + name + (extra ? "  → " + JSON.stringify(extra) : ""));
+  }
+}
+
+function die(msg) {
+  console.error("中止: " + msg);
+  process.exit(1);
+}
+
+if (!fs.existsSync(CRED)) die("合言葉のファイルがありません: " + CRED);
+const cred = JSON.parse(fs.readFileSync(CRED, "utf8"));
+if (!ALLOW_EMAIL.test(String(cred.email || ""))) die("このメールでは走らせません: " + cred.email);
+
+const sb = createClient(URL, KEY, { auth: { persistSession: false } });
+
+const li = await sb.auth.signInWithPassword({ email: cred.email, password: cred.password });
+if (li.error) die("ログインできません: " + li.error.message);
+const ACC = li.data.user.id;
+console.log("ログイン: " + cred.email + " (" + ACC + ")");
+
+/* ── 棚があるか ─────────────────────────────────────────── */
+for (const t of ["nomiya_sales", "nomiya_partners", "nomiya_settings"]) {
+  const r = await sb.from(t).select("*", { count: "exact" }).range(0, 0);
+  check("棚 " + t + " がある", !r.error, r.error && r.error.message);
+  if (r.error) die("先に supabase/schema-nomiya.sql を SQL Editor で Run してください");
+}
+
+/* ── 売上の往復 ─────────────────────────────────────────── */
+const cid1 = TAG + "-a";
+const cid2 = TAG + "-b";
+const now = new Date().toISOString();
+let r = await sb.from("nomiya_sales").upsert(
+  [
+    {
+      account_id: ACC,
+      cid: cid1,
+      ymd: "2026-07-01",
+      name: "テスト商事",
+      people: 4,
+      amount: 32000,
+      pay: "invoice",
+      receipt: "na",
+      memo: TAG,
+      created_at: now,
+      updated_at: now,
+    },
+    {
+      account_id: ACC,
+      cid: cid2,
+      ymd: "2026-07-02",
+      name: "テスト太郎",
+      people: 2,
+      amount: 8000,
+      pay: "cash",
+      receipt: "none",
+      memo: TAG,
+      created_at: now,
+      updated_at: now,
+    },
+  ],
+  { onConflict: "account_id,cid" }
+);
+check("売上を2件送れる", !r.error, r.error && r.error.message);
+
+r = await sb.from("nomiya_sales").select("*").eq("memo", TAG);
+check(
+  "送った2件が読める",
+  !r.error && r.data && r.data.length === 2,
+  r.error || (r.data || []).length
+);
+const got = (r.data || []).find((x) => x.cid === cid1);
+check(
+  "金額・人数・支払い方法がそのまま",
+  got && got.amount === 32000 && got.people === 4 && got.pay === "invoice",
+  got
+);
+
+/* 同じ cid で送り直す＝増えずに上書き（二重登録しない） */
+r = await sb.from("nomiya_sales").upsert(
+  [
+    {
+      account_id: ACC,
+      cid: cid1,
+      ymd: "2026-07-01",
+      name: "テスト商事",
+      people: 4,
+      amount: 33000,
+      pay: "invoice",
+      receipt: "na",
+      memo: TAG,
+      created_at: now,
+      updated_at: new Date().toISOString(),
+    },
+  ],
+  { onConflict: "account_id,cid" }
+);
+check("同じ売上を送り直しても増えない", !r.error, r.error && r.error.message);
+r = await sb.from("nomiya_sales").select("*").eq("memo", TAG);
+check(
+  "上書きされて2件のまま・金額が新しい方",
+  !r.error && r.data.length === 2 && r.data.find((x) => x.cid === cid1).amount === 33000,
+  (r.data || []).map((x) => [x.cid, x.amount])
+);
+
+/* ── 宛先の往復 ─────────────────────────────────────────── */
+const pname = TAG + " 株式会社";
+r = await sb
+  .from("nomiya_partners")
+  .upsert([{ account_id: ACC, name: pname, honor: "御中", person: "総務部 テスト様" }], {
+    onConflict: "account_id,name",
+  });
+check("宛先を送れる", !r.error, r.error && r.error.message);
+r = await sb.from("nomiya_partners").select("*").eq("name", pname);
+check(
+  "宛先が読める・担当者も入る",
+  !r.error && r.data.length === 1 && r.data[0].person === "総務部 テスト様",
+  r.data
+);
+
+/* ── 設定（1アカウント1行）の往復 ───────────────────────── */
+r = await sb
+  .from("nomiya_settings")
+  .upsert(
+    { account_id: ACC, config: { store: TAG, rate: 0.1 }, updated_at: new Date().toISOString() },
+    { onConflict: "account_id" }
+  );
+check("設定を送れる", !r.error, r.error && r.error.message);
+r = await sb.from("nomiya_settings").select("config, updated_at").maybeSingle();
+check(
+  "設定が1行だけ返る・中身が合う",
+  !r.error && r.data && r.data.config.store === TAG,
+  r.error || r.data
+);
+
+/* ── RLS: 他人のアカウントには書けない ──────────────────── */
+r = await sb.from("nomiya_sales").upsert(
+  [
+    {
+      account_id: "00000000-0000-0000-0000-000000000000",
+      cid: TAG + "-x",
+      ymd: "2026-07-03",
+      name: "よその店",
+      people: 1,
+      amount: 1,
+      pay: "cash",
+      receipt: "none",
+      memo: TAG,
+    },
+  ],
+  { onConflict: "account_id,cid" }
+);
+check("他人のアカウントでは書けない（RLSが効いている）", !!r.error, r.error && r.error.message);
+
+/* ── 片付け（自分が作った行だけ） ───────────────────────── */
+const d1 = await sb.from("nomiya_sales").delete().eq("memo", TAG);
+const d2 = await sb.from("nomiya_partners").delete().eq("name", pname);
+check("自分が作った売上を片付けられる", !d1.error, d1.error && d1.error.message);
+check("自分が作った宛先を片付けられる", !d2.error, d2.error && d2.error.message);
+r = await sb.from("nomiya_sales").select("cid").eq("memo", TAG);
+check("片付いている", !r.error && r.data.length === 0, r.data);
+
+await sb.auth.signOut();
+console.log("\n合計 " + (ok + ng) + " 件中 " + ok + " 件OK / " + ng + " 件NG");
+process.exit(ng ? 1 : 0);

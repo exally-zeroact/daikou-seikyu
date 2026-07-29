@@ -1153,6 +1153,15 @@
       </div>
 
       <div class="card">
+        <div class="card-label">アカウント</div>
+        <div class="hint" id="acctInfo"></div>
+        <div class="btn-row" style="margin-top: 10px">
+          <button class="btn btn-ghost" type="button" id="btnSyncNow">今すぐ同期する</button>
+          <button class="btn btn-ghost" type="button" id="btnLogout">ログアウト</button>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-label">データ</div>
         <div class="hint" id="dataInfo"></div>
         <div class="btn-row" style="margin-top: 10px">
@@ -1206,6 +1215,9 @@
     <div class="toast" id="toast"></div>
 
     <!-- 判子画像の白抜き（代行請求アプリと同じモジュールを使う） -->
+    <!-- クラウド（ログイン＋保存）。テストでは偽物を差し込むので読めなくても動く -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="exally-login.js"></script>
     <script src="hanko.js"></script>
     <script src="nomiya-core.js"></script>
     <script>
@@ -1220,6 +1232,10 @@
       var K_SET = "nomiya_settings_v1";
       var K_INV = "nomiya_invoices_v1";
       var K_PARTNER = "nomiya_partners_v1";
+      var K_SET_AT = "nomiya_set_at_v1"; // 設定を直した時刻（同期の後勝ち判定に使う）
+      var K_SYNC_AT = "nomiya_sync_at_v1"; // ここまでは送った、という目印
+      var K_SYNC_OK = "nomiya_sync_ok_v1"; // 最後に同期できた時刻（画面に出すだけ）
+      var K_ACCOUNT = "nomiya_account_v1"; // 前にログインしていたアカウント
 
       var SALES = [];
       var SETTINGS = {
@@ -1239,6 +1255,7 @@
       var INVOICES = []; // [{no, name, from, to, issuedAt}]
       // 宛先（請求書送りの相手）。売上に打つ名前をキーにする { 名前: {name,to,honor,addr,person} }
       var PARTNERS = {};
+      var SET_AT = ""; // 設定を直した時刻
 
       // 画面の状態
       var UI = {
@@ -1315,6 +1332,12 @@
         } catch (e4) {
           PARTNERS = {};
         }
+        try {
+          SET_AT = localStorage.getItem(K_SET_AT) || "";
+        } catch (e5) {
+          SET_AT = "";
+        }
+        loadSync();
       }
       function saveSales() {
         try {
@@ -1322,13 +1345,17 @@
         } catch (e) {
           toast("⚠️ 端末の空きが足りず保存できませんでした");
         }
+        queuePush();
       }
-      function saveSettings() {
+      function saveSettings(keepAt) {
         try {
+          if (!keepAt) SET_AT = new Date().toISOString();
           localStorage.setItem(K_SET, JSON.stringify(SETTINGS));
+          localStorage.setItem(K_SET_AT, SET_AT);
         } catch (e) {
           /* 設定が保存できなくても画面は動かす */
         }
+        if (!keepAt) queuePush();
       }
       function savePartners() {
         try {
@@ -1336,6 +1363,7 @@
         } catch (e) {
           toast("⚠️ 端末の空きが足りず保存できませんでした");
         }
+        queuePush();
       }
       function saveInvoices() {
         try {
@@ -1343,6 +1371,362 @@
         } catch (e) {
           /* 番号履歴が保存できなくても請求書は出せる */
         }
+      }
+
+      /* ===================================================================
+         クラウド（Supabase）── ログインと同期
+         ★いまはテスト用の倉庫(DB-test)を指す。店に配るときに本番へ向け替える。
+         考え方：端末の中が作業台。電波が無くても打てて、つながったら送る。
+         =================================================================== */
+      var SUPA_URL = "https://khawdrnvssdenumbiwfg.supabase.co";
+      var SUPA_KEY = "sb_publishable_UrRIobyVFbaJI_85RBxBOA_GZ4OUxPm";
+      // テストは偽のクラウドを差し込む（本物に通信せず配線だけ確かめる）
+      var SB =
+        window.__NOMIYA_FAKE_SB__ ||
+        (window.supabase ? window.supabase.createClient(SUPA_URL, SUPA_KEY) : null);
+      var ACCOUNT = null; // ログイン中のアカウントID
+      var ACCOUNT_EMAIL = "";
+      // 同期の状態。at = ここまでは送った、という目印（これより新しい更新が「未送信」）
+      var SYNC = { at: "", running: false, err: "", lastOkAt: "" };
+
+      function loadSync() {
+        try {
+          SYNC.at = localStorage.getItem(K_SYNC_AT) || "";
+          SYNC.lastOkAt = localStorage.getItem(K_SYNC_OK) || "";
+        } catch (e) {
+          /* 読めなくても同期はやり直せる */
+        }
+      }
+      function saveSync() {
+        try {
+          localStorage.setItem(K_SYNC_AT, SYNC.at);
+          localStorage.setItem(K_SYNC_OK, SYNC.lastOkAt);
+        } catch (e) {
+          /* 目印が残せなくても、次の同期で送り直すだけ */
+        }
+      }
+      function partnersArr() {
+        return Object.keys(PARTNERS).map(function (k) {
+          return PARTNERS[k];
+        });
+      }
+      // まだ送っていないもの（この目印より新しい更新）
+      function pendingSales() {
+        return SALES.filter(function (x) {
+          return String(x.updatedAt || "") > SYNC.at;
+        });
+      }
+      function pendingPartners() {
+        return partnersArr().filter(function (x) {
+          return String(x.updatedAt || "") > SYNC.at;
+        });
+      }
+      function pendingSettings() {
+        return String(SET_AT || "") > SYNC.at;
+      }
+      function pendingCount() {
+        return pendingSales().length + pendingPartners().length + (pendingSettings() ? 1 : 0);
+      }
+      function bumpSyncMark() {
+        var mx = SYNC.at;
+        SALES.concat(partnersArr()).forEach(function (x) {
+          var u = String(x.updatedAt || "");
+          if (u > mx) mx = u;
+        });
+        if (String(SET_AT || "") > mx) mx = String(SET_AT || "");
+        SYNC.at = mx;
+        SYNC.lastOkAt = new Date().toISOString();
+        saveSync();
+      }
+
+      // 1000行で黙って切れないように、総数と突き合わせて全部取る
+      async function fetchAll(table) {
+        var out = [];
+        var from = 0;
+        var size = 1000;
+        for (;;) {
+          var r = await SB.from(table)
+            .select("*", { count: "exact" })
+            .range(from, from + size - 1);
+          if (r.error) throw r.error;
+          var got = r.data || [];
+          out = out.concat(got);
+          if (!got.length) break;
+          if (r.count == null || out.length >= r.count) break;
+          from += size;
+        }
+        return out;
+      }
+
+      function withAccount(row) {
+        row.account_id = ACCOUNT;
+        return row;
+      }
+
+      // 送るだけ（打った直後に呼ぶ。つながっていなければ何もしない＝次に送る）
+      async function pushNow() {
+        if (!SB || !ACCOUNT || SYNC.running) return false;
+        if (typeof navigator !== "undefined" && navigator.onLine === false) return false;
+        var sales = pendingSales();
+        var partners = pendingPartners();
+        var setDirty = pendingSettings();
+        if (!sales.length && !partners.length && !setDirty) return true;
+        SYNC.running = true;
+        renderAcct();
+        var ok = true;
+        try {
+          if (sales.length) {
+            var rs = await SB.from("nomiya_sales").upsert(
+              sales.map(function (x) {
+                return withAccount(C.saleToRow(x));
+              }),
+              { onConflict: "account_id,cid" }
+            );
+            if (rs.error) throw rs.error;
+          }
+          if (partners.length) {
+            var rp = await SB.from("nomiya_partners").upsert(
+              partners.map(function (x) {
+                return withAccount(C.partnerToRow(x));
+              }),
+              { onConflict: "account_id,name" }
+            );
+            if (rp.error) throw rp.error;
+          }
+          if (setDirty) {
+            var rc = await SB.from("nomiya_settings").upsert(
+              { account_id: ACCOUNT, config: SETTINGS, updated_at: SET_AT },
+              { onConflict: "account_id" }
+            );
+            if (rc.error) throw rc.error;
+          }
+          bumpSyncMark();
+          SYNC.err = "";
+        } catch (e) {
+          ok = false;
+          SYNC.err = String((e && e.message) || e);
+        }
+        SYNC.running = false;
+        renderAcct();
+        return ok;
+      }
+
+      var _pushT = null;
+      function queuePush() {
+        if (!SB || !ACCOUNT) return;
+        if (_pushT) clearTimeout(_pushT);
+        _pushT = setTimeout(function () {
+          _pushT = null;
+          pushNow();
+        }, 900);
+      }
+
+      // 取ってきて突き合わせて、こちらが新しいものを送る（開いたとき・つながったとき）
+      async function syncNow(loud) {
+        if (!SB || !ACCOUNT || SYNC.running) return false;
+        if (typeof navigator !== "undefined" && navigator.onLine === false) {
+          if (loud) toast("📴 いまはオフラインです。つながったら送ります");
+          renderAcct();
+          return false;
+        }
+        SYNC.running = true;
+        SYNC.err = "";
+        renderAcct();
+        var ok = true;
+        try {
+          var rows = await fetchAll("nomiya_sales");
+          var prow = await fetchAll("nomiya_partners");
+          var cfg = await SB.from("nomiya_settings").select("config, updated_at").maybeSingle();
+          if (cfg.error) throw cfg.error;
+
+          var planS = C.syncPlanSales(SALES, rows.map(C.saleFromRow));
+          var planP = C.syncPlanPartners(PARTNERS, prow.map(C.partnerFromRow));
+          var rcfg = cfg.data && cfg.data.config ? cfg.data.config : null;
+          var rat = (cfg.data && cfg.data.updated_at) || "";
+          var planC = C.syncPlanSettings(SETTINGS, SET_AT, rcfg, rat);
+
+          SALES = planS.merged;
+          PARTNERS = planP.merged;
+          if (planC.merged !== SETTINGS) {
+            Object.keys(SETTINGS).forEach(function (k) {
+              if (planC.merged[k] != null) SETTINGS[k] = planC.merged[k];
+            });
+            SET_AT = rat;
+          }
+          try {
+            localStorage.setItem(K_SALES, JSON.stringify(SALES));
+            localStorage.setItem(K_PARTNER, JSON.stringify(PARTNERS));
+            localStorage.setItem(K_SET, JSON.stringify(SETTINGS));
+            localStorage.setItem(K_SET_AT, SET_AT);
+          } catch (e0) {
+            /* 端末に書けなくても画面は動く */
+          }
+
+          if (planS.push.length) {
+            var rs2 = await SB.from("nomiya_sales").upsert(
+              planS.push.map(function (x) {
+                return withAccount(C.saleToRow(x));
+              }),
+              { onConflict: "account_id,cid" }
+            );
+            if (rs2.error) throw rs2.error;
+          }
+          if (planP.push.length) {
+            var rp2 = await SB.from("nomiya_partners").upsert(
+              planP.push.map(function (x) {
+                return withAccount(C.partnerToRow(x));
+              }),
+              { onConflict: "account_id,name" }
+            );
+            if (rp2.error) throw rp2.error;
+          }
+          if (planC.push) {
+            var rc2 = await SB.from("nomiya_settings").upsert(
+              { account_id: ACCOUNT, config: SETTINGS, updated_at: SET_AT },
+              { onConflict: "account_id" }
+            );
+            if (rc2.error) throw rc2.error;
+          }
+          bumpSyncMark();
+          renderAll();
+          if (loud) toast("☁️ 同期しました");
+        } catch (e) {
+          ok = false;
+          SYNC.err = String((e && e.message) || e);
+          if (loud) toast("⚠️ 同期できませんでした");
+        }
+        SYNC.running = false;
+        renderAcct();
+        return ok;
+      }
+
+      // 設定タブの「アカウント」の1行
+      function renderAcct() {
+        var el = $("acctInfo");
+        if (!el) return;
+        if (!SB) {
+          el.textContent =
+            "このブラウザではクラウドに繋げませんでした（端末の中だけで動いています）";
+          return;
+        }
+        if (!ACCOUNT) {
+          el.textContent = "ログインしていません";
+          return;
+        }
+        var n = pendingCount();
+        var line = "ログイン中：" + ACCOUNT_EMAIL;
+        if (SYNC.running) line += " ／ 同期中…";
+        else if (typeof navigator !== "undefined" && navigator.onLine === false)
+          line += " ／ オフライン（未送信 " + n + " 件・つながったら送ります）";
+        else if (n) line += " ／ 未送信 " + n + " 件";
+        else if (SYNC.lastOkAt) line += " ／ 同期済み " + hhmm(SYNC.lastOkAt);
+        if (SYNC.err) line += "\n" + SYNC.err;
+        el.textContent = line;
+      }
+      function hhmm(iso) {
+        var d = new Date(iso);
+        if (isNaN(d.getTime())) return "";
+        return ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
+      }
+
+      /* ===== ログイン（画面と手続きは共通部品 exally-login.js） ===== */
+      var LOGIN = null;
+      function showLogin(show) {
+        if (!LOGIN) return;
+        if (show) LOGIN.show();
+        else LOGIN.hide();
+      }
+      // ログインした後：別のアカウントなら端末の控えを捨ててから同期する
+      async function afterLogin(user) {
+        ACCOUNT = user.id;
+        ACCOUNT_EMAIL = user.email || "";
+        var last = "";
+        try {
+          last = localStorage.getItem(K_ACCOUNT) || "";
+        } catch (e) {
+          /* 読めなければ別アカウント扱いにはしない */
+        }
+        if (last && last !== ACCOUNT) {
+          SALES = [];
+          PARTNERS = {};
+          INVOICES = [];
+          SYNC.at = "";
+          SET_AT = "";
+          try {
+            localStorage.removeItem(K_SALES);
+            localStorage.removeItem(K_PARTNER);
+            localStorage.removeItem(K_INV);
+          } catch (e2) {
+            /* 消せなくても、このあとの同期で上書きされる */
+          }
+        }
+        try {
+          localStorage.setItem(K_ACCOUNT, ACCOUNT);
+        } catch (e3) {
+          /* 覚えられなくても動く */
+        }
+        showLogin(false);
+        renderAll();
+        await syncNow(false);
+      }
+      async function doLogout() {
+        var n = pendingCount();
+        if (n) {
+          var okSend = await pushNow();
+          if (!okSend) {
+            toast("⚠️ 送れていない " + n + " 件があります。つながってからログアウトしてください");
+            return;
+          }
+        }
+        try {
+          await SB.auth.signOut();
+        } catch (e) {
+          /* 通信できなくても画面は閉じる */
+        }
+        ACCOUNT = null;
+        ACCOUNT_EMAIL = "";
+        showScreen("input");
+        showLogin(true);
+        renderAcct();
+      }
+      // 起動時：セッションが残っていればそのまま入る（オフラインでも入れる）
+      async function startAuth() {
+        if (!SB) {
+          renderAcct();
+          return;
+        }
+        if (!LOGIN) {
+          LOGIN = ExallyLogin.mount({
+            app: "売上管理",
+            sb: SB,
+            note: "売上はこのお店のものだけが見えます。一度ログインすれば、次からは自動で入れます。",
+            onLogin: function (user) {
+              afterLogin(user);
+            },
+          });
+        }
+        var sess = null;
+        try {
+          sess = await SB.auth.getSession();
+        } catch (e) {
+          sess = null;
+        }
+        var user = sess && sess.data && sess.data.session ? sess.data.session.user : null;
+        if (!user) {
+          showLogin(true);
+          renderAcct();
+          return;
+        }
+        ACCOUNT = user.id;
+        ACCOUNT_EMAIL = user.email || "";
+        try {
+          localStorage.setItem(K_ACCOUNT, ACCOUNT);
+        } catch (e2) {
+          /* 覚えられなくても動く */
+        }
+        showLogin(false);
+        renderAcct();
+        await syncNow(false);
       }
 
       /* ===== 期間 ===== */
@@ -1622,8 +2006,10 @@
         $("mdYes").onclick = function () {
           for (var i = 0; i < SALES.length; i++) {
             if (SALES[i].id === id) {
+              var _now = new Date().toISOString();
               SALES[i] = Object.assign({}, SALES[i], {
-                deletedAt: new Date().toISOString(),
+                deletedAt: _now,
+                updatedAt: _now,
               });
             }
           }
@@ -2457,17 +2843,23 @@
             return;
           }
           var pt = C.normalizePartner(raw);
-          if (pt.name !== name && PARTNERS[pt.name]) {
+          if (pt.name !== name && PARTNERS[pt.name] && !PARTNERS[pt.name].deletedAt) {
             $("ptErr").textContent = "その会社名はもう登録されています";
             return;
           }
           if (name && pt.name !== name) {
             // 会社名を直した＝売上に入っている名前も一緒に直す（請求書がバラけないように）
-            delete PARTNERS[name];
+            var delIso = new Date().toISOString();
+            PARTNERS[name] = Object.assign({}, PARTNERS[name], {
+              deletedAt: delIso,
+              updatedAt: delIso,
+            });
             var moved = 0;
-            SALES.forEach(function (x) {
+            var mvIso = new Date().toISOString();
+            SALES.forEach(function (x, i) {
               if (x.name === name) {
-                x.name = pt.name;
+                // 直した印（updatedAt）も付ける＝クラウドの古い名前に上書きされない
+                SALES[i] = Object.assign({}, x, { name: pt.name, updatedAt: mvIso });
                 moved++;
               }
             });
@@ -2484,7 +2876,11 @@
         };
         if ($("ptDel")) {
           $("ptDel").onclick = function () {
-            delete PARTNERS[name];
+            var nowIso = new Date().toISOString();
+            PARTNERS[name] = Object.assign({}, PARTNERS[name], {
+              deletedAt: nowIso,
+              updatedAt: nowIso,
+            });
             savePartners();
             closeModal();
             renderAll();
@@ -3215,9 +3611,7 @@
           return !s.deletedAt;
         });
         $("dataInfo").textContent =
-          "この端末に " +
-          alive.length +
-          " 件の売上が入っています。書き出してバックアップできます。";
+          "売上 " + alive.length + " 件。ファイルに書き出して手元にも残せます。";
       }
 
       function onSaveSettings() {
@@ -3317,16 +3711,27 @@
       function onWipe() {
         openModal(
           "全部消す",
-          '<div class="hint">この端末の売上・設定をすべて消します。取り消せません。<br>先に「書き出す」でバックアップを取ってください。</div>' +
+          '<div class="hint">売上をすべて消します（クラウドの分も消えます）。取り消せません。<br>先に「書き出す」でバックアップを取ってください。</div>' +
             '<div class="btn-right" style="margin-top:14px">' +
             '<button class="btn btn-ghost btn-sm" id="mdNo">やめる</button>' +
             '<button class="btn btn-ghost btn-danger btn-sm" id="mdYes">全部消す</button></div>'
         );
         $("mdNo").onclick = closeModal;
         $("mdYes").onclick = function () {
-          SALES = [];
+          // クラウドにも「消した」を伝える＝端末だけ空にすると、次の同期で戻ってくる
+          var nowIso = new Date().toISOString();
+          SALES = SALES.map(function (s) {
+            return Object.assign({}, s, { deletedAt: nowIso, updatedAt: nowIso });
+          });
+          Object.keys(PARTNERS).forEach(function (k) {
+            PARTNERS[k] = Object.assign({}, PARTNERS[k], {
+              deletedAt: nowIso,
+              updatedAt: nowIso,
+            });
+          });
           INVOICES = [];
           saveSales();
+          savePartners();
           saveInvoices();
           closeModal();
           renderAll();
@@ -3347,6 +3752,7 @@
         });
         renderAll();
         fitAll();
+        renderAcct();
       }
 
       function renderAll() {
@@ -3560,6 +3966,15 @@
           this.value = "";
         };
         $("btnWipe").onclick = onWipe;
+        $("btnLogout").onclick = doLogout;
+        $("btnSyncNow").onclick = function () {
+          syncNow(true);
+        };
+        window.addEventListener("online", function () {
+          renderAcct();
+          syncNow(false);
+        });
+        window.addEventListener("offline", renderAcct);
 
         document.querySelectorAll(".nav-item").forEach(function (b) {
           b.onclick = function () {
@@ -3579,6 +3994,8 @@
 
         renderAll();
         fitAll();
+        renderAcct();
+        startAuth();
       }
 
       if (document.readyState === "loading") {
@@ -3595,8 +4012,18 @@
         get settings() {
           return SETTINGS;
         },
+        get partners() {
+          return PARTNERS;
+        },
+        get account() {
+          return ACCOUNT;
+        },
+        get pending() {
+          return pendingCount();
+        },
         showScreen: showScreen,
         renderAll: renderAll,
+        syncNow: syncNow,
       };
     </script>
   </body>
