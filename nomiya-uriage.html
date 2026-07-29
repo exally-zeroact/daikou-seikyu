@@ -875,6 +875,7 @@
             autocomplete="off"
           />
           <datalist id="nameList"></datalist>
+          <select class="fselect" id="inNameSel" style="display: none"></select>
         </div>
 
         <div class="frow">
@@ -985,6 +986,8 @@
 
     <!-- ==================== 請求書 ==================== -->
     <section class="screen" id="scr-inv">
+      <div class="period" id="periodInv"></div>
+
       <details class="look">
         <summary>見た目を変える（デザイン・色・書体・ロゴ）</summary>
         <div class="frow">
@@ -1020,19 +1023,10 @@
         <div class="frow">
           <span class="flabel">請求する相手</span>
           <select class="fselect" id="invName"></select>
-        </div>
-        <div class="frow">
-          <span class="flabel">対象</span>
-          <div class="chips" id="invScope">
-            <button class="chip chip-sm on" type="button" data-scope="all">未入金すべて</button>
-            <button class="chip chip-sm" type="button" data-scope="period">期間内だけ</button>
-          </div>
-        </div>
-        <div class="frow" id="invPeriodRow" style="display: none">
-          <span class="flabel">期間</span>
-          <div class="f2">
-            <input class="finput" type="date" id="invFrom" />
-            <input class="finput" type="date" id="invTo" />
+          <div class="btn-right" style="margin-top: 10px">
+            <button class="btn btn-ghost btn-sm" type="button" id="btnPartners">
+              宛先を登録・修正する
+            </button>
           </div>
         </div>
       </div>
@@ -1225,6 +1219,7 @@
       var K_SALES = "nomiya_sales_v1";
       var K_SET = "nomiya_settings_v1";
       var K_INV = "nomiya_invoices_v1";
+      var K_PARTNER = "nomiya_partners_v1";
 
       var SALES = [];
       var SETTINGS = {
@@ -1242,10 +1237,13 @@
         font: "mincho", // 見出しの書体: mincho(明朝) / gothic(ゴシック)
       };
       var INVOICES = []; // [{no, name, from, to, issuedAt}]
+      // 宛先（請求書送りの相手）。売上に打つ名前をキーにする { 名前: {name,to,honor,addr,person} }
+      var PARTNERS = {};
 
       // 画面の状態
       var UI = {
         screen: "input",
+        inName: "", // 請求書送りのとき、ドロップダウンで選んでいる会社
         editId: null,
         inPay: "cash",
         inRec: "none", // 領収書 none/issued/later/na（支払い方法で選べるものが変わる）
@@ -1255,7 +1253,7 @@
         sumRec: "all", // 集計の対象（全体/領収書あり/領収書なし）
         taxRec: "all", // 税理士用の対象
         invName: "",
-        invScope: "all",
+        invYm: "", // 請求書は「◯月分」で1枚（起動時に今月が入る）
       };
 
       // 売上帳 1ページの行数（A4縦=1123pxに収まる実測値。1行27px・上下の見出しと合計欄の分を引いた数）
@@ -1311,6 +1309,12 @@
         } catch (e3) {
           INVOICES = [];
         }
+        try {
+          var pt = JSON.parse(localStorage.getItem(K_PARTNER) || "{}");
+          PARTNERS = pt && typeof pt === "object" ? pt : {};
+        } catch (e4) {
+          PARTNERS = {};
+        }
       }
       function saveSales() {
         try {
@@ -1324,6 +1328,13 @@
           localStorage.setItem(K_SET, JSON.stringify(SETTINGS));
         } catch (e) {
           /* 設定が保存できなくても画面は動かす */
+        }
+      }
+      function savePartners() {
+        try {
+          localStorage.setItem(K_PARTNER, JSON.stringify(PARTNERS));
+        } catch (e) {
+          toast("⚠️ 端末の空きが足りず保存できませんでした");
         }
       }
       function saveInvoices() {
@@ -1448,11 +1459,10 @@
         });
       }
 
-      // 領収書チップの文字。支払い方法で言い方を変える（「不要」の理由まで見せる）
+      // 領収書チップの文字。ツケだけ言い方を変える（渡した／あとで）
       function recChipLabel(key, payKey) {
-        if (key === "na") {
-          return payKey === "invoice" ? "不要（請求書で足りる）" : "不要（売上票で足りる）";
-        }
+        // 「出したか / 出していないか」だけを聞く。言い方は全部そろえる。
+        if (key === "na") return "なし";
         if (key === "later") return "あとで渡す（回収時）";
         if (key === "issued") return payKey === "tsuke" ? "渡した" : "あり";
         return "なし";
@@ -1464,8 +1474,9 @@
           .forEach(function (b) {
             b.classList.toggle("on", b.getAttribute("data-pay") === UI.inPay);
           });
-        // 領収書の選択肢は支払い方法で変える（振込・カードは「不要」が既定＝要らないものを
-        // 「なし」に落とさない。ツケは回収時に渡すので「あとで」が既定）
+        // 領収書の選択肢は支払い方法で変える（振込・カードは出していないので「なし」が既定。
+        // ただし請求書・売上票が証憑として残るので、集計では「あり」に数える。
+        // ツケは回収時に渡すので「あとで」が既定）
         UI.inRec = C.fixReceiptFor(UI.inPay, UI.inRec);
         $("recChips").innerHTML = C.receiptChoices(UI.inPay)
           .map(function (k) {
@@ -1497,12 +1508,15 @@
           SETTINGS.rate
         );
         $("recNote").textContent = notes.join(" ");
+        syncNameField();
       }
 
       function readForm() {
+        var pickName = UI.inPay === "invoice";
+        var nm = pickName ? UI.inName : $("inName").value;
         return {
           date: $("inDate").value,
-          name: $("inName").value,
+          name: nm === "__new" ? "" : nm,
           people: $("inPeople").value === "" ? NaN : Number($("inPeople").value),
           amount: $("inAmount").value === "" ? NaN : Number($("inAmount").value),
           pay: UI.inPay,
@@ -1514,6 +1528,7 @@
       function clearForm(keepDate) {
         var d = $("inDate").value;
         $("inName").value = "";
+        UI.inName = "";
         $("inPeople").value = "";
         $("inAmount").value = "";
         $("inMemo").value = "";
@@ -1561,6 +1576,11 @@
           saveSales();
           toast("✅ 保存しました");
         }
+        // 請求書送りで選んだ相手は、次から上に出す
+        if (raw.pay === "invoice" && PARTNERS[raw.name]) {
+          PARTNERS = C.touchPartner(PARTNERS, raw.name, new Date().toISOString());
+          savePartners();
+        }
         clearForm(true);
         renderAll();
       }
@@ -1574,6 +1594,7 @@
         UI.editId = id;
         $("inDate").value = s.date;
         $("inName").value = s.name;
+        UI.inName = s.name;
         $("inPeople").value = s.people;
         $("inAmount").value = s.amount;
         $("inMemo").value = s.memo || "";
@@ -2346,45 +2367,194 @@
         };
       }
 
+      // 登録した宛先の一覧。ふだんは見せない（請求書タブの「宛先を直す」で開く）
+      function openPartnerList() {
+        var list = C.partnerList(PARTNERS);
+        openModal(
+          "宛先",
+          '<div id="partnerList">' +
+            (list.length
+              ? list
+                  .map(function (x) {
+                    return (
+                      '<div class="li" data-pt="' +
+                      esc(x.name) +
+                      '"><div class="li-main"><div class="li-nm">' +
+                      esc(x.to || x.name) +
+                      "　" +
+                      esc(x.honor) +
+                      "</div>" +
+                      (x.person ? '<div class="li-sub">' + esc(x.person) + "</div>" : "") +
+                      "</div></div>"
+                    );
+                  })
+                  .join("")
+              : '<div class="empty">まだありません。</div>') +
+            "</div>" +
+            '<div class="btn-right" style="margin-top:12px">' +
+            '<button class="btn btn-ghost btn-sm" type="button" id="btnPartnerNew">' +
+            "＋ 新しく登録する</button></div>"
+        );
+        $("btnPartnerNew").onclick = function () {
+          openPartner("");
+        };
+        $("partnerList")
+          .querySelectorAll("[data-pt]")
+          .forEach(function (el) {
+            el.onclick = function () {
+              openPartner(el.getAttribute("data-pt"));
+            };
+          });
+      }
+
+      // 宛先の登録・修正。会社名がそのまま売上の名前になる（入力では選ぶだけ）。
+      // 会社名を直したときは、その名前で入っている売上も一緒に直す。
+      function openPartner(name, onSaved) {
+        var cur = PARTNERS[name] || { name: name || "", honor: "御中" };
+        openModal(
+          name ? "宛先を直す" : "宛先を登録する",
+          '<div class="frow"><span class="flabel">会社名（請求書に出す宛名）</span>' +
+            '<input class="finput" id="ptName" value="' +
+            esc(cur.to || cur.name) +
+            '" placeholder="例）株式会社◯◯"></div>' +
+            '<div class="frow"><span class="flabel">敬称</span><div class="chips" id="ptHonor">' +
+            '<button class="chip chip-sm" type="button" data-h="御中">御中</button>' +
+            '<button class="chip chip-sm" type="button" data-h="様">様</button></div></div>' +
+            '<div class="frow"><span class="flabel">担当者（宛名の下に出ます・任意）</span>' +
+            '<input class="finput" id="ptPerson" value="' +
+            esc(cur.person || "") +
+            '" placeholder="例）総務部 山本様"></div>' +
+            '<div class="err" id="ptErr"></div>' +
+            '<div style="margin-top:12px"><button class="btn btn-primary" id="ptOk">保存する</button></div>' +
+            (name
+              ? '<div class="btn-right" style="margin-top:10px">' +
+                '<button class="btn btn-ghost btn-danger btn-sm" id="ptDel">この宛先を消す</button></div>'
+              : "")
+        );
+        var honor = cur.honor === "様" ? "様" : "御中";
+        var syncHonor = function () {
+          $("ptHonor")
+            .querySelectorAll("[data-h]")
+            .forEach(function (b) {
+              b.classList.toggle("on", b.getAttribute("data-h") === honor);
+              b.onclick = function () {
+                honor = b.getAttribute("data-h");
+                syncHonor();
+              };
+            });
+        };
+        syncHonor();
+        $("ptOk").onclick = function () {
+          var raw = {
+            name: $("ptName").value,
+            honor: honor,
+            person: $("ptPerson").value,
+            lastUsedAt: cur.lastUsedAt || "",
+          };
+          var v = C.validatePartner(raw);
+          if (!v.ok) {
+            $("ptErr").textContent = v.errors.join("\n");
+            return;
+          }
+          var pt = C.normalizePartner(raw);
+          if (pt.name !== name && PARTNERS[pt.name]) {
+            $("ptErr").textContent = "その会社名はもう登録されています";
+            return;
+          }
+          if (name && pt.name !== name) {
+            // 会社名を直した＝売上に入っている名前も一緒に直す（請求書がバラけないように）
+            delete PARTNERS[name];
+            var moved = 0;
+            SALES.forEach(function (x) {
+              if (x.name === name) {
+                x.name = pt.name;
+                moved++;
+              }
+            });
+            if (moved) saveSales();
+            if (UI.invName === name) UI.invName = pt.name;
+            if (UI.inName === name) UI.inName = pt.name;
+          }
+          PARTNERS[pt.name] = pt;
+          savePartners();
+          closeModal();
+          renderAll();
+          toast("✅ 宛先を保存しました");
+          if (onSaved) onSaved(pt.name);
+        };
+        if ($("ptDel")) {
+          $("ptDel").onclick = function () {
+            delete PARTNERS[name];
+            savePartners();
+            closeModal();
+            renderAll();
+            toast("🗑 宛先を消しました");
+          };
+        }
+      }
+
+      // 「請求書送り」を選んだときだけ、名前は登録した宛先から選ぶ（最近選んだ順）。
+      // 打ち間違いで請求書が2つに割れないようにするため。
+      function syncNameField() {
+        var pick = UI.inPay === "invoice";
+        $("inName").style.display = pick ? "none" : "";
+        $("inNameSel").style.display = pick ? "" : "none";
+        if (!pick) return;
+        var list = C.partnerRecent(PARTNERS);
+        var have = {};
+        list.forEach(function (x) {
+          have[x.name] = 1;
+        });
+        // 昔の売上を直しているときは、登録が無い名前もそのまま選べるようにしておく
+        var extra = UI.inName && !have[UI.inName] ? UI.inName : "";
+        $("inNameSel").innerHTML =
+          '<option value="">（選んでください）</option>' +
+          (extra ? '<option value="' + esc(extra) + '">' + esc(extra) + "</option>" : "") +
+          list
+            .map(function (x) {
+              return '<option value="' + esc(x.name) + '">' + esc(x.name) + "</option>";
+            })
+            .join("") +
+          '<option value="__new">＋ 新しく登録する</option>';
+        $("inNameSel").value = UI.inName || "";
+      }
+
+      // 請求書は「◯月分」で1枚。月送りだけで区切る（掛売りの月締めと同じ）。
+      function renderInvPeriod() {
+        var el = $("periodInv");
+        el.innerHTML =
+          '<button class="period-arrow" type="button" data-imv="-1">◀</button>' +
+          '<span class="period-lb">' +
+          esc(C.jpMonth(UI.invYm)) +
+          "分</span>" +
+          '<button class="period-arrow" type="button" data-imv="1">▶</button>';
+        el.querySelectorAll("[data-imv]").forEach(function (b) {
+          b.onclick = function () {
+            UI.invYm = C.shiftMonth(UI.invYm, +b.getAttribute("data-imv"));
+            renderInv();
+          };
+        });
+      }
+
       function renderInvControls() {
-        var names = invoiceTargets();
+        renderInvPeriod();
+        var r = invRange();
+        var names = C.billableNames(SALES, r.from, r.to);
         var sel = $("invName");
         var cur = UI.invName;
-        // 相手の後ろに未回収の残高を出す（別に一覧を置かなくても分かるように）
-        var bal = {};
-        C.unpaidByName(SALES).forEach(function (u) {
-          bal[u.name] = u.amount;
-        });
         sel.innerHTML = names.length
           ? names
               .map(function (n) {
-                return (
-                  '<option value="' +
-                  esc(n) +
-                  '">' +
-                  esc(n) +
-                  "　" +
-                  C.yen(bal[n] || 0) +
-                  "</option>"
-                );
+                return '<option value="' + esc(n) + '">' + esc(n) + "</option>";
               })
               .join("")
-          : '<option value="">（未回収の相手はいません）</option>';
+          : '<option value="">（この月は請求書送り・ツケがありません）</option>';
         if (names.indexOf(cur) < 0) UI.invName = names[0] || "";
         sel.value = UI.invName;
-        $("invScope")
-          .querySelectorAll("[data-scope]")
-          .forEach(function (b) {
-            b.classList.toggle("on", b.getAttribute("data-scope") === UI.invScope);
-          });
-        $("invPeriodRow").style.display = UI.invScope === "period" ? "" : "none";
       }
 
       function invRange() {
-        if (UI.invScope === "period") {
-          return { from: $("invFrom").value || "", to: $("invTo").value || "" };
-        }
-        return { from: "", to: "" };
+        return C.rangeOfMonth(UI.invYm);
       }
 
       function currentInvoice() {
@@ -2393,6 +2563,8 @@
           name: UI.invName,
           from: r.from,
           to: r.to,
+          // その月の分は入金済みでも同じ1枚になる（あとから出し直しても中身が変わらない）
+          unpaidOnly: false,
           rate: SETTINGS.rate,
         });
         iv.no = invoiceNoFor(iv);
@@ -2406,7 +2578,7 @@
         for (var i = 0; i < INVOICES.length; i++) {
           if (INVOICES[i].key === key) return INVOICES[i].no;
         }
-        var ym = C.ymOf(iv.rows[iv.rows.length - 1].date) || C.ymOf(todayIso());
+        var ym = C.ymOf(iv.to) || C.ymOf(todayIso());
         var no = C.formatInvoiceNo(ym, C.nextInvoiceSeq(INVOICES, ym));
         INVOICES.push({
           key: key,
@@ -2474,14 +2646,25 @@
          共通部品(明細・合計・発行者など)は ivParts() で作り、置き場所だけ変える。
          判子は代行請求書アプリと同じ「社名の右端に重ねる（角印16mm）」。 */
       // 1枚に載る明細の行数（レイアウトごとに実測。1行30px・余白を測って詰めた値）
-      function invRowsFor(tpl) {
-        if (tpl === "band") return 13;
-        if (tpl === "tate") return 14;
-        return 14; // card
+      // 宛先に住所・担当者を登録していると、その分だけ上が伸びるので1行ずつ減らす。
+      function invRowsFor(tpl, subLines) {
+        var n = tpl === "band" ? 13 : 14; // tate / card は14
+        return Math.max(1, n - (subLines || 0));
+      }
+      // 宛先の下に出る行数（住所・担当者）
+      function invToSubLines(name) {
+        var a = C.invoiceTo(PARTNERS, name);
+        return a.person ? 1 : 0;
+      }
+
+      // 掛売りの請求日は締め日（その月の末日）。まだ月の途中なら今日。
+      function invIssueDate(iv) {
+        var t = todayIso();
+        return iv.to && iv.to < t ? iv.to : t;
       }
 
       function ivParts(iv) {
-        var ROWS = invRowsFor(SETTINGS.tpl || "card");
+        var ROWS = invRowsFor(SETTINGS.tpl || "card", invToSubLines(iv.name));
         var shown = iv.rows.slice(0, ROWS);
         var marked = C.markFirstOfDate(shown);
         var body = marked
@@ -2502,8 +2685,8 @@
             );
           })
           .join("");
-        // 期間を指定したときだけ「対象期間」を出す（未入金をまとめる普段使いでは何も書かない）
-        var period = iv.from && iv.to ? C.jpDate(iv.from) + " 〜 " + C.jpDate(iv.to) : "";
+        // 何月の分かを紙にも出す
+        var period = iv.from && iv.to ? C.jpMonth(C.ymOf(iv.to)) + "分" : "";
         return {
           // ロゴ（上に置くとき用）。定番は右上＝発行者の名乗りを先に見せる。
           logoTop:
@@ -2512,11 +2695,21 @@
               : "",
           meta:
             '<div class="iv-meta">請求日　' +
-            esc(C.jpDate(todayIso())) +
+            esc(C.jpDate(invIssueDate(iv))) +
             "<br>No.　" +
             esc(iv.no) +
             "</div>",
-          to: '<div class="iv-tolb">宛名</div><div class="iv-to">' + esc(iv.name) + "　御中</div>",
+          to: (function () {
+            var a = C.invoiceTo(PARTNERS, iv.name);
+            return (
+              '<div class="iv-tolb">宛名</div><div class="iv-to">' +
+              esc(a.to) +
+              "　" +
+              esc(a.honor) +
+              "</div>" +
+              (a.person ? '<div class="iv-tosub">' + esc(a.person) + "</div>" : "")
+            );
+          })(),
           lead: '<div class="iv-lead">ご来店いただきありがとうございました。<br>下記の通りご請求申し上げます。</div>',
           grand:
             '<div class="iv-grand"><span>ご請求金額（税込）</span><b>¥' +
@@ -2740,6 +2933,7 @@
         ".iv-tolb{font-size:9.5px;letter-spacing:2px;color:#8a847b;}",
         ".iv-to{font-family:'Noto Serif JP',serif;font-size:19px;font-weight:600;",
         "letter-spacing:2px;padding:3px 0 7px;}",
+        ".iv-tosub{font-size:10.5px;line-height:1.8;color:#5a554e;margin-top:6px;}",
         ".iv-lead{font-size:10.5px;line-height:1.9;color:#5a554e;margin-top:8px;}",
         // 金額は幅400px(=約106mm)の1枚の箱。ラベルと数字を近づけて前後に空白を作らない
         // （書き換え・付け足しの防止）。
@@ -2750,7 +2944,8 @@
         "font-weight:600;letter-spacing:1px;}",
         ".iv-cap{font-family:'Noto Serif JP',serif;font-size:11.5px;letter-spacing:3px;",
         "margin:22px 0 6px;display:flex;align-items:baseline;}",
-        ".iv-cap span{margin-left:auto;font-family:'Noto Sans JP',sans-serif;font-size:9.5px;",
+        // 何月分かは見出しのすぐ横（右端まで目を動かさなくていい）
+        ".iv-cap span{margin-left:12px;font-family:'Noto Sans JP',sans-serif;font-size:9.5px;",
         "letter-spacing:0;color:#8a847b;}",
         ".iv-tbl{width:100%;border-collapse:collapse;table-layout:fixed;}",
         ".iv-tbl th{font-size:10px;font-weight:500;border:none;padding:7px 8px;text-align:right;",
@@ -3043,6 +3238,7 @@
           sales: SALES,
           settings: SETTINGS,
           invoices: INVOICES,
+          partners: PARTNERS,
         };
         var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
         var a = document.createElement("a");
@@ -3107,6 +3303,10 @@
         if (Array.isArray(data.invoices)) {
           INVOICES = data.invoices;
           saveInvoices();
+        }
+        if (data.partners && typeof data.partners === "object") {
+          PARTNERS = data.partners;
+          savePartners();
         }
         saveSales();
         closeModal();
@@ -3173,9 +3373,8 @@
         load();
         var t = todayIso();
         UI.period.ym = C.ymOf(t);
+        UI.invYm = C.ymOf(t);
         $("inDate").value = t;
-        $("invFrom").value = C.rangeOfMonth(UI.period.ym).from;
-        $("invTo").value = C.rangeOfMonth(UI.period.ym).to;
 
         buildInputChips();
         buildListFilters();
@@ -3221,18 +3420,26 @@
           printSheets("invSheets", "請求書");
         };
 
+        $("btnPartners").onclick = function () {
+          openPartnerList();
+        };
+        $("inNameSel").onchange = function () {
+          var v = $("inNameSel").value;
+          if (v === "__new") {
+            $("inNameSel").value = UI.inName || "";
+            openPartner("", function (nm) {
+              UI.inName = nm;
+              showScreen("input");
+              syncNameField();
+            });
+            return;
+          }
+          UI.inName = v;
+        };
         $("invName").onchange = function () {
           UI.invName = $("invName").value;
           renderInv();
         };
-        $("invScope")
-          .querySelectorAll("[data-scope]")
-          .forEach(function (b) {
-            b.onclick = function () {
-              UI.invScope = b.getAttribute("data-scope");
-              renderInv();
-            };
-          });
         $("invTpl")
           .querySelectorAll("[data-tpl]")
           .forEach(function (b) {
@@ -3243,8 +3450,6 @@
               fitSheets("invScale", "invSheets");
             };
           });
-        $("invFrom").onchange = renderInv;
-        $("invTo").onchange = renderInv;
         $("btnPaid").onclick = function () {
           if (!UI.invName) {
             toast("請求する相手がいません");

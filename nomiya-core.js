@@ -540,6 +540,96 @@
   }
 
   /* ===================================================================
+     宛先（請求書送りの相手）
+     ─ 会社名がそのまま鍵。入力画面で「請求書送り」を選ぶと、
+       ここに登録した会社名から選ぶ（最近選んだ順）ので、打ち間違いが起きない。
+       登録が無い名前（ツケの個人客など）は名前に「御中」を付けるだけ（今までと同じ）。
+     =================================================================== */
+  function normalizePartner(raw, now) {
+    var r = raw || {};
+    var name = String(r.name == null ? "" : r.name).trim();
+    var to = String(r.to == null ? "" : r.to).trim(); // 昔のデータは宛名を別に持っている
+    return {
+      name: name, // 会社名（売上にもこの名前で入る）
+      to: to || name, // 請求書に出す宛名
+      honor: r.honor === "様" ? "様" : "御中", // 敬称
+      person: String(r.person == null ? "" : r.person).trim(), // 担当者
+      lastUsedAt: String(r.lastUsedAt == null ? "" : r.lastUsedAt), // 最後に選んだとき
+      updatedAt: now || new Date().toISOString(),
+    };
+  }
+  function validatePartner(raw) {
+    var errors = [];
+    var r = raw || {};
+    if (!String(r.name == null ? "" : r.name).trim()) errors.push("会社名を入れてください");
+    return { ok: errors.length === 0, errors: errors };
+  }
+  /**
+   * touchPartner(partners, name, now)
+   *  その宛先を「今選んだ」ことにする。並び順（最近選んだ順）に使う。
+   *  登録が無い名前なら何もしない。元のオブジェクトは変えず、新しいものを返す。
+   */
+  function touchPartner(partners, name, now) {
+    var m = partners || {};
+    var nm = String(name == null ? "" : name).trim();
+    if (!m[nm]) return m;
+    var out = {};
+    Object.keys(m).forEach(function (k) {
+      out[k] = m[k];
+    });
+    var p = {};
+    Object.keys(m[nm]).forEach(function (k) {
+      p[k] = m[nm][k];
+    });
+    p.lastUsedAt = now || new Date().toISOString();
+    out[nm] = p;
+    return out;
+  }
+  /**
+   * partnerRecent(partners)
+   *  最近選んだ順。まだ選んでいないものは、あとから登録したものを先に。
+   */
+  function partnerRecent(partners) {
+    var m = partners || {};
+    return Object.keys(m)
+      .map(function (k) {
+        return m[k];
+      })
+      .sort(function (a, b) {
+        var al = a.lastUsedAt || "";
+        var bl = b.lastUsedAt || "";
+        if (al !== bl) return al < bl ? 1 : -1; // 最近選んだものが上
+        var au = a.updatedAt || "";
+        var bu = b.updatedAt || "";
+        if (au !== bu) return au < bu ? 1 : -1;
+        return String(a.name) < String(b.name) ? -1 : 1;
+      });
+  }
+  /**
+   * invoiceTo(partners, name)
+   *  請求書の宛名まわりを決める。登録が無くても必ず出せる形を返す。
+   */
+  function invoiceTo(partners, name) {
+    var nm = String(name == null ? "" : name).trim();
+    var p = (partners || {})[nm] || {};
+    return {
+      to: String(p.to || nm).trim(),
+      honor: p.honor === "様" ? "様" : "御中",
+      person: String(p.person || "").trim(),
+      registered: !!(partners || {})[nm],
+    };
+  }
+  // 登録済みの宛先を名前順で並べる
+  function partnerList(partners) {
+    var m = partners || {};
+    return Object.keys(m)
+      .sort()
+      .map(function (k) {
+        return m[k];
+      });
+  }
+
+  /* ===================================================================
      名前のサジェスト（よく使う順→最近使った順）
      =================================================================== */
   function nameSuggestions(sales, limit) {
@@ -596,6 +686,23 @@
   // 同じ相手・同じ期間の請求書は同じ番号を使い回す（プレビューのたびに採番しない）
   function invoiceKey(name, from, to) {
     return name + "" + from + "" + to;
+  }
+
+  /**
+   * billableNames(sales, from, to)
+   *  その月に「請求書送り・ツケ」の売上がある相手。入金済みかどうかは見ない
+   *  （月で区切った請求書は、あとから出し直しても同じ中身になる）。古い売上の順。
+   */
+  function billableNames(sales, from, to) {
+    var seen = {};
+    var out = [];
+    sortSales(filterSales(sales, { from: from, to: to })).forEach(function (s) {
+      if (!isUnpaidMethod(s.pay)) return;
+      if (!s.name || seen[s.name]) return;
+      seen[s.name] = 1;
+      out.push(s.name);
+    });
+    return out;
   }
 
   /**
@@ -715,10 +822,17 @@
     unpaidGroups: unpaidGroups,
     markFirstOfDate: markFirstOfDate,
     nameSuggestions: nameSuggestions,
+    normalizePartner: normalizePartner,
+    validatePartner: validatePartner,
+    invoiceTo: invoiceTo,
+    partnerList: partnerList,
+    partnerRecent: partnerRecent,
+    touchPartner: touchPartner,
     taxIncluded: taxIncluded,
     formatInvoiceNo: formatInvoiceNo,
     nextInvoiceSeq: nextInvoiceSeq,
     invoiceKey: invoiceKey,
+    billableNames: billableNames,
     buildInvoice: buildInvoice,
     paginate: paginate,
     ledgerPages: ledgerPages,

@@ -27,10 +27,20 @@ async function open(page) {
 async function addSale(page, s) {
   await page.locator(".nav-item[data-scr='input']").click();
   await page.locator("#inDate").fill(s.date);
-  await page.locator("#inName").fill(s.name);
+  await page.locator(`#payChips button[data-pay="${s.pay}"]`).click();
+  // 請求書送りだけは自由入力ではなく、登録した宛先から選ぶ（無ければその場で登録する）
+  if (s.pay === "invoice") {
+    if ((await page.locator(`#inNameSel option[value="${s.name}"]`).count()) === 0) {
+      await page.locator("#inNameSel").selectOption("__new");
+      await page.locator("#ptName").fill(s.name);
+      await page.locator("#ptOk").click();
+    }
+    await page.locator("#inNameSel").selectOption(s.name);
+  } else {
+    await page.locator("#inName").fill(s.name);
+  }
   await page.locator("#inPeople").fill(String(s.people));
   await page.locator("#inAmount").fill(String(s.amount));
-  await page.locator(`#payChips button[data-pay="${s.pay}"]`).click();
   // 領収書は支払い方法ごとに選べるものが違う。true=あり / false=その方法の既定のまま。
   const rec = s.receipt === true ? "issued" : s.receipt === false ? null : s.receipt;
   if (rec) await page.locator(`#recChips button[data-rec="${rec}"]`).click();
@@ -49,8 +59,15 @@ const SEED = [
 // 請求書タブの「見た目を変える」は畳んである。開いてから触る。
 async function openLook(page) {
   await page.locator(".nav-item[data-scr='inv']").click();
-  const d = page.locator("#scr-inv .look");
+  const d = page.locator("#scr-inv .look:not(#partnerBox)");
   if (!(await d.evaluate((el) => el.open))) await d.locator("summary").click();
+}
+
+// 宛先の一覧は画面に置かない。請求書タブの「宛先を直す」で開く。
+async function openPartners(page) {
+  await page.locator(".nav-item[data-scr='inv']").click();
+  await page.locator("#btnPartners").click();
+  await expect(page.locator("#partnerList")).toBeVisible();
 }
 
 async function seed(page) {
@@ -106,7 +123,7 @@ test.describe("飲み屋 売上管理", () => {
     expect(saved.length).toBe(5);
     expect(saved.map((s) => s.pay)).toEqual(["cash", "invoice", "paypay", "tsuke", "credit"]);
     expect(saved.filter((s) => s.receipt === "issued").length).toBe(2);
-    // 支払い方法ごとの既定が入る: 現金=なし / 振込=不要 / PayPay=不要 / ツケ=あとで
+    // 支払い方法ごとの既定が入る: 現金=なし / 振込=なし(na) / PayPay=なし(na) / ツケ=あとで
     expect(saved.map((s) => s.receipt)).toEqual(["none", "issued", "na", "later", "issued"]);
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
@@ -234,13 +251,11 @@ test.describe("飲み屋 売上管理", () => {
     // 日別（3日分）
     await expect(page.locator("#sumDay tbody tr")).toHaveCount(3);
 
-    // 未回収は請求書タブの「請求する相手」に残高つきで出る
+    // 未回収は請求書タブの「請求する相手」に名前だけ並ぶ（金額は紙に出る）
     await page.locator(".nav-item[data-scr='inv']").click();
     const opts = await page.locator("#invName option").allInnerTexts();
-    expect(opts.map((t) => t.replace(/\s+/g, " ").trim())).toEqual([
-      "山本商事 ¥32,000",
-      "田中 ¥5,000",
-    ]);
+    expect(opts.map((t) => t.trim())).toEqual(["山本商事", "田中"]);
+    await expect(page.locator("#invSheets .iv-grand")).toContainText("¥32,000");
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 
@@ -257,15 +272,19 @@ test.describe("飲み屋 売上管理", () => {
       receipt: false,
     });
     await page.locator(".nav-item[data-scr='inv']").click();
-    // 田中は ツケ5,000 + 請求書送り7,000 = 12,000
-    await expect(page.locator("#invName option[value='田中']")).toContainText("¥12,000");
-
-    // 田中の請求分（未入金すべて）を入金済みにする → 相手からいなくなる
+    // 田中は ツケ5,000 + 請求書送り7,000 = 12,000（金額は紙の合計で確かめる）
     await page.locator("#invName").selectOption("田中");
+    await expect(page.locator("#invSheets .iv-grand")).toContainText("¥12,000");
+
+    // 田中の7月分を入金済みにする → 未回収は山本商事だけになる
     await page.locator("#btnPaid").click();
     await page.locator("#mdPaidOk").click();
-    await expect(page.locator("#invName option[value='田中']")).toHaveCount(0);
-    await expect(page.locator("#invName option[value='山本商事']")).toContainText("¥32,000");
+    await expect(page.locator("#invBadge")).toHaveText("1");
+    // 7月分の請求書は中身が変わらない（あとから出し直せる）
+    await expect(page.locator("#invName option[value='田中']")).toHaveCount(1);
+    await expect(page.locator("#invSheets .iv-grand")).toContainText("¥12,000");
+    await page.locator("#invName").selectOption("山本商事");
+    await expect(page.locator("#invSheets .iv-grand")).toContainText("¥32,000");
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 
@@ -310,7 +329,7 @@ test.describe("飲み屋 売上管理", () => {
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 
-  test("集計タブ: 入金を記録すると未回収から消え、売上は減らない", async ({ page }) => {
+  test("入金を記録すると未回収が減り、売上もその月の請求書も変わらない", async ({ page }) => {
     const errors = await open(page);
     await seed(page);
     await page.locator(".nav-item[data-scr='inv']").click();
@@ -320,9 +339,11 @@ test.describe("飲み屋 売上管理", () => {
     await page.locator("#mdPaidDate").fill("2026-08-10");
     await page.locator("#mdPaidOk").click();
 
-    // 山本商事は消え、田中のツケ5,000だけ残る
-    await expect(page.locator("#invName option[value='山本商事']")).toHaveCount(0);
-    await expect(page.locator("#invName option[value='田中']")).toContainText("¥5,000");
+    // 未回収は田中のツケだけになる（バッジが2→1）
+    await expect(page.locator("#invBadge")).toHaveText("1");
+    // 7月分の請求書はそのまま出せる（入金しても中身は変わらない）
+    await expect(page.locator("#invName option[value='山本商事']")).toHaveCount(1);
+    await expect(page.locator("#invSheets .iv-grand")).toContainText("¥32,000");
     // 売上は変わらない
     await page.locator(".nav-item[data-scr='sum']").click();
     await expect(page.locator("#sumStrip .strip-v").nth(0)).toHaveText("¥82,000");
@@ -413,7 +434,7 @@ test.describe("飲み屋 売上管理", () => {
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 
-  test("領収書の選択肢が支払い方法で変わる（振込は「不要」が既定）", async ({ page }) => {
+  test("領収書の選択肢が支払い方法で変わる（振込・カードは「なし」が既定）", async ({ page }) => {
     const errors = await open(page);
     const recs = () =>
       page.locator("#recChips button").evaluateAll((els) => els.map((e) => e.dataset.rec));
@@ -421,15 +442,14 @@ test.describe("飲み屋 売上管理", () => {
     expect(await recs()).toEqual(["none", "issued"]);
     await expect(page.locator("#recChips button[data-rec='none']")).toHaveClass(/on/);
 
-    // 請求書送り = 不要 / あり。既定は「不要（請求書で足りる）」
+    // 請求書送りもカードも言い方は同じ「なし / あり」。既定は「なし」
     await page.locator("#payChips button[data-pay='invoice']").click();
     expect(await recs()).toEqual(["na", "issued"]);
     await expect(page.locator("#recChips button[data-rec='na']")).toHaveClass(/on/);
-    await expect(page.locator("#recChips button[data-rec='na']")).toContainText("請求書で足りる");
+    await expect(page.locator("#recChips button[data-rec='na']")).toHaveText("なし");
 
-    // カードも「不要」だが理由が違う（売上票）
     await page.locator("#payChips button[data-pay='credit']").click();
-    await expect(page.locator("#recChips button[data-rec='na']")).toContainText("売上票で足りる");
+    await expect(page.locator("#recChips button[data-rec='na']")).toHaveText("なし");
 
     // ツケ = あとで渡す / 渡した / なし
     await page.locator("#payChips button[data-pay='tsuke']").click();
@@ -483,7 +503,7 @@ test.describe("飲み屋 売上管理", () => {
     await page.locator("#payChips button[data-pay='cash']").click();
     await page.locator("#recChips button[data-rec='issued']").click();
     await expect(page.locator("#recNote")).toContainText("収入印紙が必要");
-    // カード払いに変えると既定が「不要」になり、理由が出る
+    // カード払いに変えると既定が「なし」になり、理由が出る
     await page.locator("#payChips button[data-pay='credit']").click();
     await expect(page.locator("#recNote")).toContainText("売上票");
     // それでも出す場合は「あり」を選ぶ＝印紙不要と二重発行の注意
@@ -697,12 +717,12 @@ test.describe("飲み屋 売上管理", () => {
       .evaluate((el) => el.offsetHeight);
     expect(h).toBe(1123);
 
-    // 「この請求分を入金済みにする」で未回収から消える
+    // 「この請求分を入金済みにする」で未回収が減る（紙は7月分のまま）
     await page.locator("#btnPaid").click();
     await page.locator("#mdPaidOk").click();
-    await page.locator(".nav-item[data-scr='inv']").click();
-    await expect(page.locator("#invName option[value='山本商事']")).toHaveCount(0);
-    await expect(page.locator("#invName option[value='田中']")).toContainText("¥5,000");
+    await expect(page.locator("#invBadge")).toHaveText("1");
+    await expect(page.locator("#invName option[value='山本商事']")).toHaveCount(1);
+    await expect(page.locator("#invSheets .iv-grand b")).toHaveText("¥47,000");
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 
@@ -921,6 +941,214 @@ test.describe("飲み屋 売上管理", () => {
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 
+  test("請求書送りは名前を打たずに、登録した会社から選ぶ（最近選んだ順）", async ({ page }) => {
+    const errors = await open(page);
+
+    // ふだんは自由入力。請求書送りを押した瞬間だけドロップダウンになる
+    await page.locator("#inDate").fill("2026-07-03");
+    await expect(page.locator("#inName")).toBeVisible();
+    await expect(page.locator("#inNameSel")).toBeHidden();
+    await page.locator("#payChips button[data-pay='invoice']").click();
+    await expect(page.locator("#inName")).toBeHidden();
+    await expect(page.locator("#inNameSel")).toBeVisible();
+    // まだ登録が無いので「選んでください」と「＋ 新しく登録する」だけ
+    expect(await page.locator("#inNameSel option").allInnerTexts()).toEqual([
+      "（選んでください）",
+      "＋ 新しく登録する",
+    ]);
+
+    // その場で登録する → 選ばれた状態で戻ってくる
+    await page.locator("#inNameSel").selectOption("__new");
+    await page.locator("#ptName").fill("株式会社山本商事");
+    await page.locator("#ptPerson").fill("総務部 山本 様");
+    await page.locator("#ptOk").click();
+    await expect(page.locator("#scr-input")).toBeVisible();
+    await expect(page.locator("#inNameSel")).toHaveValue("株式会社山本商事");
+
+    await page.locator("#inPeople").fill("4");
+    await page.locator("#inAmount").fill("32000");
+    await page.locator("#btnSave").click();
+    expect(await page.evaluate(() => window.__NOMIYA.sales[0].name)).toBe("株式会社山本商事");
+
+    // 現金に戻すと自由入力に戻る（個人客は打てる）
+    await page.locator("#payChips button[data-pay='cash']").click();
+    await expect(page.locator("#inName")).toBeVisible();
+    await expect(page.locator("#inNameSel")).toBeHidden();
+
+    // 2社目を登録すると、最後に選んだ会社が上に来る
+    await page.locator("#payChips button[data-pay='invoice']").click();
+    await page.locator("#inNameSel").selectOption("__new");
+    await page.locator("#ptName").fill("田中建設株式会社");
+    await page.locator("#ptOk").click();
+    await page.locator("#inPeople").fill("2");
+    await page.locator("#inAmount").fill("9000");
+    await page.locator("#btnSave").click();
+
+    await page.locator("#payChips button[data-pay='invoice']").click();
+    expect(await page.locator("#inNameSel option").allInnerTexts()).toEqual([
+      "（選んでください）",
+      "田中建設株式会社",
+      "株式会社山本商事",
+      "＋ 新しく登録する",
+    ]);
+    // 選び直さないまま保存はできない（相手を間違えないため）
+    await page.locator("#inAmount").fill("5000");
+    await page.locator("#btnSave").click();
+    await expect(page.locator("#inErr")).toContainText("名前");
+    expect(await page.evaluate(() => window.__NOMIYA.sales.length)).toBe(2);
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("請求書は「◯月分」で1枚（月送りで前の月も出せる・紙に期間が出る）", async ({ page }) => {
+    const errors = await open(page);
+    await seed(page); // 7月に 山本商事(請求書送り32,000) と 田中(ツケ5,000)
+    // 6月にも1件入れておく
+    await addSale(page, {
+      date: "2026-06-20",
+      name: "山本商事",
+      people: 2,
+      amount: 9000,
+      pay: "invoice",
+      receipt: false,
+    });
+
+    await page.locator(".nav-item[data-scr='inv']").click();
+    // 起動時は今月。テストの月に合わせるため、2026年7月まで送る
+    const label = () => page.locator("#periodInv .period-lb");
+    for (let i = 0; i < 36; i++) {
+      if ((await label().innerText()).trim() === "2026年7月分") break;
+      const now = (await label().innerText()).trim();
+      await page.locator(`#periodInv [data-imv="${now > "2026年7月分" ? -1 : 1}"]`).click();
+    }
+    await expect(label()).toHaveText("2026年7月分");
+
+    // その月に請求書送り・ツケがある相手だけ出る
+    expect((await page.locator("#invName option").allInnerTexts()).map((t) => t.trim())).toEqual([
+      "山本商事",
+      "田中",
+    ]);
+    await page.locator("#invName").selectOption("山本商事");
+    await expect(page.locator("#invSheets .iv-grand b")).toHaveText("¥32,000");
+    // 紙に「◯月分（期間）」が出る
+    await expect(page.locator("#invSheets .iv-cap")).toContainText("2026年7月分");
+    await expect(page.locator("#invSheets .iv-meta")).toContainText("202607-");
+
+    // ◀ で6月分。中身も番号も6月のものに変わる
+    await page.locator('#periodInv [data-imv="-1"]').click();
+    await expect(label()).toHaveText("2026年6月分");
+    expect((await page.locator("#invName option").allInnerTexts()).map((t) => t.trim())).toEqual([
+      "山本商事",
+    ]);
+    await expect(page.locator("#invSheets .iv-grand b")).toHaveText("¥9,000");
+    await expect(page.locator("#invSheets .iv-cap")).toContainText("2026年6月分");
+    // 過ぎた月なので請求日は締め日（その月の末日）
+    await expect(page.locator("#invSheets .iv-meta")).toContainText("2026年6月30日");
+    await expect(page.locator("#invSheets .iv-meta")).toContainText("202606-");
+
+    // 売上が無い月は相手がいない＝見本になる
+    await page.locator('#periodInv [data-imv="-1"]').click();
+    await expect(label()).toHaveText("2026年5月分");
+    await expect(page.locator("#invName")).toContainText("この月は請求書送り・ツケがありません");
+    await expect(page.locator("#invSample")).toBeVisible();
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("宛先マスタ: 請求書の宛名が会社名になり、担当者が出る（A4を割らない）", async ({ page }) => {
+    const errors = await open(page);
+    await seed(page);
+
+    // 担当者を足す（相手の住所は請求書には出さない）
+    await openPartners(page);
+    await expect(page.locator("#partnerList .li")).toHaveCount(1);
+    await page.locator("#partnerList .li").click();
+    await expect(page.locator("#ptName")).toHaveValue("山本商事");
+    await page.locator("#ptPerson").fill("総務部 山本 様");
+    await page.locator("#ptOk").click();
+
+    await page.locator("#invName").selectOption("山本商事");
+    await expect(page.locator("#invSheets .iv-to")).toHaveText("山本商事　御中");
+    await expect(page.locator("#invSheets .iv-tosub")).toHaveText("総務部 山本 様");
+    // 相手の住所は出さない（登録する欄も置いていない）
+    await expect(page.locator("#invSheets")).not.toContainText("愛媛県今治市栄町");
+
+    // 明細が多くても、担当者のぶんだけ行を減らしてA4に収める
+    for (let i = 6; i <= 26; i++) {
+      await addSale(page, {
+        date: "2026-07-" + String(i).padStart(2, "0"),
+        name: "山本商事",
+        people: 2,
+        amount: 5000,
+        pay: "invoice",
+        receipt: false,
+      });
+    }
+    await openLook(page);
+    for (const tpl of ["band", "tate", "card"]) {
+      await page.locator(`#invTpl button[data-tpl="${tpl}"]`).click();
+      const m = await page
+        .locator("#invSheets .sheet")
+        .first()
+        .evaluate((el) => ({ h: el.offsetHeight, sh: el.scrollHeight }));
+      expect(m.h, `${tpl} がA4(1123px)を超えている`).toBe(1123);
+      expect(m.sh, `${tpl} の中身が紙からはみ出している`).toBeLessThanOrEqual(1123);
+    }
+
+    // 登録していない相手（ツケの田中）は名前＋御中のまま
+    await page.locator("#invName").selectOption("田中");
+    await expect(page.locator("#invSheets .iv-to")).toHaveText("田中　御中");
+    await expect(page.locator("#invSheets .iv-tosub")).toHaveCount(0);
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("宛先マスタ: 会社名を直すと売上の名前も一緒に直る・様にできる・消せる", async ({ page }) => {
+    const errors = await open(page);
+    await seed(page);
+
+    // 会社名を「株式会社」付きに直す → 売上帳の名前も請求書の宛名も一緒に変わる
+    await openPartners(page);
+    await page.locator("#partnerList .li").click();
+    await page.locator("#ptName").fill("株式会社山本商事");
+    await page.locator("#ptHonor button[data-h='様']").click();
+    await page.locator("#ptOk").click();
+    expect(await page.evaluate(() => window.__NOMIYA.sales.map((s) => s.name))).toContain(
+      "株式会社山本商事"
+    );
+    await page.locator("#invName").selectOption("株式会社山本商事");
+    await expect(page.locator("#invSheets .iv-to")).toHaveText("株式会社山本商事　様");
+    // 売上帳にも新しい名前で出る（件数は増えていない）
+    await page.locator(".nav-item[data-scr='list']").click();
+    await expect(page.locator("#listSheets tr[data-id]")).toHaveCount(5);
+    await expect(page.locator("#listSheets")).toContainText("株式会社山本商事");
+
+    // 開き直しても残る
+    await page.reload({ waitUntil: "load" });
+    await openPartners(page);
+    await expect(page.locator("#partnerList .li-nm")).toHaveText("株式会社山本商事　様");
+
+    // 同じ会社名は2つ作れない
+    await page.locator("#btnPartnerNew").click();
+    await page.locator("#ptName").fill("株式会社山本商事");
+    await page.locator("#ptOk").click();
+    await expect(page.locator("#ptErr")).toContainText("もう登録されています");
+    // 会社名が空でも保存できない
+    await page.locator("#ptName").fill("");
+    await page.locator("#ptOk").click();
+    await expect(page.locator("#ptErr")).toContainText("会社名");
+    await page.locator("#modalX").click();
+
+    // 消すと売上はそのまま残り、宛名は名前＋御中に戻る
+    await openPartners(page);
+    await page.locator("#partnerList .li").click();
+    await page.locator("#ptDel").click();
+    await openPartners(page);
+    await expect(page.locator("#partnerList .empty")).toBeVisible();
+    await page.locator("#modalX").click();
+    await page.locator("#invName").selectOption("株式会社山本商事");
+    await expect(page.locator("#invSheets .iv-to")).toHaveText("株式会社山本商事　御中");
+    expect(await page.evaluate(() => window.__NOMIYA.sales.length)).toBe(5);
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
   test("入れ直しても消えない（開き直しても残る）", async ({ page }) => {
     const errors = await open(page);
     await addSale(page, {
@@ -934,7 +1162,8 @@ test.describe("飲み屋 売上管理", () => {
     await page.reload({ waitUntil: "load" });
     expect(await page.evaluate(() => window.__NOMIYA.sales.length)).toBe(1);
     await page.locator(".nav-item[data-scr='inv']").click();
-    await expect(page.locator("#invName option[value='田中']")).toContainText("¥8,000");
+    await expect(page.locator("#invName option[value='田中']")).toHaveCount(1);
+    await expect(page.locator("#invSheets .iv-grand")).toContainText("¥8,000");
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 });

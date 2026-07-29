@@ -514,6 +514,80 @@ describe("未回収は「請求書送り」と「ツケ」に分ける", () => {
   });
 });
 
+describe("宛先（請求書送りの相手）", () => {
+  it("登録が無ければ名前をそのまま宛名にして「御中」を付ける（今までと同じ）", () => {
+    const t = C.invoiceTo({}, "山本商事");
+    expect(t).toEqual({ to: "山本商事", honor: "御中", person: "", registered: false });
+  });
+  it("登録があれば宛名・敬称・担当者を差し替える", () => {
+    const partners = {
+      山本商事: C.normalizePartner(
+        {
+          name: "山本商事",
+          to: "株式会社山本商事",
+          honor: "御中",
+          person: "総務部 山本様",
+        },
+        "2026-07-28T00:00:00.000Z"
+      ),
+    };
+    const t = C.invoiceTo(partners, "山本商事");
+    expect(t.to).toBe("株式会社山本商事");
+    expect(t.person).toBe("総務部 山本様");
+    expect(t.registered).toBe(true);
+  });
+  it("個人客は「様」も選べる（変な値は御中に倒す）", () => {
+    expect(C.normalizePartner({ name: "田中", honor: "様" }).honor).toBe("様");
+    expect(C.normalizePartner({ name: "田中", honor: "殿" }).honor).toBe("御中");
+    expect(C.normalizePartner({ name: "田中" }).honor).toBe("御中");
+  });
+  it("前後の空白は落とす・名前が無ければ弾く", () => {
+    const p = C.normalizePartner({ name: "  山本商事  ", to: " 株式会社山本商事 " });
+    expect(p.name).toBe("山本商事");
+    expect(p.to).toBe("株式会社山本商事");
+    expect(C.validatePartner({ name: "   " }).ok).toBe(false);
+    expect(C.validatePartner({ name: "山本商事" }).ok).toBe(true);
+  });
+  it("登録済みは名前順に並ぶ", () => {
+    const m = {
+      田中: C.normalizePartner({ name: "田中" }),
+      山本商事: C.normalizePartner({ name: "山本商事" }),
+      あかり: C.normalizePartner({ name: "あかり" }),
+    };
+    expect(C.partnerList(m).map((x) => x.name)).toEqual(["あかり", "山本商事", "田中"]);
+    expect(C.partnerList({})).toEqual([]);
+    expect(C.partnerList(null)).toEqual([]);
+  });
+  it("宛名を別に打たなければ会社名がそのまま宛名になる", () => {
+    const p = C.normalizePartner({ name: "株式会社山本商事" });
+    expect(p.to).toBe("株式会社山本商事");
+    expect(C.invoiceTo({ 株式会社山本商事: p }, "株式会社山本商事").to).toBe("株式会社山本商事");
+  });
+  it("選ぶと「最近選んだ順」の先頭に来る（選んでいないものは新しく登録したものが先）", () => {
+    let m = {
+      A社: C.normalizePartner({ name: "A社" }, "2026-07-01T00:00:00.000Z"),
+      B社: C.normalizePartner({ name: "B社" }, "2026-07-02T00:00:00.000Z"),
+      C社: C.normalizePartner({ name: "C社" }, "2026-07-03T00:00:00.000Z"),
+    };
+    // まだ一度も選んでいないうちは、あとから登録したものが上
+    expect(C.partnerRecent(m).map((x) => x.name)).toEqual(["C社", "B社", "A社"]);
+    m = C.touchPartner(m, "A社", "2026-07-10T00:00:00.000Z");
+    expect(C.partnerRecent(m).map((x) => x.name)).toEqual(["A社", "C社", "B社"]);
+    m = C.touchPartner(m, "B社", "2026-07-11T00:00:00.000Z");
+    expect(C.partnerRecent(m).map((x) => x.name)).toEqual(["B社", "A社", "C社"]);
+    expect(C.partnerRecent({})).toEqual([]);
+    expect(C.partnerRecent(null)).toEqual([]);
+  });
+  it("登録していない名前を選んでも壊れない・元のデータは変えない", () => {
+    const m = { A社: C.normalizePartner({ name: "A社" }, "2026-07-01T00:00:00.000Z") };
+    expect(C.touchPartner(m, "知らない会社", "2026-07-10T00:00:00.000Z")).toBe(m);
+    const after = C.touchPartner(m, "A社", "2026-07-10T00:00:00.000Z");
+    expect(m["A社"].lastUsedAt).toBe(""); // 元は変わらない
+    expect(after["A社"].lastUsedAt).toBe("2026-07-10T00:00:00.000Z");
+    expect(after["A社"].updatedAt).toBe("2026-07-01T00:00:00.000Z"); // 直したわけではない
+  });
+});
+
 describe("名前サジェスト", () => {
   it("最近来た人が上に来る", () => {
     const s = C.nameSuggestions(SALES);
@@ -575,6 +649,28 @@ describe("請求書", () => {
         unpaidOnly: false,
       }).total
     ).toBe(47000);
+  });
+  it("その月に請求書送り・ツケがある相手だけが並ぶ（現金の客は出ない）", () => {
+    const r = C.rangeOfMonth("2026-07");
+    expect(C.billableNames(SALES, r.from, r.to)).toEqual(["山本商事", "田中"]);
+    // 8月は売上が無ければ誰も出ない
+    const r8 = C.rangeOfMonth("2026-08");
+    expect(C.billableNames(SALES, r8.from, r8.to)).toEqual([]);
+  });
+  it("入金済みでも、その月の相手として残る（あとから出し直せる）", () => {
+    const paid = SALES.map((s) =>
+      s.pay === "invoice" ? Object.assign({}, s, { paidDate: "2026-08-10" }) : s
+    );
+    const r = C.rangeOfMonth("2026-07");
+    expect(C.billableNames(paid, r.from, r.to)).toContain("山本商事");
+    // 中身も入金済みを含めて同じ1枚になる
+    const iv = C.buildInvoice(paid, {
+      name: "山本商事",
+      from: r.from,
+      to: r.to,
+      unpaidOnly: false,
+    });
+    expect(iv.total).toBe(47000);
   });
   it("請求Noの採番（月ごとに001から・既存の続き）", () => {
     expect(C.formatInvoiceNo("2026-07", 1)).toBe("202607-001");
