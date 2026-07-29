@@ -183,6 +183,31 @@ r = await sb.from("nomiya_sales").upsert(
 );
 check("他人のアカウントでは書けない（RLSが効いている）", !!r.error, r.error && r.error.message);
 
+/* ── RLS: ログアウトすると自分の行も見えない（他人からは覗けない） ───── */
+{
+  const anon = createClient(URL, KEY, { auth: { persistSession: false } });
+  const r1 = await anon.from("nomiya_sales").select("*").eq("memo", TAG);
+  check(
+    "ログインしていない人には1行も見えない（RLSの読み取り隔離）",
+    !r1.error && (r1.data || []).length === 0,
+    r1.error || r1.data
+  );
+  const r2 = await anon.from("nomiya_sales").insert([
+    {
+      account_id: ACC,
+      cid: TAG + "-anon",
+      ymd: "2026-07-04",
+      name: "よその人",
+      people: 1,
+      amount: 1,
+      pay: "cash",
+      receipt: "none",
+      memo: TAG,
+    },
+  ]);
+  check("ログインしていない人は書けない", !!r2.error, r2.error && r2.error.message);
+}
+
 /* ── 片付け（自分が作った行だけ） ───────────────────────── */
 const d1 = await sb.from("nomiya_sales").delete().eq("memo", TAG);
 const d2 = await sb.from("nomiya_partners").delete().eq("name", pname);
