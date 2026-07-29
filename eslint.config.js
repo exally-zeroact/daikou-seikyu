@@ -53,8 +53,9 @@ module.exports = [
     },
   },
   {
-    // tests/ と各 *.config.js は ESM(import/export)。アプリ本体(CommonJS)と分離。
-    files: ["tests/**/*.js", "**/*.config.js"],
+    // tests/ と各 *.config.js と .mjs は ESM(import/export)。アプリ本体(CommonJS)と分離。
+    // .mjs は定義上ESモジュール（tests/live-nomiya.mjs など）。
+    files: ["tests/**/*.js", "**/*.config.js", "**/*.mjs"],
     languageOptions: {
       sourceType: "module",
     },
