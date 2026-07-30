@@ -1731,6 +1731,263 @@ test.describe("飲み屋 売上管理", () => {
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 
+  // レジ締めは「その日」を見るので、テストの売上と同じ日に合わせる
+  async function setCloseDay(page, ymd) {
+    await page.locator(".nav-item[data-scr='close']").click();
+    const want = ymd;
+    for (let i = 0; i < 400; i++) {
+      const now = await page.evaluate(() => window.__NOMIYA.closeYmd);
+      if (now === want) return;
+      await page.locator(`#periodClose [data-cmv="${now > want ? -1 : 1}"]`).click();
+    }
+    throw new Error("締めの日を " + ymd + " に合わせられなかった");
+  }
+
+  test("レジ締め: 現金だけを数えて、あるべき額と差額が出る", async ({ page }) => {
+    const errors = await open(page);
+    await seed(page); // 7/1 現金8,000 ／請求書送り32,000 ／7/2 PayPay12,000・ツケ5,000 ／7/5 クレカ25,000
+    await setCloseDay(page, "2026-07-01");
+
+    // 釣銭3万＋現金売上8,000 − 出金3,000 ＝ 35,000
+    await page.locator("#clOpen").fill("30000");
+    await page.locator("#btnOutAdd").click();
+    await page.locator("#outKind button[data-ok='buy']").click();
+    await page.locator("#outAmt").fill("3000");
+    await page.locator("#outMemo").fill("氷とおしぼり");
+    await page.locator("#outOk").click();
+    await expect(page.locator("#clCash")).toHaveText("¥8,000");
+    await expect(page.locator("#clOut")).toHaveText("−¥3,000");
+    await expect(page.locator("#clShould")).toHaveText("¥35,000");
+    // 数えるまで差額は出さない（0円と嘘をつかない）
+    await expect(page.locator("#clDiff")).toHaveText("—");
+
+    // 500円足りない日
+    await page.locator("#clCount").fill("34500");
+    await expect(page.locator("#clDiff")).toHaveText("−¥500");
+    await expect(page.locator("#clDiff")).toHaveClass(/cl-minus/);
+
+    // 請求書送りの32,000は金庫に入らない（現金以外に出る）
+    await expect(page.locator("#clOther")).toContainText("¥32,000");
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("レジ締め: 締めると動かなくなり、売上を直すと締め直しが要ると出る", async ({ page }) => {
+    const errors = await open(page);
+    await seed(page);
+    await setCloseDay(page, "2026-07-01");
+    await page.locator("#clOpen").fill("0");
+
+    // 数えていないと締められない
+    await page.locator("#btnClose").click();
+    await expect(page.locator("#clState")).not.toContainText("締めました");
+
+    await page.locator("#clCount").fill("8000");
+    await page.locator("#btnClose").click();
+    await expect(page.locator("#clState")).toContainText("に締めました");
+    await expect(page.locator("#clCount")).toHaveAttribute("readonly", "");
+    // 締めた日は出金も足せない
+    await page.locator("#btnOutAdd").click();
+    await expect(page.locator("#modalOv")).not.toHaveClass(/open/);
+
+    // 売上を直すと「締め直してください」に変わる
+    await page.locator(".nav-item[data-scr='list']").click();
+    await page.locator("#listSheets tr[data-id]").first().click();
+    await page.locator("#inAmount").fill("9000");
+    await page.locator("#btnSave").click();
+    await setCloseDay(page, "2026-07-01");
+    await expect(page.locator("#clState")).toContainText("締め直してください");
+    await expect(page.locator("#clShould")).toHaveText("¥9,000");
+
+    // 締め直せる（鍵を外す→もう一度締める）
+    await page.locator("#btnClose").click();
+    await expect(page.locator("#clCount")).not.toHaveAttribute("readonly", "");
+    await page.locator("#clCount").fill("9000");
+    await page.locator("#btnClose").click();
+    await expect(page.locator("#clState")).toContainText("に締めました");
+    await expect(page.locator("#clDiff")).toHaveText("¥0");
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("レジ締め: 現金で回収したツケは金庫に入り、振込なら入らない", async ({ page }) => {
+    const errors = await open(page);
+    await seed(page);
+    // 田中のツケ5,000を 7/1 に現金で回収する
+    await page.locator(".nav-item[data-scr='inv']").click();
+    await page.locator("#invName").selectOption("田中");
+    await page.locator("#btnPaid").click();
+    await page.locator("#mdPaidDate").fill("2026-07-01");
+    await page.locator("#mdPaidHow button[data-how='cash']").click();
+    await page.locator("#mdPaidOk").click();
+
+    await setCloseDay(page, "2026-07-01");
+    await expect(page.locator("#clColl")).toHaveText("¥5,000");
+    await page.locator("#clOpen").fill("0");
+    await expect(page.locator("#clShould")).toHaveText("¥13,000"); // 現金8,000＋回収5,000
+
+    // 振込で受け取ったなら金庫は増えない
+    await page.locator(".nav-item[data-scr='inv']").click();
+    await page.locator("#invName").selectOption("山本商事");
+    await page.locator("#btnPaid").click();
+    await page.locator("#mdPaidDate").fill("2026-07-01");
+    await page.locator("#mdPaidOk").click(); // 既定は「振込・カード」
+    await setCloseDay(page, "2026-07-01");
+    await expect(page.locator("#clColl")).toHaveText("¥5,000");
+    await expect(page.locator("#clShould")).toHaveText("¥13,000");
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("レジ締め: 前の日に数えた実数が次の日の釣銭になり、クラウドにも残る", async ({ page }) => {
+    const errors = await open(page);
+    await seed(page);
+    await setCloseDay(page, "2026-07-01");
+    await page.locator("#clOpen").fill("30000");
+    await page.locator("#clCount").fill("38000");
+    await page.locator("#btnClose").click();
+    await expect(page.locator("#clState")).toContainText("に締めました");
+
+    // 翌日を開くと、前の日の実数が釣銭に入っている
+    await page.locator("#periodClose [data-cmv='1']").click();
+    await expect(page.locator("#clOpen")).toHaveValue("38000");
+
+    // クラウドに送られている
+    await page.locator(".nav-item[data-scr='set']").click();
+    await expect(page.locator("#acctInfo")).toContainText("同期済み");
+    const cloud = await page.evaluate(async () => {
+      const r = await window.__NOMIYA_FAKE_SB__.from("nomiya_closes").select("*").range(0, 99);
+      return (r.data || []).map((x) => [x.ymd, x.opening, x.counted]);
+    });
+    expect(cloud).toEqual([["2026-07-01", 30000, 38000]]);
+
+    // 端末の控えを消して開き直しても戻ってくる
+    await page.evaluate(() => {
+      ["nomiya_closes_v1", "nomiya_sync_at_v1", "nomiya_sync_ok_v1"].forEach((k) =>
+        localStorage.removeItem(k)
+      );
+    });
+    await page.reload({ waitUntil: "load" });
+    await page.evaluate(() => window.__NOMIYA.syncNow(false));
+    const back = await page.evaluate(() => window.__NOMIYA.closes["2026-07-01"]);
+    expect(back.counted, "締めがクラウドから戻っていない").toBe(38000);
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("レジ締め: A4の日報が1枚に収まり、印刷は同じ画面のまま", async ({ page }) => {
+    const errors = await open(page);
+    await seed(page);
+    await setCloseDay(page, "2026-07-01");
+    await page.locator("#clOpen").fill("30000");
+    for (const [kind, amt, memo] of [
+      ["buy", "3000", "氷とおしぼり"],
+      ["pay", "12000", "日払い"],
+      ["taxi", "1500", "送り"],
+      ["lend", "5000", "前借り"],
+      ["other", "800", "雑費"],
+    ]) {
+      await page.locator("#btnOutAdd").click();
+      await page.locator(`#outKind button[data-ok='${kind}']`).click();
+      await page.locator("#outAmt").fill(amt);
+      await page.locator("#outMemo").fill(memo);
+      await page.locator("#outOk").click();
+    }
+    await page.locator("#clCount").fill("15000");
+    await page.locator("#clMemo").fill("数え直しても合わず");
+
+    const m = await page.locator("#closeSheets .sheet").evaluate((el) => ({
+      w: el.offsetWidth,
+      h: el.offsetHeight,
+      sh: el.scrollHeight,
+    }));
+    expect(m.w).toBe(794);
+    expect(m.h).toBe(1123);
+    expect(m.sh, "日報がA4からはみ出している").toBeLessThanOrEqual(1123);
+    await expect(page.locator("#closeSheets")).toContainText("日報（レジ締め）");
+    await expect(page.locator("#closeSheets")).toContainText("数え直しても合わず");
+
+    await page.locator("#btnPrintClose").click();
+    expect(await page.evaluate(() => window.__printed)).toBe(1);
+    // 別タブを開かず、同じ画面の #printArea に紙を移して出す
+    await expect(page.locator("#printArea .sheet")).toHaveCount(1);
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("税理士の紙: 領収書ありで絞っても、使ったお金・売掛・現金は期間ぜんぶ出る", async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await seed(page); // 7月：現金8,000／請求書送り32,000／PayPay12,000／ツケ5,000／クレカ25,000
+    // 7/1を締める（氷3,000・日払い12,000を出金）
+    await setCloseDay(page, "2026-07-01");
+    await page.locator("#clOpen").fill("30000");
+    for (const [kind, amt, memo, staff] of [
+      ["buy", "3000", "氷とおしぼり", ""],
+      ["pay", "12000", "日払い", "あかり"],
+    ]) {
+      await page.locator("#btnOutAdd").click();
+      await page.locator(`#outKind button[data-ok='${kind}']`).click();
+      await page.locator("#outAmt").fill(amt);
+      await page.locator("#outMemo").fill(memo);
+      if (staff) await page.locator("#outStaff").fill(staff);
+      await page.locator("#outOk").click();
+    }
+    await page.locator("#clCount").fill("23000");
+    await page.locator("#btnClose").click();
+
+    await page.locator(".nav-item[data-scr='tax']").click();
+    await page.locator("#taxRecTabs button[data-trec='all']").click();
+    const read = async () =>
+      (await page.locator("#taxSheets .sheet").innerText()).replace(/[\s\u3000]+/g, " ");
+
+    // 全体：売上も、お金まわりも出る
+    const all = await read();
+    expect(all).toContain("¥82,000"); // 売上（全体）
+    expect(all).toContain("買い出し（1件） 3,000");
+    expect(all).toContain("日払い・給料（1件） 12,000");
+    expect(all).toContain("合計 15,000"); // 現金で使ったお金の合計
+    expect(all).toContain("期間の終わりの未回収 37,000"); // 請求書32,000＋ツケ5,000
+    expect(all).toContain("手許現金");
+    expect(all).toContain("23,000");
+
+    // 「領収書あり」で絞る → 売上だけ変わり、お金まわりは同じ
+    await page.locator("#taxRecTabs button[data-trec='yes']").click();
+    const yes = await read();
+    expect(yes).toContain("¥69,000"); // 売上（領収書あり分）
+    expect(yes, "使ったお金まで絞られている").toContain("買い出し（1件） 3,000");
+    expect(yes).toContain("日払い・給料（1件） 12,000");
+    expect(yes, "未回収まで絞られている").toContain("期間の終わりの未回収 37,000");
+    expect(yes).toContain("手許現金");
+
+    const m = await page
+      .locator("#taxSheets .sheet")
+      .evaluate((el) => ({ h: el.offsetHeight, sh: el.scrollHeight }));
+    expect(m.h).toBe(1123);
+    expect(m.sh, "税理士の紙がA4からはみ出している").toBeLessThanOrEqual(1123);
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("税理士の紙: 人件費は既定で合計だけ、切り替えると誰にいくらも出る", async ({ page }) => {
+    const errors = await open(page);
+    await seed(page);
+    await setCloseDay(page, "2026-07-01");
+    await page.locator("#btnOutAdd").click();
+    await page.locator("#outKind button[data-ok='pay']").click();
+    await page.locator("#outAmt").fill("12000");
+    await page.locator("#outStaff").fill("あかり");
+    await page.locator("#outOk").click();
+
+    await page.locator(".nav-item[data-scr='tax']").click();
+    await expect(page.locator("#taxSheets .sheet")).toContainText("日払い・給料");
+    await expect(page.locator("#taxSheets .sheet")).not.toContainText("あかり");
+
+    await page.locator("#taxNames button[data-tn='1']").click();
+    await expect(page.locator("#taxSheets .sheet")).toContainText("あかり（1回）");
+
+    // 開き直しても選んだままで残る
+    await page.reload({ waitUntil: "load" });
+    await page.locator(".nav-item[data-scr='tax']").click();
+    await expect(page.locator("#taxSheets .sheet")).toContainText("あかり（1回）");
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
   test("入れ直しても消えない（開き直しても残る）", async ({ page }) => {
     const errors = await open(page);
     await addSale(page, {

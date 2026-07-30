@@ -903,6 +903,131 @@
     return { merged: map, push: plan.push };
   }
 
+  /**
+   * monthlyCash(sales, closes, from, to)
+   *  税理士に渡す紙の「お金まわり」。売上の区分（領収書あり/なし）とは関係なく、
+   *  期間ぜんぶを見る（氷を買ったのは領収書ありの売上のためではないので）。
+   *   - 現金で使ったお金（種類別）。前借り・貸付は経費ではないので別枠。
+   *   - ツケ・請求書送りの未回収（期間の終わりの時点）と、期間内に回収した額（現金/振込）
+   *   - 手許現金（最後に締めた日の実数）とレジの過不足の合計
+   */
+  function monthlyCash(sales, closes, from, to) {
+    var cs = closes || {};
+    var days = Object.keys(cs)
+      .filter(function (k) {
+        return (!from || k >= from) && (!to || k <= to) && !cs[k].deletedAt;
+      })
+      .sort();
+
+    // 現金で使ったお金
+    var kinds = {};
+    OUT_KINDS.forEach(function (k) {
+      kinds[k.key] = { key: k.key, label: k.label, count: 0, amount: 0 };
+    });
+    var diffTotal = 0;
+    var diffDays = 0;
+    var lastCounted = null;
+    var lastCountedYmd = "";
+    days.forEach(function (ymd) {
+      var d = closeDraft(sales, ymd, cs[ymd]);
+      d.outs.forEach(function (o) {
+        var k = kinds[o.kind] || kinds.other;
+        k.count += 1;
+        k.amount += o.amount;
+      });
+      if (d.diff != null) {
+        diffTotal += d.diff;
+        diffDays += 1;
+      }
+      if (d.counted != null) {
+        lastCounted = d.counted;
+        lastCountedYmd = ymd;
+      }
+    });
+    var expense = ["buy", "taxi", "pay", "other"].map(function (k) {
+      return kinds[k];
+    });
+    var expenseTotal = expense.reduce(function (a, x) {
+      return a + x.amount;
+    }, 0);
+
+    // 期間内に回収した分（現金・振込の別）
+    var collectedCash = 0;
+    var collectedBank = 0;
+    (sales || []).filter(isAlive).forEach(function (s) {
+      if (!isUnpaidMethod(s.pay) || !s.paidDate) return;
+      if (from && s.paidDate < from) return;
+      if (to && s.paidDate > to) return;
+      if (s.paidCash) collectedCash += Math.floor(Number(s.amount) || 0);
+      else collectedBank += Math.floor(Number(s.amount) || 0);
+    });
+
+    // 期間の終わりの時点で、まだ回収できていない分
+    var rest = (sales || []).filter(function (s) {
+      if (!isAlive(s) || !isUnpaidMethod(s.pay)) return false;
+      if (to && s.date > to) return false; // 期間より後の売上は入れない
+      return !s.paidDate || (to && s.paidDate > to); // 期間の終わりまでに回収できていない
+    });
+    var byName = {};
+    var order = [];
+    rest.forEach(function (s) {
+      if (!byName[s.name]) {
+        byName[s.name] = { name: s.name, count: 0, amount: 0 };
+        order.push(s.name);
+      }
+      byName[s.name].count += 1;
+      byName[s.name].amount += Math.floor(Number(s.amount) || 0);
+    });
+    var unpaidRows = order
+      .map(function (n) {
+        return byName[n];
+      })
+      .sort(function (a, b) {
+        return b.amount - a.amount || (a.name < b.name ? -1 : 1);
+      });
+
+    return {
+      expense: expense,
+      expenseTotal: expenseTotal,
+      lend: kinds.lend, // 前借り・貸付（経費ではない）
+      staffPays: staffPayouts(cs, days),
+      collectedCash: collectedCash,
+      collectedBank: collectedBank,
+      unpaid: unpaidRows,
+      unpaidTotal: unpaidRows.reduce(function (a, x) {
+        return a + x.amount;
+      }, 0),
+      cashOnHand: lastCounted,
+      cashOnHandYmd: lastCountedYmd,
+      diffTotal: diffDays ? diffTotal : null,
+      closedDays: days.length,
+    };
+  }
+  // 人件費の内訳（誰にいくら）。紙に名前を出すかは画面で選ぶ。
+  function staffPayouts(closes, days) {
+    var map = {};
+    var order = [];
+    (days || []).forEach(function (ymd) {
+      ((closes[ymd] && closes[ymd].outs) || []).forEach(function (o) {
+        if (o.kind !== "pay") return;
+        var who = o.staff || "（名前なし）";
+        if (!map[who]) {
+          map[who] = { name: who, count: 0, amount: 0 };
+          order.push(who);
+        }
+        map[who].count += 1;
+        map[who].amount += Math.floor(Number(o.amount) || 0);
+      });
+    });
+    return order
+      .map(function (n) {
+        return map[n];
+      })
+      .sort(function (a, b) {
+        return b.amount - a.amount || (a.name < b.name ? -1 : 1);
+      });
+  }
+
   /* ===================================================================
      クラウド同期（純ロジック。通信そのものは画面側）
      ─ 考え方：端末の中が作業台、クラウドは同じ物の控え。
@@ -1306,6 +1431,7 @@
     closeToRow: closeToRow,
     closeFromRow: closeFromRow,
     syncPlanCloses: syncPlanCloses,
+    monthlyCash: monthlyCash,
     buildInvoice: buildInvoice,
     paginate: paginate,
     ledgerPages: ledgerPages,

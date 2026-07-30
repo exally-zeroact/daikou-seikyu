@@ -720,6 +720,70 @@
         background: none;
         cursor: pointer;
       }
+      /* 締め（現金合わせ）の表 */
+      .cl-tbl {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .cl-tbl th {
+        text-align: left;
+        font-size: 12.5px;
+        font-weight: 500;
+        color: #3d6b53;
+        padding: 7px 0;
+        white-space: nowrap;
+      }
+      .cl-tbl td {
+        text-align: right;
+        padding: 7px 0;
+      }
+      .cl-v {
+        font-size: 15px;
+        font-weight: 700;
+        color: #24422f;
+        font-variant-numeric: tabular-nums;
+      }
+      .cl-sum th,
+      .cl-sum td {
+        border-top: 1px solid #d4eae0;
+        padding-top: 10px;
+      }
+      .cl-sum .cl-v {
+        font-size: 17px;
+      }
+      .cl-diff th,
+      .cl-diff td {
+        border-top: 1px solid #eaf5ef;
+      }
+      .cl-diff .cl-v {
+        font-size: 17px;
+      }
+      .cl-minus {
+        color: #c0392b;
+      }
+      .cl-plus {
+        color: #2f6fb0;
+      }
+      .cl-in {
+        width: 130px;
+        box-sizing: border-box;
+        text-align: right;
+        font-size: 16px;
+        font-family: inherit;
+        padding: 8px 10px;
+        border: 1px solid #d4eae0;
+        border-radius: 10px;
+        background: #ffffff;
+        color: #24422f;
+      }
+      .cl-in:focus {
+        outline: none;
+        border-color: #52b788;
+      }
+      .cl-locked .cl-in {
+        background: #f4f8f6;
+        color: #7aa08c;
+      }
       /* ふだんは閉じておく設定（開くと中身が出る） */
       .look {
         background: #ffffff;
@@ -1069,6 +1133,14 @@
 
       <div class="strip" id="taxStrip"></div>
 
+      <div class="card no-print">
+        <div class="card-label">人件費の書き方</div>
+        <div class="chips" id="taxNames">
+          <button class="chip chip-sm" type="button" data-tn="0">合計だけ</button>
+          <button class="chip chip-sm" type="button" data-tn="1">誰にいくらも出す</button>
+        </div>
+      </div>
+
       <div class="btn-row no-print">
         <button class="btn btn-ghost" id="btnPrintTax">🖨 印刷 / PDFにする</button>
       </div>
@@ -1182,6 +1254,75 @@
       </div>
     </section>
 
+    <!-- ==================== 締め（レジの現金合わせ） ==================== -->
+    <section class="screen" id="scr-close">
+      <div class="period" id="periodClose"></div>
+
+      <div class="card">
+        <div class="card-label">現金の合わせ</div>
+        <table class="cl-tbl">
+          <tr>
+            <th>釣銭（開けたとき）</th>
+            <td><input class="cl-in" type="number" inputmode="numeric" id="clOpen" /></td>
+          </tr>
+          <tr>
+            <th>今日の現金売上</th>
+            <td class="cl-v" id="clCash">¥0</td>
+          </tr>
+          <tr>
+            <th>現金で回収したツケ</th>
+            <td class="cl-v" id="clColl">¥0</td>
+          </tr>
+          <tr>
+            <th>出金（下の一覧）</th>
+            <td class="cl-v" id="clOut">−¥0</td>
+          </tr>
+          <tr class="cl-sum">
+            <th>あるべき額</th>
+            <td class="cl-v" id="clShould">¥0</td>
+          </tr>
+          <tr>
+            <th>数えた実数</th>
+            <td><input class="cl-in" type="number" inputmode="numeric" id="clCount" /></td>
+          </tr>
+          <tr class="cl-diff">
+            <th>差額</th>
+            <td class="cl-v" id="clDiff">—</td>
+          </tr>
+        </table>
+        <div class="frow" style="margin-top: 10px">
+          <span class="flabel">ひとこと（任意）</span>
+          <input
+            class="finput"
+            id="clMemo"
+            placeholder="例）レジ袋代を出した／数え直しても合わず"
+          />
+        </div>
+        <div class="hint" id="clState" style="margin-top: 8px"></div>
+        <div style="margin-top: 12px">
+          <button class="btn btn-primary" type="button" id="btnClose">この日を締める</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">出金（金庫から出したお金）</div>
+        <div id="clOuts"></div>
+        <div class="btn-right" style="margin-top: 10px">
+          <button class="btn btn-ghost btn-sm" type="button" id="btnOutAdd">＋ 出金を足す</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">現金以外（金庫には入らない分）</div>
+        <div id="clOther"></div>
+      </div>
+
+      <div class="btn-row no-print">
+        <button class="btn btn-ghost" id="btnPrintClose">🖨 印刷 / PDFにする</button>
+      </div>
+      <div class="sheet-scale" id="closeScale"><div id="closeSheets"></div></div>
+    </section>
+
     <!-- ==================== NAV ==================== -->
     <!-- 一番使う「入力」を真ん中に置く（親指が届く位置） -->
     <nav class="bottom-nav">
@@ -1200,6 +1341,9 @@
       <button class="nav-item" data-scr="inv" type="button">
         <span class="nav-ic">🧾</span><span class="nav-lb">請求書</span>
         <span class="nav-badge" id="invBadge" style="display: none"></span>
+      </button>
+      <button class="nav-item" data-scr="close" type="button">
+        <span class="nav-ic">🧰</span><span class="nav-lb">締め</span>
       </button>
       <button class="nav-item" data-scr="tax" type="button">
         <span class="nav-ic">🧮</span><span class="nav-lb">税理士</span>
@@ -1244,6 +1388,7 @@
       var K_SET = "nomiya_settings_v1";
       var K_INV = "nomiya_invoices_v1";
       var K_PARTNER = "nomiya_partners_v1";
+      var K_CLOSE = "nomiya_closes_v1"; // レジ締め（日付ごと）
       var K_SET_AT = "nomiya_set_at_v1"; // 設定を直した時刻（同期の後勝ち判定に使う）
       var K_SYNC_AT = "nomiya_sync_at_v1"; // ここまでは送った、という目印
       var K_SYNC_OK = "nomiya_sync_ok_v1"; // 最後に同期できた時刻（画面に出すだけ）
@@ -1264,6 +1409,7 @@
           logoPos: "top",
           accent: "",
           font: "mincho",
+          taxNames: false, // 税理士の紙に、日払いを渡した相手の名前まで出すか
         };
       }
       var SETTINGS = {
@@ -1279,10 +1425,12 @@
         logoPos: "top", // ロゴの位置: top(右上・定番) / bottom(店名の上)
         accent: "", // 店の色(空ならデザインの既定色)
         font: "mincho", // 見出しの書体: mincho(明朝) / gothic(ゴシック)
+        taxNames: false, // 税理士の紙に日払いの相手の名前を出すか（既定は出さない）
       };
       var INVOICES = []; // [{no, name, from, to, issuedAt}]
       // 宛先（請求書送りの相手）。売上に打つ名前をキーにする { 名前: {name,to,honor,addr,person} }
       var PARTNERS = {};
+      var CLOSES = {}; // { 'YYYY-MM-DD': 締め }
       var SET_AT = ""; // 設定を直した時刻
       // 設定の時刻が空のままだとDBが受け取れない（22007で落ちる）＝初回同期が必ず失敗していた。
       // 無ければ今の時刻を入れて、端末にも残す。
@@ -1312,6 +1460,7 @@
         taxRec: "all", // 税理士用の対象
         invName: "",
         invYm: "", // 請求書は「◯月分」で1枚（起動時に今月が入る）
+        closeYmd: "", // 締めはその日1枚（起動時に今日が入る）
       };
 
       // 売上帳 1ページの行数（A4縦=1123pxに収まる実測値。1行27px・上下の見出しと合計欄の分を引いた数）
@@ -1374,8 +1523,14 @@
           PARTNERS = {};
         }
         try {
-          SET_AT = localStorage.getItem(K_SET_AT) || "";
+          var cl = JSON.parse(localStorage.getItem(K_CLOSE) || "{}");
+          CLOSES = cl && typeof cl === "object" ? cl : {};
         } catch (e5) {
+          CLOSES = {};
+        }
+        try {
+          SET_AT = localStorage.getItem(K_SET_AT) || "";
+        } catch (e6) {
           SET_AT = "";
         }
         loadSync();
@@ -1401,6 +1556,14 @@
       function savePartners() {
         try {
           localStorage.setItem(K_PARTNER, JSON.stringify(PARTNERS));
+        } catch (e) {
+          toast("⚠️ 端末の空きが足りず保存できませんでした");
+        }
+        queuePush();
+      }
+      function saveCloses() {
+        try {
+          localStorage.setItem(K_CLOSE, JSON.stringify(CLOSES));
         } catch (e) {
           toast("⚠️ 端末の空きが足りず保存できませんでした");
         }
@@ -1452,6 +1615,7 @@
         SALES = [];
         PARTNERS = {};
         INVOICES = [];
+        CLOSES = {};
         SET_AT = "";
         SYNC.at = "";
         SYNC.lastOkAt = "";
@@ -1460,9 +1624,11 @@
         // 残すと、次に入った別の店の請求書に前の店の判子と振込先が出る。
         SETTINGS = defaultSettings();
         try {
-          [K_SALES, K_PARTNER, K_INV, K_SET, K_SET_AT, K_SYNC_AT, K_SYNC_OK].forEach(function (k) {
-            localStorage.removeItem(k);
-          });
+          [K_SALES, K_PARTNER, K_INV, K_CLOSE, K_SET, K_SET_AT, K_SYNC_AT, K_SYNC_OK].forEach(
+            function (k) {
+              localStorage.removeItem(k);
+            }
+          );
         } catch (e) {
           /* 消せなくても、このあとの同期で入れ替わる */
         }
@@ -1493,6 +1659,16 @@
       function pendingSettings() {
         return isMine(SET_AT);
       }
+      function closesArr() {
+        return Object.keys(CLOSES).map(function (k) {
+          return CLOSES[k];
+        });
+      }
+      function pendingCloses() {
+        return closesArr().filter(function (x) {
+          return isMine(x.updatedAt);
+        });
+      }
       function pendingInvoices() {
         return INVOICES.filter(function (x) {
           return isMine(x.updatedAt || x.issuedAt);
@@ -1503,6 +1679,7 @@
           pendingSales().length +
           pendingPartners().length +
           pendingInvoices().length +
+          pendingCloses().length +
           (pendingSettings() ? 1 : 0)
         );
       }
@@ -1511,10 +1688,12 @@
       function bumpSyncMark() {
         var mx = SYNC.at;
         var nowMark = new Date().toISOString();
-        SALES.concat(partnersArr()).forEach(function (x) {
-          var u = String(x.updatedAt || "");
-          if (u > mx) mx = u;
-        });
+        SALES.concat(partnersArr())
+          .concat(closesArr())
+          .forEach(function (x) {
+            var u = String(x.updatedAt || "");
+            if (u > mx) mx = u;
+          });
         INVOICES.forEach(function (x) {
           var u = String(x.updatedAt || x.issuedAt || "");
           if (u > mx) mx = u;
@@ -1557,8 +1736,10 @@
         var sales = C.pushableSales(pendingSales()).ok;
         var partners = pendingPartners();
         var invoices = pendingInvoices();
+        var closes = pendingCloses();
         var setDirty = pendingSettings();
-        if (!sales.length && !partners.length && !invoices.length && !setDirty) return true;
+        if (!sales.length && !partners.length && !invoices.length && !closes.length && !setDirty)
+          return true;
         SYNC.running = true;
         renderAcct();
         var ok = true;
@@ -1580,6 +1761,15 @@
               { onConflict: "account_id,name" }
             );
             if (rp.error) throw rp.error;
+          }
+          if (closes.length) {
+            var rcl = await SB.from("nomiya_closes").upsert(
+              closes.map(function (x) {
+                return withAccount(C.closeToRow(x));
+              }),
+              { onConflict: "account_id,ymd" }
+            );
+            if (rcl.error) throw rcl.error;
           }
           if (invoices.length) {
             var ri = await SB.from("nomiya_invoices").upsert(
@@ -1634,12 +1824,14 @@
           var rows = await fetchAll("nomiya_sales");
           var prow = await fetchAll("nomiya_partners");
           var irow = await fetchAll("nomiya_invoices");
+          var crow = await fetchAll("nomiya_closes");
           var cfg = await SB.from("nomiya_settings").select("config, updated_at").maybeSingle();
           if (cfg.error) throw cfg.error;
 
           var planS = C.syncPlanSales(SALES, rows.map(C.saleFromRow));
           var planP = C.syncPlanPartners(PARTNERS, prow.map(C.partnerFromRow));
           var planI = C.syncPlanInvoices(INVOICES, irow.map(C.invoiceRecFromRow));
+          var planCl = C.syncPlanCloses(CLOSES, crow.map(C.closeFromRow));
           var rcfg = cfg.data && cfg.data.config ? cfg.data.config : null;
           var rat = (cfg.data && cfg.data.updated_at) || "";
           var planC = C.syncPlanSettings(SETTINGS, SET_AT, rcfg, rat);
@@ -1647,6 +1839,7 @@
           SALES = planS.merged;
           PARTNERS = planP.merged;
           INVOICES = planI.merged;
+          CLOSES = planCl.merged;
           if (planC.merged !== SETTINGS) {
             Object.keys(SETTINGS).forEach(function (k) {
               if (planC.merged[k] != null) SETTINGS[k] = planC.merged[k];
@@ -1657,6 +1850,7 @@
             localStorage.setItem(K_SALES, JSON.stringify(SALES));
             localStorage.setItem(K_PARTNER, JSON.stringify(PARTNERS));
             localStorage.setItem(K_INV, JSON.stringify(INVOICES));
+            localStorage.setItem(K_CLOSE, JSON.stringify(CLOSES));
             localStorage.setItem(K_SET, JSON.stringify(SETTINGS));
             localStorage.setItem(K_SET_AT, SET_AT);
           } catch (e0) {
@@ -1686,6 +1880,15 @@
               { onConflict: "account_id,name" }
             );
             if (rp2.error) throw rp2.error;
+          }
+          if (planCl.push.length) {
+            var rc3 = await SB.from("nomiya_closes").upsert(
+              planCl.push.map(function (x) {
+                return withAccount(C.closeToRow(x));
+              }),
+              { onConflict: "account_id,ymd" }
+            );
+            if (rc3.error) throw rc3.error;
           }
           if (planI.push.length) {
             var ri2 = await SB.from("nomiya_invoices").upsert(
@@ -2599,6 +2802,11 @@
             '<input class="finput" type="date" id="mdPaidDate" value="' +
             todayIso() +
             '"></div>' +
+            // 現金で受け取ったならレジの現金が増える＝締めに入れる
+            '<div class="frow"><span class="flabel">受け取り方</span><div class="chips" id="mdPaidHow">' +
+            '<button class="chip chip-sm on" type="button" data-how="bank">振込・カード</button>' +
+            '<button class="chip chip-sm" type="button" data-how="cash">現金で受け取った</button>' +
+            "</div></div>" +
             // 「あとで渡す」約束が残っている分があれば、この場で渡したことにできる
             (C.laterReceipts(target).count
               ? '<label class="md-check"><input type="checkbox" id="mdPaidRc" checked>' +
@@ -2608,6 +2816,19 @@
               : "") +
             '<div style="margin-top:12px"><button class="btn btn-primary" id="mdPaidOk">入金済みにする</button></div>'
         );
+        var paidHow = "bank";
+        $("mdPaidHow")
+          .querySelectorAll("[data-how]")
+          .forEach(function (b) {
+            b.onclick = function () {
+              paidHow = b.getAttribute("data-how");
+              $("mdPaidHow")
+                .querySelectorAll("[data-how]")
+                .forEach(function (x) {
+                  x.classList.toggle("on", x === b);
+                });
+            };
+          });
         $("mdPaidOk").onclick = function () {
           var d = $("mdPaidDate").value;
           if (!C.isIsoDate(d)) {
@@ -2622,7 +2843,11 @@
           });
           for (var i = 0; i < SALES.length; i++) {
             if (ids[SALES[i].id]) {
-              var patch = { paidDate: d, updatedAt: new Date().toISOString() };
+              var patch = {
+                paidDate: d,
+                paidCash: paidHow === "cash",
+                updatedAt: new Date().toISOString(),
+              };
               // 「あとで渡す」だったものは、渡したなら発行済み（発行日＝入金日）にする
               if (giveRc && C.isLater(SALES[i])) {
                 patch.receipt = "issued";
@@ -2695,6 +2920,11 @@
           .forEach(function (b) {
             b.classList.toggle("on", b.getAttribute("data-trec") === UI.taxRec);
           });
+        $("taxNames")
+          .querySelectorAll("[data-tn]")
+          .forEach(function (b) {
+            b.classList.toggle("on", (b.getAttribute("data-tn") === "1") === !!SETTINGS.taxNames);
+          });
         var rows = taxRows();
         var sum = C.summarize(rows);
         $("taxStrip").innerHTML =
@@ -2703,6 +2933,77 @@
           stripItem("売上", C.yen(sum.amount));
         $("taxSheets").innerHTML = taxSheetHtml(rows);
         fitSheets("taxScale", "taxSheets");
+      }
+
+      // 税理士の紙の「お金まわり」。売上の区分に関わらず、期間ぜんぶを見る。
+      function cashBlocksHtml() {
+        var r = periodRange();
+        var m = C.monthlyCash(SALES, CLOSES, r.from, r.to);
+        var row2 = function (l, v, cls) {
+          return (
+            '<tr><td class="l' +
+            (cls ? " " + cls : "") +
+            '">' +
+            esc(l) +
+            '</td><td class="r' +
+            (cls ? " " + cls : "") +
+            '">' +
+            v +
+            "</td></tr>"
+          );
+        };
+        var expense =
+          '<div class="sm-blk"><div class="sm-h">現金で使ったお金</div>' +
+          '<table class="sm-tbl sm-2"><tbody>' +
+          m.expense
+            .map(function (x) {
+              return row2(x.label + (x.count ? "（" + x.count + "件）" : ""), C.comma(x.amount));
+            })
+            .join("") +
+          row2("合計", C.comma(m.expenseTotal), "b") +
+          (m.lend.amount
+            ? row2("前借り・貸付（経費ではありません）", C.comma(m.lend.amount))
+            : "") +
+          "</tbody></table>" +
+          (SETTINGS.taxNames && m.staffPays.length
+            ? '<table class="sm-tbl sm-2 sm-sub"><tbody>' +
+              m.staffPays
+                .map(function (x) {
+                  return row2("　" + x.name + "（" + x.count + "回）", C.comma(x.amount));
+                })
+                .join("") +
+              "</tbody></table>"
+            : "") +
+          "</div>";
+        var uneven = m.unpaid.slice(0, 6);
+        var restCount = m.unpaid.length - uneven.length;
+        var kake =
+          '<div class="sm-blk"><div class="sm-h">ツケ・請求書送り</div>' +
+          '<table class="sm-tbl sm-2"><tbody>' +
+          row2("期間の終わりの未回収", C.comma(m.unpaidTotal), "b") +
+          uneven
+            .map(function (x) {
+              return row2("　" + x.name + "（" + x.count + "件）", C.comma(x.amount));
+            })
+            .join("") +
+          (restCount > 0 ? row2("　ほか " + restCount + " 件", "") : "") +
+          row2("この期間に回収（現金）", C.comma(m.collectedCash)) +
+          row2("この期間に回収（振込・カード）", C.comma(m.collectedBank)) +
+          "</tbody></table></div>";
+        var cash =
+          '<div class="sm-blk"><div class="sm-h">現金</div>' +
+          '<table class="sm-tbl sm-2"><tbody>' +
+          row2(
+            "手許現金" +
+              (m.cashOnHandYmd ? "（" + C.mdShort(m.cashOnHandYmd) + "に数えた分）" : ""),
+            m.cashOnHand == null ? "—" : C.comma(m.cashOnHand)
+          ) +
+          row2(
+            "レジの過不足（" + m.closedDays + "日ぶん）",
+            m.diffTotal == null ? "—" : (m.diffTotal > 0 ? "+" : "") + C.comma(m.diffTotal)
+          ) +
+          "</tbody></table></div>";
+        return expense + kake + cash;
       }
 
       function taxSheetHtml(rows) {
@@ -2789,6 +3090,7 @@
                 .join("") +
               "</tbody></table></div>") +
           dayColsHtml(days) +
+          cashBlocksHtml() +
           '<div class="sm-note">1件＝1組のお会計。金額は税込。' +
           (C.laterReceipts(rows).count
             ? "　領収書を「あとで渡す」約束が " +
@@ -3397,6 +3699,27 @@
         ".sh-store{font-size:13px;font-weight:700;}",
         ".sh-title{text-align:center;font-size:24px;font-weight:700;letter-spacing:8px;margin:2px 0 6px;padding-left:8px;}",
         ".sh-meta{display:flex;justify-content:space-between;font-size:11px;color:#333333;}",
+        // 日報（レジ締め）＝閉店後に印刷して綴じる紙。金額は右、罫線は最小限。
+        ".cl-sheet .sh-meta{justify-content:flex-start;gap:14px;}",
+        ".cl-p2{width:420px;border-collapse:collapse;margin:14px 0 4px;}",
+        ".cl-p2 th{text-align:left;font-size:12px;font-weight:400;padding:6px 8px;",
+        "border-bottom:1px solid #e2ece6;white-space:nowrap;}",
+        ".cl-p2 td{text-align:right;font-size:13px;padding:6px 8px;border-bottom:1px solid #e2ece6;",
+        "font-family:'DM Mono',monospace;width:150px;}",
+        ".cl-p2 .c-bold{font-weight:700;font-size:15px;}",
+        ".cl-p2 tr:nth-last-child(3) th,.cl-p2 tr:nth-last-child(3) td{border-top:2px solid #1a4a2e;}",
+        ".cl-p3{margin-top:18px;}",
+        ".cl-cap{font-size:11.5px;font-weight:700;letter-spacing:2px;color:#1a4a2e;",
+        "border-left:3px solid #1a4a2e;padding-left:7px;margin-bottom:5px;}",
+        ".cl-p4{width:420px;border-collapse:collapse;}",
+        ".cl-p4 td{font-size:12px;padding:5px 8px;border-bottom:1px solid #eef2f0;}",
+        ".cl-p4 td:nth-child(2){color:#555555;}",
+        ".cl-p4 .c-a{text-align:right;font-family:'DM Mono',monospace;width:110px;}",
+        ".cl-p4 .c-mid{text-align:center;color:#888888;}",
+        ".cl-p4 .c-bold{font-weight:700;}",
+        ".cl-memo{font-size:12px;line-height:1.9;border:1px solid #e2ece6;padding:8px 10px;",
+        "min-height:44px;width:420px;box-sizing:border-box;}",
+        ".cl-sign{position:absolute;left:34px;bottom:34px;font-size:11px;color:#333333;}",
         ".sh-tbl{width:100%;border-collapse:collapse;table-layout:fixed;}",
         ".sh-tbl th{font-size:11px;font-weight:700;background:#eef7f2;border:1px solid #9bb8a9;padding:5px 4px;}",
         ".sh-tbl td{font-size:12px;border:1px solid #c3d6cc;padding:4px 5px;height:26px;overflow:hidden;white-space:nowrap;}",
@@ -3436,6 +3759,10 @@
         ".sm-tbl{width:100%;border-collapse:collapse;}",
         ".sm-tbl th{font-size:10px;background:#eef7f2;border:1px solid #9bb8a9;padding:3px 5px;}",
         ".sm-tbl td{font-size:11px;border:1px solid #c3d6cc;padding:3px 5px;}",
+        ".sm-2 td{border:none;border-bottom:1px solid #eef2f0;padding:4px 6px;}",
+        ".sm-2 td.r{width:120px;}",
+        ".sm-2 .b{font-weight:700;}",
+        ".sm-sub td{color:#555555;font-size:10px;}",
         ".sm-note{font-size:10px;color:#555555;margin-top:2px;}",
         ".sm-2col{display:flex;gap:10px;align-items:flex-start;}",
         ".sm-2col>div{flex:1;min-width:0;}",
@@ -3760,6 +4087,7 @@
           settings: SETTINGS,
           invoices: INVOICES,
           partners: PARTNERS,
+          closes: CLOSES,
         };
         var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
         var a = document.createElement("a");
@@ -3825,6 +4153,14 @@
           });
           saveInvoices();
         }
+        if (data.closes && typeof data.closes === "object") {
+          var cl2 = {};
+          Object.keys(data.closes).forEach(function (k) {
+            cl2[k] = Object.assign({}, data.closes[k], { updatedAt: nowIso });
+          });
+          CLOSES = cl2;
+          saveCloses();
+        }
         if (data.partners && typeof data.partners === "object") {
           var pt = {};
           Object.keys(data.partners).forEach(function (k) {
@@ -3871,11 +4207,327 @@
       }
 
       /* ===================================================================
+         締め（レジの現金合わせ）
+         ─ 閉店後の本業。ここが合わないと店は電卓を手放さない。
+           合わない日は必ずあるので、差額は隠さずそのまま出す。
+         =================================================================== */
+      function closeOf(ymd) {
+        return CLOSES[ymd] || null;
+      }
+      // 画面に入れる「下書き」（保存前の入力もここに入れて計算する）
+      function closeInput(ymd) {
+        var c = closeOf(ymd);
+        var carried = C.carryOver(CLOSES, ymd);
+        return {
+          ymd: ymd,
+          opening: c ? c.opening : carried == null ? 0 : carried,
+          outs: c ? c.outs : [],
+          counted: c ? c.counted : "",
+          memo: c ? c.memo : "",
+          closedAt: c ? c.closedAt : null,
+        };
+      }
+      function renderClosePeriod() {
+        var el = $("periodClose");
+        el.innerHTML =
+          '<button class="period-arrow" type="button" data-cmv="-1">◀</button>' +
+          '<span class="period-lb">' +
+          esc(C.jpDate(UI.closeYmd)) +
+          "（" +
+          esc(C.weekday(UI.closeYmd)) +
+          "）</span>" +
+          '<button class="period-arrow" type="button" data-cmv="1">▶</button>';
+        el.querySelectorAll("[data-cmv]").forEach(function (b) {
+          b.onclick = function () {
+            var d = new Date(
+              +UI.closeYmd.slice(0, 4),
+              +UI.closeYmd.slice(5, 7) - 1,
+              +UI.closeYmd.slice(8, 10) + +b.getAttribute("data-cmv")
+            );
+            UI.closeYmd = C.toIso(d);
+            renderClose();
+          };
+        });
+      }
+      function renderClose() {
+        if (!UI.closeYmd) UI.closeYmd = todayIso();
+        renderClosePeriod();
+        var inp = closeInput(UI.closeYmd);
+        // 入力中の値を優先（打ち込んでいる途中で描き直しても消えないように）
+        if (document.activeElement !== $("clOpen")) $("clOpen").value = inp.opening;
+        if (document.activeElement !== $("clCount")) $("clCount").value = inp.counted;
+        if (document.activeElement !== $("clMemo")) $("clMemo").value = inp.memo;
+        var d = C.closeDraft(SALES, UI.closeYmd, {
+          opening: $("clOpen").value === "" ? 0 : Number($("clOpen").value),
+          outs: inp.outs,
+          counted: $("clCount").value,
+          closedAt: inp.closedAt,
+        });
+        $("clCash").textContent = C.yen(d.cashSales);
+        $("clColl").textContent = C.yen(d.collected);
+        $("clOut").textContent = d.outTotal ? "−" + C.yen(d.outTotal) : "¥0";
+        $("clShould").textContent = C.yen(d.should);
+        var dv = $("clDiff");
+        if (d.diff == null) {
+          dv.textContent = "—";
+          dv.className = "cl-v";
+        } else {
+          dv.textContent = (d.diff < 0 ? "−" : d.diff > 0 ? "＋" : "") + C.yen(Math.abs(d.diff));
+          dv.className = "cl-v" + (d.diff < 0 ? " cl-minus" : d.diff > 0 ? " cl-plus" : "");
+        }
+        // 締めた日は入力を閉じる（触ったら締め直し）
+        var locked = !!d.closedAt;
+        $("scr-close").classList.toggle("cl-locked", locked);
+        ["clOpen", "clCount", "clMemo"].forEach(function (id) {
+          $(id).readOnly = locked;
+        });
+        $("btnClose").textContent = locked ? "締め直す" : "この日を締める";
+        $("clState").textContent = !locked
+          ? "数えた実数を入れて「この日を締める」を押すと、この日は動かなくなります。"
+          : d.needsRedo
+            ? "⚠️ 締めたあとに売上を直しました。もう一度締め直してください（" +
+              hhmm(d.closedAt) +
+              " に締め）"
+            : "✅ " + hhmm(d.closedAt) + " に締めました。";
+        // 出金の一覧
+        $("clOuts").innerHTML = d.outs.length
+          ? d.outs
+              .map(function (o) {
+                return (
+                  '<div class="li" data-out="' +
+                  esc(o.id) +
+                  '"><div class="li-main"><div class="li-nm">' +
+                  esc(C.outKindLabel(o.kind)) +
+                  (o.staff ? "　" + esc(o.staff) : "") +
+                  '</div><div class="li-sub">' +
+                  esc(o.memo || "") +
+                  '</div></div><div class="li-amt">−' +
+                  C.yen(o.amount) +
+                  "</div></div>"
+                );
+              })
+              .join("")
+          : '<div class="empty">ありません。買い出し・送り・日払いで金庫から出したら足してください。</div>';
+        $("clOuts")
+          .querySelectorAll("[data-out]")
+          .forEach(function (el) {
+            el.onclick = function () {
+              if (locked) {
+                toast("締めた日です。直すなら「締め直す」を押してください");
+                return;
+              }
+              openOut(el.getAttribute("data-out"));
+            };
+          });
+        // 現金以外
+        var o = d.other;
+        $("clOther").innerHTML =
+          '<table class="sum-tbl"><tbody>' +
+          [
+            ["クレジット", o.credit],
+            ["PayPay", o.paypay],
+            ["請求書送り", o.invoice],
+            ["ツケ（この日の分）", o.tsuke],
+          ]
+            .map(function (r) {
+              return "<tr><td>" + esc(r[0]) + "</td><td>" + C.yen(r[1]) + "</td></tr>";
+            })
+            .join("") +
+          "</tbody></table>";
+        $("closeSheets").innerHTML = closeSheetHtml(d);
+        fitSheets("closeScale", "closeSheets");
+      }
+
+      // 出金の追加・修正
+      function openOut(id) {
+        var inp = closeInput(UI.closeYmd);
+        var cur =
+          inp.outs.filter(function (x) {
+            return x.id === id;
+          })[0] || null;
+        openModal(
+          cur ? "出金を直す" : "出金を足す",
+          '<div class="frow"><span class="flabel">種類</span><div class="chips" id="outKind">' +
+            C.OUT_KINDS.map(function (k) {
+              return (
+                '<button class="chip chip-sm" type="button" data-ok="' +
+                k.key +
+                '">' +
+                esc(k.label) +
+                "</button>"
+              );
+            }).join("") +
+            "</div></div>" +
+            '<div class="frow"><span class="flabel">金額</span>' +
+            '<input class="finput" type="number" inputmode="numeric" id="outAmt" value="' +
+            esc(cur ? cur.amount : "") +
+            '"></div>' +
+            '<div class="frow"><span class="flabel">誰に（日払いのとき・任意）</span>' +
+            '<input class="finput" id="outStaff" value="' +
+            esc(cur ? cur.staff : "") +
+            '"></div>' +
+            '<div class="frow"><span class="flabel">メモ（任意）</span>' +
+            '<input class="finput" id="outMemo" value="' +
+            esc(cur ? cur.memo : "") +
+            '" placeholder="例）氷とおしぼり"></div>' +
+            '<div class="err" id="outErr"></div>' +
+            '<div style="margin-top:12px"><button class="btn btn-primary" id="outOk">保存する</button></div>' +
+            (cur
+              ? '<div class="btn-right" style="margin-top:10px">' +
+                '<button class="btn btn-ghost btn-danger btn-sm" id="outDel">この出金を消す</button></div>'
+              : "")
+        );
+        var kind = cur ? cur.kind : "buy";
+        var syncKind = function () {
+          $("outKind")
+            .querySelectorAll("[data-ok]")
+            .forEach(function (b) {
+              b.classList.toggle("on", b.getAttribute("data-ok") === kind);
+              b.onclick = function () {
+                kind = b.getAttribute("data-ok");
+                syncKind();
+              };
+            });
+        };
+        syncKind();
+        $("outOk").onclick = function () {
+          var amt = $("outAmt").value;
+          if (amt === "" || !isFinite(Number(amt)) || Number(amt) <= 0) {
+            $("outErr").textContent = "金額を入れてください";
+            return;
+          }
+          var o = C.normalizeOut({
+            id: cur ? cur.id : "",
+            kind: kind,
+            amount: amt,
+            memo: $("outMemo").value,
+            staff: $("outStaff").value,
+          });
+          var outs = inp.outs.filter(function (x) {
+            return x.id !== o.id;
+          });
+          outs.push(o);
+          writeClose({ outs: outs });
+          closeModal();
+          renderClose();
+          toast("✅ 出金を入れました");
+        };
+        if ($("outDel")) {
+          $("outDel").onclick = function () {
+            writeClose({
+              outs: inp.outs.filter(function (x) {
+                return x.id !== cur.id;
+              }),
+            });
+            closeModal();
+            renderClose();
+            toast("🗑 出金を消しました");
+          };
+        }
+      }
+
+      // 画面の値を締めに書き込む（1か所に集約）
+      function writeClose(patch) {
+        var inp = closeInput(UI.closeYmd);
+        var next = C.normalizeClose(
+          Object.assign(
+            {
+              ymd: UI.closeYmd,
+              opening: $("clOpen").value === "" ? 0 : Number($("clOpen").value),
+              outs: inp.outs,
+              counted: $("clCount").value,
+              memo: $("clMemo").value,
+              closedAt: inp.closedAt,
+            },
+            patch || {}
+          )
+        );
+        CLOSES[UI.closeYmd] = next;
+        saveCloses();
+        return next;
+      }
+
+      /* 締めのA4（日報） */
+      function closeSheetHtml(d) {
+        var rows = d.outs.length
+          ? d.outs
+              .map(function (o) {
+                return (
+                  "<tr><td>" +
+                  esc(C.outKindLabel(o.kind)) +
+                  "</td><td>" +
+                  esc(o.staff || o.memo || "") +
+                  '</td><td class="c-a">' +
+                  C.comma(o.amount) +
+                  "</td></tr>"
+                );
+              })
+              .join("")
+          : '<tr><td colspan="3" class="c-mid">なし</td></tr>';
+        var line = function (l, v, cls) {
+          return (
+            "<tr><th>" + esc(l) + '</th><td class="c-a ' + (cls || "") + '">' + v + "</td></tr>"
+          );
+        };
+        return (
+          '<div class="sheet cl-sheet">' +
+          '<div class="sh-head"><div class="sh-title">日報（レジ締め）</div>' +
+          '<div class="sh-meta">' +
+          esc(SETTINGS.store || "") +
+          "　" +
+          esc(C.jpDate(d.ymd)) +
+          "（" +
+          esc(C.weekday(d.ymd)) +
+          "）</div></div>" +
+          '<table class="cl-p2"><tbody>' +
+          line("釣銭（開けたとき）", C.comma(d.opening)) +
+          line("現金の売上", C.comma(d.cashSales)) +
+          line("現金で回収したツケ", C.comma(d.collected)) +
+          line("出金", "−" + C.comma(d.outTotal)) +
+          line("あるべき額", C.comma(d.should), "c-bold") +
+          line("数えた実数", d.counted == null ? "—" : C.comma(d.counted)) +
+          line("差額", d.diff == null ? "—" : (d.diff > 0 ? "+" : "") + C.comma(d.diff), "c-bold") +
+          "</tbody></table>" +
+          '<div class="cl-p3"><div class="cl-cap">出金の内訳</div>' +
+          '<table class="cl-p4"><tbody>' +
+          rows +
+          "</tbody></table></div>" +
+          '<div class="cl-p3"><div class="cl-cap">現金以外（金庫に入らない分）</div>' +
+          '<table class="cl-p4"><tbody>' +
+          '<tr><td>クレジット</td><td></td><td class="c-a">' +
+          C.comma(d.other.credit) +
+          "</td></tr>" +
+          '<tr><td>PayPay</td><td></td><td class="c-a">' +
+          C.comma(d.other.paypay) +
+          "</td></tr>" +
+          '<tr><td>請求書送り</td><td></td><td class="c-a">' +
+          C.comma(d.other.invoice) +
+          "</td></tr>" +
+          '<tr><td>ツケ</td><td></td><td class="c-a">' +
+          C.comma(d.other.tsuke) +
+          "</td></tr>" +
+          '<tr><td class="c-bold">この日の売上合計</td><td></td><td class="c-a c-bold">' +
+          C.comma(d.salesTotal) +
+          "</td></tr>" +
+          "</tbody></table></div>" +
+          ($("clMemo").value
+            ? '<div class="cl-p3"><div class="cl-cap">ひとこと</div><div class="cl-memo">' +
+              esc($("clMemo").value) +
+              "</div></div>"
+            : "") +
+          '<div class="cl-sign">' +
+          (d.closedAt ? "締め " + esc(C.jpDate(d.ymd)) + " " + hhmm(d.closedAt) : "未締め") +
+          "　　確認印　　　　</div>" +
+          "</div>"
+        );
+      }
+
+      /* ===================================================================
          画面切り替え・全体描画
          =================================================================== */
       function showScreen(name) {
         UI.screen = name;
-        ["input", "list", "sum", "inv", "tax", "set"].forEach(function (n) {
+        ["input", "list", "sum", "inv", "close", "tax", "set"].forEach(function (n) {
           $("scr-" + n).classList.toggle("active", n === name);
         });
         document.querySelectorAll(".nav-item").forEach(function (b) {
@@ -3908,6 +4560,7 @@
         renderSum();
         renderTax();
         renderInv();
+        renderClose();
         renderSettings();
       }
 
@@ -3920,6 +4573,7 @@
         var t = todayIso();
         UI.period.ym = C.ymOf(t);
         UI.invYm = C.ymOf(t);
+        UI.closeYmd = t;
         $("inDate").value = t;
 
         buildInputChips();
@@ -3959,6 +4613,15 @@
               fitSheets("taxScale", "taxSheets");
             };
           });
+        $("taxNames")
+          .querySelectorAll("[data-tn]")
+          .forEach(function (b) {
+            b.onclick = function () {
+              SETTINGS.taxNames = b.getAttribute("data-tn") === "1";
+              saveSettings();
+              renderTax();
+            };
+          });
         $("btnPrintTax").onclick = function () {
           printSheets("taxSheets", "売上報告書");
         };
@@ -3966,6 +4629,38 @@
           printSheets("invSheets", "請求書");
         };
 
+        ["clOpen", "clCount", "clMemo"].forEach(function (id) {
+          $(id).oninput = function () {
+            writeClose({});
+            renderClose();
+          };
+        });
+        $("btnOutAdd").onclick = function () {
+          if (closeInput(UI.closeYmd).closedAt) {
+            toast("締めた日です。直すなら「締め直す」を押してください");
+            return;
+          }
+          openOut("");
+        };
+        $("btnClose").onclick = function () {
+          var inp = closeInput(UI.closeYmd);
+          if (inp.closedAt) {
+            writeClose({ closedAt: null });
+            renderClose();
+            toast("鍵を外しました。直したらもう一度締めてください");
+            return;
+          }
+          if ($("clCount").value === "") {
+            toast("⚠️ 数えた実数を入れてください");
+            return;
+          }
+          writeClose({ closedAt: new Date().toISOString() });
+          renderClose();
+          toast("✅ 締めました");
+        };
+        $("btnPrintClose").onclick = function () {
+          printSheets("closeSheets", "日報");
+        };
         $("btnPartners").onclick = function () {
           openPartnerList();
         };
@@ -4157,6 +4852,12 @@
         },
         get invoices() {
           return INVOICES;
+        },
+        get closes() {
+          return CLOSES;
+        },
+        get closeYmd() {
+          return UI.closeYmd;
         },
         get account() {
           return ACCOUNT;

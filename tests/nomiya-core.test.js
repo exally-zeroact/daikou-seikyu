@@ -1146,3 +1146,99 @@ describe("レジ締め（現金合わせ）", () => {
     expect(plan.push.length).toBe(0);
   });
 });
+
+describe("税理士に渡す紙の「お金まわり」", () => {
+  const mk = (id, d, name, amt, pay, rc, extra) =>
+    C.normalizeSale(
+      Object.assign({ id, date: d, name, people: 2, amount: amt, pay, receipt: rc }, extra || {}),
+      d + "T00:00:00.000Z"
+    );
+  const SALES = [
+    mk("a1", "2026-07-01", "田中", 8000, "cash", "none"),
+    mk("a2", "2026-07-02", "山本商事", 32000, "invoice", "na"),
+    mk("a3", "2026-07-03", "田中", 5000, "tsuke", "later"),
+    // 先月のツケを今月 現金で回収
+    mk("a4", "2026-06-20", "田中", 9000, "tsuke", "later", {
+      paidDate: "2026-07-05",
+      paidCash: true,
+    }),
+    // 先月の請求書送りを今月 振込で回収
+    mk("a5", "2026-06-25", "山本商事", 20000, "invoice", "na", {
+      paidDate: "2026-07-10",
+      paidCash: false,
+    }),
+    // 来月の売上（今月の紙には入れない）
+    mk("a6", "2026-08-01", "佐藤", 7000, "tsuke", "later"),
+  ];
+  const CLOSES = {
+    "2026-07-01": C.normalizeClose({
+      ymd: "2026-07-01",
+      opening: 30000,
+      outs: [
+        { kind: "buy", amount: 3000, memo: "氷とおしぼり" },
+        { kind: "pay", amount: 12000, staff: "あかり" },
+      ],
+      counted: 29000,
+    }),
+    "2026-07-05": C.normalizeClose({
+      ymd: "2026-07-05",
+      opening: 29000,
+      outs: [
+        { kind: "taxi", amount: 1500 },
+        { kind: "lend", amount: 5000, staff: "あかり" },
+        { kind: "pay", amount: 8000, staff: "ゆい" },
+      ],
+      counted: 31000,
+    }),
+    // 期間の外は入れない
+    "2026-08-02": C.normalizeClose({
+      ymd: "2026-08-02",
+      opening: 0,
+      outs: [{ kind: "buy", amount: 99999 }],
+      counted: 0,
+    }),
+  };
+  const m = C.monthlyCash(SALES, CLOSES, "2026-07-01", "2026-07-31");
+
+  it("現金で使ったお金を種類別に出す（期間の外は入れない）", () => {
+    const g = (k) => m.expense.filter((x) => x.key === k)[0];
+    expect(g("buy").amount).toBe(3000);
+    expect(g("taxi").amount).toBe(1500);
+    expect(g("pay").amount).toBe(20000); // 12,000＋8,000
+    expect(g("other").amount).toBe(0);
+    expect(m.expenseTotal).toBe(24500);
+  });
+  it("前借り・貸付は経費に混ぜない（別枠で出す）", () => {
+    expect(m.lend.amount).toBe(5000);
+    expect(m.expense.some((x) => x.key === "lend")).toBe(false);
+    expect(m.expenseTotal).toBe(24500); // 前借りは足されていない
+  });
+  it("人件費は誰にいくらまで出せる（紙に出すかは画面で選ぶ）", () => {
+    expect(m.staffPays.map((x) => [x.name, x.amount])).toEqual([
+      ["あかり", 12000],
+      ["ゆい", 8000],
+    ]);
+  });
+  it("この期間に回収した額を、現金と振込で分ける", () => {
+    expect(m.collectedCash).toBe(9000);
+    expect(m.collectedBank).toBe(20000);
+  });
+  it("期間の終わりの未回収（来月の売上は入れない・回収済みは外す）", () => {
+    expect(m.unpaidTotal).toBe(37000); // 請求書32,000＋ツケ5,000
+    expect(m.unpaid.map((x) => x.name)).toEqual(["山本商事", "田中"]);
+  });
+  it("手許現金は最後に数えた実数、過不足は期間の合計", () => {
+    expect(m.cashOnHand).toBe(31000);
+    expect(m.cashOnHandYmd).toBe("2026-07-05");
+    // 7/1: 30,000+8,000-15,000=23,000 → 数えた29,000 = +6,000
+    // 7/5: 29,000+0+9,000-14,500=23,500 → 数えた31,000 = +7,500
+    expect(m.diffTotal).toBe(13500);
+    expect(m.closedDays).toBe(2);
+  });
+  it("締めていない期間は「—」にできる（0と嘘をつかない）", () => {
+    const none = C.monthlyCash(SALES, {}, "2026-07-01", "2026-07-31");
+    expect(none.cashOnHand).toBe(null);
+    expect(none.diffTotal).toBe(null);
+    expect(none.expenseTotal).toBe(0);
+  });
+});
