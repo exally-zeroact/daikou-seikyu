@@ -3432,6 +3432,24 @@
         console.warn("cloud", where, e);
         toast("クラウド保存に失敗（" + where + "）通信を確認して再操作してください");
       }
+      // ★成長テーブルを"全件"読む（max_rows=1000で黙って過少になるのを根治）。
+      //   build=(from,to)=>完成クエリ。count:"exact"で総数を見て、総数に達するまで.rangeでバッチ取得。
+      //   飲み屋(nomiya)のfetchAllと同型（フィルタ付きに対応するためビルダを受ける版）。
+      async function fetchAllQ(build) {
+        var out = [];
+        var from = 0;
+        var size = 1000;
+        for (;;) {
+          var r = await build(from, from + size - 1);
+          if (r.error) return { data: null, error: r.error };
+          var got = r.data || [];
+          out = out.concat(got);
+          if (!got.length) break;
+          if (r.count == null || out.length >= r.count) break;
+          from += size;
+        }
+        return { data: out, error: null, count: out.length };
+      }
       // ログイン後の一括読み込み（RLSで自分の行だけ返る）
       async function loadAllCloud() {
         DB = [];
@@ -3439,7 +3457,9 @@
         PAYMENTS = {};
         ISSUER_SETTINGS = {};
         var ok = true;
-        var c = await SB.from("companies").select("*").is("deleted_at", null);
+        var c = await fetchAllQ(function (a, b) {
+          return SB.from("companies").select("*", { count: "exact" }).is("deleted_at", null).range(a, b);
+        });
         if (c.error) {
           cloudErr("会社読込", c.error);
           ok = false;
@@ -3464,12 +3484,16 @@
             };
           });
         }
-        var m = await SB.from("meisai").select("*").is("deleted_at", null);
+        var m = await fetchAllQ(function (a, b) {
+          return SB.from("meisai").select("*", { count: "exact" }).is("deleted_at", null).range(a, b);
+        });
         if (m.error) {
           cloudErr("明細読込", m.error);
           ok = false;
         } else DB = m.data.map(meisaiFromDb);
-        var p = await SB.from("payments").select("*").is("deleted_at", null);
+        var p = await fetchAllQ(function (a, b) {
+          return SB.from("payments").select("*", { count: "exact" }).is("deleted_at", null).range(a, b);
+        });
         if (p.error) cloudErr("入金読込", p.error);
         else
           p.data.forEach(function (r) {
@@ -8767,12 +8791,23 @@
           return rec;
         });
         // クラウドに一括insert→返ってきたuuid＋created_atを各明細に載せて in-memory に追加
-        var ins = await SB.from("meisai").insert(recs.map(meisaiToDb)).select("id, created_at");
-        if (ins.error) {
-          cloudErr("明細追加", ins.error);
-          return;
+        // ★500件ずつ分割（1回のinsert返りもmax_rows上限に掛かる＝1000超でid対応が崩れ、以後その行が更新/削除できなくなるのを防ぐ）
+        var payload = recs.map(meisaiToDb);
+        var insData = [];
+        for (var bi = 0; bi < payload.length; bi += 500) {
+          var chunk = payload.slice(bi, bi + 500);
+          var ins = await SB.from("meisai").insert(chunk).select("id, created_at");
+          if (ins.error) {
+            cloudErr("明細追加", ins.error);
+            return;
+          }
+          if ((ins.data || []).length !== chunk.length) {
+            cloudErr("明細追加", { message: "一部しか保存できませんでした（" + (ins.data || []).length + "/" + chunk.length + "）" });
+            return;
+          }
+          insData = insData.concat(ins.data);
         }
-        ins.data.forEach(function (r, i) {
+        insData.forEach(function (r, i) {
           recs[i].id = r.id;
           recs[i]._created = r.created_at || ""; // 一覧で「今入れた明細」を最上部に出すため
           DB.push(recs[i]);
