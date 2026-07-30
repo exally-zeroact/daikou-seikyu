@@ -874,3 +874,128 @@ describe("クラウド同期（端末が作業台・クラウドは控え）", (
     ).toEqual({ merged: l, push: false });
   });
 });
+
+describe("P0: 空の時刻を送らない・戻せるバックアップ・請求Noの台帳", () => {
+  it("時刻や日付が空の売上でも、DBには null で送る（空文字は22007で落ちる）", () => {
+    const row = C.saleToRow({
+      id: "a",
+      date: "",
+      name: "田中",
+      people: 2,
+      amount: 8000,
+      pay: "cash",
+      receipt: "none",
+      receiptDate: "",
+      paidDate: "",
+      createdAt: "",
+      updatedAt: "",
+      deletedAt: "",
+    });
+    expect(row.receipt_date).toBe(null);
+    expect(row.paid_date).toBe(null);
+    expect(row.created_at).toBe(null);
+    expect(row.deleted_at).toBe(null);
+    // 更新時刻は同期の勝ち負けを決める鍵なので、空なら今の時刻が入る
+    expect(typeof row.updated_at).toBe("string");
+    expect(isNaN(Date.parse(row.updated_at))).toBe(false);
+    const p = C.partnerToRow({ name: "A社", lastUsedAt: "", updatedAt: "", deletedAt: "" });
+    expect(p.last_used_at).toBe(null);
+    expect(p.deleted_at).toBe(null);
+    expect(isNaN(Date.parse(p.updated_at))).toBe(false);
+  });
+  it("日付が壊れた売上は送らずに端末に残す（1行のせいで全部失敗させない）", () => {
+    const ok1 = C.normalizeSale({ date: "2026-07-01", name: "田中", people: 1, amount: 100 });
+    const bad = Object.assign({}, ok1, { id: "bad", date: "" });
+    const r = C.pushableSales([ok1, bad]);
+    expect(r.ok.length).toBe(1);
+    expect(r.bad.length).toBe(1);
+    expect(r.bad[0].id).toBe("bad");
+  });
+
+  it("書き出したファイルから戻すと、戻した行が勝つ（更新時刻が今になる）", () => {
+    const old = C.normalizeSale(
+      { id: "a", date: "2026-07-01", name: "田中", people: 2, amount: 8000 },
+      "2026-07-01T00:00:00.000Z"
+    );
+    // クラウドには「消した」版がある（古いファイルのままだと負けて消える）
+    const removed = Object.assign({}, old, {
+      deletedAt: "2026-07-05T00:00:00.000Z",
+      updatedAt: "2026-07-05T00:00:00.000Z",
+    });
+    const restored = C.restorePlan([removed], [old], "add", "2026-07-09T00:00:00.000Z");
+    expect(restored.length).toBe(1);
+    expect(restored[0].updatedAt).toBe("2026-07-09T00:00:00.000Z");
+    // 戻した方が新しいので、同期しても消えない
+    const plan = C.syncPlanSales(restored, [removed]);
+    expect(plan.merged[0].deletedAt).toBe(null);
+    expect(plan.push.length).toBe(1);
+  });
+  it("「入れ替える」で読み込むと、ファイルに無い行に消した印が立つ（前のが残らない）", () => {
+    const keep = C.normalizeSale({
+      id: "a",
+      date: "2026-07-01",
+      name: "田中",
+      amount: 8000,
+      people: 1,
+    });
+    const gone = C.normalizeSale({
+      id: "b",
+      date: "2026-07-02",
+      name: "佐藤",
+      amount: 5000,
+      people: 1,
+    });
+    const out = C.restorePlan([keep, gone], [keep], "replace", "2026-07-09T00:00:00.000Z");
+    expect(out.length).toBe(2);
+    const b = out.find((x) => x.id === "b");
+    expect(b.deletedAt).toBe("2026-07-09T00:00:00.000Z");
+    expect(b.updatedAt).toBe("2026-07-09T00:00:00.000Z");
+    // 生きているのは1件
+    expect(C.filterSales(out, {}).length).toBe(1);
+    // 「足す」なら消えない
+    const add = C.restorePlan([keep, gone], [keep], "add", "2026-07-09T00:00:00.000Z");
+    expect(C.filterSales(add, {}).length).toBe(2);
+  });
+
+  it("請求書番号の台帳：DBの行と往復できる", () => {
+    const rec = {
+      key: "山本商事||2026-07-01|2026-07-31",
+      no: "202607-001",
+      name: "山本商事",
+      from: "2026-07-01",
+      to: "2026-07-31",
+      issuedAt: "2026-07-31T00:00:00.000Z",
+      updatedAt: "2026-07-31T00:00:00.000Z",
+    };
+    const row = C.invoiceRecToRow(rec);
+    expect(row.ymd_from).toBe("2026-07-01");
+    expect(row.no).toBe("202607-001");
+    expect(C.invoiceRecFromRow(row)).toEqual(rec);
+    // 期間が空でも送れる（null になる）
+    expect(C.invoiceRecToRow({ key: "k", no: "n", from: "", to: "" }).ymd_from).toBe(null);
+  });
+  it("請求書番号は先に採番した方（古い方）を正とする＝番号が入れ替わらない", () => {
+    const mine = {
+      key: "k1",
+      no: "202607-005",
+      name: "A社",
+      issuedAt: "2026-07-31T10:00:00.000Z",
+      updatedAt: "2026-07-31T10:00:00.000Z",
+    };
+    const other = {
+      key: "k1",
+      no: "202607-002",
+      name: "A社",
+      issuedAt: "2026-07-31T09:00:00.000Z",
+      updatedAt: "2026-07-31T09:00:00.000Z",
+    };
+    // 別の端末が先に 002 を採番していた → そちらが残る
+    const plan = C.syncPlanInvoices([mine], [other]);
+    expect(plan.merged[0].no).toBe("202607-002");
+    expect(plan.push.length).toBe(0);
+    // 端末にしか無い番号は送る
+    const only = C.syncPlanInvoices([mine], []);
+    expect(only.push.length).toBe(1);
+    expect(only.merged[0].no).toBe("202607-005");
+  });
+});

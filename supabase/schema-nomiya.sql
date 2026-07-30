@@ -11,6 +11,7 @@
 --     nomiya_sales    ... 売上1件＝1組のお会計
 --     nomiya_partners ... 宛先（請求書送りの相手＝会社名・敬称・担当者）
 --     nomiya_settings ... 店の情報・ロゴ・判子・請求書のデザイン（1アカウント1行）
+--     nomiya_invoices ... 請求書番号の台帳（機種を替えても番号が続くように）
 --
 --   共通方針: account_id = auth.uid() + RLS 本人のみ（既存 pay_* と同方式）。
 --             お金の記録はソフト削除(deleted_at)＝物理削除しない。
@@ -65,6 +66,24 @@ create table if not exists nomiya_partners (
 );
 create index if not exists idx_nomiya_partners_acct on nomiya_partners(account_id, name);
 
+-- ── 請求書番号の台帳（相手＋期間ごとに1つ） ───────────────────────────
+--   端末の中だけに置くと、機種を替えた時に番号が重複・欠番する。
+--   （適格請求書の写しを7年保存する話に直結するので、クラウドに置く）
+--   key  = 相手＋期間（アプリが作る一意キー）
+create table if not exists nomiya_invoices (
+  id         uuid primary key default gen_random_uuid(),
+  account_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  key        text not null,
+  no         text not null,
+  name       text not null default '',
+  ymd_from   date,
+  ymd_to     date,
+  issued_at  timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (account_id, key)
+);
+create index if not exists idx_nomiya_invoices_acct on nomiya_invoices(account_id, no);
+
 -- ── 店の設定（1アカウント1行） ────────────────────────────────────────
 --   config 例: { store:'', addr:'', tel:'', regNo:'', bank:'', rate:0.1,
 --                tpl:'card', accent:'', font:'mincho', logoPos:'top',
@@ -79,6 +98,7 @@ create table if not exists nomiya_settings (
 alter table nomiya_sales    enable row level security;
 alter table nomiya_partners enable row level security;
 alter table nomiya_settings enable row level security;
+alter table nomiya_invoices enable row level security;
 
 drop policy if exists own_nomiya_sales on nomiya_sales;
 create policy own_nomiya_sales on nomiya_sales for all
@@ -88,6 +108,10 @@ drop policy if exists own_nomiya_partners on nomiya_partners;
 create policy own_nomiya_partners on nomiya_partners for all
   using (account_id = auth.uid()) with check (account_id = auth.uid());
 
+drop policy if exists own_nomiya_invoices on nomiya_invoices;
+create policy own_nomiya_invoices on nomiya_invoices for all
+  using (account_id = auth.uid()) with check (account_id = auth.uid());
+
 drop policy if exists own_nomiya_settings on nomiya_settings;
 create policy own_nomiya_settings on nomiya_settings for all
   using (account_id = auth.uid()) with check (account_id = auth.uid());
@@ -95,4 +119,4 @@ create policy own_nomiya_settings on nomiya_settings for all
 -- ── 確認用（適用後に SQL Editor で実行すると3行とも rowsecurity=true で返る） ──
 -- select tablename, rowsecurity from pg_tables
 --   where schemaname='public' and tablename in
---     ('nomiya_sales','nomiya_partners','nomiya_settings');
+--     ('nomiya_sales','nomiya_partners','nomiya_settings','nomiya_invoices');

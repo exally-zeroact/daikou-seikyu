@@ -756,6 +756,17 @@
   function _s(v) {
     return String(v == null ? "" : v);
   }
+  // DBの時刻(timestamptz)は空文字を受け取れない。無いものは null で送る。
+  function _ts(v) {
+    return typeof v === "string" && v !== "" && !isNaN(Date.parse(v)) ? v : null;
+  }
+  // DBの日付(date)も同じ。'YYYY-MM-DD' でなければ null。
+  function _date(v) {
+    return isIsoDate(v) ? v : null;
+  }
+  function nowIso() {
+    return new Date().toISOString();
+  }
   // 売上 → DBの行
   function saleToRow(s) {
     return {
@@ -766,13 +777,14 @@
       amount: Math.floor(Number(s.amount) || 0),
       pay: _s(s.pay),
       receipt: normalizeReceipt(s.receipt),
-      receipt_date: s.receiptDate || null,
+      receipt_date: _date(s.receiptDate),
       memo: _s(s.memo),
-      paid_date: s.paidDate || null,
+      paid_date: _date(s.paidDate),
       staff: _s(s.staff),
-      created_at: s.createdAt || null,
-      updated_at: s.updatedAt || null,
-      deleted_at: s.deletedAt || null,
+      created_at: _ts(s.createdAt),
+      // 「いつの更新か」は同期の勝ち負けを決める鍵。空では送らない（無ければ今）
+      updated_at: _ts(s.updatedAt) || nowIso(),
+      deleted_at: _ts(s.deletedAt),
     };
   }
   // DBの行 → 売上（normalizeSale は updatedAt を今にしてしまうので通さない）
@@ -799,9 +811,9 @@
       name: _s(p.name),
       honor: p.honor === "様" ? "様" : "御中",
       person: _s(p.person),
-      last_used_at: p.lastUsedAt || null,
-      updated_at: p.updatedAt || null,
-      deleted_at: p.deletedAt || null,
+      last_used_at: _ts(p.lastUsedAt),
+      updated_at: _ts(p.updatedAt) || nowIso(),
+      deleted_at: _ts(p.deletedAt),
     };
   }
   function partnerFromRow(r) {
@@ -815,6 +827,133 @@
       updatedAt: r.updated_at || "",
       deletedAt: r.deleted_at || null,
     };
+  }
+
+  /**
+   * pushableSales(rows)
+   *  DBに送れる行と、送れない行を分ける。日付が壊れた1行のせいで
+   *  その回の送信が丸ごと失敗するのを防ぐ（送れない行は端末に残す）。
+   */
+  function pushableSales(rows) {
+    var ok = [];
+    var bad = [];
+    (rows || []).forEach(function (s) {
+      if (isIsoDate(s && s.date) && s.id) ok.push(s);
+      else bad.push(s);
+    });
+    return { ok: ok, bad: bad };
+  }
+
+  /**
+   * 請求書番号の台帳（相手＋期間ごとに1つ）。端末の中だけに置くと
+   * 機種を替えたときに番号が重複・欠番するので、クラウドにも置く。
+   */
+  function invoiceRecToRow(iv) {
+    return {
+      key: _s(iv.key),
+      no: _s(iv.no),
+      name: _s(iv.name),
+      ymd_from: _date(iv.from),
+      ymd_to: _date(iv.to),
+      issued_at: _ts(iv.issuedAt) || nowIso(),
+      updated_at: _ts(iv.updatedAt) || _ts(iv.issuedAt) || nowIso(),
+    };
+  }
+  function invoiceRecFromRow(r) {
+    return {
+      key: _s(r.key),
+      no: _s(r.no),
+      name: _s(r.name),
+      from: _s(r.ymd_from),
+      to: _s(r.ymd_to),
+      issuedAt: _s(r.issued_at),
+      updatedAt: _s(r.updated_at),
+    };
+  }
+  // 番号台帳の突合＝鍵は key（相手＋期間）。先に採番された方（issuedAtが古い方）を残す。
+  function syncPlanInvoices(localArr, remoteArr) {
+    var L = {};
+    var R = {};
+    var keys = [];
+    (localArr || []).forEach(function (x) {
+      if (!x || !x.key) return;
+      if (!L[x.key]) keys.push(x.key);
+      L[x.key] = x;
+    });
+    (remoteArr || []).forEach(function (x) {
+      if (!x || !x.key) return;
+      if (!L[x.key] && !R[x.key]) keys.push(x.key);
+      R[x.key] = x;
+    });
+    var merged = [];
+    var push = [];
+    keys.forEach(function (k) {
+      var l = L[k];
+      var r = R[k];
+      if (l && !r) {
+        merged.push(l);
+        push.push(l);
+        return;
+      }
+      if (!l && r) {
+        merged.push(r);
+        return;
+      }
+      // 同じ相手・同じ期間に別の番号が付いてしまったら、先に出した番号（古い方）を正とする
+      var li = _s(l.issuedAt);
+      var ri = _s(r.issuedAt);
+      if (li && ri && li !== ri) {
+        if (li < ri) {
+          merged.push(l);
+          push.push(l);
+        } else {
+          merged.push(r);
+        }
+        return;
+      }
+      merged.push(r);
+    });
+    return { merged: merged, push: push };
+  }
+
+  /**
+   * restorePlan(current, fileRows, mode, now)
+   *  書き出したファイルから戻すときの計画。
+   *  クラウドは「新しい updatedAt が勝つ」ので、戻した行に今の時刻を押さないと
+   *  次の同期でクラウドの古い行に上書きされて消える（＝戻せないバックアップ）。
+   *  mode 'replace' は、ファイルに無い行に「消した印」を立てる（入れ替えたのに前のが残るのを防ぐ）。
+   */
+  function restorePlan(current, fileRows, mode, now) {
+    var t = now || nowIso();
+    var out = [];
+    var seen = {};
+    (fileRows || []).forEach(function (r) {
+      if (!r || !r.id) return;
+      seen[r.id] = 1;
+      // 戻した行が勝つように、更新時刻を今にする（中身は変えない）
+      var o = {};
+      Object.keys(r).forEach(function (k) {
+        o[k] = r[k];
+      });
+      o.updatedAt = t;
+      out.push(o);
+    });
+    (current || []).forEach(function (c) {
+      if (!c || !c.id || seen[c.id]) return;
+      if (mode === "replace") {
+        // ファイルに無い＝入れ替えで消えるべき行。消した印を付けて残す（クラウドにも伝わる）
+        var d = {};
+        Object.keys(c).forEach(function (k) {
+          d[k] = c[k];
+        });
+        d.deletedAt = c.deletedAt || t;
+        d.updatedAt = t;
+        out.push(d);
+      } else {
+        out.push(c); // 'add' はそのまま残す
+      }
+    });
+    return out;
   }
 
   /**
@@ -994,6 +1133,11 @@
     syncPlanSales: syncPlanSales,
     syncPlanPartners: syncPlanPartners,
     syncPlanSettings: syncPlanSettings,
+    pushableSales: pushableSales,
+    invoiceRecToRow: invoiceRecToRow,
+    invoiceRecFromRow: invoiceRecFromRow,
+    syncPlanInvoices: syncPlanInvoices,
+    restorePlan: restorePlan,
     buildInvoice: buildInvoice,
     paginate: paginate,
     ledgerPages: ledgerPages,

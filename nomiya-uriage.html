@@ -1256,6 +1256,19 @@
       // 宛先（請求書送りの相手）。売上に打つ名前をキーにする { 名前: {name,to,honor,addr,person} }
       var PARTNERS = {};
       var SET_AT = ""; // 設定を直した時刻
+      // 設定の時刻が空のままだとDBが受け取れない（22007で落ちる）＝初回同期が必ず失敗していた。
+      // 無ければ今の時刻を入れて、端末にも残す。
+      function setAtOrNow() {
+        if (!SET_AT) {
+          SET_AT = new Date().toISOString();
+          try {
+            localStorage.setItem(K_SET_AT, SET_AT);
+          } catch (e) {
+            /* 端末に書けなくても送れる */
+          }
+        }
+        return SET_AT;
+      }
 
       // 画面の状態
       var UI = {
@@ -1366,6 +1379,7 @@
         queuePush();
       }
       function saveInvoices() {
+        queuePush();
         try {
           localStorage.setItem(K_INV, JSON.stringify(INVOICES));
         } catch (e) {
@@ -1424,13 +1438,27 @@
       function pendingSettings() {
         return String(SET_AT || "") > SYNC.at;
       }
+      function pendingInvoices() {
+        return INVOICES.filter(function (x) {
+          return String(x.updatedAt || x.issuedAt || "") > SYNC.at;
+        });
+      }
       function pendingCount() {
-        return pendingSales().length + pendingPartners().length + (pendingSettings() ? 1 : 0);
+        return (
+          pendingSales().length +
+          pendingPartners().length +
+          pendingInvoices().length +
+          (pendingSettings() ? 1 : 0)
+        );
       }
       function bumpSyncMark() {
         var mx = SYNC.at;
         SALES.concat(partnersArr()).forEach(function (x) {
           var u = String(x.updatedAt || "");
+          if (u > mx) mx = u;
+        });
+        INVOICES.forEach(function (x) {
+          var u = String(x.updatedAt || x.issuedAt || "");
           if (u > mx) mx = u;
         });
         if (String(SET_AT || "") > mx) mx = String(SET_AT || "");
@@ -1467,10 +1495,11 @@
       async function pushNow() {
         if (!SB || !ACCOUNT || SYNC.running) return false;
         if (typeof navigator !== "undefined" && navigator.onLine === false) return false;
-        var sales = pendingSales();
+        var sales = C.pushableSales(pendingSales()).ok;
         var partners = pendingPartners();
+        var invoices = pendingInvoices();
         var setDirty = pendingSettings();
-        if (!sales.length && !partners.length && !setDirty) return true;
+        if (!sales.length && !partners.length && !invoices.length && !setDirty) return true;
         SYNC.running = true;
         renderAcct();
         var ok = true;
@@ -1493,9 +1522,18 @@
             );
             if (rp.error) throw rp.error;
           }
+          if (invoices.length) {
+            var ri = await SB.from("nomiya_invoices").upsert(
+              invoices.map(function (x) {
+                return withAccount(C.invoiceRecToRow(x));
+              }),
+              { onConflict: "account_id,key" }
+            );
+            if (ri.error) throw ri.error;
+          }
           if (setDirty) {
             var rc = await SB.from("nomiya_settings").upsert(
-              { account_id: ACCOUNT, config: SETTINGS, updated_at: SET_AT },
+              { account_id: ACCOUNT, config: SETTINGS, updated_at: setAtOrNow() },
               { onConflict: "account_id" }
             );
             if (rc.error) throw rc.error;
@@ -1504,7 +1542,7 @@
           SYNC.err = "";
         } catch (e) {
           ok = false;
-          SYNC.err = String((e && e.message) || e);
+          SYNC.err = window.ExallyLogin ? ExallyLogin.friendly(e) : String((e && e.message) || e);
         }
         SYNC.running = false;
         renderAcct();
@@ -1536,17 +1574,20 @@
         try {
           var rows = await fetchAll("nomiya_sales");
           var prow = await fetchAll("nomiya_partners");
+          var irow = await fetchAll("nomiya_invoices");
           var cfg = await SB.from("nomiya_settings").select("config, updated_at").maybeSingle();
           if (cfg.error) throw cfg.error;
 
           var planS = C.syncPlanSales(SALES, rows.map(C.saleFromRow));
           var planP = C.syncPlanPartners(PARTNERS, prow.map(C.partnerFromRow));
+          var planI = C.syncPlanInvoices(INVOICES, irow.map(C.invoiceRecFromRow));
           var rcfg = cfg.data && cfg.data.config ? cfg.data.config : null;
           var rat = (cfg.data && cfg.data.updated_at) || "";
           var planC = C.syncPlanSettings(SETTINGS, SET_AT, rcfg, rat);
 
           SALES = planS.merged;
           PARTNERS = planP.merged;
+          INVOICES = planI.merged;
           if (planC.merged !== SETTINGS) {
             Object.keys(SETTINGS).forEach(function (k) {
               if (planC.merged[k] != null) SETTINGS[k] = planC.merged[k];
@@ -1556,15 +1597,22 @@
           try {
             localStorage.setItem(K_SALES, JSON.stringify(SALES));
             localStorage.setItem(K_PARTNER, JSON.stringify(PARTNERS));
+            localStorage.setItem(K_INV, JSON.stringify(INVOICES));
             localStorage.setItem(K_SET, JSON.stringify(SETTINGS));
             localStorage.setItem(K_SET_AT, SET_AT);
           } catch (e0) {
             /* 端末に書けなくても画面は動く */
           }
+          // ★取り込んだ分は先に画面へ出す。このあとの送信が失敗しても「売上が消えた」に見えない。
+          renderAll();
 
-          if (planS.push.length) {
+          var up = C.pushableSales(planS.push);
+          if (up.bad.length) {
+            SYNC.err = "送れない売上が " + up.bad.length + " 件あります（日付が入っていません）";
+          }
+          if (up.ok.length) {
             var rs2 = await SB.from("nomiya_sales").upsert(
-              planS.push.map(function (x) {
+              up.ok.map(function (x) {
                 return withAccount(C.saleToRow(x));
               }),
               { onConflict: "account_id,cid" }
@@ -1580,9 +1628,18 @@
             );
             if (rp2.error) throw rp2.error;
           }
+          if (planI.push.length) {
+            var ri2 = await SB.from("nomiya_invoices").upsert(
+              planI.push.map(function (x) {
+                return withAccount(C.invoiceRecToRow(x));
+              }),
+              { onConflict: "account_id,key" }
+            );
+            if (ri2.error) throw ri2.error;
+          }
           if (planC.push) {
             var rc2 = await SB.from("nomiya_settings").upsert(
-              { account_id: ACCOUNT, config: SETTINGS, updated_at: SET_AT },
+              { account_id: ACCOUNT, config: SETTINGS, updated_at: setAtOrNow() },
               { onConflict: "account_id" }
             );
             if (rc2.error) throw rc2.error;
@@ -1592,7 +1649,8 @@
           if (loud) toast("☁️ 同期しました");
         } catch (e) {
           ok = false;
-          SYNC.err = String((e && e.message) || e);
+          // 生のDBエラーは見せない（共通部品と同じ言い方にそろえる）
+          SYNC.err = window.ExallyLogin ? ExallyLogin.friendly(e) : String((e && e.message) || e);
           if (loud) toast("⚠️ 同期できませんでした");
         }
         SYNC.running = false;
@@ -2976,13 +3034,15 @@
         }
         var ym = C.ymOf(iv.to) || C.ymOf(todayIso());
         var no = C.formatInvoiceNo(ym, C.nextInvoiceSeq(INVOICES, ym));
+        var nowIso = new Date().toISOString();
         INVOICES.push({
           key: key,
           no: no,
           name: iv.name,
           from: iv.from || "",
           to: iv.to || "",
-          issuedAt: new Date().toISOString(),
+          issuedAt: nowIso,
+          updatedAt: nowIso,
         });
         saveInvoices();
         return no;
@@ -3672,24 +3732,21 @@
               '<button class="btn btn-ghost" id="mdAdd">足す</button>' +
               '<button class="btn btn-ghost btn-danger" id="mdRep">入れ替える</button></div>'
           );
+          // ★戻した行に「今」の更新時刻を押す＝クラウドの古い行に上書きされない。
+          //   入れ替えのときは、ファイルに無い行に「消した印」を立てて クラウドにも伝える。
           $("mdAdd").onclick = function () {
-            var have = {};
-            SALES.forEach(function (s) {
-              have[s.id] = 1;
-            });
-            data.sales.forEach(function (s) {
-              if (!have[s.id]) SALES.push(s);
-            });
+            SALES = C.restorePlan(SALES, data.sales, "add");
             finishImport(data);
           };
           $("mdRep").onclick = function () {
-            SALES = data.sales;
+            SALES = C.restorePlan(SALES, data.sales, "replace");
             finishImport(data);
           };
         };
         fr.readAsText(file);
       }
       function finishImport(data) {
+        var nowIso = new Date().toISOString();
         if (data.settings && typeof data.settings === "object") {
           Object.keys(SETTINGS).forEach(function (k) {
             if (data.settings[k] != null) SETTINGS[k] = data.settings[k];
@@ -3697,11 +3754,18 @@
           saveSettings();
         }
         if (Array.isArray(data.invoices)) {
-          INVOICES = data.invoices;
+          // 番号台帳は「先に採番した方」が正なので issuedAt は触らず、送るための時刻だけ押す
+          INVOICES = data.invoices.map(function (x) {
+            return Object.assign({}, x, { updatedAt: nowIso });
+          });
           saveInvoices();
         }
         if (data.partners && typeof data.partners === "object") {
-          PARTNERS = data.partners;
+          var pt = {};
+          Object.keys(data.partners).forEach(function (k) {
+            pt[k] = Object.assign({}, data.partners[k], { updatedAt: nowIso });
+          });
+          PARTNERS = pt;
           savePartners();
         }
         saveSales();
@@ -4025,6 +4089,9 @@
         },
         get partners() {
           return PARTNERS;
+        },
+        get invoices() {
+          return INVOICES;
         },
         get account() {
           return ACCOUNT;

@@ -1458,6 +1458,132 @@ test.describe("飲み屋 売上管理", () => {
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 
+  test("新しく契約した店の初回同期が落ちない（設定を一度も保存していない状態）", async ({
+    page,
+  }) => {
+    const errors = await install(page, { noSession: true });
+    await page.goto(PAGE, { waitUntil: "load" });
+    await page.evaluate(() => localStorage.clear());
+    await page.reload({ waitUntil: "load" });
+    // まっさらな状態で登録して入る
+    await page.locator("#loginEmail").fill("shinki@snack.example");
+    await page.locator("#loginPass").fill("himitsu123");
+    await page.locator("#btnSignup").click();
+    await expect(page.locator("#loginOv")).not.toHaveClass(/open/);
+
+    // 設定を一度も保存していないのに、同期が通る（前は空の時刻を送って22007で落ちていた）
+    await page.locator(".nav-item[data-scr='set']").click();
+    await expect(page.locator("#acctInfo")).toContainText("同期済み");
+    await expect(page.locator("#acctInfo")).not.toContainText("invalid input syntax");
+    await expect(page.locator("#acctInfo")).not.toContainText("22007");
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("書き出したファイルから戻せる（全部消しても復元できる）", async ({ page }) => {
+    const errors = await open(page);
+    await addSale(page, {
+      date: "2026-07-01",
+      name: "田中",
+      people: 2,
+      amount: 8000,
+      pay: "cash",
+      receipt: false,
+      memo: "ボトル入れ",
+    });
+    await page.locator(".nav-item[data-scr='set']").click();
+    await expect(page.locator("#acctInfo")).toContainText("同期済み");
+
+    // 書き出す（ファイルを受け取る）
+    const dl = await Promise.race([
+      page.waitForEvent("download", { timeout: 15000 }),
+      page
+        .locator("#btnExport")
+        .click()
+        .then(() => page.waitForEvent("download")),
+    ]);
+    const file = await dl.path();
+    expect(file, "書き出したファイルが取れない").toBeTruthy();
+
+    // 全部消す（クラウドにも「消した」が伝わる）
+    await page.locator("#btnWipe").click();
+    await page.locator("#mdYes").click();
+    await expect(page.locator("#acctInfo")).toContainText("同期済み");
+    expect(
+      await page.evaluate(() => window.__NOMIYA.sales.filter((s) => !s.deletedAt).length)
+    ).toBe(0);
+
+    // 消した時刻を覚えておく（戻した行がこれより新しくないとクラウドに負けて消える）
+    const wipedAt = await page.evaluate(() =>
+      window.__NOMIYA.sales
+        .map((s) => s.updatedAt)
+        .sort()
+        .pop()
+    );
+
+    // 読み込んで「入れ替える」で戻す
+    await page.locator("#fileImport").setInputFiles(file);
+    await page.locator("#mdRep").click();
+    // ★戻した行の更新時刻が「今」になっていること（これが無いと次の同期で消える）
+    const restoredAt = await page.evaluate(
+      () => window.__NOMIYA.sales.filter((s) => !s.deletedAt)[0].updatedAt
+    );
+    expect(
+      restoredAt > wipedAt,
+      `戻した行が古いまま（${restoredAt} <= ${wipedAt}）＝次の同期で消える`
+    ).toBe(true);
+    await expect(page.locator("#acctInfo")).toContainText("同期済み");
+    expect(
+      await page.evaluate(() => window.__NOMIYA.sales.filter((s) => !s.deletedAt).length)
+    ).toBe(1);
+
+    // ★開き直して同期しても、戻した売上が消えない（前はクラウドの「消した」に負けて消えた）
+    await page.reload({ waitUntil: "load" });
+    // 「同期済み」の表示は前回の値が残るので、同期そのものを待ってから見る
+    await page.evaluate(() => window.__NOMIYA.syncNow(false));
+    await page.locator(".nav-item[data-scr='set']").click();
+    const alive = await page.evaluate(() =>
+      window.__NOMIYA.sales.filter((s) => !s.deletedAt).map((s) => [s.name, s.amount, s.memo])
+    );
+    expect(alive).toEqual([["田中", 8000, "ボトル入れ"]]);
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("請求書番号は端末の控えを消しても続く（クラウドに台帳がある）", async ({ page }) => {
+    const errors = await open(page);
+    await seed(page);
+    // 2枚出す＝001と002が採番される
+    //（1枚だけだと台帳が消えても偶然001に戻るので、試験として成り立たない）
+    await page.locator(".nav-item[data-scr='inv']").click();
+    await page.locator("#invName").selectOption("山本商事");
+    const no1 = (await page.locator("#invSheets .iv-meta").innerText()).match(/No\.\s*(\S+)/)[1];
+    await page.locator("#invName").selectOption("田中");
+    const no2 = (await page.locator("#invSheets .iv-meta").innerText()).match(/No\.\s*(\S+)/)[1];
+    expect(no1).toBe("202607-001");
+    expect(no2).toBe("202607-002");
+    await page.locator(".nav-item[data-scr='set']").click();
+    await expect(page.locator("#acctInfo")).toContainText("同期済み");
+
+    // 端末の控え（番号台帳も）を消して開き直す＝新しいスマホと同じ
+    await page.evaluate(() => {
+      ["nomiya_invoices_v1", "nomiya_sync_at_v1", "nomiya_sync_ok_v1"].forEach((k) =>
+        localStorage.removeItem(k)
+      );
+    });
+    await page.reload({ waitUntil: "load" });
+    await page.evaluate(() => window.__NOMIYA.syncNow(false));
+    // ★番号は「見た順」で偶然そろうことがあるので、台帳そのものが戻っているかを見る
+    const led = await page.evaluate(() => window.__NOMIYA.invoices.map((x) => x.no).sort());
+    expect(led, "番号の台帳がクラウドから戻っていない＝機種を替えると番号が重複する").toEqual([
+      no1,
+      no2,
+    ]);
+    await setInvMonth(page, "2026-07");
+    await page.locator("#invName").selectOption("田中");
+    const again = (await page.locator("#invSheets .iv-meta").innerText()).match(/No\.\s*(\S+)/)[1];
+    expect(again, "台帳が端末にしか無いと番号が001に戻る＝重複・欠番").toBe(no2);
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
   test("入れ直しても消えない（開き直しても残る）", async ({ page }) => {
     const errors = await open(page);
     await addSale(page, {
