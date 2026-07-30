@@ -2,6 +2,13 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
+    <!-- このページが繋いでよい先を決め打ちする。CDNが汚染されても中身が差し替わらない（SRI）、
+         知らないサーバーには1バイトも送らない（connect-src）。画面の作りは全部この中に書いてある
+         ので 'unsafe-inline' は外せないが、外部の持ち出し経路はこれで塞げる。 -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://khawdrnvssdenumbiwfg.supabase.co https://cdn.jsdelivr.net; base-uri 'none'; form-action 'none'; object-src 'none'"
+    />
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
     <title>売上管理 | Exally</title>
     <link
@@ -1216,7 +1223,12 @@
 
     <!-- 判子画像の白抜き（代行請求アプリと同じモジュールを使う） -->
     <!-- クラウド（ログイン＋保存）。テストでは偽物を差し込むので読めなくても動く -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.js"
+      integrity="sha384-faMlYZUtkJj+Sh6Bmu/L0GzPcraRWN6CW+9RH3GUrK/Z0WS9tgaNNt0tHiLxsbdb"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
     <script src="exally-login.js"></script>
     <script src="hanko.js"></script>
     <script src="nomiya-core.js"></script>
@@ -1238,6 +1250,22 @@
       var K_ACCOUNT = "nomiya_account_v1"; // 前にログインしていたアカウント
 
       var SALES = [];
+      function defaultSettings() {
+        return {
+          store: "",
+          addr: "",
+          tel: "",
+          regNo: "",
+          bank: "",
+          rate: 0.1,
+          tpl: "card",
+          hanko: "",
+          logo: "",
+          logoPos: "top",
+          accent: "",
+          font: "mincho",
+        };
+      }
       var SETTINGS = {
         store: "",
         addr: "",
@@ -1419,28 +1447,55 @@
           /* 目印が残せなくても、次の同期で送り直すだけ */
         }
       }
+      // この端末に残している控えを全部捨てる（別の店で入った時／ログアウトした時）
+      function forgetLocal() {
+        SALES = [];
+        PARTNERS = {};
+        INVOICES = [];
+        SET_AT = "";
+        SYNC.at = "";
+        SYNC.lastOkAt = "";
+        SYNC.err = "";
+        // 店の情報（判子・振込先・登録番号・ロゴ）も必ず捨てる。
+        // 残すと、次に入った別の店の請求書に前の店の判子と振込先が出る。
+        SETTINGS = defaultSettings();
+        try {
+          [K_SALES, K_PARTNER, K_INV, K_SET, K_SET_AT, K_SYNC_AT, K_SYNC_OK].forEach(function (k) {
+            localStorage.removeItem(k);
+          });
+        } catch (e) {
+          /* 消せなくても、このあとの同期で入れ替わる */
+        }
+      }
+
       function partnersArr() {
         return Object.keys(PARTNERS).map(function (k) {
           return PARTNERS[k];
         });
       }
-      // まだ送っていないもの（この目印より新しい更新）
+      // まだ送っていないもの（この目印より新しい更新）。
+      // ★「今より先の時刻」は、時計が進んだ別の端末が書いた行。この端末の未送信ではないので数えない
+      //   （数えると永久に「未送信1件」が消えず、毎回送り直すことになる）。
+      function isMine(u) {
+        var t = String(u || "");
+        return t > SYNC.at && t <= new Date().toISOString();
+      }
       function pendingSales() {
         return SALES.filter(function (x) {
-          return String(x.updatedAt || "") > SYNC.at;
+          return isMine(x.updatedAt);
         });
       }
       function pendingPartners() {
         return partnersArr().filter(function (x) {
-          return String(x.updatedAt || "") > SYNC.at;
+          return isMine(x.updatedAt);
         });
       }
       function pendingSettings() {
-        return String(SET_AT || "") > SYNC.at;
+        return isMine(SET_AT);
       }
       function pendingInvoices() {
         return INVOICES.filter(function (x) {
-          return String(x.updatedAt || x.issuedAt || "") > SYNC.at;
+          return isMine(x.updatedAt || x.issuedAt);
         });
       }
       function pendingCount() {
@@ -1451,8 +1506,11 @@
           (pendingSettings() ? 1 : 0)
         );
       }
+      // 目印は「今」を超えない。時計が進んだ端末が書いた未来の時刻をそのまま目印にすると、
+      // それより古い（＝本当はまだ送っていない）変更が全部「送信済み」に見えてしまう。
       function bumpSyncMark() {
         var mx = SYNC.at;
+        var nowMark = new Date().toISOString();
         SALES.concat(partnersArr()).forEach(function (x) {
           var u = String(x.updatedAt || "");
           if (u > mx) mx = u;
@@ -1462,6 +1520,7 @@
           if (u > mx) mx = u;
         });
         if (String(SET_AT || "") > mx) mx = String(SET_AT || "");
+        if (mx > nowMark) mx = nowMark;
         SYNC.at = mx;
         SYNC.lastOkAt = new Date().toISOString();
         saveSync();
@@ -1704,20 +1763,7 @@
         } catch (e) {
           /* 読めなければ別アカウント扱いにはしない */
         }
-        if (last && last !== ACCOUNT) {
-          SALES = [];
-          PARTNERS = {};
-          INVOICES = [];
-          SYNC.at = "";
-          SET_AT = "";
-          try {
-            localStorage.removeItem(K_SALES);
-            localStorage.removeItem(K_PARTNER);
-            localStorage.removeItem(K_INV);
-          } catch (e2) {
-            /* 消せなくても、このあとの同期で上書きされる */
-          }
-        }
+        if (last && last !== ACCOUNT) forgetLocal();
         try {
           localStorage.setItem(K_ACCOUNT, ACCOUNT);
         } catch (e3) {
@@ -1743,8 +1789,17 @@
         }
         ACCOUNT = null;
         ACCOUNT_EMAIL = "";
+        // ★落とした・貸したスマホから客の名前と金額が読めないように、控えも消す
+        //   （未送信があるときは上で止めているので、ここに来た時点で全部クラウドにある）
+        forgetLocal();
+        try {
+          localStorage.removeItem(K_ACCOUNT);
+        } catch (e2) {
+          /* 消せなくてもログイン画面は出る */
+        }
         showScreen("input");
         showLogin(true);
+        renderAll();
         renderAcct();
       }
       // 起動時：セッションが残っていればそのまま入る（オフラインでも入れる）
@@ -1775,6 +1830,15 @@
           renderAcct();
           return;
         }
+        // ★前に入っていたアカウントと違うなら、端末の控えを捨ててから入る。
+        //   （スイート共通ログインで別アプリから入り直した時に、前の店のデータが混ざるのを防ぐ）
+        var lastAcc = "";
+        try {
+          lastAcc = localStorage.getItem(K_ACCOUNT) || "";
+        } catch (e0) {
+          lastAcc = "";
+        }
+        if (lastAcc && lastAcc !== user.id) forgetLocal();
         ACCOUNT = user.id;
         ACCOUNT_EMAIL = user.email || "";
         try {
@@ -1783,6 +1847,7 @@
           /* 覚えられなくても動く */
         }
         showLogin(false);
+        renderAll();
         renderAcct();
         await syncNow(false);
       }

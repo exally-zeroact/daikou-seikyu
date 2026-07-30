@@ -1584,6 +1584,153 @@ test.describe("飲み屋 売上管理", () => {
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 
+  test("別の店で入ると、前の店の判子・振込先・登録番号が残らない", async ({ page }) => {
+    const errors = await open(page);
+    // A店：店の情報を全部入れる
+    await page.locator(".nav-item[data-scr='set']").click();
+    await page.locator("#setStore").fill("スナック まりも");
+    await page.locator("#setBank").fill("伊予銀行 本店 普通 1234567");
+    await page.locator("#setInvoiceNo").fill("T1111111111111");
+    await page.locator("#btnSaveSet").click();
+    await expect(page.locator("#acctInfo")).toContainText("同期済み");
+
+    // B店（別のアカウント）で入り直す
+    await page.locator("#btnLogout").click();
+    await expect(page.locator("#loginOv")).toHaveClass(/open/);
+    await page.locator("#loginEmail").fill("betten@snack.example");
+    await page.locator("#loginPass").fill("himitsu123");
+    await page.locator("#btnSignup").click();
+    await expect(page.locator("#loginOv")).not.toHaveClass(/open/);
+
+    // ★前の店の情報が1つも残っていないこと（残ると他店の請求書が客に届く）
+    await page.locator(".nav-item[data-scr='set']").click();
+    await expect(page.locator("#setStore")).toHaveValue("");
+    await expect(page.locator("#setBank")).toHaveValue("");
+    await expect(page.locator("#setInvoiceNo")).toHaveValue("");
+    const leaked = await page.evaluate(() => {
+      const s = window.__NOMIYA.settings;
+      return [s.store, s.bank, s.regNo, s.hanko, s.logo].filter(Boolean);
+    });
+    expect(leaked, "前の店の設定が残っている").toEqual([]);
+
+    // ★ログアウトを通らずにアカウントが変わる場合（スイートの別アプリで入り直した等）も同じこと
+    await page.locator("#setStore").fill("スナック べつてん");
+    await page.locator("#btnSaveSet").click();
+    await expect(page.locator("#acctInfo")).toContainText("同期済み");
+    await page.evaluate(() => {
+      const db = JSON.parse(localStorage.getItem("__fake_supa_db__"));
+      db.users["hoka@snack.example"] = {
+        id: "u_hoka",
+        email: "hoka@snack.example",
+        password: "himitsu123",
+      };
+      db.session = { user: { id: "u_hoka", email: "hoka@snack.example" } };
+      localStorage.setItem("__fake_supa_db__", JSON.stringify(db));
+    });
+    await page.reload({ waitUntil: "load" });
+    await page.locator(".nav-item[data-scr='set']").click();
+    await expect(page.locator("#acctInfo")).toContainText("hoka@snack.example");
+    await expect(page.locator("#setStore")).toHaveValue("");
+    expect(
+      await page.evaluate(() => window.__NOMIYA.sales.length),
+      "別のアカウントなのに前の店の売上が残っている"
+    ).toBe(0);
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("ログアウトすると端末に売上を残さない（落としても読まれない）", async ({ page }) => {
+    const errors = await open(page);
+    await addSale(page, {
+      date: "2026-07-01",
+      name: "田中",
+      people: 2,
+      amount: 8000,
+      pay: "cash",
+      receipt: false,
+    });
+    await page.locator(".nav-item[data-scr='set']").click();
+    await expect(page.locator("#acctInfo")).toContainText("同期済み");
+    await page.locator("#btnLogout").click();
+    await expect(page.locator("#loginOv")).toHaveClass(/open/);
+
+    // 端末の控えが空になっていること
+    const left = await page.evaluate(() =>
+      ["nomiya_sales_v1", "nomiya_partners_v1", "nomiya_invoices_v1", "nomiya_settings_v1"].filter(
+        (k) => localStorage.getItem(k)
+      )
+    );
+    expect(left, "ログアウトしたのに端末に残っている").toEqual([]);
+    expect(await page.evaluate(() => window.__NOMIYA.sales.length)).toBe(0);
+
+    // 入り直せば、クラウドから戻ってくる（消えたのではなく預けてある）
+    await page.locator("#loginEmail").fill("test@example.com");
+    await page.locator("#loginPass").fill("test1234");
+    await page.locator("#btnLogin").click();
+    await expect(page.locator("#loginOv")).not.toHaveClass(/open/);
+    await page.evaluate(() => window.__NOMIYA.syncNow(false));
+    expect(await page.evaluate(() => window.__NOMIYA.sales.length)).toBe(1);
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("時計が進んだ端末の行があっても「未送信0件」と嘘をつかない", async ({ page }) => {
+    const errors = await open(page);
+    // 別の端末（時計が2099年）が書いた行がクラウドにある状態を作る
+    await page.evaluate(async () => {
+      await window.__NOMIYA_FAKE_SB__.from("nomiya_sales").upsert(
+        [
+          {
+            account_id: window.__NOMIYA.account,
+            cid: "future",
+            ymd: "2026-07-01",
+            name: "未来の端末",
+            people: 1,
+            amount: 1000,
+            pay: "cash",
+            receipt: "none",
+            memo: "",
+            created_at: "2099-01-01T00:00:00.000Z",
+            updated_at: "2099-01-01T00:00:00.000Z",
+          },
+        ],
+        { onConflict: "account_id,cid" }
+      );
+    });
+    await page.evaluate(() => window.__NOMIYA.syncNow(false));
+
+    // このあとに打った売上は「未送信」として数えられ、ちゃんと送られること
+    await page.evaluate(() => {
+      window.__FAKE_OFFLINE__ = true;
+      Object.defineProperty(window.navigator, "onLine", { get: () => false, configurable: true });
+      window.dispatchEvent(new Event("offline"));
+    });
+    await addSale(page, {
+      date: "2026-07-02",
+      name: "佐藤",
+      people: 2,
+      amount: 5000,
+      pay: "cash",
+      receipt: false,
+    });
+    await page.locator(".nav-item[data-scr='set']").click();
+    await expect(page.locator("#acctInfo")).toContainText("未送信 1 件");
+
+    await page.evaluate(() => {
+      window.__FAKE_OFFLINE__ = false;
+      Object.defineProperty(window.navigator, "onLine", { get: () => true, configurable: true });
+      window.dispatchEvent(new Event("online"));
+    });
+    await expect(page.locator("#acctInfo")).toContainText("同期済み");
+    const rows = await page.evaluate(async () => {
+      const r = await window.__NOMIYA_FAKE_SB__.from("nomiya_sales").select("*").range(0, 99);
+      return (r.data || []).map((x) => x.name).sort();
+    });
+    expect(rows, "未来の時刻の行に隠れて、打った売上が送られていない").toEqual([
+      "佐藤",
+      "未来の端末",
+    ]);
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
   test("入れ直しても消えない（開き直しても残る）", async ({ page }) => {
     const errors = await open(page);
     await addSale(page, {

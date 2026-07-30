@@ -42,6 +42,9 @@
     /* ログインと新規登録の間の案内。近い方（新規登録）に付いて見えるよう上を空けて下は詰める */
     ".login-mid{font-size:11.5px;color:#7aa08c;line-height:1.9;margin:16px 0 7px;word-break:keep-all;}",
     ".login-note{font-size:11px;color:#7aa08c;line-height:1.7;margin-top:14px;}",
+    ".login-forgot{display:inline-block;margin-top:12px;font-size:11.5px;color:#3d6b53;",
+    "background:none;border:none;padding:4px 6px;text-decoration:underline;cursor:pointer;",
+    "font-family:inherit;}",
     ".login-btn{width:100%;box-sizing:border-box;font-family:inherit;font-size:14px;",
     "font-weight:700;padding:14px 16px;border-radius:14px;cursor:pointer;border:1px solid transparent;}",
     ".login-btn-main{background:#2f8f5b;color:#ffffff;}",
@@ -108,6 +111,10 @@
       '<div class="login-mid">はじめての方は、メールとパスワードを<br>' +
       "入力してから新規登録ボタンを押して下さい</div>" +
       '<button class="login-btn login-btn-sub" type="button" id="btnSignup">新規登録</button>' +
+      // パスワードを忘れた人の逃げ道（これが無いと、その店は自分の売上に二度と入れない）
+      (sb && sb.auth && sb.auth.resetPasswordForEmail
+        ? '<div><button class="login-forgot" type="button" id="btnForgot">パスワードを忘れた</button></div>'
+        : "") +
       '<div class="login-note">' +
       esc(o.note || "一度ログインすれば、次からは自動で入れます。") +
       "</div>" +
@@ -184,8 +191,30 @@
       ok(li.data.user);
     }
 
+    async function forgot() {
+      var email = $("loginEmail").value.trim();
+      if (!email) {
+        err("メールアドレスを入れてから押してください");
+        return;
+      }
+      err("");
+      busy(true);
+      var r = await sb.auth.resetPasswordForEmail(email, {
+        redirectTo: location.origin + location.pathname,
+      });
+      busy(false);
+      if (r && r.error) {
+        err(friendly(r.error));
+        return;
+      }
+      err("");
+      $("loginErr").textContent =
+        "パスワードを作り直すメールを送りました。届いたメールを開いてください";
+    }
+
     $("btnLogin").onclick = login;
     $("btnSignup").onclick = signup;
+    if ($("btnForgot")) $("btnForgot").onclick = forgot;
     $("loginPass").onkeydown = function (ev) {
       if (ev.key === "Enter") login();
     };
