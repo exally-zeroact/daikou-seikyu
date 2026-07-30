@@ -1029,6 +1029,388 @@
   }
 
   /* ===================================================================
+  /* ===================================================================
+     給料（キャスト・スタッフ）
+     ─ 夜の店の給与は店ごとに全部違う。だから「決め方」をデータで持ち、
+       計算はここ1か所にする。日払い・週払い・月払いのどれでも同じ式で出る。
+
+       支給 = 基本（時給×時間 or 日給）＋ バック（指名/場内/同伴/ドリンク/ボトル）
+              ＋ 歩合（自分の売上×％）
+              ※「最低保証」がある店は、保証と上の合計の高い方（max）
+       控除 = 罰金 ＋ 厚生費 ＋ 前借りの返済
+       差引 = 支給 − 控除
+     =================================================================== */
+  // バックの種類（この5つで夜の店はほぼ足りる）
+  var BACK_KINDS = [
+    { key: "shimei", label: "本指名" },
+    { key: "jonai", label: "場内指名" },
+    { key: "douhan", label: "同伴" },
+    { key: "drink", label: "ドリンク" },
+    { key: "bottle", label: "ボトル" },
+  ];
+  var EMPLOY_KINDS = [
+    { key: "employee", label: "雇用（時給・日給）" },
+    { key: "contract", label: "業務委託（歩合）" },
+  ];
+  var PAY_CYCLES = [
+    { key: "daily", label: "日払い" },
+    { key: "weekly", label: "週払い" },
+    { key: "monthly", label: "月払い" },
+  ];
+
+  function _int(v) {
+    var n = Math.floor(Number(v));
+    return isFinite(n) ? n : 0;
+  }
+  function _num(v) {
+    var n = Number(v);
+    return isFinite(n) ? n : 0;
+  }
+
+  /**
+   * normalizeStaff(raw, now)
+   *  人と「決め方」。空欄は0＝その項目は無い、という扱い（0を入れる店と区別しない）。
+   */
+  function normalizeStaff(raw, now) {
+    var r = raw || {};
+    var back = {};
+    BACK_KINDS.forEach(function (k) {
+      back[k.key] = _int((r.back || {})[k.key]);
+    });
+    return {
+      id: r.id || makeId(),
+      name: String(r.name == null ? "" : r.name).trim(),
+      role: String(r.role == null ? "" : r.role).trim(), // キャスト/ボーイ など自由
+      hourly: _int(r.hourly), // 時給（0なら無し）
+      daily: _int(r.daily), // 日給（0なら無し）
+      back: back, // バックの単価（1本・1回あたり）
+      rate: _num(r.rate), // 売上歩合（%）
+      guarantee: _int(r.guarantee), // 最低保証（0なら無し）
+      kousei: _int(r.kousei), // 厚生費（1日あたり引く）
+      cycle: PAY_CYCLES.some(function (c) {
+        return c.key === r.cycle;
+      })
+        ? r.cycle
+        : "daily",
+      employ: r.employ === "contract" ? "contract" : "employee",
+      cash: r.cash === false ? false : true, // 現金で渡すか（振込ならfalse）
+      memo: String(r.memo == null ? "" : r.memo).trim(),
+      updatedAt: now || nowIso(),
+      deletedAt: r.deletedAt || null,
+    };
+  }
+
+  /**
+   * normalizeWork(raw, now)  … 1人×1日の実績
+   */
+  function normalizeWork(raw, now) {
+    var r = raw || {};
+    var cnt = {};
+    BACK_KINDS.forEach(function (k) {
+      cnt[k.key] = _int((r.count || {})[k.key]);
+    });
+    return {
+      id: r.id || makeId(),
+      ymd: r.ymd,
+      staffId: String(r.staffId == null ? "" : r.staffId),
+      inAt: String(r.inAt == null ? "" : r.inAt), // 'HH:MM'
+      outAt: String(r.outAt == null ? "" : r.outAt),
+      count: cnt,
+      sales: _int(r.sales), // 自分の客の売上（手入力ぶん）
+      fine: _int(r.fine), // 罰金
+      lend: _int(r.lend), // この日に前借りした
+      repay: _int(r.repay), // この日に返した
+      paidAt: r.paidAt || null, // 日払いで渡した時刻（渡したら入る）
+      memo: String(r.memo == null ? "" : r.memo).trim(),
+      updatedAt: now || nowIso(),
+      deletedAt: r.deletedAt || null,
+    };
+  }
+
+  // 'HH:MM' → 分。退勤が出勤より小さければ翌日（夜の店は日をまたぐ）
+  function workMinutes(inAt, outAt) {
+    var t = function (v) {
+      var m = /^(\d{1,2}):(\d{2})$/.exec(String(v || ""));
+      return m ? +m[1] * 60 + +m[2] : null;
+    };
+    var a = t(inAt);
+    var b = t(outAt);
+    if (a == null || b == null) return 0;
+    var d = b - a;
+    if (d < 0) d += 24 * 60;
+    return d;
+  }
+  // 22時〜翌5時にかかった分（深夜割増の判定に使う）
+  function nightMinutes(inAt, outAt) {
+    var t = function (v) {
+      var m = /^(\d{1,2}):(\d{2})$/.exec(String(v || ""));
+      return m ? +m[1] * 60 + +m[2] : null;
+    };
+    var a = t(inAt);
+    var b = t(outAt);
+    if (a == null || b == null) return 0;
+    if (b < a) b += 24 * 60;
+    var night = 0;
+    for (var x = a; x < b; x++) {
+      var h = Math.floor((x % (24 * 60)) / 60);
+      if (h >= 22 || h < 5) night++;
+    }
+    return night;
+  }
+
+  /**
+   * payDay(staff, work, opt)
+   *  その日の1人ぶん。opt.sales = 売上データから拾った「その人の客の売上」
+   */
+  function payDay(staff, work, opt) {
+    var st = staff || {};
+    var w = work || {};
+    var o = opt || {};
+    var mins = workMinutes(w.inAt, w.outAt);
+    var hours = mins / 60;
+    var base = 0;
+    if (st.daily) base = _int(st.daily);
+    else if (st.hourly) base = Math.floor(_int(st.hourly) * hours);
+    var backs = BACK_KINDS.map(function (k) {
+      var n = _int((w.count || {})[k.key]);
+      var unit = _int((st.back || {})[k.key]);
+      return { key: k.key, label: k.label, count: n, unit: unit, amount: n * unit };
+    });
+    var backTotal = backs.reduce(function (a, x) {
+      return a + x.amount;
+    }, 0);
+    var sales = _int(w.sales) || _int(o.sales);
+    var comm = Math.floor((sales * _num(st.rate)) / 100);
+    var earned = base + backTotal + comm;
+    // 最低保証は「保証と、計算した額の高い方」
+    var guaranteed = st.guarantee ? Math.max(st.guarantee, earned) : earned;
+    var deduct = _int(w.fine) + _int(st.kousei) + _int(w.repay);
+    return {
+      minutes: mins,
+      hours: hours,
+      nightMinutes: nightMinutes(w.inAt, w.outAt),
+      base: base,
+      backs: backs,
+      backTotal: backTotal,
+      sales: sales,
+      commission: comm,
+      earned: earned,
+      guaranteeUsed: !!(st.guarantee && st.guarantee > earned),
+      gross: guaranteed,
+      fine: _int(w.fine),
+      kousei: _int(st.kousei),
+      repay: _int(w.repay),
+      deduct: deduct,
+      net: guaranteed - deduct,
+      lend: _int(w.lend),
+      paidAt: w.paidAt || null,
+    };
+  }
+
+  // 売上データから「その人の客の売上」を日ごとに拾う（売上の担当＝staff）
+  function salesByStaff(sales, ymd, staffName) {
+    var t = 0;
+    (sales || []).filter(isAlive).forEach(function (s) {
+      if (s.date !== ymd) return;
+      if (String(s.staff || "") !== String(staffName || "")) return;
+      t += _int(s.amount);
+    });
+    return t;
+  }
+
+  /**
+   * paySummary(staff, works, sales, from, to)
+   *  1人ぶんの期間まとめ（月払いの人の「今月いくら」）
+   */
+  function paySummary(staff, works, sales, from, to) {
+    var rows = (works || []).filter(function (w) {
+      if (!w || w.deletedAt) return false;
+      if (w.staffId !== staff.id) return false;
+      if (from && w.ymd < from) return false;
+      if (to && w.ymd > to) return false;
+      return true;
+    });
+    var t = {
+      days: 0,
+      minutes: 0,
+      base: 0,
+      backTotal: 0,
+      commission: 0,
+      gross: 0,
+      fine: 0,
+      kousei: 0,
+      repay: 0,
+      deduct: 0,
+      net: 0,
+      lend: 0,
+      paidDays: 0,
+      counts: {},
+    };
+    BACK_KINDS.forEach(function (k) {
+      t.counts[k.key] = 0;
+    });
+    rows
+      .sort(function (a, b) {
+        return a.ymd < b.ymd ? -1 : 1;
+      })
+      .forEach(function (w) {
+        var d = payDay(staff, w, { sales: salesByStaff(sales, w.ymd, staff.name) });
+        t.days += 1;
+        t.minutes += d.minutes;
+        t.base += d.base;
+        t.backTotal += d.backTotal;
+        t.commission += d.commission;
+        t.gross += d.gross;
+        t.fine += d.fine;
+        t.kousei += d.kousei;
+        t.repay += d.repay;
+        t.deduct += d.deduct;
+        t.net += d.net;
+        t.lend += d.lend;
+        if (d.paidAt) t.paidDays += 1;
+        BACK_KINDS.forEach(function (k) {
+          t.counts[k.key] += _int((w.count || {})[k.key]);
+        });
+      });
+    t.rows = rows;
+    return t;
+  }
+
+  /**
+   * payWarnings(staff, work, day, opt)
+   *  黄色い注意。止めない・断定しない。事実だけ出す。
+   *  opt.minWage = 店が設定した最低賃金（時給）
+   */
+  function payWarnings(staff, work, day, opt) {
+    var o = opt || {};
+    var out = [];
+    var st = staff || {};
+    var d = day || {};
+    if (st.employ === "employee" && d.hours > 0) {
+      var wage = d.hours ? Math.floor(d.gross / d.hours) : 0;
+      if (o.minWage && wage && wage < _int(o.minWage)) {
+        out.push(
+          "この日の時給に直すと " +
+            comma(wage) +
+            "円で、最低賃金（" +
+            comma(_int(o.minWage)) +
+            "円）を下回っています。"
+        );
+      }
+      if (d.nightMinutes > 0 && st.hourly && !o.nightPaid) {
+        out.push(
+          "22時以降が " +
+            Math.round(d.nightMinutes) +
+            "分あります。深夜の割増（25%以上）を足しているか確かめてください。"
+        );
+      }
+    }
+    if (st.employ === "contract" && (st.hourly || work.inAt)) {
+      out.push(
+        "業務委託なのに、時給や出勤時間で管理しています。実態が雇用なら、雇用として払う形になります。"
+      );
+    }
+    if (st.employ === "contract" && d.gross > 0 && !o.withholding) {
+      out.push("業務委託の報酬です。源泉を引く相手かどうか、税理士に確かめてください。");
+    }
+    return out;
+  }
+
+  function staffToRow(x) {
+    return {
+      sid: _s(x.id),
+      name: _s(x.name),
+      role: _s(x.role),
+      hourly: _int(x.hourly),
+      daily: _int(x.daily),
+      back: x.back || {},
+      rate: _num(x.rate),
+      guarantee: _int(x.guarantee),
+      kousei: _int(x.kousei),
+      cycle: _s(x.cycle),
+      employ: _s(x.employ),
+      cash: !!x.cash,
+      memo: _s(x.memo),
+      updated_at: _ts(x.updatedAt) || nowIso(),
+      deleted_at: _ts(x.deletedAt),
+    };
+  }
+  function staffFromRow(r) {
+    return normalizeStaff(
+      {
+        id: _s(r.sid),
+        name: _s(r.name),
+        role: _s(r.role),
+        hourly: r.hourly,
+        daily: r.daily,
+        back: r.back || {},
+        rate: r.rate,
+        guarantee: r.guarantee,
+        kousei: r.kousei,
+        cycle: _s(r.cycle),
+        employ: _s(r.employ),
+        cash: r.cash,
+        memo: _s(r.memo),
+        deletedAt: r.deleted_at || null,
+      },
+      _s(r.updated_at)
+    );
+  }
+  function workToRow(x) {
+    return {
+      wid: _s(x.id),
+      ymd: _date(x.ymd),
+      staff_id: _s(x.staffId),
+      in_at: _s(x.inAt),
+      out_at: _s(x.outAt),
+      count: x.count || {},
+      sales: _int(x.sales),
+      fine: _int(x.fine),
+      lend: _int(x.lend),
+      repay: _int(x.repay),
+      paid_at: _ts(x.paidAt),
+      memo: _s(x.memo),
+      updated_at: _ts(x.updatedAt) || nowIso(),
+      deleted_at: _ts(x.deletedAt),
+    };
+  }
+  function workFromRow(r) {
+    return normalizeWork(
+      {
+        id: _s(r.wid),
+        ymd: _s(r.ymd),
+        staffId: _s(r.staff_id),
+        inAt: _s(r.in_at),
+        outAt: _s(r.out_at),
+        count: r.count || {},
+        sales: r.sales,
+        fine: r.fine,
+        lend: r.lend,
+        repay: r.repay,
+        paidAt: r.paid_at || null,
+        memo: _s(r.memo),
+        deletedAt: r.deleted_at || null,
+      },
+      _s(r.updated_at)
+    );
+  }
+  function syncPlanStaff(localArr, remoteArr) {
+    return syncPlan(localArr, remoteArr, function (x) {
+      return x && x.id;
+    });
+  }
+  function syncPlanWorks(localArr, remoteArr) {
+    return syncPlan(localArr, remoteArr, function (x) {
+      return x && x.id;
+    });
+  }
+  function aliveStaff(list) {
+    return (list || []).filter(function (x) {
+      return x && !x.deletedAt;
+    });
+  }
+
+  /* ===================================================================
      クラウド同期（純ロジック。通信そのものは画面側）
      ─ 考え方：端末の中が作業台、クラウドは同じ物の控え。
        電波が無くても打てて、つながったときに送る。
@@ -1432,6 +1814,24 @@
     closeFromRow: closeFromRow,
     syncPlanCloses: syncPlanCloses,
     monthlyCash: monthlyCash,
+    BACK_KINDS: BACK_KINDS,
+    EMPLOY_KINDS: EMPLOY_KINDS,
+    PAY_CYCLES: PAY_CYCLES,
+    normalizeStaff: normalizeStaff,
+    normalizeWork: normalizeWork,
+    workMinutes: workMinutes,
+    nightMinutes: nightMinutes,
+    payDay: payDay,
+    paySummary: paySummary,
+    payWarnings: payWarnings,
+    salesByStaff: salesByStaff,
+    staffToRow: staffToRow,
+    staffFromRow: staffFromRow,
+    workToRow: workToRow,
+    workFromRow: workFromRow,
+    syncPlanStaff: syncPlanStaff,
+    syncPlanWorks: syncPlanWorks,
+    aliveStaff: aliveStaff,
     buildInvoice: buildInvoice,
     paginate: paginate,
     ledgerPages: ledgerPages,

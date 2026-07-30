@@ -13,6 +13,8 @@
 --     nomiya_settings ... 店の情報・ロゴ・判子・請求書のデザイン（1アカウント1行）
 --     nomiya_invoices ... 請求書番号の台帳（機種を替えても番号が続くように）
 --     nomiya_closes   ... レジ締め（1日1行・釣銭/出金/数えた実数/差額の元）
+--     nomiya_staff    ... スタッフと給与の決め方（時給/日給/バック単価/歩合/保証）
+--     nomiya_work     ... 日々の実績（出勤・指名・同伴・罰金・前借り・日払い済み）
 --
 --   共通方針: account_id = auth.uid() + RLS 本人のみ（既存 pay_* と同方式）。
 --             お金の記録はソフト削除(deleted_at)＝物理削除しない。
@@ -117,12 +119,65 @@ create table if not exists nomiya_closes (
 );
 create index if not exists idx_nomiya_closes_acct_ymd on nomiya_closes(account_id, ymd);
 
+-- ── スタッフ（人と「決め方」） ───────────────────────────────────────
+--   夜の店の給与は店ごとに全部違うので、決め方をデータで持つ。
+--   back 例: { shimei:2000, jonai:1000, douhan:3000, drink:500, bottle:1000 }
+--   employ = employee(雇用) / contract(業務委託)  cycle = daily/weekly/monthly
+create table if not exists nomiya_staff (
+  id         uuid primary key default gen_random_uuid(),
+  account_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  sid        text not null,                      -- アプリが作るID
+  name       text not null default '',
+  role       text not null default '',
+  hourly     integer not null default 0,         -- 時給
+  daily      integer not null default 0,         -- 日給
+  back       jsonb   not null default '{}'::jsonb,
+  rate       numeric not null default 0,         -- 売上歩合(%)
+  guarantee  integer not null default 0,         -- 最低保証
+  kousei     integer not null default 0,         -- 厚生費（1日）
+  cycle      text    not null default 'daily',
+  employ     text    not null default 'employee',
+  cash       boolean not null default true,      -- 現金で渡すか
+  memo       text    not null default '',
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  unique (account_id, sid)
+);
+create index if not exists idx_nomiya_staff_acct on nomiya_staff(account_id, name);
+
+-- ── 日々の実績（1人×1日） ────────────────────────────────────────────
+--   count 例: { shimei:2, jonai:0, douhan:1, drink:4, bottle:0 }
+--   paid_at が入ると「その日ぶんを渡した」＝日払い済み
+create table if not exists nomiya_work (
+  id         uuid primary key default gen_random_uuid(),
+  account_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  wid        text not null,                      -- アプリが作るID
+  ymd        date not null,
+  staff_id   text not null,
+  in_at      text not null default '',           -- 'HH:MM'
+  out_at     text not null default '',
+  count      jsonb   not null default '{}'::jsonb,
+  sales      integer not null default 0,         -- 自分の客の売上（手入力ぶん）
+  fine       integer not null default 0,         -- 罰金
+  lend       integer not null default 0,         -- 前借り
+  repay      integer not null default 0,         -- 返済
+  paid_at    timestamptz,
+  memo       text    not null default '',
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  unique (account_id, wid)
+);
+create index if not exists idx_nomiya_work_acct_ymd on nomiya_work(account_id, ymd);
+create index if not exists idx_nomiya_work_acct_staff on nomiya_work(account_id, staff_id, ymd);
+
 -- ── RLS: 本人(account_id = auth.uid())の行だけ ────────────────────────
 alter table nomiya_sales    enable row level security;
 alter table nomiya_partners enable row level security;
 alter table nomiya_settings enable row level security;
 alter table nomiya_invoices enable row level security;
 alter table nomiya_closes   enable row level security;
+alter table nomiya_staff    enable row level security;
+alter table nomiya_work     enable row level security;
 
 drop policy if exists own_nomiya_sales on nomiya_sales;
 create policy own_nomiya_sales on nomiya_sales for all
@@ -140,6 +195,14 @@ drop policy if exists own_nomiya_closes on nomiya_closes;
 create policy own_nomiya_closes on nomiya_closes for all
   using (account_id = auth.uid()) with check (account_id = auth.uid());
 
+drop policy if exists own_nomiya_staff on nomiya_staff;
+create policy own_nomiya_staff on nomiya_staff for all
+  using (account_id = auth.uid()) with check (account_id = auth.uid());
+
+drop policy if exists own_nomiya_work on nomiya_work;
+create policy own_nomiya_work on nomiya_work for all
+  using (account_id = auth.uid()) with check (account_id = auth.uid());
+
 drop policy if exists own_nomiya_settings on nomiya_settings;
 create policy own_nomiya_settings on nomiya_settings for all
   using (account_id = auth.uid()) with check (account_id = auth.uid());
@@ -147,4 +210,5 @@ create policy own_nomiya_settings on nomiya_settings for all
 -- ── 確認用（適用後に SQL Editor で実行すると3行とも rowsecurity=true で返る） ──
 -- select tablename, rowsecurity from pg_tables
 --   where schemaname='public' and tablename in
---     ('nomiya_sales','nomiya_partners','nomiya_settings','nomiya_invoices','nomiya_closes');
+--     ('nomiya_sales','nomiya_partners','nomiya_settings','nomiya_invoices',
+--      'nomiya_closes','nomiya_staff','nomiya_work');

@@ -1242,3 +1242,178 @@ describe("税理士に渡す紙の「お金まわり」", () => {
     expect(none.expenseTotal).toBe(0);
   });
 });
+
+describe("給料（キャスト・スタッフ）", () => {
+  const akari = C.normalizeStaff(
+    {
+      id: "st1",
+      name: "あかり",
+      role: "キャスト",
+      hourly: 1200,
+      back: { shimei: 2000, jonai: 1000, douhan: 3000, drink: 500, bottle: 1000 },
+      rate: 10,
+      kousei: 1000,
+      cycle: "daily",
+      employ: "employee",
+    },
+    "2026-07-01T00:00:00.000Z"
+  );
+  const yui = C.normalizeStaff(
+    { id: "st2", name: "ゆい", rate: 50, guarantee: 15000, employ: "contract", cycle: "monthly" },
+    "2026-07-01T00:00:00.000Z"
+  );
+
+  it("夜をまたぐ出勤時間を正しく数える（20:00→翌1:30＝5時間30分）", () => {
+    expect(C.workMinutes("20:00", "01:30")).toBe(330);
+    expect(C.workMinutes("19:00", "23:00")).toBe(240);
+    expect(C.workMinutes("", "01:00")).toBe(0); // 片方でも空なら0
+    // 22時以降（深夜割増の対象）
+    expect(C.nightMinutes("20:00", "01:30")).toBe(210); // 22:00〜25:30
+    expect(C.nightMinutes("19:00", "21:00")).toBe(0);
+  });
+
+  it("時給＋バック＋歩合−控除＝差引（実数で確かめる）", () => {
+    const w = C.normalizeWork({
+      ymd: "2026-07-30",
+      staffId: "st1",
+      inAt: "20:00",
+      outAt: "01:30",
+      count: { shimei: 2, douhan: 1, drink: 4 },
+      fine: 1000,
+      repay: 5000,
+    });
+    const d = C.payDay(akari, w, { sales: 60000 });
+    expect(d.base).toBe(6600); // 1,200×5.5h
+    expect(d.backTotal).toBe(2 * 2000 + 1 * 3000 + 4 * 500); // 9,000
+    expect(d.commission).toBe(6000); // 60,000の10%
+    expect(d.gross).toBe(21600);
+    expect(d.deduct).toBe(7000); // 罰金1,000＋厚生費1,000＋返済5,000
+    expect(d.net).toBe(14600);
+  });
+  it("最低保証がある人は、保証と計算した額の高い方になる", () => {
+    const w = C.normalizeWork({ ymd: "2026-07-30", staffId: "st2" });
+    const low = C.payDay(yui, w, { sales: 20000 }); // 歩合10,000 < 保証15,000
+    expect(low.commission).toBe(10000);
+    expect(low.gross).toBe(15000);
+    expect(low.guaranteeUsed).toBe(true);
+    const high = C.payDay(yui, w, { sales: 60000 }); // 歩合30,000 > 保証15,000
+    expect(high.gross).toBe(30000);
+    expect(high.guaranteeUsed).toBe(false);
+  });
+  it("日給の人は時間で変わらない（時給と両方あれば日給が勝つ）", () => {
+    const boy = C.normalizeStaff({ id: "st3", name: "ボーイ", daily: 10000, hourly: 1200 });
+    const w = C.normalizeWork({ ymd: "2026-07-30", staffId: "st3", inAt: "18:00", outAt: "02:00" });
+    expect(C.payDay(boy, w, {}).base).toBe(10000);
+  });
+  it("売上の担当から、その人の客の売上を拾う", () => {
+    const sales = [
+      C.normalizeSale({
+        date: "2026-07-30",
+        name: "客A",
+        amount: 30000,
+        people: 2,
+        staff: "あかり",
+      }),
+      C.normalizeSale({ date: "2026-07-30", name: "客B", amount: 20000, people: 2, staff: "ゆい" }),
+      C.normalizeSale({
+        date: "2026-07-29",
+        name: "客C",
+        amount: 50000,
+        people: 2,
+        staff: "あかり",
+      }),
+    ];
+    expect(C.salesByStaff(sales, "2026-07-30", "あかり")).toBe(30000);
+    expect(C.salesByStaff(sales, "2026-07-30", "だれか")).toBe(0);
+    // 手で入れた売上があれば、そちらを使う（担当を付け忘れた日を直せる）
+    const w = C.normalizeWork({ ymd: "2026-07-30", staffId: "st1", sales: 45000 });
+    expect(C.payDay(akari, w, { sales: 30000 }).commission).toBe(4500);
+  });
+  it("期間のまとめ（出勤日数・支給・控除・差引・指名の本数）", () => {
+    const works = [
+      C.normalizeWork({
+        ymd: "2026-07-01",
+        staffId: "st1",
+        inAt: "20:00",
+        outAt: "00:00",
+        count: { shimei: 1 },
+      }),
+      C.normalizeWork({
+        ymd: "2026-07-02",
+        staffId: "st1",
+        inAt: "20:00",
+        outAt: "01:00",
+        count: { shimei: 2, douhan: 1 },
+        fine: 500,
+      }),
+      C.normalizeWork({ ymd: "2026-07-03", staffId: "st2", inAt: "20:00", outAt: "00:00" }),
+      C.normalizeWork({ ymd: "2026-08-01", staffId: "st1", inAt: "20:00", outAt: "00:00" }), // 期間の外
+    ];
+    const t = C.paySummary(akari, works, [], "2026-07-01", "2026-07-31");
+    expect(t.days).toBe(2);
+    expect(t.base).toBe(1200 * 4 + 1200 * 5); // 4,800＋6,000
+    expect(t.backTotal).toBe(2000 + (2 * 2000 + 3000)); // 2,000＋7,000
+    expect(t.counts.shimei).toBe(3);
+    expect(t.counts.douhan).toBe(1);
+    expect(t.fine).toBe(500);
+    expect(t.kousei).toBe(2000); // 1日1,000×2日
+    expect(t.net).toBe(t.gross - t.deduct);
+  });
+
+  it("黄色い注意：最低賃金割れ・深夜割増・業務委託の実態", () => {
+    const w = C.normalizeWork({
+      ymd: "2026-07-30",
+      staffId: "st1",
+      inAt: "19:00",
+      outAt: "21:00",
+    });
+    const cheap = C.normalizeStaff({ id: "st9", name: "新人", hourly: 800, employ: "employee" });
+    const d = C.payDay(cheap, w, {});
+    const ws = C.payWarnings(cheap, w, d, { minWage: 1000 });
+    expect(ws.join()).toContain("最低賃金");
+    // 深夜にかかる人（22時以降）
+    const night = C.normalizeWork({
+      ymd: "2026-07-30",
+      staffId: "st1",
+      inAt: "20:00",
+      outAt: "01:00",
+    });
+    const dn = C.payDay(akari, night, {});
+    expect(C.payWarnings(akari, night, dn, { minWage: 1000 }).join()).toContain("深夜");
+    // 業務委託なのに時給・出勤で管理
+    const fake = C.normalizeStaff({ id: "st8", name: "偽装", hourly: 1500, employ: "contract" });
+    expect(C.payWarnings(fake, night, C.payDay(fake, night, {}), {}).join()).toContain("業務委託");
+    // 何も無ければ何も言わない
+    const ok = C.normalizeWork({
+      ymd: "2026-07-30",
+      staffId: "st1",
+      inAt: "18:00",
+      outAt: "21:00",
+    });
+    expect(C.payWarnings(akari, ok, C.payDay(akari, ok, {}), { minWage: 1000 })).toEqual([]);
+  });
+
+  it("人と実績を DBの行と往復できる", () => {
+    const row = C.staffToRow(akari);
+    expect(row.sid).toBe("st1");
+    expect(row.back.shimei).toBe(2000);
+    const back = C.staffFromRow(row);
+    expect(back.name).toBe("あかり");
+    expect(back.rate).toBe(10);
+    expect(back.employ).toBe("employee");
+    const w = C.normalizeWork({
+      ymd: "2026-07-30",
+      staffId: "st1",
+      inAt: "20:00",
+      outAt: "01:30",
+      count: { shimei: 2 },
+      paidAt: "2026-07-31T02:00:00.000Z",
+    });
+    const wr = C.workToRow(w);
+    expect(wr.ymd).toBe("2026-07-30");
+    expect(wr.paid_at).toBe("2026-07-31T02:00:00.000Z");
+    expect(C.workFromRow(wr).count.shimei).toBe(2);
+    // 空の時刻は null で送る（DBが受け取れない空文字を送らない）
+    expect(C.workToRow(C.normalizeWork({ ymd: "2026-07-30", staffId: "x" })).paid_at).toBe(null);
+  });
+});
