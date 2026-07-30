@@ -85,6 +85,25 @@ async function openPartners(page) {
   await expect(page.locator("#partnerList")).toBeVisible();
 }
 
+// 請求書タブは既定が「今月」。テストの売上は2026年7月なので、月バーを明示して合わせる。
+// （これをしないと、今日が7月でなくなった時に全部落ちる＝時計の時限爆弾）
+async function setInvMonth(page, ym) {
+  await page.locator(".nav-item[data-scr='inv']").click();
+  const want = +ym.slice(0, 4) * 12 + +ym.slice(5, 7);
+  const read = async () => {
+    const t = (await page.locator("#periodInv .period-lb").innerText()).trim();
+    const m = t.match(/(\d+)年(\d+)月分/);
+    if (!m) throw new Error("月バーが読めない: " + t);
+    return +m[1] * 12 + +m[2];
+  };
+  for (let i = 0; i < 80; i++) {
+    const now = await read();
+    if (now === want) return;
+    await page.locator(`#periodInv [data-imv="${now > want ? -1 : 1}"]`).click();
+  }
+  throw new Error("月バーを " + ym + " に合わせられなかった");
+}
+
 async function seed(page) {
   for (const s of SEED) await addSale(page, s);
   // 期間を7月に合わせる（今日が7月とは限らないので範囲指定で固定）
@@ -93,6 +112,9 @@ async function seed(page) {
   await page.locator("#mdFrom").fill("2026-07-01");
   await page.locator("#mdTo").fill("2026-07-31");
   await page.locator("#mdOk").click();
+  // 請求書タブの月も、テストの売上と同じ2026年7月に合わせる
+  await setInvMonth(page, "2026-07");
+  await page.locator(".nav-item[data-scr='list']").click();
 }
 
 test.describe("飲み屋 売上管理", () => {
@@ -754,6 +776,7 @@ test.describe("飲み屋 売上管理", () => {
         memo: i % 5 === 0 ? "ボトル入れ" : "",
       });
     }
+    await setInvMonth(page, "2026-07");
     await openLook(page);
     // 1枚に載る行数はレイアウトごとに違う（カード14 / 帯13 / 縦組み14）。
     // どのレイアウトでも「載らない分は ほかn件」で受けて、A4を割らないこと。
@@ -1422,7 +1445,7 @@ test.describe("飲み屋 売上管理", () => {
     });
     await page.reload({ waitUntil: "load" });
     expect(await page.evaluate(() => window.__NOMIYA.sales.length)).toBe(1);
-    await page.locator(".nav-item[data-scr='inv']").click();
+    await setInvMonth(page, "2026-07");
     await expect(page.locator("#invName option[value='田中']")).toHaveCount(1);
     await expect(page.locator("#invSheets .iv-grand")).toContainText("¥8,000");
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
