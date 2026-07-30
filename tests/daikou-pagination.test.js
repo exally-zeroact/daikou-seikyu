@@ -49,7 +49,8 @@ function makeSource(total, opts = {}) {
       if (opts.errorOnCall && calls === opts.errorOnCall) {
         return Promise.resolve({ data: null, error: { message: "boom" }, count: null });
       }
-      const width = Math.min(to - from + 1, PAGE); // 1回で返せるのは最大PAGE
+      const cap = opts.serverCap || PAGE;           // サーバ側 max_rows（既定1000・小さくもできる）
+      const width = Math.min(to - from + 1, cap);   // 1回で返せるのは最大 cap
       const slice = all.slice(from, from + width);
       return Promise.resolve({
         data: slice,
@@ -69,6 +70,15 @@ describe("fetchAllQ（成長テーブルの全件読み込み）", () => {
     expect(r.data[0].id).toBe(0);
     expect(r.data[1079].id).toBe(1079); // 最後の1件まで来ている
     expect(s.calls()).toBe(2); // 1000 + 80 → 2ページ
+  });
+
+  it("★サーバ上限がページ幅より小さくても取りこぼさない（実受信数で進める）", async () => {
+    // max_rows を将来1000未満に下げても壊れない保証。size(1000)で進めると380件で止まって欠落する。
+    const s = makeSource(1080, { serverCap: 300 });
+    const r = await fetchAllQ(s.build);
+    expect(r.data.length).toBe(1080);
+    const ids = new Set(r.data.map((x) => x.id));
+    expect(ids.size).toBe(1080); // 重複も欠落もない
   });
 
   it("2,500件でも3ページに分けて全部返す（境目の取り違えなし）", async () => {

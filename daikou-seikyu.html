@@ -3446,7 +3446,7 @@
           out = out.concat(got);
           if (!got.length) break;
           if (r.count == null || out.length >= r.count) break;
-          from += size;
+          from += got.length; // ★size ではなく実受信数で進める(サーバ上限がページ幅より小さくても漏れない)
         }
         return { data: out, error: null, count: out.length };
       }
