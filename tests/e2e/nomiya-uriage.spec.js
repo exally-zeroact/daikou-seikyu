@@ -1988,6 +1988,181 @@ test.describe("飲み屋 売上管理", () => {
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 
+  // 給料タブは「その日」を見る
+  async function setPayDay(page, ymd) {
+    await page.locator(".nav-item[data-scr='pay']").click();
+    for (let i = 0; i < 400; i++) {
+      const now = await page.evaluate(() => window.__NOMIYA.payYmd);
+      if (now === ymd) return;
+      await page.locator(`#periodPay [data-pmv="${now > ymd ? -1 : 1}"]`).click();
+    }
+    throw new Error("給料の日を " + ymd + " に合わせられなかった");
+  }
+  async function addStaff(page, o) {
+    await page.locator(".nav-item[data-scr='pay']").click();
+    await page.locator("#btnStaffAdd").click();
+    await page.locator("#st_name").fill(o.name);
+    if (o.hourly) await page.locator("#st_hourly").fill(String(o.hourly));
+    if (o.daily) await page.locator("#st_daily").fill(String(o.daily));
+    if (o.shimei) await page.locator("#st_b_shimei").fill(String(o.shimei));
+    if (o.douhan) await page.locator("#st_b_douhan").fill(String(o.douhan));
+    if (o.rate) await page.locator("#st_rate").fill(String(o.rate));
+    if (o.guarantee) await page.locator("#st_guarantee").fill(String(o.guarantee));
+    if (o.kousei) await page.locator("#st_kousei").fill(String(o.kousei));
+    if (o.contract) await page.locator("#st_employ button[data-em='contract']").click();
+    await page.locator("#st_ok").click();
+  }
+
+  test("給料: 時給＋バック＋歩合−控除で、その日の払う額が出る", async ({ page }) => {
+    const errors = await open(page);
+    await addStaff(page, {
+      name: "あかり",
+      hourly: 1200,
+      shimei: 2000,
+      douhan: 3000,
+      rate: 10,
+      kousei: 1000,
+    });
+    await setPayDay(page, "2026-07-30");
+    await page.locator("#btnWorkAdd").click();
+    await page.locator("#wk_in").fill("20:00");
+    await page.locator("#wk_out").fill("01:30");
+    await page.locator("#wk_c_shimei").fill("2");
+    await page.locator("#wk_c_douhan").fill("1");
+    await page.locator("#wk_sales").fill("60000");
+    await page.locator("#wk_fine").fill("1000");
+    // 保存する前に、その場で計算が出る
+    // 6,600（時給1,200×5.5h）＋7,000（指名2×2,000＋同伴3,000）＋6,000（60,000の10%）＝19,600
+    await expect(page.locator("#wk_calc")).toContainText("支給 ¥19,600");
+    await expect(page.locator("#wk_calc")).toContainText("¥17,600"); // 差引（控除2,000）
+    await page.locator("#wk_ok").click();
+
+    await expect(page.locator("#payDayList")).toContainText("あかり");
+    await expect(page.locator("#payDayList")).toContainText("5.5h");
+    await expect(page.locator("#payDayList")).toContainText("本指名2・同伴1");
+    await expect(page.locator("#payDayList .li-amt")).toHaveText("¥17,600");
+    // 月のまとめにも出る
+    await expect(page.locator("#payMonth")).toContainText("あかり");
+    await expect(page.locator("#payMonth")).toContainText("17,600");
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("給料: 最低保証の人は、保証と歩合の高い方になる", async ({ page }) => {
+    const errors = await open(page);
+    await addStaff(page, { name: "ゆい", rate: 50, guarantee: 15000, contract: true });
+    await setPayDay(page, "2026-07-30");
+    await page.locator("#btnWorkAdd").click();
+    await page.locator("#wk_sales").fill("20000"); // 歩合10,000 < 保証15,000
+    await expect(page.locator("#wk_calc")).toContainText("最低保証を使いました");
+    await page.locator("#wk_sales").fill("60000"); // 歩合30,000 > 保証15,000
+    await expect(page.locator("#wk_calc")).not.toContainText("最低保証を使いました");
+    await page.locator("#wk_ok").click();
+    await expect(page.locator("#payDayList .li-amt")).toHaveText("¥30,000");
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("給料: 日払いで渡すと、その日のレジ締めの出金に自動で入る（二度打ちしない）", async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await addStaff(page, { name: "あかり", daily: 10000 });
+    await setPayDay(page, "2026-07-30");
+    await page.locator("#btnWorkAdd").click();
+    await page.locator("#wk_ok").click();
+    await page.locator("#payDayList .li").first().click();
+    await page.locator("#wk_pay").click();
+    await expect(page.locator("#payDayList")).toContainText("渡した");
+
+    // 締めタブに出金として入っている
+    await setCloseDay(page, "2026-07-30");
+    await expect(page.locator("#clOuts")).toContainText("日払い・給料");
+    await expect(page.locator("#clOuts")).toContainText("あかり");
+    await expect(page.locator("#clOuts .li-amt")).toHaveText("−¥10,000");
+    await expect(page.locator("#clOut")).toHaveText("−¥10,000");
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("給料: 黄色い注意（最低賃金割れ・深夜割増・業務委託の実態）", async ({ page }) => {
+    const errors = await open(page);
+    // 県の最低賃金を入れる
+    await page.locator(".nav-item[data-scr='set']").click();
+    await page.evaluate(() => {
+      const N = window.__NOMIYA;
+      N.settings.minWage = 1000;
+      N.renderAll();
+    });
+    await addStaff(page, { name: "新人", hourly: 800 });
+    await setPayDay(page, "2026-07-30");
+    await page.locator("#btnWorkAdd").click();
+    await page.locator("#wk_in").fill("19:00");
+    await page.locator("#wk_out").fill("21:00");
+    await page.locator("#wk_ok").click();
+    await expect(page.locator("#payDayList")).toContainText("最低賃金");
+
+    // 深夜にかかる人
+    await page.locator("#payDayList .li").first().click();
+    await page.locator("#wk_out").fill("01:00");
+    await page.locator("#wk_ok").click();
+    await expect(page.locator("#payDayList")).toContainText("22時以降");
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("給料: 人も出勤もクラウドに残る（新しいスマホでも出てくる）", async ({ page }) => {
+    const errors = await open(page);
+    await addStaff(page, { name: "あかり", hourly: 1200, shimei: 2000 });
+    await setPayDay(page, "2026-07-30");
+    await page.locator("#btnWorkAdd").click();
+    await page.locator("#wk_in").fill("20:00");
+    await page.locator("#wk_out").fill("00:00");
+    await page.locator("#wk_c_shimei").fill("3");
+    await page.locator("#wk_ok").click();
+    await page.locator(".nav-item[data-scr='set']").click();
+    await expect(page.locator("#acctInfo")).toContainText("同期済み");
+
+    // 端末の控えを消して開き直す
+    await page.evaluate(() => {
+      ["nomiya_staff_v1", "nomiya_work_v1", "nomiya_sync_at_v1", "nomiya_sync_ok_v1"].forEach((k) =>
+        localStorage.removeItem(k)
+      );
+    });
+    await page.reload({ waitUntil: "load" });
+    await page.evaluate(() => window.__NOMIYA.syncNow(false));
+    expect(await page.evaluate(() => window.__NOMIYA.staff.length)).toBe(1);
+    expect(await page.evaluate(() => window.__NOMIYA.works.length)).toBe(1);
+    await setPayDay(page, "2026-07-30");
+    await expect(page.locator("#payDayList")).toContainText("あかり");
+    await expect(page.locator("#payDayList")).toContainText("本指名3");
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("給料: A4の給与一覧が1枚に収まり、印刷は同じ画面のまま", async ({ page }) => {
+    const errors = await open(page);
+    for (let i = 1; i <= 6; i++) {
+      await addStaff(page, { name: "キャスト" + i, hourly: 1200, shimei: 2000, rate: 10 });
+    }
+    await setPayDay(page, "2026-07-30");
+    for (let i = 0; i < 6; i++) {
+      await page.locator("#btnWorkAdd").click();
+      await page.locator("#wk_staff").selectOption({ index: i });
+      await page.locator("#wk_in").fill("20:00");
+      await page.locator("#wk_out").fill("01:00");
+      await page.locator("#wk_c_shimei").fill("2");
+      await page.locator("#wk_ok").click();
+    }
+    const m = await page
+      .locator("#paySheets .sheet")
+      .evaluate((el) => ({ w: el.offsetWidth, h: el.offsetHeight, sh: el.scrollHeight }));
+    expect(m.w).toBe(794);
+    expect(m.h).toBe(1123);
+    expect(m.sh, "給与一覧がA4からはみ出している").toBeLessThanOrEqual(1123);
+    await expect(page.locator("#paySheets")).toContainText("給 与 一 覧");
+    await expect(page.locator("#paySheets")).toContainText("合計");
+    await page.locator("#btnPrintPay").click();
+    expect(await page.evaluate(() => window.__printed)).toBe(1);
+    await expect(page.locator("#printArea .sheet")).toHaveCount(1);
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
   test("入れ直しても消えない（開き直しても残る）", async ({ page }) => {
     const errors = await open(page);
     await addSale(page, {
