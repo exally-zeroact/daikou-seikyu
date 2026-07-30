@@ -51,7 +51,7 @@ const ACC = li.data.user.id;
 console.log("ログイン: " + cred.email + " (" + ACC + ")");
 
 /* ── 棚があるか ─────────────────────────────────────────── */
-for (const t of ["nomiya_sales", "nomiya_partners", "nomiya_settings"]) {
+for (const t of ["nomiya_sales", "nomiya_partners", "nomiya_settings", "nomiya_invoices"]) {
   const r = await sb.from(t).select("*", { count: "exact" }).range(0, 0);
   check("棚 " + t + " がある", !r.error, r.error && r.error.message);
   if (r.error) die("先に supabase/schema-nomiya.sql を SQL Editor で Run してください");
@@ -182,6 +182,33 @@ r = await sb.from("nomiya_sales").upsert(
   { onConflict: "account_id,cid" }
 );
 check("他人のアカウントでは書けない（RLSが効いている）", !!r.error, r.error && r.error.message);
+
+/* ── 請求書番号の台帳（機種を替えても番号が続く） ───────────────── */
+{
+  const key = TAG + "|2026-07-01|2026-07-31";
+  let r0 = await sb.from("nomiya_invoices").upsert(
+    [
+      {
+        account_id: ACC,
+        key: key,
+        no: "209907-001",
+        name: TAG,
+        ymd_from: "2026-07-01",
+        ymd_to: "2026-07-31",
+      },
+    ],
+    { onConflict: "account_id,key" }
+  );
+  check("請求書番号を送れる", !r0.error, r0.error && r0.error.message);
+  r0 = await sb.from("nomiya_invoices").select("*").eq("key", key);
+  check(
+    "番号が読める（機種を替えても続く）",
+    !r0.error && r0.data.length === 1 && r0.data[0].no === "209907-001",
+    r0.error || r0.data
+  );
+  const d0 = await sb.from("nomiya_invoices").delete().eq("key", key);
+  check("自分が作った番号台帳を片付けられる", !d0.error, d0.error && d0.error.message);
+}
 
 /* ── RLS: ログアウトすると自分の行も見えない（他人からは覗けない） ───── */
 {
