@@ -754,6 +754,7 @@ describe("クラウド同期（端末が作業台・クラウドは控え）", (
         receiptDate: null,
         memo: "",
         paidDate: null,
+        paidCash: false,
         staff: "",
         createdAt: "2026-07-01T00:00:00.000Z",
         updatedAt: "2026-07-01T00:00:00.000Z",
@@ -997,5 +998,151 @@ describe("P0: 空の時刻を送らない・戻せるバックアップ・請求
     const only = C.syncPlanInvoices([mine], []);
     expect(only.push.length).toBe(1);
     expect(only.merged[0].no).toBe("202607-005");
+  });
+});
+
+describe("レジ締め（現金合わせ）", () => {
+  const day = "2026-07-30";
+  const S = [
+    C.normalizeSale({ date: day, name: "田中", people: 2, amount: 8000, pay: "cash" }),
+    C.normalizeSale({ date: day, name: "佐藤", people: 3, amount: 12000, pay: "paypay" }),
+    C.normalizeSale({ date: day, name: "山本商事", people: 4, amount: 32000, pay: "invoice" }),
+    C.normalizeSale({ date: day, name: "鈴木", people: 5, amount: 25000, pay: "credit" }),
+    // 前に打ったツケを、今日「現金で」回収した
+    C.normalizeSale({
+      date: "2026-07-20",
+      name: "田中",
+      people: 1,
+      amount: 5000,
+      pay: "tsuke",
+      paidDate: day,
+      paidCash: true,
+    }),
+    // 同じ日に振込で回収した分は、金庫の現金には入らない
+    C.normalizeSale({
+      date: "2026-07-21",
+      name: "山本商事",
+      people: 2,
+      amount: 9000,
+      pay: "invoice",
+      paidDate: day,
+      paidCash: false,
+    }),
+  ];
+
+  it("あるべき額＝釣銭＋現金売上＋現金で回収した分−出金", () => {
+    const d = C.closeDraft(S, day, {
+      opening: 30000,
+      outs: [
+        { kind: "buy", amount: 3000, memo: "氷とおしぼり" },
+        { kind: "pay", amount: 10000, memo: "あかり 日払い", staff: "あかり" },
+      ],
+      counted: 30000,
+    });
+    expect(d.cashSales).toBe(8000);
+    expect(d.collected).toBe(5000); // 現金で回収したツケだけ（振込の9,000は入らない）
+    expect(d.outTotal).toBe(13000);
+    expect(d.should).toBe(30000 + 8000 + 5000 - 13000); // 30,000
+    expect(d.counted).toBe(30000);
+    expect(d.diff).toBe(0);
+  });
+  it("カード・PayPay・請求書送りは金庫の現金に入れない（でも売上には入る）", () => {
+    const d = C.closeDraft(S, day, { opening: 0, outs: [], counted: 13000 });
+    expect(d.other).toEqual({ credit: 25000, paypay: 12000, invoice: 32000, tsuke: 0 });
+    expect(d.salesTotal).toBe(8000 + 12000 + 32000 + 25000); // 77,000
+    expect(d.should).toBe(8000 + 5000);
+    expect(d.diff).toBe(0);
+  });
+  it("合わない日は差額をそのまま出す（0に見せない）", () => {
+    const d = C.closeDraft(S, day, { opening: 30000, outs: [], counted: 42500 });
+    expect(d.should).toBe(43000);
+    expect(d.diff).toBe(-500); // 500円足りない
+    const over = C.closeDraft(S, day, { opening: 30000, outs: [], counted: 43200 });
+    expect(over.diff).toBe(200); // 多い日もそのまま
+  });
+  it("数えていないうちは差額を出さない（0円と嘘をつかない）", () => {
+    const d = C.closeDraft(S, day, { opening: 30000, outs: [], counted: "" });
+    expect(d.counted).toBe(null);
+    expect(d.diff).toBe(null);
+  });
+  it("締めたあとに売上を触ったら、締め直しが要ると分かる", () => {
+    const closedAt = "2026-07-31T02:00:00.000Z";
+    const before = C.closeDraft(S, day, {
+      opening: 0,
+      outs: [],
+      counted: 13000,
+      closedAt: closedAt,
+    });
+    expect(before.needsRedo).toBe(false);
+    const touched = S.map((s) =>
+      s.date === day && s.pay === "cash"
+        ? Object.assign({}, s, { amount: 9000, updatedAt: "2026-07-31T03:00:00.000Z" })
+        : s
+    );
+    const after = C.closeDraft(touched, day, {
+      opening: 0,
+      outs: [],
+      counted: 13000,
+      closedAt: closedAt,
+    });
+    expect(after.needsRedo).toBe(true);
+    expect(after.should).toBe(9000 + 5000);
+  });
+  it("出金は5種類に丸め、金額は整数にする（変な値で締めが狂わない）", () => {
+    const o = C.normalizeOut({ kind: "とんかつ", amount: "3,000", memo: "  氷  " });
+    expect(o.kind).toBe("other");
+    expect(o.amount).toBe(0); // 数字にできない値は0（黙って3000にしない）
+    expect(o.memo).toBe("氷");
+    expect(C.normalizeOut({ kind: "taxi", amount: 1200.9 }).amount).toBe(1200);
+    expect(C.OUT_KINDS.map((k) => k.key)).toEqual(["buy", "taxi", "pay", "lend", "other"]);
+  });
+  it("前の日に数えた実数が、次の日の釣銭になる", () => {
+    const closes = {
+      "2026-07-28": C.normalizeClose({ ymd: "2026-07-28", counted: 28000 }),
+      "2026-07-29": C.normalizeClose({ ymd: "2026-07-29", counted: 31500 }),
+    };
+    expect(C.carryOver(closes, "2026-07-30")).toBe(31500);
+    expect(C.carryOver(closes, "2026-07-29")).toBe(28000);
+    expect(C.carryOver(closes, "2026-07-28")).toBe(null); // 前の日が無ければ自分で入れる
+    expect(C.carryOver({}, "2026-07-30")).toBe(null);
+  });
+  it("締め ⇄ DBの行 を往復しても中身が変わらない", () => {
+    const c = C.normalizeClose(
+      {
+        ymd: day,
+        opening: 30000,
+        outs: [{ kind: "taxi", amount: 1500, memo: "送り", staff: "" }],
+        counted: 30000,
+        memo: "500円足りない",
+        closedAt: "2026-07-31T02:00:00.000Z",
+      },
+      "2026-07-31T02:00:00.000Z"
+    );
+    const row = C.closeToRow(c);
+    expect(row.ymd).toBe(day);
+    expect(row.counted).toBe(30000);
+    expect(row.closed_at).toBe("2026-07-31T02:00:00.000Z");
+    const back = C.closeFromRow(row);
+    expect(back.opening).toBe(30000);
+    expect(back.outs[0].amount).toBe(1500);
+    expect(back.memo).toBe("500円足りない");
+    // 数えていない締めは null で送る（空文字はDBが受け取れない）
+    expect(C.closeToRow(C.normalizeClose({ ymd: day, counted: "" })).counted).toBe(null);
+  });
+  it("締めも同期できる（日付が鍵・新しい方が勝つ）", () => {
+    const local = {
+      "2026-07-30": C.normalizeClose(
+        { ymd: "2026-07-30", counted: 30000 },
+        "2026-07-31T01:00:00.000Z"
+      ),
+    };
+    const remote = [
+      C.normalizeClose({ ymd: "2026-07-30", counted: 29000 }, "2026-07-31T02:00:00.000Z"),
+      C.normalizeClose({ ymd: "2026-07-29", counted: 28000 }, "2026-07-30T02:00:00.000Z"),
+    ];
+    const plan = C.syncPlanCloses(local, remote);
+    expect(Object.keys(plan.merged).sort()).toEqual(["2026-07-29", "2026-07-30"]);
+    expect(plan.merged["2026-07-30"].counted).toBe(29000); // クラウドが新しい
+    expect(plan.push.length).toBe(0);
   });
 });

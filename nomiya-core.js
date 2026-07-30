@@ -239,6 +239,8 @@
       staff: String(r.staff == null ? "" : r.staff).trim(),
       // 未回収でない支払い方法は「その場で回収済み」＝ paidDate は持たない
       paidDate: isUnpaidMethod(r.pay) ? r.paidDate || null : null,
+      // ツケ・請求書送りを回収したとき、現金で受け取ったか（レジの現金が増えるかどうか）
+      paidCash: isUnpaidMethod(r.pay) && r.paidDate ? !!r.paidCash : false,
       createdAt: r.createdAt || nowIso,
       updatedAt: nowIso,
       deletedAt: r.deletedAt || null,
@@ -747,6 +749,161 @@
   }
 
   /* ===================================================================
+     レジ締め（現金合わせ）
+     ─ 閉店後にやる本業。売上だけ見えても「金庫に合うか」が出ないと締まらない。
+       あるべき額 = 釣銭準備金 ＋ 今日の現金売上 ＋ 今日現金で回収したツケ − 出金
+       差額 = 数えた実数 − あるべき額（隠さず記録する。合わない日は必ずある）
+     =================================================================== */
+  // 出金の種類（この5つで店の現金の出入りはほぼ足りる）
+  var OUT_KINDS = [
+    { key: "buy", label: "買い出し" },
+    { key: "taxi", label: "送り（タクシー）" },
+    { key: "pay", label: "日払い・給料" },
+    { key: "lend", label: "前借り・貸付" },
+    { key: "other", label: "その他" },
+  ];
+  function outKindLabel(k) {
+    for (var i = 0; i < OUT_KINDS.length; i++) {
+      if (OUT_KINDS[i].key === k) return OUT_KINDS[i].label;
+    }
+    return "その他";
+  }
+  function normalizeOut(raw) {
+    var r = raw || {};
+    var amt = Math.floor(numOrNaN(r.amount));
+    return {
+      id: r.id || makeId(),
+      kind: OUT_KINDS.some(function (k) {
+        return k.key === r.kind;
+      })
+        ? r.kind
+        : "other",
+      amount: isFinite(amt) ? amt : 0,
+      memo: String(r.memo == null ? "" : r.memo).trim(),
+      // 誰に渡したか（日払いのとき。あとでキャスト別に見るための器）
+      staff: String(r.staff == null ? "" : r.staff).trim(),
+    };
+  }
+  /**
+   * closeDraft(sales, ymd, close)
+   *  その日の締めの中身を出す。close = { opening, outs[], counted, closedAt }
+   */
+  function closeDraft(sales, ymd, close) {
+    var c = close || {};
+    var day = filterSales(sales, { from: ymd, to: ymd });
+    var cashSales = 0;
+    var other = { credit: 0, paypay: 0, invoice: 0, tsuke: 0 };
+    day.forEach(function (s) {
+      if (s.pay === "cash") cashSales += Math.floor(Number(s.amount) || 0);
+      else if (other[s.pay] != null) other[s.pay] += Math.floor(Number(s.amount) || 0);
+    });
+    // その日に現金で回収したツケ・請求書送り（売上はその日のものとは限らない）
+    var collected = 0;
+    (sales || []).filter(isAlive).forEach(function (s) {
+      if (s.paidDate === ymd && s.paidCash && isUnpaidMethod(s.pay)) {
+        collected += Math.floor(Number(s.amount) || 0);
+      }
+    });
+    var outs = (c.outs || []).map(normalizeOut);
+    var outTotal = outs.reduce(function (a, o) {
+      return a + o.amount;
+    }, 0);
+    var opening = Math.floor(Number(c.opening) || 0);
+    var should = opening + cashSales + collected - outTotal;
+    var hasCount = c.counted !== "" && c.counted != null && isFinite(Number(c.counted));
+    var counted = hasCount ? Math.floor(Number(c.counted)) : null;
+    return {
+      ymd: ymd,
+      opening: opening,
+      cashSales: cashSales,
+      collected: collected,
+      outs: outs,
+      outTotal: outTotal,
+      should: should,
+      counted: counted,
+      diff: counted == null ? null : counted - should,
+      // 現金以外（金庫には入らない分）。日報に出して「これは現金じゃない」と分かるようにする
+      other: other,
+      salesTotal: summarize(day).amount,
+      count: day.length,
+      closedAt: c.closedAt || null,
+      // 締めたあとに売上を触ったら、締め直しが要る
+      needsRedo: !!(c.closedAt && lastTouchedAt(day) > c.closedAt),
+    };
+  }
+  function lastTouchedAt(rows) {
+    var mx = "";
+    (rows || []).forEach(function (s) {
+      var u = String(s.updatedAt || "");
+      if (u > mx) mx = u;
+    });
+    return mx;
+  }
+  // 前の日の「数えた実数」を、次の日の釣銭準備金に繰り越す
+  function carryOver(closes, ymd) {
+    var prev = "";
+    Object.keys(closes || {}).forEach(function (k) {
+      if (k < ymd && k > prev) prev = k;
+    });
+    if (!prev) return null;
+    var c = closes[prev];
+    var v = c && c.counted;
+    return v === "" || v == null || !isFinite(Number(v)) ? null : Math.floor(Number(v));
+  }
+  function normalizeClose(raw, now) {
+    var r = raw || {};
+    var nowIso2 = now || nowIso();
+    return {
+      ymd: r.ymd,
+      opening: Math.floor(Number(r.opening) || 0),
+      outs: (r.outs || []).map(normalizeOut),
+      counted: r.counted === "" || r.counted == null ? "" : Math.floor(Number(r.counted)),
+      memo: String(r.memo == null ? "" : r.memo).trim(),
+      closedAt: r.closedAt || null,
+      updatedAt: nowIso2,
+      deletedAt: r.deletedAt || null,
+    };
+  }
+  function closeToRow(c) {
+    return {
+      ymd: c.ymd,
+      opening: Math.floor(Number(c.opening) || 0),
+      outs: (c.outs || []).map(normalizeOut),
+      counted: c.counted === "" || c.counted == null ? null : Math.floor(Number(c.counted)),
+      memo: _s(c.memo),
+      closed_at: _ts(c.closedAt),
+      updated_at: _ts(c.updatedAt) || nowIso(),
+      deleted_at: _ts(c.deletedAt),
+    };
+  }
+  function closeFromRow(r) {
+    return {
+      ymd: _s(r.ymd),
+      opening: Math.floor(Number(r.opening) || 0),
+      outs: (r.outs || []).map(normalizeOut),
+      counted: r.counted == null ? "" : Math.floor(Number(r.counted)),
+      memo: _s(r.memo),
+      closedAt: r.closed_at || null,
+      updatedAt: _s(r.updated_at),
+      deletedAt: r.deleted_at || null,
+    };
+  }
+  // 締めの突合（鍵＝日付）。持ち方が { 日付: 締め } なので出入りで詰め替える
+  function syncPlanCloses(localMap, remoteArr) {
+    var localArr = Object.keys(localMap || {}).map(function (k) {
+      return (localMap || {})[k];
+    });
+    var plan = syncPlan(localArr, remoteArr, function (c) {
+      return c && c.ymd;
+    });
+    var map = {};
+    plan.merged.forEach(function (c) {
+      map[c.ymd] = c;
+    });
+    return { merged: map, push: plan.push };
+  }
+
+  /* ===================================================================
      クラウド同期（純ロジック。通信そのものは画面側）
      ─ 考え方：端末の中が作業台、クラウドは同じ物の控え。
        電波が無くても打てて、つながったときに送る。
@@ -781,6 +938,7 @@
       memo: _s(s.memo),
       paid_date: _date(s.paidDate),
       staff: _s(s.staff),
+      paid_cash: !!s.paidCash,
       created_at: _ts(s.createdAt),
       // 「いつの更新か」は同期の勝ち負けを決める鍵。空では送らない（無ければ今）
       updated_at: _ts(s.updatedAt) || nowIso(),
@@ -800,6 +958,7 @@
       receiptDate: r.receipt_date || null,
       memo: _s(r.memo),
       paidDate: r.paid_date || null,
+      paidCash: !!r.paid_cash,
       staff: _s(r.staff),
       createdAt: r.created_at || "",
       updatedAt: r.updated_at || "",
@@ -1138,6 +1297,15 @@
     invoiceRecFromRow: invoiceRecFromRow,
     syncPlanInvoices: syncPlanInvoices,
     restorePlan: restorePlan,
+    OUT_KINDS: OUT_KINDS,
+    outKindLabel: outKindLabel,
+    normalizeOut: normalizeOut,
+    closeDraft: closeDraft,
+    carryOver: carryOver,
+    normalizeClose: normalizeClose,
+    closeToRow: closeToRow,
+    closeFromRow: closeFromRow,
+    syncPlanCloses: syncPlanCloses,
     buildInvoice: buildInvoice,
     paginate: paginate,
     ledgerPages: ledgerPages,

@@ -12,6 +12,7 @@
 --     nomiya_partners ... 宛先（請求書送りの相手＝会社名・敬称・担当者）
 --     nomiya_settings ... 店の情報・ロゴ・判子・請求書のデザイン（1アカウント1行）
 --     nomiya_invoices ... 請求書番号の台帳（機種を替えても番号が続くように）
+--     nomiya_closes   ... レジ締め（1日1行・釣銭/出金/数えた実数/差額の元）
 --
 --   共通方針: account_id = auth.uid() + RLS 本人のみ（既存 pay_* と同方式）。
 --             お金の記録はソフト削除(deleted_at)＝物理削除しない。
@@ -40,6 +41,7 @@ create table if not exists nomiya_sales (
   receipt_date date,                              -- 領収書を渡した日（出していなければ null）
   memo       text not null default '',
   paid_date  date,
+  paid_cash  boolean not null default false,      -- ツケ回収を現金で受けたか（レジ締めの現金に効く）
   staff      text not null default '',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -48,6 +50,8 @@ create table if not exists nomiya_sales (
 );
 create index if not exists idx_nomiya_sales_acct_ymd on nomiya_sales(account_id, ymd);
 create index if not exists idx_nomiya_sales_acct_upd on nomiya_sales(account_id, updated_at);
+-- 既に作ってある店にも足す（あとから列を増やすときはこの形で書く）
+alter table nomiya_sales add column if not exists paid_cash boolean not null default false;
 
 -- ── 宛先（請求書送りの相手） ──────────────────────────────────────────
 --   name  = 会社名（そのまま売上の名前になる＝突合の鍵）
@@ -94,11 +98,31 @@ create table if not exists nomiya_settings (
   updated_at timestamptz not null default now()
 );
 
+-- ── レジ締め（1日1行） ───────────────────────────────────────────────
+--   閉店後の現金合わせ。あるべき額 = 釣銭 ＋ 現金売上 ＋ 現金で回収したツケ − 出金。
+--   outs 例: [{id:'', kind:'buy|taxi|pay|lend|other', amount:0, memo:'', staff:''}]
+--   counted = 数えた実数（数えていないうちは null。0と区別する）
+create table if not exists nomiya_closes (
+  id         uuid primary key default gen_random_uuid(),
+  account_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  ymd        date not null,
+  opening    integer not null default 0,          -- 釣銭準備金
+  outs       jsonb   not null default '[]'::jsonb, -- 現金の出金
+  counted    integer,                              -- 数えた実数
+  memo       text    not null default '',
+  closed_at  timestamptz,                          -- 締めた時刻（入るとロック）
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  unique (account_id, ymd)
+);
+create index if not exists idx_nomiya_closes_acct_ymd on nomiya_closes(account_id, ymd);
+
 -- ── RLS: 本人(account_id = auth.uid())の行だけ ────────────────────────
 alter table nomiya_sales    enable row level security;
 alter table nomiya_partners enable row level security;
 alter table nomiya_settings enable row level security;
 alter table nomiya_invoices enable row level security;
+alter table nomiya_closes   enable row level security;
 
 drop policy if exists own_nomiya_sales on nomiya_sales;
 create policy own_nomiya_sales on nomiya_sales for all
@@ -112,6 +136,10 @@ drop policy if exists own_nomiya_invoices on nomiya_invoices;
 create policy own_nomiya_invoices on nomiya_invoices for all
   using (account_id = auth.uid()) with check (account_id = auth.uid());
 
+drop policy if exists own_nomiya_closes on nomiya_closes;
+create policy own_nomiya_closes on nomiya_closes for all
+  using (account_id = auth.uid()) with check (account_id = auth.uid());
+
 drop policy if exists own_nomiya_settings on nomiya_settings;
 create policy own_nomiya_settings on nomiya_settings for all
   using (account_id = auth.uid()) with check (account_id = auth.uid());
@@ -119,4 +147,4 @@ create policy own_nomiya_settings on nomiya_settings for all
 -- ── 確認用（適用後に SQL Editor で実行すると3行とも rowsecurity=true で返る） ──
 -- select tablename, rowsecurity from pg_tables
 --   where schemaname='public' and tablename in
---     ('nomiya_sales','nomiya_partners','nomiya_settings','nomiya_invoices');
+--     ('nomiya_sales','nomiya_partners','nomiya_settings','nomiya_invoices','nomiya_closes');
