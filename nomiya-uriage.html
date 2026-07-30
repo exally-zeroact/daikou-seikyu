@@ -3376,12 +3376,14 @@
         // 右上は「ロゴ＋請求日/No.」で1つの列。幅を決めて右端を揃える。
         ".iv-r1r{width:230px;margin-left:auto;text-align:right;}",
         ".iv-band .iv-r2r .iv-logo-top{margin:0 0 0 auto;}",
-        ".iv-store{font-family:'Noto Serif JP',serif;font-size:19px;font-weight:600;",
-        "letter-spacing:3px;}",
-        // 判子＝社名の行を基準に、右端へ少し重ねる（角印）。ロゴや住所には掛からない。
-        ".iv-hanko{position:absolute;right:-8px;top:-12px;width:56px;height:56px;",
+        // 店名は住所・TEL・登録番号と同じ大きさ・同じ右端。太さだけで名前だと分かるようにする。
+        // letter-spacing は最後の文字の後ろにも入るので、同じ幅だけ右へ戻して右端を揃える。
+        ".iv-store{font-family:'Noto Serif JP',serif;font-size:10.5px;font-weight:700;",
+        "letter-spacing:1px;margin-right:-1px;line-height:1.9;}",
+        // 判子＝社名の行に軽く重ねる（角印）。住所や登録番号には掛からない大きさにする。
+        ".iv-hanko{position:absolute;right:-18px;top:-9px;width:36px;height:36px;",
         "object-fit:contain;opacity:0.95;}",
-        ".iv-shopsub{font-size:10px;line-height:1.9;color:#6a655e;margin-top:5px;}",
+        ".iv-shopsub{font-size:10px;line-height:1.9;color:#6a655e;margin-top:2px;}",
         ".iv-bank{font-size:10.5px;line-height:1.8;word-break:keep-all;}",
         ".iv-fh{font-family:'Noto Serif JP',serif;font-size:10.5px;letter-spacing:2px;",
         "display:block;margin-bottom:2px;}",
@@ -3756,12 +3758,21 @@
       }
 
       function renderAll() {
-        var names = C.nameSuggestions(SALES, 50);
-        $("nameList").innerHTML = names
+        // 名前の候補＝「前に打った名前」＋「登録した宛先の会社名」。
+        // 宛先を登録しただけ（まだ売上が無い）の相手も候補に出るようにする。
+        var cand = C.nameSuggestions(SALES, 50).map(function (n) {
+          return n.name;
+        });
+        C.partnerRecent(PARTNERS).forEach(function (x) {
+          if (cand.indexOf(x.name) < 0) cand.push(x.name);
+        });
+        $("nameList").innerHTML = cand
           .map(function (n) {
-            return '<option value="' + esc(n.name) + '"></option>';
+            return '<option value="' + esc(n) + '"></option>';
           })
           .join("");
+        // 宛先を足した直後でも、入力の相手の一覧をその場で作り直す
+        syncNameField();
         renderPeriodBars();
         renderDay();
         renderList();

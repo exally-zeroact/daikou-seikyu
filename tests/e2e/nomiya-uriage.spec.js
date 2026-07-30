@@ -1100,6 +1100,31 @@ test.describe("飲み屋 売上管理", () => {
     expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
   });
 
+  test("宛先を登録したら、入力タブの名前にもすぐ出る（登録の場所は1つ）", async ({ page }) => {
+    const errors = await open(page);
+    // 請求書タブの「宛先を登録・修正する」から登録
+    await openPartners(page);
+    await page.locator("#btnPartnerNew").click();
+    await page.locator("#ptName").fill("株式会社たちばな");
+    await page.locator("#ptOk").click();
+
+    // 入力タブ：文字で打つとき（現金など）も候補に出る
+    await page.locator(".nav-item[data-scr='input']").click();
+    const cands = await page
+      .locator("#nameList option")
+      .evaluateAll((els) => els.map((e) => e.value));
+    expect(cands, "登録した宛先が名前の候補に出ていない").toContain("株式会社たちばな");
+
+    // 請求書送りにすると、そのままドロップダウンに出る（売上が1件も無くても）
+    await page.locator("#payChips button[data-pay='invoice']").click();
+    expect((await page.locator("#inNameSel option").allInnerTexts()).map((t) => t.trim())).toEqual([
+      "（選んでください）",
+      "株式会社たちばな",
+      "＋ 新しく登録する",
+    ]);
+    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+  });
+
   test("宛先マスタ: 請求書の宛名が会社名になり、担当者が出る（A4を割らない）", async ({ page }) => {
     const errors = await open(page);
     await seed(page);
