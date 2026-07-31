@@ -478,6 +478,36 @@
         color: #1a4a2e;
         white-space: nowrap;
       }
+      /* 画面の中の小さな表（この月のまとめ など）。名前と数字がぶつからないようにする */
+      .sum-tbl {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+      .sum-tbl th {
+        font-size: 11px;
+        font-weight: 600;
+        color: #5b7568;
+        text-align: right;
+        padding: 2px 6px 6px;
+        white-space: nowrap;
+      }
+      .sum-tbl td {
+        font-family: "DM Mono", monospace;
+        font-size: 13px;
+        color: #1a4a2e;
+        text-align: right;
+        padding: 5px 6px;
+        border-top: 1px solid #eef2f0;
+        white-space: nowrap;
+      }
+      .sum-tbl th:first-child,
+      .sum-tbl td:first-child {
+        text-align: left;
+        font-family: inherit;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
       .tag {
         display: inline-block;
         font-size: 10px;
@@ -1360,6 +1390,17 @@
       </div>
 
       <div class="card">
+        <div class="card-label">よく出るボトル・シャンパン</div>
+        <div class="hint" style="margin-bottom: 8px">
+          登録しておくと、出勤を入れるときに押すだけで金額が入ります。
+        </div>
+        <div id="itemList"></div>
+        <div class="btn-right" style="margin-top: 10px">
+          <button class="btn btn-ghost btn-sm" type="button" id="btnItemAdd">＋ 商品を足す</button>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-label">スタッフ</div>
         <div id="staffList"></div>
         <div class="btn-right" style="margin-top: 10px">
@@ -1468,6 +1509,7 @@
           font: "mincho",
           taxNames: false, // 税理士の紙に、日払いを渡した相手の名前まで出すか
           minWage: 0,
+          items: [], // よく出るボトル・シャンパン（押すだけで金額が入る）
         };
       }
       var SETTINGS = {
@@ -1485,6 +1527,7 @@
         font: "mincho", // 見出しの書体: mincho(明朝) / gothic(ゴシック)
         taxNames: false, // 税理士の紙に日払いの相手の名前を出すか（既定は出さない）
         minWage: 0, // その県の最低賃金（時給）。入れると割れたときに注意が出る
+        items: [], // よく出るボトル・シャンパン（押すだけで金額が入る）
       };
       var INVOICES = []; // [{no, name, from, to, issuedAt}]
       // 宛先（請求書送りの相手）。売上に打つ名前をキーにする { 名前: {name,to,honor,addr,person} }
@@ -1603,7 +1646,11 @@
           WORKS = [];
         }
         try {
-          SET_AT = localStorage.getItem(K_SET_AT) || "";
+          // 端末の設定の控えが無いのに時刻だけ残っていると、
+          // 「空の設定が新しい」と勘違いしてクラウドを空で上書きしてしまう。
+          // 控えが無いときは時刻も無かったことにする（クラウドの方を正にする）。
+          SET_AT = localStorage.getItem(K_SET) ? localStorage.getItem(K_SET_AT) || "" : "";
+          if (!SET_AT) localStorage.removeItem(K_SET_AT);
         } catch (e6) {
           SET_AT = "";
         }
@@ -1990,9 +2037,11 @@
           STAFF = planSt.merged;
           WORKS = planWk.merged;
           if (planC.merged !== SETTINGS) {
-            Object.keys(SETTINGS).forEach(function (k) {
-              if (planC.merged[k] != null) SETTINGS[k] = planC.merged[k];
-            });
+            Object.keys(SETTINGS)
+              .concat(Object.keys(planC.merged))
+              .forEach(function (k) {
+                if (planC.merged[k] != null) SETTINGS[k] = planC.merged[k];
+              });
             SET_AT = rat;
           }
           try {
@@ -3940,6 +3989,7 @@
         ".sm-2 .b{font-weight:700;}",
         ".sm-sub td{color:#555555;font-size:10px;}",
         ".sm-note{font-size:10px;color:#555555;margin-top:2px;}",
+        ".pay-sub{font-size:11px;color:#1b3a2b;margin-top:8px;padding:6px 8px;border:1px solid #c3d6cc;border-radius:4px;background:#f6faf8;}",
         ".sm-2col{display:flex;gap:10px;align-items:flex-start;}",
         ".sm-2col>div{flex:1;min-width:0;}",
         ".sm-tbl .l{text-align:left;}",
@@ -4860,6 +4910,32 @@
             };
           });
 
+        var items = C.itemList(SETTINGS.items);
+        $("itemList").innerHTML = items.length
+          ? items
+              .map(function (it) {
+                return (
+                  '<div class="li" data-item="' +
+                  esc(it.id) +
+                  '"><div class="li-main"><div class="li-name">' +
+                  esc(it.name) +
+                  '</div><div class="li-sub">' +
+                  esc(backLabelOf(it.kind)) +
+                  '</div></div><div class="li-amt">' +
+                  C.yen(it.price) +
+                  "</div></div>"
+                );
+              })
+              .join("")
+          : '<div class="empty">まだありません</div>';
+        $("itemList")
+          .querySelectorAll("[data-item]")
+          .forEach(function (el) {
+            el.onclick = function () {
+              openItem(el.getAttribute("data-item"));
+            };
+          });
+
         $("paySheets").innerHTML = paySheetHtml(ym, sums);
         fitSheets("payScale", "paySheets");
       }
@@ -4867,10 +4943,10 @@
       function backLabel(d) {
         var t = d.backs
           .filter(function (b) {
-            return b.count;
+            return b.count || b.sold;
           })
           .map(function (b) {
-            return b.label + b.count;
+            return b.pct > 0 && b.sold ? b.label + C.comma(b.sold) : b.label + b.count;
           })
           .join("・");
         return t ? "　" + esc(t) : "";
@@ -4882,10 +4958,12 @@
         if (st.rate) t.push("歩合" + st.rate + "%");
         if (st.guarantee) t.push("保証" + C.comma(st.guarantee));
         var b = C.BACK_KINDS.filter(function (k) {
-          return st.back[k.key];
+          return st.back[k.key] || C.num((st.backPct || {})[k.key]);
         })
           .map(function (k) {
-            return k.label + C.comma(st.back[k.key]);
+            return C.num((st.backPct || {})[k.key])
+              ? k.label + (st.backPct || {})[k.key] + "%"
+              : k.label + C.comma(st.back[k.key]);
           })
           .join("・");
         if (b) t.push(b);
@@ -4896,6 +4974,99 @@
         );
         if (st.employ === "contract") t.push("業務委託");
         return t.join(" / ");
+      }
+
+      function backLabelOf(kind) {
+        var k = C.BACK_KINDS.filter(function (x) {
+          return x.key === kind;
+        })[0];
+        return k ? k.label + "のバックに使う" : "";
+      }
+
+      /* よく出るボトル・シャンパンの登録 */
+      function openItem(id) {
+        var cur =
+          C.itemList(SETTINGS.items).filter(function (x) {
+            return x.id === id;
+          })[0] || null;
+        var kind = cur ? cur.kind : "bottle";
+        openModal(
+          cur ? "商品を直す" : "商品を足す",
+          '<div class="frow"><span class="flabel">名前</span>' +
+            '<input class="finput" id="it_name" value="' +
+            esc(cur ? cur.name : "") +
+            '" placeholder="例）ドンペリ白"></div>' +
+            '<div class="frow"><span class="flabel">値段</span>' +
+            '<input class="finput" type="number" inputmode="numeric" id="it_price" value="' +
+            esc(cur ? cur.price : "") +
+            '" placeholder="例）50000"></div>' +
+            '<div class="frow"><span class="flabel">どのバックに使う</span><div class="chips" id="it_kind">' +
+            C.BACK_KINDS.map(function (k) {
+              return (
+                '<button class="chip chip-sm" type="button" data-k="' +
+                k.key +
+                '">' +
+                esc(k.label) +
+                "</button>"
+              );
+            }).join("") +
+            "</div></div>" +
+            '<div class="err" id="it_err"></div>' +
+            '<div style="margin-top:12px"><button class="btn btn-primary" id="it_ok">保存する</button></div>' +
+            (cur
+              ? '<div class="btn-right" style="margin-top:10px">' +
+                '<button class="btn btn-ghost btn-danger btn-sm" id="it_del">この商品を消す</button></div>'
+              : "")
+        );
+        var sync = function () {
+          $("it_kind")
+            .querySelectorAll("[data-k]")
+            .forEach(function (b) {
+              b.classList.toggle("on", b.getAttribute("data-k") === kind);
+              b.onclick = function () {
+                kind = b.getAttribute("data-k");
+                sync();
+              };
+            });
+        };
+        sync();
+        var write = function (list) {
+          SETTINGS = Object.assign({}, SETTINGS, { items: list });
+          saveSettings();
+          closeModal();
+          renderPay();
+        };
+        $("it_ok").onclick = function () {
+          var name = $("it_name").value.trim();
+          if (!name) {
+            $("it_err").textContent = "名前を入れてください";
+            return;
+          }
+          var next = C.normalizeItem({
+            id: cur ? cur.id : "",
+            name: name,
+            price: $("it_price").value,
+            kind: kind,
+          });
+          write(
+            (SETTINGS.items || [])
+              .filter(function (x) {
+                return x && x.id !== next.id;
+              })
+              .concat([next])
+          );
+          toast("✅ 保存しました");
+        };
+        if ($("it_del")) {
+          $("it_del").onclick = function () {
+            write(
+              (SETTINGS.items || []).filter(function (x) {
+                return x && x.id !== cur.id;
+              })
+            );
+            toast("🗑 消しました");
+          };
+        }
       }
 
       /* スタッフの登録・修正 */
@@ -4927,9 +5098,26 @@
             '" placeholder="例）キャスト／ボーイ"></div>' +
             numRow("時給", "hourly", cur.hourly, "例）1200") +
             numRow("日給（時給の代わり）", "daily", cur.daily, "例）10000") +
-            '<div class="frow"><span class="flabel">バックの単価（1本・1回あたり）</span></div>' +
+            '<div class="frow"><span class="flabel">バックの決め方</span>' +
+            '<span class="hint">1本いくら（円）か、売った額の何％か。シャンパン・ボトルは値段がバラバラなので％が楽です。</span></div>' +
             C.BACK_KINDS.map(function (k) {
-              return numRow("　" + k.label, "b_" + k.key, cur.back[k.key], "0");
+              var isPct = C.num((cur.backPct || {})[k.key]) > 0;
+              return (
+                '<div class="frow"><span class="flabel">　' +
+                esc(k.label) +
+                '</span><div class="f2">' +
+                '<input class="finput" type="number" inputmode="numeric" id="st_b_' +
+                k.key +
+                '" value="' +
+                esc(isPct ? cur.backPct[k.key] : cur.back[k.key] || "") +
+                '" placeholder="0">' +
+                '<div class="chips" id="st_u_' +
+                k.key +
+                '">' +
+                '<button class="chip chip-sm" type="button" data-u="yen">円</button>' +
+                '<button class="chip chip-sm" type="button" data-u="pct">％</button>' +
+                "</div></div></div>"
+              );
             }).join("") +
             numRow("売上の歩合（％）", "rate", cur.rate, "例）10") +
             numRow("最低保証", "guarantee", cur.guarantee, "0なら無し") +
@@ -4965,7 +5153,22 @@
         );
         var cycle = cur.cycle;
         var employ = cur.employ;
+        var unit = {};
+        C.BACK_KINDS.forEach(function (k) {
+          unit[k.key] = C.num((cur.backPct || {})[k.key]) > 0 ? "pct" : "yen";
+        });
         var sync = function () {
+          C.BACK_KINDS.forEach(function (k) {
+            $("st_u_" + k.key)
+              .querySelectorAll("[data-u]")
+              .forEach(function (b) {
+                b.classList.toggle("on", b.getAttribute("data-u") === unit[k.key]);
+                b.onclick = function () {
+                  unit[k.key] = b.getAttribute("data-u");
+                  sync();
+                };
+              });
+          });
           $("st_cycle")
             .querySelectorAll("[data-cy]")
             .forEach(function (b) {
@@ -4993,8 +5196,11 @@
             return;
           }
           var back = {};
+          var backPct = {};
           C.BACK_KINDS.forEach(function (k) {
-            back[k.key] = $("st_b_" + k.key).value;
+            // 円で決めたなら単価に、％で決めたなら率に入れる（両方には入れない）
+            if (unit[k.key] === "pct") backPct[k.key] = $("st_b_" + k.key).value;
+            else back[k.key] = $("st_b_" + k.key).value;
           });
           var next = C.normalizeStaff({
             id: isNew ? "" : cur.id,
@@ -5003,6 +5209,7 @@
             hourly: $("st_hourly").value,
             daily: $("st_daily").value,
             back: back,
+            backPct: backPct,
             rate: $("st_rate").value,
             guarantee: $("st_guarantee").value,
             kousei: $("st_kousei").value,
@@ -5084,7 +5291,25 @@
             esc(cur ? cur.outAt : "") +
             '"></div></div>' +
             C.BACK_KINDS.map(function (k) {
-              return numRow(k.label, "c_" + k.key, cur ? cur.count[k.key] : 0);
+              return (
+                '<div id="wk_row_c_' +
+                k.key +
+                '">' +
+                numRow(k.label, "c_" + k.key, cur ? cur.count[k.key] : 0) +
+                "</div>" +
+                '<div id="wk_row_a_' +
+                k.key +
+                '">' +
+                numRow(
+                  k.label + "（売った額）",
+                  "a_" + k.key,
+                  cur ? (cur.amount || {})[k.key] : 0
+                ) +
+                '<div class="chips" id="wk_items_' +
+                k.key +
+                '" style="margin:-2px 0 8px"></div>' +
+                "</div>"
+              );
             }).join("") +
             numRow(
               "自分の客の売上（入れると歩合に使う）",
@@ -5110,10 +5335,56 @@
                 '<button class="btn btn-ghost btn-danger btn-sm" id="wk_del">この出勤を消す</button></div>'
               : "")
         );
+        // 選んだ人が「％」で決めている種類だけ、金額の欄とボトルのボタンを出す
+        var syncKinds = function () {
+          var st = staffById($("wk_staff").value);
+          C.BACK_KINDS.forEach(function (k) {
+            var isPct = !!(st && C.num((st.backPct || {})[k.key]) > 0);
+            $("wk_row_c_" + k.key).style.display = isPct ? "none" : "";
+            $("wk_row_a_" + k.key).style.display = isPct ? "" : "none";
+            if (!isPct) return;
+            var list = C.itemList(SETTINGS.items, k.key);
+            $("wk_items_" + k.key).innerHTML =
+              list
+                .map(function (it, i) {
+                  return (
+                    '<button class="chip chip-sm" type="button" data-i="' +
+                    i +
+                    '">' +
+                    esc(it.name) +
+                    " " +
+                    C.comma(it.price) +
+                    "</button>"
+                  );
+                })
+                .join("") +
+              (list.length
+                ? '<button class="chip chip-sm" type="button" data-i="clear">0にもどす</button>'
+                : '<span class="hint">「よく出るボトル」を登録すると、ここを押すだけで金額が入ります</span>');
+            $("wk_items_" + k.key)
+              .querySelectorAll("[data-i]")
+              .forEach(function (b) {
+                b.onclick = function () {
+                  var v = b.getAttribute("data-i");
+                  if (v === "clear") {
+                    $("wk_a_" + k.key).value = "";
+                    $("wk_c_" + k.key).value = "";
+                  } else {
+                    var it = list[Number(v)];
+                    $("wk_a_" + k.key).value = C.int($("wk_a_" + k.key).value) + it.price;
+                    $("wk_c_" + k.key).value = C.int($("wk_c_" + k.key).value) + 1;
+                  }
+                  preview();
+                };
+              });
+          });
+        };
         var build = function () {
           var back = {};
+          var amt = {};
           C.BACK_KINDS.forEach(function (k) {
             back[k.key] = $("wk_c_" + k.key).value;
+            amt[k.key] = $("wk_a_" + k.key).value;
           });
           return C.normalizeWork({
             id: cur ? cur.id : "",
@@ -5122,6 +5393,7 @@
             inAt: $("wk_in").value,
             outAt: $("wk_out").value,
             count: back,
+            amount: amt,
             sales: $("wk_sales").value,
             fine: $("wk_fine").value,
             lend: $("wk_lend").value,
@@ -5135,7 +5407,16 @@
           var st = staffById(w.staffId);
           if (!st) return;
           var d = C.payDay(st, w, { sales: C.salesByStaff(SALES, UI.payYmd, st.name) });
+          var pctNote = d.backs
+            .filter(function (b) {
+              return b.pct > 0 && b.sold;
+            })
+            .map(function (b) {
+              return b.label + " " + C.comma(b.sold) + "の" + b.pct + "% = " + C.comma(b.amount);
+            })
+            .join("／");
           $("wk_calc").innerHTML =
+            (pctNote ? esc(pctNote) + "<br>" : "") +
             "支給 " +
             C.yen(d.gross) +
             "（基本 " +
@@ -5150,6 +5431,7 @@
             "</b>" +
             (d.guaranteeUsed ? "　※最低保証を使いました" : "");
         };
+        syncKinds();
         preview();
         ["wk_staff", "wk_in", "wk_out", "wk_sales", "wk_fine", "wk_lend", "wk_repay"]
           .concat(
@@ -5157,10 +5439,19 @@
               return "wk_c_" + k.key;
             })
           )
+          .concat(
+            C.BACK_KINDS.map(function (k) {
+              return "wk_a_" + k.key;
+            })
+          )
           .forEach(function (id2) {
             $(id2).oninput = preview;
             $(id2).onchange = preview;
           });
+        $("wk_staff").onchange = function () {
+          syncKinds();
+          preview();
+        };
         var save = function (patch) {
           var next = Object.assign(build(), patch || {});
           WORKS = WORKS.filter(function (x) {
@@ -5225,10 +5516,33 @@
 
       /* 給料のA4（月のまとめ） */
       function paySheetHtml(ym, sums) {
-        var tot = { days: 0, gross: 0, deduct: 0, net: 0 };
+        var tot = {
+          days: 0,
+          minutes: 0,
+          shimei: 0,
+          douhan: 0,
+          base: 0,
+          backTotal: 0,
+          commission: 0,
+          gross: 0,
+          fine: 0,
+          kousei: 0,
+          repay: 0,
+          deduct: 0,
+          net: 0,
+        };
         sums.forEach(function (x) {
           tot.days += x.t.days;
+          tot.minutes += x.t.minutes;
+          tot.shimei += x.t.counts.shimei;
+          tot.douhan += x.t.counts.douhan;
+          tot.base += x.t.base;
+          tot.backTotal += x.t.backTotal;
+          tot.commission += x.t.commission;
           tot.gross += x.t.gross;
+          tot.fine += x.t.fine;
+          tot.kousei += x.t.kousei;
+          tot.repay += x.t.repay;
           tot.deduct += x.t.deduct;
           tot.net += x.t.net;
         });
@@ -5279,15 +5593,32 @@
           "</tbody><tfoot><tr>" +
           '<td class="c-n"><b>合計</b></td><td class="c-p">' +
           tot.days +
-          '</td><td class="c-p"></td><td class="c-p"></td><td class="c-p"></td>' +
-          '<td class="c-a"></td><td class="c-a"></td><td class="c-a"></td>' +
-          '<td class="c-a"><b>' +
+          '</td><td class="c-p">' +
+          (tot.minutes / 60).toFixed(1) +
+          '</td><td class="c-p">' +
+          tot.shimei +
+          '</td><td class="c-p">' +
+          tot.douhan +
+          '</td><td class="c-a">' +
+          C.comma(tot.base) +
+          '</td><td class="c-a">' +
+          C.comma(tot.backTotal) +
+          '</td><td class="c-a">' +
+          C.comma(tot.commission) +
+          '</td><td class="c-a"><b>' +
           C.comma(tot.gross) +
           '</b></td><td class="c-a"><b>' +
           C.comma(tot.deduct) +
           '</b></td><td class="c-a"><b>' +
           C.comma(tot.net) +
           "</b></td></tr></tfoot></table>" +
+          '<div class="pay-sub">控除の内訳　罰金 ' +
+          C.yen(tot.fine) +
+          "　／　厚生費 " +
+          C.yen(tot.kousei) +
+          "　／　前借りの返済 " +
+          C.yen(tot.repay) +
+          "</div>" +
           '<div class="sm-note">支給＝基本＋バック＋歩合（最低保証がある人は高い方）。控除＝罰金＋厚生費＋前借りの返済。</div>' +
           "</div>"
         );
@@ -5430,6 +5761,9 @@
           writeClose({ closedAt: new Date().toISOString() });
           renderClose();
           toast("✅ 締めました");
+        };
+        $("btnItemAdd").onclick = function () {
+          openItem("");
         };
         $("btnStaffAdd").onclick = function () {
           openStaff("");

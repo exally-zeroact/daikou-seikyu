@@ -131,7 +131,8 @@ create table if not exists nomiya_staff (
   role       text not null default '',
   hourly     integer not null default 0,         -- 時給
   daily      integer not null default 0,         -- 日給
-  back       jsonb   not null default '{}'::jsonb,
+  back       jsonb   not null default '{}'::jsonb,   -- 円で決めたバック単価
+  back_pct   jsonb   not null default '{}'::jsonb,   -- ％で決めたバック率（シャンパン等）
   rate       numeric not null default 0,         -- 売上歩合(%)
   guarantee  integer not null default 0,         -- 最低保証
   kousei     integer not null default 0,         -- 厚生費（1日）
@@ -143,6 +144,7 @@ create table if not exists nomiya_staff (
   deleted_at timestamptz,
   unique (account_id, sid)
 );
+alter table nomiya_staff add column if not exists back_pct jsonb not null default '{}'::jsonb;
 create index if not exists idx_nomiya_staff_acct on nomiya_staff(account_id, name);
 
 -- ── 日々の実績（1人×1日） ────────────────────────────────────────────
@@ -156,7 +158,8 @@ create table if not exists nomiya_work (
   staff_id   text not null,
   in_at      text not null default '',           -- 'HH:MM'
   out_at     text not null default '',
-  count      jsonb   not null default '{}'::jsonb,
+  count      jsonb   not null default '{}'::jsonb,   -- 本数（円バック用）
+  amount     jsonb   not null default '{}'::jsonb,   -- 売った額（％バック用）
   sales      integer not null default 0,         -- 自分の客の売上（手入力ぶん）
   fine       integer not null default 0,         -- 罰金
   lend       integer not null default 0,         -- 前借り
@@ -167,6 +170,7 @@ create table if not exists nomiya_work (
   deleted_at timestamptz,
   unique (account_id, wid)
 );
+alter table nomiya_work add column if not exists amount jsonb not null default '{}'::jsonb;
 create index if not exists idx_nomiya_work_acct_ymd on nomiya_work(account_id, ymd);
 create index if not exists idx_nomiya_work_acct_staff on nomiya_work(account_id, staff_id, ymd);
 

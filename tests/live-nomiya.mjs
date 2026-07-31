@@ -51,7 +51,15 @@ const ACC = li.data.user.id;
 console.log("ログイン: " + cred.email + " (" + ACC + ")");
 
 /* ── 棚があるか ─────────────────────────────────────────── */
-for (const t of ["nomiya_sales", "nomiya_partners", "nomiya_settings", "nomiya_invoices"]) {
+for (const t of [
+  "nomiya_sales",
+  "nomiya_partners",
+  "nomiya_settings",
+  "nomiya_invoices",
+  "nomiya_closes",
+  "nomiya_staff",
+  "nomiya_work",
+]) {
   const r = await sb.from(t).select("*", { count: "exact" }).range(0, 0);
   check("棚 " + t + " がある", !r.error, r.error && r.error.message);
   if (r.error) die("先に supabase/schema-nomiya.sql を SQL Editor で Run してください");
@@ -208,6 +216,70 @@ check("他人のアカウントでは書けない（RLSが効いている）", !
   );
   const d0 = await sb.from("nomiya_invoices").delete().eq("key", key);
   check("自分が作った番号台帳を片付けられる", !d0.error, d0.error && d0.error.message);
+}
+
+/* ── スタッフと出勤の往復（％バック・売った額まで本当に入るか） ───── */
+{
+  const sid = TAG + "-st";
+  const wid = TAG + "-wk";
+  const rs = await sb.from("nomiya_staff").upsert(
+    [
+      {
+        account_id: ACC,
+        sid,
+        name: "LIVEあかり",
+        hourly: 1200,
+        back: { shimei: 2000 },
+        back_pct: { bottle: 15 },
+        cycle: "daily",
+        employ: "employee",
+        memo: TAG,
+        updated_at: new Date().toISOString(),
+      },
+    ],
+    { onConflict: "account_id,sid" }
+  );
+  check("スタッフを入れられる（％バックの棚がある）", !rs.error, rs.error && rs.error.message);
+
+  const rw = await sb.from("nomiya_work").upsert(
+    [
+      {
+        account_id: ACC,
+        wid,
+        ymd: "2026-07-30",
+        staff_id: sid,
+        in_at: "20:00",
+        out_at: "01:00",
+        count: { shimei: 2, bottle: 1 },
+        amount: { bottle: 80000 },
+        memo: TAG,
+        updated_at: new Date().toISOString(),
+      },
+    ],
+    { onConflict: "account_id,wid" }
+  );
+  check("出勤を入れられる（売った額の棚がある）", !rw.error, rw.error && rw.error.message);
+
+  const g1 = await sb.from("nomiya_staff").select("back, back_pct").eq("sid", sid).maybeSingle();
+  check(
+    "円のバックと％のバックが、そのまま戻ってくる",
+    !g1.error && g1.data && g1.data.back.shimei === 2000 && g1.data.back_pct.bottle === 15,
+    g1.error || g1.data
+  );
+  const g2 = await sb.from("nomiya_work").select("count, amount").eq("wid", wid).maybeSingle();
+  check(
+    "売った額が、そのまま戻ってくる",
+    !g2.error && g2.data && g2.data.amount.bottle === 80000 && g2.data.count.shimei === 2,
+    g2.error || g2.data
+  );
+
+  const dw = await sb.from("nomiya_work").delete().eq("wid", wid);
+  const ds = await sb.from("nomiya_staff").delete().eq("sid", sid);
+  check(
+    "出勤とスタッフを片付けられる",
+    !dw.error && !ds.error,
+    (dw.error || ds.error || {}).message
+  );
 }
 
 /* ── RLS: ログアウトすると自分の行も見えない（他人からは覗けない） ───── */

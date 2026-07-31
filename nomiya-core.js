@@ -1074,8 +1074,11 @@
   function normalizeStaff(raw, now) {
     var r = raw || {};
     var back = {};
+    var backPct = {};
     BACK_KINDS.forEach(function (k) {
       back[k.key] = _int((r.back || {})[k.key]);
+      // ％で決める種類（シャンパン・ボトルは値段がバラバラなので、円では決まらない）
+      backPct[k.key] = _num((r.backPct || {})[k.key]);
     });
     return {
       id: r.id || makeId(),
@@ -1084,6 +1087,7 @@
       hourly: _int(r.hourly), // 時給（0なら無し）
       daily: _int(r.daily), // 日給（0なら無し）
       back: back, // バックの単価（1本・1回あたり）
+      backPct: backPct, // バックの率（%）。入っていればこちらを使う
       rate: _num(r.rate), // 売上歩合（%）
       guarantee: _int(r.guarantee), // 最低保証（0なら無し）
       kousei: _int(r.kousei), // 厚生費（1日あたり引く）
@@ -1106,8 +1110,11 @@
   function normalizeWork(raw, now) {
     var r = raw || {};
     var cnt = {};
+    var amt = {};
     BACK_KINDS.forEach(function (k) {
       cnt[k.key] = _int((r.count || {})[k.key]);
+      // ％のバックはこの金額に率を掛ける（ボトル・シャンパンの売った額）
+      amt[k.key] = _int((r.amount || {})[k.key]);
     });
     return {
       id: r.id || makeId(),
@@ -1116,6 +1123,7 @@
       inAt: String(r.inAt == null ? "" : r.inAt), // 'HH:MM'
       outAt: String(r.outAt == null ? "" : r.outAt),
       count: cnt,
+      amount: amt,
       sales: _int(r.sales), // 自分の客の売上（手入力ぶん）
       fine: _int(r.fine), // 罰金
       lend: _int(r.lend), // この日に前借りした
@@ -1174,7 +1182,19 @@
     var backs = BACK_KINDS.map(function (k) {
       var n = _int((w.count || {})[k.key]);
       var unit = _int((st.back || {})[k.key]);
-      return { key: k.key, label: k.label, count: n, unit: unit, amount: n * unit };
+      var pct = _num((st.backPct || {})[k.key]);
+      var sold = _int((w.amount || {})[k.key]);
+      // ％で決めている種類は「売った金額 × ％」。円で決めているなら「本数 × 単価」。
+      var amount = pct > 0 ? Math.floor((sold * pct) / 100) : n * unit;
+      return {
+        key: k.key,
+        label: k.label,
+        count: n,
+        unit: unit,
+        pct: pct,
+        sold: sold,
+        amount: amount,
+      };
     });
     var backTotal = backs.reduce(function (a, x) {
       return a + x.amount;
@@ -1245,9 +1265,11 @@
       lend: 0,
       paidDays: 0,
       counts: {},
+      amounts: {},
     };
     BACK_KINDS.forEach(function (k) {
       t.counts[k.key] = 0;
+      t.amounts[k.key] = 0;
     });
     rows
       .sort(function (a, b) {
@@ -1270,6 +1292,7 @@
         if (d.paidAt) t.paidDays += 1;
         BACK_KINDS.forEach(function (k) {
           t.counts[k.key] += _int((w.count || {})[k.key]);
+          t.amounts[k.key] += _int((w.amount || {})[k.key]);
         });
       });
     t.rows = rows;
@@ -1316,6 +1339,35 @@
     return out;
   }
 
+  /**
+   * normalizeItem(raw)
+   *  よく出るボトル・シャンパン。タップで金額が入るようにするためのもの。
+   *  kind = バックの種類（bottle / champagne は bottle 扱い）
+   */
+  function normalizeItem(raw) {
+    var r = raw || {};
+    return {
+      id: r.id || makeId(),
+      name: String(r.name == null ? "" : r.name).trim(),
+      price: _int(r.price),
+      kind: BACK_KINDS.some(function (k) {
+        return k.key === r.kind;
+      })
+        ? r.kind
+        : "bottle",
+    };
+  }
+  function itemList(items, kind) {
+    return (items || [])
+      .map(normalizeItem)
+      .filter(function (x) {
+        return x.name && (!kind || x.kind === kind);
+      })
+      .sort(function (a, b) {
+        return b.price - a.price;
+      });
+  }
+
   function staffToRow(x) {
     return {
       sid: _s(x.id),
@@ -1324,6 +1376,7 @@
       hourly: _int(x.hourly),
       daily: _int(x.daily),
       back: x.back || {},
+      back_pct: x.backPct || {},
       rate: _num(x.rate),
       guarantee: _int(x.guarantee),
       kousei: _int(x.kousei),
@@ -1344,6 +1397,7 @@
         hourly: r.hourly,
         daily: r.daily,
         back: r.back || {},
+        backPct: r.back_pct || {},
         rate: r.rate,
         guarantee: r.guarantee,
         kousei: r.kousei,
@@ -1364,6 +1418,7 @@
       in_at: _s(x.inAt),
       out_at: _s(x.outAt),
       count: x.count || {},
+      amount: x.amount || {},
       sales: _int(x.sales),
       fine: _int(x.fine),
       lend: _int(x.lend),
@@ -1383,6 +1438,7 @@
         inAt: _s(r.in_at),
         outAt: _s(r.out_at),
         count: r.count || {},
+        amount: r.amount || {},
         sales: r.sales,
         fine: r.fine,
         lend: r.lend,
@@ -1765,6 +1821,8 @@
     weekday: weekday,
     comma: comma,
     yen: yen,
+    num: _num,
+    int: _int,
     validateSale: validateSale,
     normalizeSale: normalizeSale,
     makeId: makeId,
@@ -1832,6 +1890,8 @@
     syncPlanStaff: syncPlanStaff,
     syncPlanWorks: syncPlanWorks,
     aliveStaff: aliveStaff,
+    normalizeItem: normalizeItem,
+    itemList: itemList,
     buildInvoice: buildInvoice,
     paginate: paginate,
     ledgerPages: ledgerPages,

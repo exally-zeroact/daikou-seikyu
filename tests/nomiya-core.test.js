@@ -1003,42 +1003,55 @@ describe("P0: 空の時刻を送らない・戻せるバックアップ・請求
 
 describe("レジ締め（現金合わせ）", () => {
   const day = "2026-07-30";
+  // ★更新時刻を固定する（今の時刻を使うと、実行した時間で結果が変わる＝時限爆弾）
+  const T0 = "2026-07-30T18:00:00.000Z";
   const S = [
-    C.normalizeSale({ date: day, name: "田中", people: 2, amount: 8000, pay: "cash" }),
-    C.normalizeSale({ date: day, name: "佐藤", people: 3, amount: 12000, pay: "paypay" }),
-    C.normalizeSale({ date: day, name: "山本商事", people: 4, amount: 32000, pay: "invoice" }),
-    C.normalizeSale({ date: day, name: "鈴木", people: 5, amount: 25000, pay: "credit" }),
+    C.normalizeSale({ date: day, name: "田中", people: 2, amount: 8000, pay: "cash" }, T0),
+    C.normalizeSale({ date: day, name: "佐藤", people: 3, amount: 12000, pay: "paypay" }, T0),
+    C.normalizeSale({ date: day, name: "山本商事", people: 4, amount: 32000, pay: "invoice" }, T0),
+    C.normalizeSale({ date: day, name: "鈴木", people: 5, amount: 25000, pay: "credit" }, T0),
     // 前に打ったツケを、今日「現金で」回収した
-    C.normalizeSale({
-      date: "2026-07-20",
-      name: "田中",
-      people: 1,
-      amount: 5000,
-      pay: "tsuke",
-      paidDate: day,
-      paidCash: true,
-    }),
+    C.normalizeSale(
+      {
+        date: "2026-07-20",
+        name: "田中",
+        people: 1,
+        amount: 5000,
+        pay: "tsuke",
+        paidDate: day,
+        paidCash: true,
+      },
+      T0
+    ),
     // 同じ日に振込で回収した分は、金庫の現金には入らない
-    C.normalizeSale({
-      date: "2026-07-21",
-      name: "山本商事",
-      people: 2,
-      amount: 9000,
-      pay: "invoice",
-      paidDate: day,
-      paidCash: false,
-    }),
+    C.normalizeSale(
+      {
+        date: "2026-07-21",
+        name: "山本商事",
+        people: 2,
+        amount: 9000,
+        pay: "invoice",
+        paidDate: day,
+        paidCash: false,
+      },
+      T0
+    ),
   ];
 
   it("あるべき額＝釣銭＋現金売上＋現金で回収した分−出金", () => {
-    const d = C.closeDraft(S, day, {
-      opening: 30000,
-      outs: [
-        { kind: "buy", amount: 3000, memo: "氷とおしぼり" },
-        { kind: "pay", amount: 10000, memo: "あかり 日払い", staff: "あかり" },
-      ],
-      counted: 30000,
-    });
+    const d = C.closeDraft(
+      S,
+      day,
+      {
+        opening: 30000,
+        outs: [
+          { kind: "buy", amount: 3000, memo: "氷とおしぼり" },
+          { kind: "pay", amount: 10000, memo: "あかり 日払い", staff: "あかり" },
+        ],
+        counted: 30000,
+      },
+      T0
+    );
     expect(d.cashSales).toBe(8000);
     expect(d.collected).toBe(5000); // 現金で回収したツケだけ（振込の9,000は入らない）
     expect(d.outTotal).toBe(13000);
@@ -1415,5 +1428,90 @@ describe("給料（キャスト・スタッフ）", () => {
     expect(C.workFromRow(wr).count.shimei).toBe(2);
     // 空の時刻は null で送る（DBが受け取れない空文字を送らない）
     expect(C.workToRow(C.normalizeWork({ ymd: "2026-07-30", staffId: "x" })).paid_at).toBe(null);
+  });
+});
+
+describe("バックの決め方（円と％）と、よく出るボトル", () => {
+  it("％で決めた種類は「売った金額×％」、円で決めた種類は「本数×単価」", () => {
+    const st = C.normalizeStaff(
+      {
+        name: "あかり",
+        hourly: 1200,
+        back: { shimei: 1500, douhan: 3000, drink: 400 },
+        backPct: { bottle: 10 },
+      },
+      "2026-07-01T00:00:00.000Z"
+    );
+    const w = C.normalizeWork(
+      {
+        ymd: "2026-07-30",
+        staffId: st.id,
+        inAt: "20:00",
+        outAt: "01:00",
+        count: { shimei: 2, douhan: 1, drink: 8 },
+        amount: { bottle: 80000 },
+      },
+      "2026-07-30T18:00:00.000Z"
+    );
+    const d = C.payDay(st, w, {});
+    const g = (k) => d.backs.filter((b) => b.key === k)[0];
+    expect(g("shimei").amount).toBe(3000); // 2本×1,500
+    expect(g("drink").amount).toBe(3200); // 8杯×400
+    expect(g("bottle").amount).toBe(8000); // 80,000の10%
+    expect(g("bottle").pct).toBe(10);
+    expect(d.backTotal).toBe(3000 + 3000 + 3200 + 8000);
+    expect(d.base).toBe(6000); // 1,200×5h
+    expect(d.gross).toBe(23200);
+  });
+  it("％が入っていれば本数は使わない（二重に足さない）", () => {
+    const st = C.normalizeStaff(
+      { name: "ゆい", back: { bottle: 5000 }, backPct: { bottle: 10 } },
+      "2026-07-01T00:00:00.000Z"
+    );
+    const w = C.normalizeWork(
+      { ymd: "2026-07-30", staffId: st.id, count: { bottle: 3 }, amount: { bottle: 50000 } },
+      "2026-07-30T18:00:00.000Z"
+    );
+    const b = C.payDay(st, w, {}).backs.filter((x) => x.key === "bottle")[0];
+    expect(b.amount).toBe(5000); // 50,000の10%。3本×5,000＝15,000にはならない
+  });
+  it("％も本数も無ければ0（勝手に付けない）", () => {
+    const st = C.normalizeStaff({ name: "新人" }, "2026-07-01T00:00:00.000Z");
+    const w = C.normalizeWork({ ymd: "2026-07-30", staffId: st.id }, "2026-07-30T18:00:00.000Z");
+    expect(C.payDay(st, w, {}).backTotal).toBe(0);
+  });
+  it("よく出るボトルは、高い順に並び、名前が無いものは出さない", () => {
+    const list = C.itemList(
+      [
+        { name: "モエ", price: 30000, kind: "bottle" },
+        { name: "ドンペリ白", price: 50000, kind: "bottle" },
+        { name: "", price: 99999, kind: "bottle" },
+        { name: "角瓶", price: 8000, kind: "drink" },
+      ],
+      "bottle"
+    );
+    expect(list.map((x) => x.name)).toEqual(["ドンペリ白", "モエ"]);
+    expect(C.itemList([{ name: "角瓶", price: 8000, kind: "drink" }], "drink")[0].price).toBe(8000);
+    expect(C.normalizeItem({ name: " ドンペリ ", price: "50,000" }).price).toBe(0); // 数字にできない値は0
+    expect(C.normalizeItem({ name: "ドンペリ", price: 50000 }).kind).toBe("bottle");
+  });
+  it("期間のまとめで、％バックの売った金額も足される", () => {
+    const st = C.normalizeStaff(
+      { id: "s1", name: "あかり", backPct: { bottle: 10 } },
+      "2026-07-01T00:00:00.000Z"
+    );
+    const works = [
+      C.normalizeWork(
+        { ymd: "2026-07-01", staffId: "s1", amount: { bottle: 50000 } },
+        "2026-07-01T18:00:00.000Z"
+      ),
+      C.normalizeWork(
+        { ymd: "2026-07-02", staffId: "s1", amount: { bottle: 30000 } },
+        "2026-07-02T18:00:00.000Z"
+      ),
+    ];
+    const t = C.paySummary(st, works, [], "2026-07-01", "2026-07-31");
+    expect(t.amounts.bottle).toBe(80000);
+    expect(t.backTotal).toBe(8000);
   });
 });
