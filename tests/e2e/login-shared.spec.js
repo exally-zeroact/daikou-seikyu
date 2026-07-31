@@ -4,10 +4,9 @@ import { test, expect } from "@playwright/test";
 // 「どのアプリで開いても同じ見た目・同じ言い方」であることを実ブラウザで固定する。
 // 本物のクラウドには繋がない（偽のクラウド tests/e2e/fake-supabase.js を差し込む）。
 
-const APPS = [
-  { name: "売上管理", url: "/nomiya-uriage.html" },
-  { name: "代行請求", url: "/daikou-seikyu.html" },
-];
+// 飲み屋(売上管理)は nomiya-app / nomiya-app-test へ独立させた。
+// 向こうにも同じ確認が入っている（共通部品なので、どちらのrepoでも同じ見た目を守る）。
+const APPS = [{ name: "代行請求", url: "/daikou-seikyu.html" }];
 
 async function openLogin(page, url) {
   const errors = [];
@@ -94,21 +93,6 @@ test.describe("ログイン画面（全アプリ共通）", () => {
     await expect(page.locator("#scr-input")).toBeVisible();
 
     // 開き直すとログイン画面が出ない（セッションを覚えている）
-    await page.reload({ waitUntil: "load" });
-    await expect(page.locator("#scr-input")).toBeVisible();
-    await expect(page.locator("#loginOv")).not.toHaveClass(/open/);
-    expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
-  });
-
-  test("売上管理: 登録して入れて、開き直すと自動で入る", async ({ page }) => {
-    const errors = await openLogin(page, "/nomiya-uriage.html");
-    await page.locator("#loginEmail").fill("mama@snack.example");
-    await page.locator("#loginPass").fill("himitsu123");
-    await page.locator("#btnSignup").click();
-
-    await expect(page.locator("#loginOv")).not.toHaveClass(/open/);
-    await expect(page.locator("#scr-input")).toBeVisible();
-
     await page.reload({ waitUntil: "load" });
     await expect(page.locator("#scr-input")).toBeVisible();
     await expect(page.locator("#loginOv")).not.toHaveClass(/open/);
