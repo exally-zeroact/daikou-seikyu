@@ -1,579 +1,1737 @@
-<!DOCTYPE html>
+<!doctype html>
 
 <html lang="ja">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Exally（エクサリー）- ホーム</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-html,body{height:100%;overflow:hidden;}
-body{font-family:'Noto Sans JP',sans-serif;background:#F8FEFC;-webkit-font-smoothing:antialiased;}
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Exally（エクサリー）- ホーム</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+      body {
+        font-family: "Noto Sans JP", sans-serif;
+        background: #f8fefc;
+        -webkit-font-smoothing: antialiased;
+      }
 
-.lay{display:flex;height:100vh;height:100dvh;background:#F8FEFC;}
+      .lay {
+        display: flex;
+        height: 100vh;
+        height: 100dvh;
+        background: #f8fefc;
+      }
 
-/* PC サイドバー */
-.sb{display:none;}
-@media(min-width:769px){
-.sb{display:flex;flex-direction:column;width:220px;min-width:220px;background:#ffffff;border-right:1px solid #D4EDE1;padding:24px 0;flex-shrink:0;height:100%;}
-.sb-logo{padding:0 20px 28px;display:flex;align-items:baseline;gap:5px;}
-.sb-en{font-family:monospace;font-size:22px;font-weight:800;color:#52B788;letter-spacing:-0.5px;}
-.sb-ja{font-size:10px;font-weight:600;color:#4A6B5A;}
-.sb-nav{flex:1;padding:0 12px;display:flex;flex-direction:column;gap:4px;overflow-y:auto;}
-.sb-it{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;cursor:pointer;border:none;background:none;font-family:'Noto Sans JP',sans-serif;width:100%;text-align:left;color:#2E4038;font-size:13px;font-weight:500;transition:all 0.18s;}
-.sb-it:hover{background:#F0FAF4;color:#2E4038;}
-.sb-it.active{background:#F0FAF4;color:#2E4038;font-weight:700;}
-.sb-ic{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
-.sb-ic svg{width:20px;height:20px;}
-.sb-ic-emoji{font-size:15px;line-height:1;}
-.sb-ft{padding:10px 18px;border-top:1px solid #D4EDE1;display:flex;flex-direction:column;gap:5px;}
-.sb-vb{background:#ffffff;border:1.5px solid #C8ECD8;color:#3D9E72;font-size:11px;font-weight:700;padding:7px 10px;border-radius:9px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;justify-content:center;gap:5px;transition:all 0.15s;}
-.sb-vb:hover{background:#F0FAF4;border-color:#3D9E72;}
-.sb-bd{font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;text-align:center;}
-.sb-bd-d{background:#FFF8EE;border:1px solid #F4A942;color:#9A6000;}
-.sb-bd-t{background:#F0FAF4;border:1px solid #C8ECD8;color:#3D9E72;}
-}
+      /* PC サイドバー */
+      .sb {
+        display: none;
+      }
+      @media (min-width: 769px) {
+        .sb {
+          display: flex;
+          flex-direction: column;
+          width: 220px;
+          min-width: 220px;
+          background: #ffffff;
+          border-right: 1px solid #d4ede1;
+          padding: 24px 0;
+          flex-shrink: 0;
+          height: 100%;
+        }
+        .sb-logo {
+          padding: 0 20px 28px;
+          display: flex;
+          align-items: baseline;
+          gap: 5px;
+        }
+        .sb-en {
+          font-family: monospace;
+          font-size: 22px;
+          font-weight: 800;
+          color: #52b788;
+          letter-spacing: -0.5px;
+        }
+        .sb-ja {
+          font-size: 10px;
+          font-weight: 600;
+          color: #4a6b5a;
+        }
+        .sb-nav {
+          flex: 1;
+          padding: 0 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          overflow-y: auto;
+        }
+        .sb-it {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 10px 14px;
+          border-radius: 10px;
+          cursor: pointer;
+          border: none;
+          background: none;
+          font-family: "Noto Sans JP", sans-serif;
+          width: 100%;
+          text-align: left;
+          color: #2e4038;
+          font-size: 13px;
+          font-weight: 500;
+          transition: all 0.18s;
+        }
+        .sb-it:hover {
+          background: #f0faf4;
+          color: #2e4038;
+        }
+        .sb-it.active {
+          background: #f0faf4;
+          color: #2e4038;
+          font-weight: 700;
+        }
+        .sb-ic {
+          width: 22px;
+          height: 22px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .sb-ic svg {
+          width: 20px;
+          height: 20px;
+        }
+        .sb-ic-emoji {
+          font-size: 15px;
+          line-height: 1;
+        }
+        .sb-ft {
+          padding: 10px 18px;
+          border-top: 1px solid #d4ede1;
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+        }
+        .sb-vb {
+          background: #ffffff;
+          border: 1.5px solid #c8ecd8;
+          color: #3d9e72;
+          font-size: 11px;
+          font-weight: 700;
+          padding: 7px 10px;
+          border-radius: 9px;
+          cursor: pointer;
+          font-family: "Noto Sans JP", sans-serif;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 5px;
+          transition: all 0.15s;
+        }
+        .sb-vb:hover {
+          background: #f0faf4;
+          border-color: #3d9e72;
+        }
+        .sb-bd {
+          font-size: 10px;
+          font-weight: 700;
+          padding: 3px 8px;
+          border-radius: 20px;
+          text-align: center;
+        }
+        .sb-bd-d {
+          background: #fff8ee;
+          border: 1px solid #f4a942;
+          color: #9a6000;
+        }
+        .sb-bd-t {
+          background: #f0faf4;
+          border: 1px solid #c8ecd8;
+          color: #3d9e72;
+        }
+      }
 
-/* メイン */
-.mn{flex:1;display:flex;flex-direction:column;position:relative;overflow:hidden;min-width:0;background:#F8FEFC;}
+      /* メイン */
+      .mn {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        overflow: hidden;
+        min-width: 0;
+        background: #f8fefc;
+      }
 
-/* モバイルヘッダー */
-.mh{background:#ffffff;border-bottom:1px solid #D4EDE1;padding:0 12px;height:48px;display:flex;align-items:center;justify-content:space-between;gap:6px;flex-shrink:0;}
-.mh-lg{display:flex;align-items:baseline;gap:4px;}
-.mh-en{font-family:monospace;font-size:20px;font-weight:800;color:#52B788;}
-.mh-ja{font-size:10px;font-weight:600;color:#4A6B5A;}
-.mh-r{display:flex;gap:4px;align-items:center;}
-.vbm{display:inline-flex;align-items:center;gap:4px;background:#F0FAF4;border:1px solid #C8ECD8;color:#3D9E72;font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px;}
-.hb{font-size:9px;font-weight:700;padding:3px 7px;border-radius:18px;}
-.hb-d{background:#FFF8EE;border:1px solid #F4A942;color:#9A6000;}
-.hb-t{background:#F0FAF4;border:1px solid #C8ECD8;color:#3D9E72;}
-@media(max-width:480px){.hb-t{display:none;}}
-@media(max-width:380px){.hb-d{display:none;}}
-@media(min-width:769px){.mh{display:none;}}
+      /* モバイルヘッダー */
+      .mh {
+        background: #ffffff;
+        border-bottom: 1px solid #d4ede1;
+        padding: 0 12px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+      .mh-lg {
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
+      }
+      .mh-en {
+        font-family: monospace;
+        font-size: 20px;
+        font-weight: 800;
+        color: #52b788;
+      }
+      .mh-ja {
+        font-size: 10px;
+        font-weight: 600;
+        color: #4a6b5a;
+      }
+      .mh-r {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+      }
+      .vbm {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: #f0faf4;
+        border: 1px solid #c8ecd8;
+        color: #3d9e72;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 4px 12px;
+        border-radius: 20px;
+      }
+      .hb {
+        font-size: 9px;
+        font-weight: 700;
+        padding: 3px 7px;
+        border-radius: 18px;
+      }
+      .hb-d {
+        background: #fff8ee;
+        border: 1px solid #f4a942;
+        color: #9a6000;
+      }
+      .hb-t {
+        background: #f0faf4;
+        border: 1px solid #c8ecd8;
+        color: #3d9e72;
+      }
+      @media (max-width: 480px) {
+        .hb-t {
+          display: none;
+        }
+      }
+      @media (max-width: 380px) {
+        .hb-d {
+          display: none;
+        }
+      }
+      @media (min-width: 769px) {
+        .mh {
+          display: none;
+        }
+      }
 
-/* PC右上 */
-.vbp{display:none;position:absolute;top:18px;right:24px;z-index:50;background:#ffffff;border:2px solid #52B788;color:#3D9E72;font-size:14px;font-weight:700;padding:8px 18px;border-radius:22px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;box-shadow:0 4px 14px rgba(82,183,136,0.2);align-items:center;gap:6px;}
-.vbp:hover{background:#F0FAF4;border-color:#3D9E72;box-shadow:0 6px 18px rgba(82,183,136,0.28);transform:translateY(-1px);}
-@media(min-width:769px){.vbp{display:inline-flex;}}
+      /* PC右上 */
+      .vbp {
+        display: none;
+        position: absolute;
+        top: 18px;
+        right: 24px;
+        z-index: 50;
+        background: #ffffff;
+        border: 2px solid #52b788;
+        color: #3d9e72;
+        font-size: 14px;
+        font-weight: 700;
+        padding: 8px 18px;
+        border-radius: 22px;
+        cursor: pointer;
+        font-family: "Noto Sans JP", sans-serif;
+        box-shadow: 0 4px 14px rgba(82, 183, 136, 0.2);
+        align-items: center;
+        gap: 6px;
+      }
+      .vbp:hover {
+        background: #f0faf4;
+        border-color: #3d9e72;
+        box-shadow: 0 6px 18px rgba(82, 183, 136, 0.28);
+        transform: translateY(-1px);
+      }
+      @media (min-width: 769px) {
+        .vbp {
+          display: inline-flex;
+        }
+      }
 
-/* スクロールエリア */
-.sc{flex:1;overflow-y:auto;background:#F8FEFC;}
-.ct{max-width:720px;margin:0 auto;padding:12px 16px 78px;}
-@media(min-width:769px){.ct{max-width:1080px;padding:28px 40px 40px;width:100%;}}
+      /* スクロールエリア */
+      .sc {
+        flex: 1;
+        overflow-y: auto;
+        background: #f8fefc;
+      }
+      .ct {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 12px 16px 78px;
+      }
+      @media (min-width: 769px) {
+        .ct {
+          max-width: 1080px;
+          padding: 28px 40px 40px;
+          width: 100%;
+        }
+      }
 
-/* モバイル固定ボトムナビ */
-.bn{position:absolute;bottom:0;left:0;right:0;display:flex;background:#ffffff;border-top:1px solid #D4EDE1;padding-bottom:env(safe-area-inset-bottom);justify-content:space-around;align-items:center;gap:0;z-index:40;}
-.bn-i{display:flex;flex-direction:column;align-items:center;gap:0;padding:6px 1px 5px;border:none;background:none;cursor:pointer;color:#2E4038;font-family:'Noto Sans JP',sans-serif;min-width:35px;flex:1;}
-.bn-i.active{color:#2E4038;font-weight:700;}
-.bn-ic{display:inline-flex;align-items:center;justify-content:center;height:16px;}
-.bn-ic svg{width:15px;height:15px;}
-.bn-ic-emoji{font-size:15px;line-height:1;}
-.bn-lb{font-size:9px;font-weight:700;letter-spacing:-0.3px;margin-top:2px;white-space:nowrap;}
-@media(min-width:769px){.bn{display:none;}}
+      /* モバイル固定ボトムナビ */
+      .bn {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        background: #ffffff;
+        border-top: 1px solid #d4ede1;
+        padding-bottom: env(safe-area-inset-bottom);
+        justify-content: space-around;
+        align-items: center;
+        gap: 0;
+        z-index: 40;
+      }
+      .bn-i {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+        padding: 6px 1px 5px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        color: #2e4038;
+        font-family: "Noto Sans JP", sans-serif;
+        min-width: 35px;
+        flex: 1;
+      }
+      .bn-i.active {
+        color: #2e4038;
+        font-weight: 700;
+      }
+      .bn-ic {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 16px;
+      }
+      .bn-ic svg {
+        width: 15px;
+        height: 15px;
+      }
+      .bn-ic-emoji {
+        font-size: 15px;
+        line-height: 1;
+      }
+      .bn-lb {
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+        margin-top: 2px;
+        white-space: nowrap;
+      }
+      @media (min-width: 769px) {
+        .bn {
+          display: none;
+        }
+      }
 
-/* ========== ヒーロー ========== */
-.b-hero{text-align:center;padding:6px 0 12px;max-width:620px;margin:0 auto;}
-@media(min-width:769px){.b-hero{padding:14px 0 32px;max-width:780px;}}
-.b-eye{font-family:'DM Mono',monospace;font-size:9px;color:#52B788;letter-spacing:2.5px;margin-bottom:4px;font-weight:500;}
-@media(min-width:769px){.b-eye{font-size:10px;margin-bottom:6px;}}
-.b-ttl{font-size:20px;font-weight:900;color:#1A4A2E;line-height:1.2;letter-spacing:-0.8px;margin-bottom:2px;}
-@media(min-width:769px){.b-ttl{font-size:40px;letter-spacing:-1.5px;margin-bottom:6px;}}
-.b-ttl-mint{color:#3D9E72;}
-.b-sub{font-size:10px;color:#7A9A87;margin-bottom:10px;}
-@media(min-width:769px){.b-sub{font-size:14px;margin-bottom:18px;}}
-.b-srch-w{width:100%;}
-@media(min-width:769px){.b-srch-w{max-width:640px;margin:0 auto;}}
-.b-srch{background:#ffffff;border:1.5px solid #C8ECD8;border-radius:12px;padding:9px 12px;display:flex;align-items:center;gap:8px;transition:all 0.2s;box-shadow:0 2px 8px rgba(82,183,136,0.08);}
-@media(min-width:769px){.b-srch{padding:13px 18px;border-radius:14px;gap:10px;}}
-.b-srch:focus-within{border-color:#52B788;box-shadow:0 4px 14px rgba(82,183,136,0.14);}
-.b-srch-ic{font-size:16px;flex-shrink:0;}
-@media(min-width:769px){.b-srch-ic{font-size:20px;}}
-.b-srch input{flex:1;border:none;outline:none;font-family:'Noto Sans JP',sans-serif;font-size:13px;color:#1A4A2E;background:transparent;min-width:0;}
-@media(min-width:769px){.b-srch input{font-size:15px;}}
-.b-srch input::placeholder{color:#7A9A87;}
-.b-srch-btn{background:#3D9E72;color:#ffffff;border:none;border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:14px;font-weight:700;flex-shrink:0;transition:background 0.15s;}
-@media(min-width:769px){.b-srch-btn{width:40px;height:40px;font-size:16px;border-radius:10px;}}
-.b-srch-btn:hover{background:#2E7D54;}
+      /* ========== ヒーロー ========== */
+      .b-hero {
+        text-align: center;
+        padding: 6px 0 12px;
+        max-width: 620px;
+        margin: 0 auto;
+      }
+      @media (min-width: 769px) {
+        .b-hero {
+          padding: 14px 0 32px;
+          max-width: 780px;
+        }
+      }
+      .b-eye {
+        font-family: "DM Mono", monospace;
+        font-size: 9px;
+        color: #52b788;
+        letter-spacing: 2.5px;
+        margin-bottom: 4px;
+        font-weight: 500;
+      }
+      @media (min-width: 769px) {
+        .b-eye {
+          font-size: 10px;
+          margin-bottom: 6px;
+        }
+      }
+      .b-ttl {
+        font-size: 20px;
+        font-weight: 900;
+        color: #2e7d54;
+        line-height: 1.2;
+        letter-spacing: -0.8px;
+        margin-bottom: 2px;
+      }
+      @media (min-width: 769px) {
+        .b-ttl {
+          font-size: 40px;
+          letter-spacing: -1.5px;
+          margin-bottom: 6px;
+        }
+      }
+      .b-ttl-mint {
+        color: #3d9e72;
+      }
+      .b-sub {
+        font-size: 10px;
+        color: #7a9a87;
+        margin-bottom: 10px;
+      }
+      @media (min-width: 769px) {
+        .b-sub {
+          font-size: 14px;
+          margin-bottom: 18px;
+        }
+      }
+      .b-srch-w {
+        width: 100%;
+      }
+      @media (min-width: 769px) {
+        .b-srch-w {
+          max-width: 640px;
+          margin: 0 auto;
+        }
+      }
+      .b-srch {
+        background: #ffffff;
+        border: 1.5px solid #c8ecd8;
+        border-radius: 12px;
+        padding: 9px 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s;
+        box-shadow: 0 2px 8px rgba(82, 183, 136, 0.08);
+      }
+      @media (min-width: 769px) {
+        .b-srch {
+          padding: 13px 18px;
+          border-radius: 14px;
+          gap: 10px;
+        }
+      }
+      .b-srch:focus-within {
+        border-color: #52b788;
+        box-shadow: 0 4px 14px rgba(82, 183, 136, 0.14);
+      }
+      .b-srch-ic {
+        font-size: 16px;
+        flex-shrink: 0;
+      }
+      @media (min-width: 769px) {
+        .b-srch-ic {
+          font-size: 20px;
+        }
+      }
+      .b-srch input {
+        flex: 1;
+        border: none;
+        outline: none;
+        font-family: "Noto Sans JP", sans-serif;
+        font-size: 13px;
+        color: #2e7d54;
+        background: transparent;
+        min-width: 0;
+      }
+      @media (min-width: 769px) {
+        .b-srch input {
+          font-size: 15px;
+        }
+      }
+      .b-srch input::placeholder {
+        color: #7a9a87;
+      }
+      .b-srch-btn {
+        background: #3d9e72;
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        width: 32px;
+        height: 32px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 700;
+        flex-shrink: 0;
+        transition: background 0.15s;
+      }
+      @media (min-width: 769px) {
+        .b-srch-btn {
+          width: 40px;
+          height: 40px;
+          font-size: 16px;
+          border-radius: 10px;
+        }
+      }
+      .b-srch-btn:hover {
+        background: #2e7d54;
+      }
 
-/* チップ行 */
-.b-chips-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px;}
-.b-chips-row-2{grid-template-columns:1fr 1fr;max-width:calc(66.6% - 4px);margin-left:auto;margin-right:auto;margin-top:6px;}
-@media(min-width:769px){
-/* PC: 横並び（1行5個・中央寄せ） */
-.b-chips-row{display:flex;flex-direction:row;flex-wrap:wrap;justify-content:center;gap:6px;max-width:780px;margin:12px auto 0;grid-template-columns:none;}
-.b-chips-row-2{display:flex;flex-direction:row;flex-wrap:wrap;justify-content:center;gap:6px;max-width:780px;margin:6px auto 0;}
-}
-.b-ch{font-family:'Noto Sans JP',sans-serif;background:#ffffff;border:1px solid #D4EDE1;color:#3D9E72;font-size:10px;font-weight:600;padding:5px 9px;border-radius:12px;cursor:pointer;transition:all 0.15s;display:inline-flex;align-items:center;gap:3px;justify-content:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-@media(min-width:769px){.b-ch{font-size:11px;padding:6px 12px;}}
-.b-ch:hover{background:#F0FAF4;border-color:#52B788;}
+      /* チップ行 */
+      .b-chips-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 6px;
+        margin-top: 10px;
+      }
+      .b-chips-row-2 {
+        grid-template-columns: 1fr 1fr;
+        max-width: calc(66.6% - 4px);
+        margin-left: auto;
+        margin-right: auto;
+        margin-top: 6px;
+      }
+      @media (min-width: 769px) {
+        /* PC: 横並び（1行5個・中央寄せ） */
+        .b-chips-row {
+          display: flex;
+          flex-direction: row;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 6px;
+          max-width: 780px;
+          margin: 12px auto 0;
+          grid-template-columns: none;
+        }
+        .b-chips-row-2 {
+          display: flex;
+          flex-direction: row;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 6px;
+          max-width: 780px;
+          margin: 6px auto 0;
+        }
+      }
+      .b-ch {
+        font-family: "Noto Sans JP", sans-serif;
+        background: #ffffff;
+        border: 1px solid #d4ede1;
+        color: #3d9e72;
+        font-size: 10px;
+        font-weight: 600;
+        padding: 5px 9px;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.15s;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        justify-content: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      @media (min-width: 769px) {
+        .b-ch {
+          font-size: 11px;
+          padding: 6px 12px;
+        }
+      }
+      .b-ch:hover {
+        background: #f0faf4;
+        border-color: #52b788;
+      }
 
-/* セクション見出し */
-.b-sec{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2.5px;margin:10px 0 6px;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:700;color:#1A4A2E;}
-@media(min-width:769px){.b-sec{margin:20px 0 12px;font-size:11px;letter-spacing:3px;}}
-.b-sec::before,.b-sec::after{content:’’;flex:1;height:1px;background:#52B788;opacity:0.25;max-width:40px;}
-@media(min-width:769px){.b-sec::before,.b-sec::after{max-width:60px;}}
+      /* セクション見出し */
+      .b-sec {
+        font-family: "DM Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 2.5px;
+        margin: 10px 0 6px;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-weight: 700;
+        color: #2e7d54;
+      }
+      @media (min-width: 769px) {
+        .b-sec {
+          margin: 20px 0 12px;
+          font-size: 11px;
+          letter-spacing: 3px;
+        }
+      }
+      .b-sec::before,
+      .b-sec::after {
+        content: ’’;
+        flex: 1;
+        height: 1px;
+        background: #52b788;
+        opacity: 0.25;
+        max-width: 40px;
+      }
+      @media (min-width: 769px) {
+        .b-sec::before,
+        .b-sec::after {
+          max-width: 60px;
+        }
+      }
 
-/* PC用 2カラムグリッドレイアウト */
-@media(min-width:769px){
-.b-pc-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:18px;}
-.b-pc-col{display:flex;flex-direction:column;gap:0;}
-.b-sec-pc{margin:0 0 12px;}
-}
+      /* PC用 2カラムグリッドレイアウト */
+      @media (min-width: 769px) {
+        .b-pc-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 28px;
+          margin-top: 18px;
+        }
+        .b-pc-col {
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+        }
+        .b-sec-pc {
+          margin: 0 0 12px;
+        }
+      }
 
-/* CREATE 2カード */
-.b-cs{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-@media(min-width:769px){.b-cs{gap:14px;}}
-.b-c{background:#ffffff;border:1.5px solid #C8ECD8;border-radius:12px;padding:12px 13px;cursor:pointer;transition:all 0.2s;display:flex;flex-direction:column;gap:8px;}
-@media(min-width:769px){.b-c{padding:18px 20px;gap:10px;border-radius:14px;}}
-.b-c:hover{border-color:#3D9E72;background:#F0FAF4;transform:translateY(-1px);}
-.b-c-top{display:flex;align-items:center;gap:9px;}
-@media(min-width:769px){.b-c-top{gap:12px;}}
-.b-c-ic{width:34px;height:34px;border-radius:8px;background:#ffffff;border:1.5px solid #52B788;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-@media(min-width:769px){.b-c-ic{width:48px;height:48px;border-radius:11px;}}
-.b-c-ic svg{width:100%;height:100%;}
-.b-c-text{flex:1;min-width:0;}
-.b-c-tt{font-size:12px;font-weight:900;color:#1A4A2E;margin-bottom:1px;letter-spacing:-0.3px;}
-@media(min-width:769px){.b-c-tt{font-size:17px;margin-bottom:3px;}}
-.b-c-d{font-size:9px;color:#7A9A87;line-height:1.45;}
-@media(min-width:769px){.b-c-d{font-size:12px;}}
-.b-c-foot{display:flex;align-items:center;justify-content:space-between;padding-top:5px;border-top:1px solid #E0EDE6;}
-@media(min-width:769px){.b-c-foot{padding-top:8px;}}
-.b-c-meta{font-family:'DM Mono',monospace;font-size:8px;color:#7A9A87;letter-spacing:0.8px;}
-@media(min-width:769px){.b-c-meta{font-size:10px;}}
-.b-c-ar{color:#52B788;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;transition:transform 0.2s;}
-@media(min-width:769px){.b-c-ar{font-size:12px;}}
-.b-c:hover .b-c-ar{transform:translateX(3px);color:#1A4A2E;}
+      /* CREATE 2カード */
+      .b-cs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      @media (min-width: 769px) {
+        .b-cs {
+          gap: 14px;
+        }
+      }
+      .b-c {
+        background: #ffffff;
+        border: 1.5px solid #c8ecd8;
+        border-radius: 12px;
+        padding: 12px 13px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      @media (min-width: 769px) {
+        .b-c {
+          padding: 18px 20px;
+          gap: 10px;
+          border-radius: 14px;
+        }
+      }
+      .b-c:hover {
+        border-color: #3d9e72;
+        background: #f0faf4;
+        transform: translateY(-1px);
+      }
+      .b-c-top {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      @media (min-width: 769px) {
+        .b-c-top {
+          gap: 12px;
+        }
+      }
+      .b-c-ic {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        background: #ffffff;
+        border: 1.5px solid #52b788;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      @media (min-width: 769px) {
+        .b-c-ic {
+          width: 48px;
+          height: 48px;
+          border-radius: 11px;
+        }
+      }
+      .b-c-ic svg {
+        width: 100%;
+        height: 100%;
+      }
+      .b-c-text {
+        flex: 1;
+        min-width: 0;
+      }
+      .b-c-tt {
+        font-size: 12px;
+        font-weight: 900;
+        color: #2e7d54;
+        margin-bottom: 1px;
+        letter-spacing: -0.3px;
+      }
+      @media (min-width: 769px) {
+        .b-c-tt {
+          font-size: 17px;
+          margin-bottom: 3px;
+        }
+      }
+      .b-c-d {
+        font-size: 9px;
+        color: #7a9a87;
+        line-height: 1.45;
+      }
+      @media (min-width: 769px) {
+        .b-c-d {
+          font-size: 12px;
+        }
+      }
+      .b-c-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-top: 5px;
+        border-top: 1px solid #e0ede6;
+      }
+      @media (min-width: 769px) {
+        .b-c-foot {
+          padding-top: 8px;
+        }
+      }
+      .b-c-meta {
+        font-family: "DM Mono", monospace;
+        font-size: 8px;
+        color: #7a9a87;
+        letter-spacing: 0.8px;
+      }
+      @media (min-width: 769px) {
+        .b-c-meta {
+          font-size: 10px;
+        }
+      }
+      .b-c-ar {
+        color: #52b788;
+        font-family: "DM Mono", monospace;
+        font-size: 10px;
+        font-weight: 500;
+        transition: transform 0.2s;
+      }
+      @media (min-width: 769px) {
+        .b-c-ar {
+          font-size: 12px;
+        }
+      }
+      .b-c:hover .b-c-ar {
+        transform: translateX(3px);
+        color: #2e7d54;
+      }
 
-/* RECENT 行形式 */
-.b-rc-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;padding:0 4px;}
-@media(min-width:769px){.b-rc-hd{margin-bottom:8px;}}
-.b-rc-t{font-size:11px;font-weight:700;color:#1A4A2E;}
-@media(min-width:769px){.b-rc-t{font-size:13px;}}
-.b-rc-m{font-size:10px;color:#7A9A87;cursor:pointer;font-weight:600;}
-@media(min-width:769px){.b-rc-m{font-size:11px;}}
-.b-rc-m:hover{color:#3D9E72;}
-.b-rc-list{background:#ffffff;border:1px solid #D4EDE1;border-radius:10px;overflow:hidden;}
-@media(min-width:769px){.b-rc-list{border-radius:12px;border:1.5px solid #D4EDE1;}}
-.b-rc-it{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-bottom:1px solid #E0EDE6;cursor:pointer;transition:background 0.15s;gap:10px;}
-@media(min-width:769px){.b-rc-it{padding:10px 16px;}}
-.b-rc-it:last-child{border-bottom:none;}
-.b-rc-it:hover{background:#F0FAF4;}
-.b-rc-it-t{font-size:11px;font-weight:500;color:#1A4A2E;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;}
-@media(min-width:769px){.b-rc-it-t{font-size:13px;}}
-.b-rc-it-d{font-family:'DM Mono',monospace;font-size:8px;color:#7A9A87;letter-spacing:0.5px;flex-shrink:0;}
-@media(min-width:769px){.b-rc-it-d{font-size:10px;}}
+      /* RECENT 行形式 */
+      .b-rc-hd {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 4px;
+        padding: 0 4px;
+      }
+      @media (min-width: 769px) {
+        .b-rc-hd {
+          margin-bottom: 8px;
+        }
+      }
+      .b-rc-t {
+        font-size: 11px;
+        font-weight: 700;
+        color: #2e7d54;
+      }
+      @media (min-width: 769px) {
+        .b-rc-t {
+          font-size: 13px;
+        }
+      }
+      .b-rc-m {
+        font-size: 10px;
+        color: #7a9a87;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      @media (min-width: 769px) {
+        .b-rc-m {
+          font-size: 11px;
+        }
+      }
+      .b-rc-m:hover {
+        color: #3d9e72;
+      }
+      .b-rc-list {
+        background: #ffffff;
+        border: 1px solid #d4ede1;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      @media (min-width: 769px) {
+        .b-rc-list {
+          border-radius: 12px;
+          border: 1.5px solid #d4ede1;
+        }
+      }
+      .b-rc-it {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 9px 14px;
+        border-bottom: 1px solid #e0ede6;
+        cursor: pointer;
+        transition: background 0.15s;
+        gap: 10px;
+      }
+      @media (min-width: 769px) {
+        .b-rc-it {
+          padding: 10px 16px;
+        }
+      }
+      .b-rc-it:last-child {
+        border-bottom: none;
+      }
+      .b-rc-it:hover {
+        background: #f0faf4;
+      }
+      .b-rc-it-t {
+        font-size: 11px;
+        font-weight: 500;
+        color: #2e7d54;
+        line-height: 1.3;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+        min-width: 0;
+      }
+      @media (min-width: 769px) {
+        .b-rc-it-t {
+          font-size: 13px;
+        }
+      }
+      .b-rc-it-d {
+        font-family: "DM Mono", monospace;
+        font-size: 8px;
+        color: #7a9a87;
+        letter-spacing: 0.5px;
+        flex-shrink: 0;
+      }
+      @media (min-width: 769px) {
+        .b-rc-it-d {
+          font-size: 10px;
+        }
+      }
 
-/* TOOLS 3カード */
-.b-ss{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
-@media(min-width:769px){.b-ss{gap:14px;}}
-.b-s{background:#ffffff;border:1.5px solid #C8ECD8;border-radius:10px;padding:10px 11px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:9px;}
-@media(min-width:769px){.b-s{padding:16px 18px;gap:12px;border-radius:13px;}}
-.b-s:hover{border-color:#3D9E72;background:#F0FAF4;}
-.b-s-ic{width:30px;height:30px;border-radius:7px;background:#ffffff;border:1.5px solid #52B788;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-@media(min-width:769px){.b-s-ic{width:44px;height:44px;border-radius:10px;}}
-.b-s-ic svg{width:100%;height:100%;}
-.b-s-text{flex:1;min-width:0;}
-.b-s-t{font-size:10px;font-weight:700;color:#1A4A2E;line-height:1.3;}
-@media(min-width:769px){.b-s-t{font-size:14px;margin-bottom:2px;line-height:1.25;}}
-.b-s-meta{font-family:'DM Mono',monospace;font-size:8px;color:#7A9A87;letter-spacing:0.3px;}
-@media(min-width:769px){.b-s-meta{font-size:10px;}}
-/* クリック無効化（未実装機能用） */
-.nav-disabled{cursor:not-allowed!important;opacity:0.55;pointer-events:none;}
-/* Excelバージョン選択モーダル */
-.vm-ov{position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,0.55);display:none;align-items:center;justify-content:center;padding:16px;}
-.vm-ov.show{display:flex;}
-.vm-cd{background:#ffffff;border-radius:20px;width:100%;max-width:420px;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;}
-.vm-hd{padding:18px 20px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #D4EDE1;}
-.vm-tt{font-size:16px;font-weight:700;color:#1A4A2E;}
-.vm-cl{background:none;border:none;font-size:22px;color:#7A9A87;cursor:pointer;padding:0 4px;line-height:1;}
-.vm-bd{padding:14px 18px 18px;overflow-y:auto;min-height:0;}
-.vm-ht{background:#FFF8EE;border:1px solid #F4A942;color:#9A6000;font-size:11px;font-weight:600;padding:8px 12px;border-radius:10px;text-align:center;line-height:1.5;margin-bottom:12px;}
-.vm-gr{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-.vm-op{background:#ffffff;border:1.5px solid #D4EDE1;border-radius:12px;padding:10px 8px;text-align:center;cursor:pointer;transition:all 0.15s;}
-.vm-op:hover{border-color:#52B788;background:#F0FAF4;}
-.vm-op.current{border-color:#52B788;background:#F0FAF4;}
-.vm-op-ic{font-size:20px;margin-bottom:3px;}
-.vm-op-lb{font-size:11px;font-weight:700;color:#1A4A2E;}
-.vm-op.current .vm-op-lb{color:#3D9E72;}
-.vm-ft{padding:12px 18px 16px;border-top:1px solid #D4EDE1;background:#ffffff;display:flex;flex-direction:column;gap:8px;}
-.vm-fn{width:100%;padding:12px;background:#52B788;color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:background 0.2s;}
-.vm-fn:hover{background:#3D9E72;}
-.vm-sk{display:block;text-align:center;font-size:12px;color:#7A9A87;cursor:pointer;padding:6px;}
-.vm-sk:hover{color:#3D9E72;}
-/* Toast */
-.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:#3D9E72;color:white;padding:11px 20px;border-radius:24px;font-size:13px;font-weight:500;white-space:nowrap;z-index:1300;opacity:0;transition:all 0.3s;pointer-events:none;}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
-@media(min-width:769px){.toast{bottom:30px;}}
-</style>
+      /* TOOLS 3カード */
+      .b-ss {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+      }
+      @media (min-width: 769px) {
+        .b-ss {
+          gap: 14px;
+        }
+      }
+      .b-s {
+        background: #ffffff;
+        border: 1.5px solid #c8ecd8;
+        border-radius: 10px;
+        padding: 10px 11px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      @media (min-width: 769px) {
+        .b-s {
+          padding: 16px 18px;
+          gap: 12px;
+          border-radius: 13px;
+        }
+      }
+      .b-s:hover {
+        border-color: #3d9e72;
+        background: #f0faf4;
+      }
+      .b-s-ic {
+        width: 30px;
+        height: 30px;
+        border-radius: 7px;
+        background: #ffffff;
+        border: 1.5px solid #52b788;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      @media (min-width: 769px) {
+        .b-s-ic {
+          width: 44px;
+          height: 44px;
+          border-radius: 10px;
+        }
+      }
+      .b-s-ic svg {
+        width: 100%;
+        height: 100%;
+      }
+      .b-s-text {
+        flex: 1;
+        min-width: 0;
+      }
+      .b-s-t {
+        font-size: 10px;
+        font-weight: 700;
+        color: #2e7d54;
+        line-height: 1.3;
+      }
+      @media (min-width: 769px) {
+        .b-s-t {
+          font-size: 14px;
+          margin-bottom: 2px;
+          line-height: 1.25;
+        }
+      }
+      .b-s-meta {
+        font-family: "DM Mono", monospace;
+        font-size: 8px;
+        color: #7a9a87;
+        letter-spacing: 0.3px;
+      }
+      @media (min-width: 769px) {
+        .b-s-meta {
+          font-size: 10px;
+        }
+      }
+      /* クリック無効化（未実装機能用） */
+      .nav-disabled {
+        cursor: not-allowed !important;
+        opacity: 0.55;
+        pointer-events: none;
+      }
+      /* Excelバージョン選択モーダル */
+      .vm-ov {
+        position: fixed;
+        inset: 0;
+        z-index: 1200;
+        background: rgba(0, 0, 0, 0.55);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+      }
+      .vm-ov.show {
+        display: flex;
+      }
+      .vm-cd {
+        background: #ffffff;
+        border-radius: 20px;
+        width: 100%;
+        max-width: 420px;
+        max-height: 88vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .vm-hd {
+        padding: 18px 20px 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid #d4ede1;
+      }
+      .vm-tt {
+        font-size: 16px;
+        font-weight: 700;
+        color: #2e7d54;
+      }
+      .vm-cl {
+        background: none;
+        border: none;
+        font-size: 22px;
+        color: #7a9a87;
+        cursor: pointer;
+        padding: 0 4px;
+        line-height: 1;
+      }
+      .vm-bd {
+        padding: 14px 18px 18px;
+        overflow-y: auto;
+        min-height: 0;
+      }
+      .vm-ht {
+        background: #fff8ee;
+        border: 1px solid #f4a942;
+        color: #9a6000;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 8px 12px;
+        border-radius: 10px;
+        text-align: center;
+        line-height: 1.5;
+        margin-bottom: 12px;
+      }
+      .vm-gr {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .vm-op {
+        background: #ffffff;
+        border: 1.5px solid #d4ede1;
+        border-radius: 12px;
+        padding: 10px 8px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .vm-op:hover {
+        border-color: #52b788;
+        background: #f0faf4;
+      }
+      .vm-op.current {
+        border-color: #52b788;
+        background: #f0faf4;
+      }
+      .vm-op-ic {
+        font-size: 20px;
+        margin-bottom: 3px;
+      }
+      .vm-op-lb {
+        font-size: 11px;
+        font-weight: 700;
+        color: #2e7d54;
+      }
+      .vm-op.current .vm-op-lb {
+        color: #3d9e72;
+      }
+      .vm-ft {
+        padding: 12px 18px 16px;
+        border-top: 1px solid #d4ede1;
+        background: #ffffff;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .vm-fn {
+        width: 100%;
+        padding: 12px;
+        background: #52b788;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: "Noto Sans JP", sans-serif;
+        transition: background 0.2s;
+      }
+      .vm-fn:hover {
+        background: #3d9e72;
+      }
+      .vm-sk {
+        display: block;
+        text-align: center;
+        font-size: 12px;
+        color: #7a9a87;
+        cursor: pointer;
+        padding: 6px;
+      }
+      .vm-sk:hover {
+        color: #3d9e72;
+      }
+      /* Toast */
+      .toast {
+        position: fixed;
+        bottom: 80px;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background: #3d9e72;
+        color: white;
+        padding: 11px 20px;
+        border-radius: 24px;
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
+        z-index: 1300;
+        opacity: 0;
+        transition: all 0.3s;
+        pointer-events: none;
+      }
+      .toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+      @media (min-width: 769px) {
+        .toast {
+          bottom: 30px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- SVGシンボル定義 -->
 
-</head>
-<body>
+    <svg width="0" height="0" style="position: absolute">
+      <defs>
+        <!-- Excel風グリッド -->
+        <symbol id="grid-icon" viewBox="0 0 40 40">
+          <rect
+            x="4"
+            y="4"
+            width="32"
+            height="32"
+            rx="4"
+            fill="#ffffff"
+            stroke="#52B788"
+            stroke-width="1.5"
+          />
+          <rect x="4" y="4" width="32" height="9" rx="4" fill="#52B788" />
+          <rect x="4" y="9" width="32" height="4" fill="#52B788" />
+          <line x1="16" y1="13" x2="16" y2="36" stroke="#C8ECD8" stroke-width="1" />
+          <line x1="26" y1="13" x2="26" y2="36" stroke="#C8ECD8" stroke-width="1" />
+          <line x1="4" y1="22" x2="36" y2="22" stroke="#C8ECD8" stroke-width="1" />
+          <line x1="4" y1="30" x2="36" y2="30" stroke="#C8ECD8" stroke-width="1" />
+          <rect x="5" y="14" width="10" height="7" fill="#F0FAF4" />
+          <rect
+            x="4"
+            y="13"
+            width="12"
+            height="9"
+            fill="none"
+            stroke="#3D9E72"
+            stroke-width="1.5"
+          />
+        </symbol>
 
-<!-- SVGシンボル定義 -->
+        <!-- 電子ハンコ（正方形） -->
+        <symbol id="stamp-icon" viewBox="0 0 40 40">
+          <rect
+            x="6"
+            y="6"
+            width="28"
+            height="28"
+            fill="#ffffff"
+            stroke="#E53935"
+            stroke-width="1.8"
+          />
+          <text
+            x="20"
+            y="24"
+            text-anchor="middle"
+            font-family="'Noto Sans JP',sans-serif"
+            font-weight="900"
+            font-size="9"
+            font-style="italic"
+            fill="#E53935"
+            letter-spacing="-0.4"
+          >
+            Exally
+          </text>
+        </symbol>
 
-<svg width="0" height="0" style="position:absolute;">
-  <defs>
-    <!-- Excel風グリッド -->
-    <symbol id="grid-icon" viewBox="0 0 40 40">
-      <rect x="4" y="4" width="32" height="32" rx="4" fill="#ffffff" stroke="#52B788" stroke-width="1.5"/>
-      <rect x="4" y="4" width="32" height="9" rx="4" fill="#52B788"/>
-      <rect x="4" y="9" width="32" height="4" fill="#52B788"/>
-      <line x1="16" y1="13" x2="16" y2="36" stroke="#C8ECD8" stroke-width="1"/>
-      <line x1="26" y1="13" x2="26" y2="36" stroke="#C8ECD8" stroke-width="1"/>
-      <line x1="4" y1="22" x2="36" y2="22" stroke="#C8ECD8" stroke-width="1"/>
-      <line x1="4" y1="30" x2="36" y2="30" stroke="#C8ECD8" stroke-width="1"/>
-      <rect x="5" y="14" width="10" height="7" fill="#F0FAF4"/>
-      <rect x="4" y="13" width="12" height="9" fill="none" stroke="#3D9E72" stroke-width="1.5"/>
-    </symbol>
+        <!-- 表を読み込む -->
+        <symbol id="import-icon" viewBox="0 0 40 40">
+          <rect
+            x="6"
+            y="10"
+            width="28"
+            height="24"
+            rx="3"
+            fill="#ffffff"
+            stroke="#52B788"
+            stroke-width="1.5"
+          />
+          <line x1="6" y1="17" x2="34" y2="17" stroke="#C8ECD8" stroke-width="1" />
+          <line x1="15" y1="17" x2="15" y2="34" stroke="#C8ECD8" stroke-width="1" />
+          <line x1="25" y1="17" x2="25" y2="34" stroke="#C8ECD8" stroke-width="1" />
+          <line x1="6" y1="25" x2="34" y2="25" stroke="#C8ECD8" stroke-width="1" />
+          <circle cx="30" cy="10" r="7.5" fill="#3D9E72" />
+          <path
+            d="M30 6.5 L30 13.5 M26.5 10 L30 6.5 L33.5 10"
+            stroke="#ffffff"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            fill="none"
+          />
+        </symbol>
 
-<!-- 電子ハンコ（正方形） -->
-<symbol id="stamp-icon" viewBox="0 0 40 40">
-  <rect x="6" y="6" width="28" height="28" fill="#ffffff" stroke="#E53935" stroke-width="1.8"/>
-  <text x="20" y="24" text-anchor="middle" font-family="'Noto Sans JP',sans-serif" font-weight="900" font-size="9" font-style="italic" fill="#E53935" letter-spacing="-0.4">Exally</text>
-</symbol>
+        <!-- テンプレ -->
+        <symbol id="template-icon" viewBox="0 0 40 40">
+          <rect
+            x="9"
+            y="7"
+            width="22"
+            height="28"
+            rx="3"
+            fill="#ffffff"
+            stroke="#52B788"
+            stroke-width="1.5"
+          />
+          <rect x="14" y="5" width="12" height="6" rx="2" fill="#52B788" />
+          <line x1="13" y1="17" x2="27" y2="17" stroke="#C8ECD8" stroke-width="1.3" />
+          <line x1="13" y1="22" x2="27" y2="22" stroke="#C8ECD8" stroke-width="1.3" />
+          <line x1="13" y1="27" x2="22" y2="27" stroke="#C8ECD8" stroke-width="1.3" />
+        </symbol>
 
-<!-- 表を読み込む -->
-<symbol id="import-icon" viewBox="0 0 40 40">
-  <rect x="6" y="10" width="28" height="24" rx="3" fill="#ffffff" stroke="#52B788" stroke-width="1.5"/>
-  <line x1="6" y1="17" x2="34" y2="17" stroke="#C8ECD8" stroke-width="1"/>
-  <line x1="15" y1="17" x2="15" y2="34" stroke="#C8ECD8" stroke-width="1"/>
-  <line x1="25" y1="17" x2="25" y2="34" stroke="#C8ECD8" stroke-width="1"/>
-  <line x1="6" y1="25" x2="34" y2="25" stroke="#C8ECD8" stroke-width="1"/>
-  <circle cx="30" cy="10" r="7.5" fill="#3D9E72"/>
-  <path d="M30 6.5 L30 13.5 M26.5 10 L30 6.5 L33.5 10" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-</symbol>
+        <!-- 数式帳 -->
+        <symbol id="book-icon" viewBox="0 0 40 40">
+          <path
+            d="M6 8 C6 7 7 6 8 6 L18 6 C19 6 20 7 20 8 L20 33 L8 33 C7 33 6 32 6 31 Z"
+            fill="#52B788"
+          />
+          <path
+            d="M20 8 C20 7 21 6 22 6 L32 6 C33 6 34 7 34 8 L34 31 C34 32 33 33 32 33 L20 33 Z"
+            fill="#3D9E72"
+          />
+          <line x1="9" y1="11" x2="17" y2="11" stroke="#ffffff" stroke-width="1" opacity="0.7" />
+          <line x1="9" y1="14" x2="17" y2="14" stroke="#ffffff" stroke-width="1" opacity="0.7" />
+          <line x1="9" y1="17" x2="14" y2="17" stroke="#ffffff" stroke-width="1" opacity="0.7" />
+          <line x1="23" y1="11" x2="31" y2="11" stroke="#ffffff" stroke-width="1" opacity="0.7" />
+          <line x1="23" y1="14" x2="31" y2="14" stroke="#ffffff" stroke-width="1" opacity="0.7" />
+          <line x1="23" y1="17" x2="28" y2="17" stroke="#ffffff" stroke-width="1" opacity="0.7" />
+          <line x1="20" y1="6" x2="20" y2="33" stroke="#ffffff" stroke-width="0.5" opacity="0.5" />
+        </symbol>
 
-<!-- テンプレ -->
-<symbol id="template-icon" viewBox="0 0 40 40">
-  <rect x="9" y="7" width="22" height="28" rx="3" fill="#ffffff" stroke="#52B788" stroke-width="1.5"/>
-  <rect x="14" y="5" width="12" height="6" rx="2" fill="#52B788"/>
-  <line x1="13" y1="17" x2="27" y2="17" stroke="#C8ECD8" stroke-width="1.3"/>
-  <line x1="13" y1="22" x2="27" y2="22" stroke="#C8ECD8" stroke-width="1.3"/>
-  <line x1="13" y1="27" x2="22" y2="27" stroke="#C8ECD8" stroke-width="1.3"/>
-</symbol>
+        <!-- サイドバー小アイコン -->
+        <symbol id="grid-sm" viewBox="0 0 20 20">
+          <rect
+            x="2"
+            y="2"
+            width="16"
+            height="16"
+            rx="2"
+            fill="#ffffff"
+            stroke="#3D9E72"
+            stroke-width="1.5"
+          />
+          <rect x="2" y="2" width="16" height="5" rx="2" fill="#52B788" />
+          <rect x="2" y="5" width="16" height="2" fill="#52B788" />
+          <line x1="8" y1="7" x2="8" y2="18" stroke="#C8ECD8" stroke-width="1" />
+          <line x1="14" y1="7" x2="14" y2="18" stroke="#C8ECD8" stroke-width="1" />
+          <line x1="2" y1="12" x2="18" y2="12" stroke="#C8ECD8" stroke-width="1" />
+        </symbol>
+        <symbol id="stamp-sm" viewBox="0 0 20 20">
+          <rect
+            x="3"
+            y="3"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="#E53935"
+            stroke-width="1.5"
+          />
+          <text
+            x="10"
+            y="12"
+            text-anchor="middle"
+            font-family="'Noto Sans JP',sans-serif"
+            font-weight="900"
+            font-size="4.3"
+            font-style="italic"
+            fill="#E53935"
+          >
+            Exally
+          </text>
+        </symbol>
+        <symbol id="template-sm" viewBox="0 0 20 20">
+          <rect
+            x="4"
+            y="3"
+            width="12"
+            height="15"
+            rx="1.5"
+            fill="#ffffff"
+            stroke="#3D9E72"
+            stroke-width="1.5"
+          />
+          <rect x="7" y="2" width="6" height="3" rx="1" fill="#52B788" />
+          <line x1="6" y1="9" x2="14" y2="9" stroke="#C8ECD8" stroke-width="1.2" />
+          <line x1="6" y1="12" x2="14" y2="12" stroke="#C8ECD8" stroke-width="1.2" />
+          <line x1="6" y1="15" x2="11" y2="15" stroke="#C8ECD8" stroke-width="1.2" />
+        </symbol>
+        <symbol id="book-sm" viewBox="0 0 20 20">
+          <path
+            d="M3 4 C3 3.5 3.5 3 4 3 L9 3 C9.5 3 10 3.5 10 4 L10 16.5 L4 16.5 C3.5 16.5 3 16 3 15.5 Z"
+            fill="#52B788"
+          />
+          <path
+            d="M10 4 C10 3.5 10.5 3 11 3 L16 3 C16.5 3 17 3.5 17 4 L17 15.5 C17 16 16.5 16.5 16 16.5 L10 16.5 Z"
+            fill="#3D9E72"
+          />
+          <line
+            x1="4.5"
+            y1="5.5"
+            x2="8.5"
+            y2="5.5"
+            stroke="#ffffff"
+            stroke-width="0.7"
+            opacity="0.8"
+          />
+          <line
+            x1="4.5"
+            y1="7.5"
+            x2="8.5"
+            y2="7.5"
+            stroke="#ffffff"
+            stroke-width="0.7"
+            opacity="0.8"
+          />
+          <line
+            x1="11.5"
+            y1="5.5"
+            x2="15.5"
+            y2="5.5"
+            stroke="#ffffff"
+            stroke-width="0.7"
+            opacity="0.8"
+          />
+          <line
+            x1="11.5"
+            y1="7.5"
+            x2="15.5"
+            y2="7.5"
+            stroke="#ffffff"
+            stroke-width="0.7"
+            opacity="0.8"
+          />
+        </symbol>
+      </defs>
+    </svg>
 
-<!-- 数式帳 -->
-<symbol id="book-icon" viewBox="0 0 40 40">
-  <path d="M6 8 C6 7 7 6 8 6 L18 6 C19 6 20 7 20 8 L20 33 L8 33 C7 33 6 32 6 31 Z" fill="#52B788"/>
-  <path d="M20 8 C20 7 21 6 22 6 L32 6 C33 6 34 7 34 8 L34 31 C34 32 33 33 32 33 L20 33 Z" fill="#3D9E72"/>
-  <line x1="9" y1="11" x2="17" y2="11" stroke="#ffffff" stroke-width="1" opacity="0.7"/>
-  <line x1="9" y1="14" x2="17" y2="14" stroke="#ffffff" stroke-width="1" opacity="0.7"/>
-  <line x1="9" y1="17" x2="14" y2="17" stroke="#ffffff" stroke-width="1" opacity="0.7"/>
-  <line x1="23" y1="11" x2="31" y2="11" stroke="#ffffff" stroke-width="1" opacity="0.7"/>
-  <line x1="23" y1="14" x2="31" y2="14" stroke="#ffffff" stroke-width="1" opacity="0.7"/>
-  <line x1="23" y1="17" x2="28" y2="17" stroke="#ffffff" stroke-width="1" opacity="0.7"/>
-  <line x1="20" y1="6" x2="20" y2="33" stroke="#ffffff" stroke-width="0.5" opacity="0.5"/>
-</symbol>
+    <div class="lay">
+      <!-- PC サイドバー -->
 
-<!-- サイドバー小アイコン -->
-<symbol id="grid-sm" viewBox="0 0 20 20">
-  <rect x="2" y="2" width="16" height="16" rx="2" fill="#ffffff" stroke="#3D9E72" stroke-width="1.5"/>
-  <rect x="2" y="2" width="16" height="5" rx="2" fill="#52B788"/>
-  <rect x="2" y="5" width="16" height="2" fill="#52B788"/>
-  <line x1="8" y1="7" x2="8" y2="18" stroke="#C8ECD8" stroke-width="1"/>
-  <line x1="14" y1="7" x2="14" y2="18" stroke="#C8ECD8" stroke-width="1"/>
-  <line x1="2" y1="12" x2="18" y2="12" stroke="#C8ECD8" stroke-width="1"/>
-</symbol>
-<symbol id="stamp-sm" viewBox="0 0 20 20">
-  <rect x="3" y="3" width="14" height="14" fill="none" stroke="#E53935" stroke-width="1.5"/>
-  <text x="10" y="12" text-anchor="middle" font-family="'Noto Sans JP',sans-serif" font-weight="900" font-size="4.3" font-style="italic" fill="#E53935">Exally</text>
-</symbol>
-<symbol id="template-sm" viewBox="0 0 20 20">
-  <rect x="4" y="3" width="12" height="15" rx="1.5" fill="#ffffff" stroke="#3D9E72" stroke-width="1.5"/>
-  <rect x="7" y="2" width="6" height="3" rx="1" fill="#52B788"/>
-  <line x1="6" y1="9" x2="14" y2="9" stroke="#C8ECD8" stroke-width="1.2"/>
-  <line x1="6" y1="12" x2="14" y2="12" stroke="#C8ECD8" stroke-width="1.2"/>
-  <line x1="6" y1="15" x2="11" y2="15" stroke="#C8ECD8" stroke-width="1.2"/>
-</symbol>
-<symbol id="book-sm" viewBox="0 0 20 20">
-  <path d="M3 4 C3 3.5 3.5 3 4 3 L9 3 C9.5 3 10 3.5 10 4 L10 16.5 L4 16.5 C3.5 16.5 3 16 3 15.5 Z" fill="#52B788"/>
-  <path d="M10 4 C10 3.5 10.5 3 11 3 L16 3 C16.5 3 17 3.5 17 4 L17 15.5 C17 16 16.5 16.5 16 16.5 L10 16.5 Z" fill="#3D9E72"/>
-  <line x1="4.5" y1="5.5" x2="8.5" y2="5.5" stroke="#ffffff" stroke-width="0.7" opacity="0.8"/>
-  <line x1="4.5" y1="7.5" x2="8.5" y2="7.5" stroke="#ffffff" stroke-width="0.7" opacity="0.8"/>
-  <line x1="11.5" y1="5.5" x2="15.5" y2="5.5" stroke="#ffffff" stroke-width="0.7" opacity="0.8"/>
-  <line x1="11.5" y1="7.5" x2="15.5" y2="7.5" stroke="#ffffff" stroke-width="0.7" opacity="0.8"/>
-</symbol>
-
-  </defs>
-</svg>
-
-<div class="lay">
-
-  <!-- PC サイドバー -->
-
-  <aside class="sb">
-    <div class="sb-logo"><span class="sb-en">Exally</span><span class="sb-ja">エクサリー</span></div>
-    <nav class="sb-nav">
-      <button class="sb-it active"><span class="sb-ic"><span class="sb-ic-emoji">🏠</span></span>ホーム</button>
-      <button class="sb-it" onclick="location.href='chat.html'"><span class="sb-ic"><span class="sb-ic-emoji">🤖</span></span>AIチャット</button>
-      <button class="sb-it" onclick="location.href='book.html'"><span class="sb-ic"><svg><use href="#grid-sm"/></svg></span>ブック</button>
-      <button class="sb-it" onclick="location.href='template.html'"><span class="sb-ic"><svg><use href="#template-sm"/></svg></span>テンプレ</button>
-      <button class="sb-it nav-disabled"><span class="sb-ic"><svg><use href="#stamp-sm"/></svg></span>電子ハンコ</button>
-      <button class="sb-it" onclick="location.href='chat.html?tab=book'"><span class="sb-ic"><svg><use href="#book-sm"/></svg></span>数式帳</button>
-      <button class="sb-it" onclick="location.href='chat.html?tab=quiz'"><span class="sb-ic"><span class="sb-ic-emoji">🎯</span></span>クイズ</button>
-      <button class="sb-it" onclick="openVerModal()"><span class="sb-ic"><span class="sb-ic-emoji">📊</span></span>Excelバージョン</button>
-      <button class="sb-it" onclick="location.href='chat.html?tab=settings'"><span class="sb-ic"><span class="sb-ic-emoji">⚙️</span></span>設定</button>
-    </nav>
-    <div class="sb-ft">
-      <span class="sb-bd sb-bd-d">デモ版</span>
-      <span class="sb-bd sb-bd-t">14日間無料トライアル中</span>
-    </div>
-  </aside>
-
-  <!-- メイン -->
-
-  <div class="mn">
-    <header class="mh">
-      <div class="mh-lg"><span class="mh-en">Exally</span><span class="mh-ja">エクサリー</span></div>
-      <div class="mh-r">
-        <span class="vbm" onclick="openVerModal()">📊 <span id="vbmLabel">365</span> ▼</span>
-        <span class="hb hb-d">デモ版</span>
-        <span class="hb hb-t">14日間無料</span>
-      </div>
-    </header>
-    <span class="vbp" onclick="openVerModal()">📊 <span id="vbpLabel">365</span> ▼</span>
-
-<div class="sc">
-  <div class="ct">
-
-    <!-- ヒーロー -->
-    <div class="b-hero">
-      <div class="b-eye">— EXALLY AI</div>
-      <div class="b-ttl">何でも<span class="b-ttl-mint">話しかけて</span>ね。</div>
-      <div class="b-sub">Excelの疑問、日本語でそのまま解決。</div>
-      <div class="b-srch-w">
-        <div class="b-srch">
-          <span class="b-srch-ic">💬</span>
-          <input type="text" id="srchInput" placeholder="例：VLOOKUPの使い方は？" onkeydown="if(event.key==='Enter')gotoChat()">
-          <button class="b-srch-btn" onclick="gotoChat()">→</button>
+      <aside class="sb">
+        <div class="sb-logo">
+          <span class="sb-en">Exally</span><span class="sb-ja">エクサリー</span>
         </div>
-        <div class="b-chips-row">
-          <span class="b-ch" onclick="gotoChatWith('VLOOKUPの使い方を教えて')">📈 VLOOKUP教えて</span>
-          <span class="b-ch" onclick="gotoChatWith('給料明細を作って')">💰 給料明細作って</span>
-          <span class="b-ch" onclick="gotoChatWith('請求書テンプレを作って')">📋 請求書テンプレ</span>
+        <nav class="sb-nav">
+          <button class="sb-it active">
+            <span class="sb-ic"><span class="sb-ic-emoji">🏠</span></span
+            >ホーム
+          </button>
+          <button class="sb-it" onclick="location.href = 'chat.html'">
+            <span class="sb-ic"><span class="sb-ic-emoji">🤖</span></span
+            >AIチャット
+          </button>
+          <button class="sb-it" onclick="location.href = 'book.html'">
+            <span class="sb-ic"
+              ><svg><use href="#grid-sm" /></svg></span
+            >ブック
+          </button>
+          <button class="sb-it" onclick="location.href = 'template.html'">
+            <span class="sb-ic"
+              ><svg><use href="#template-sm" /></svg></span
+            >テンプレ
+          </button>
+          <button class="sb-it nav-disabled">
+            <span class="sb-ic"
+              ><svg><use href="#stamp-sm" /></svg></span
+            >電子ハンコ
+          </button>
+          <button class="sb-it" onclick="location.href = 'chat.html?tab=book'">
+            <span class="sb-ic"
+              ><svg><use href="#book-sm" /></svg></span
+            >数式帳
+          </button>
+          <button class="sb-it" onclick="location.href = 'chat.html?tab=quiz'">
+            <span class="sb-ic"><span class="sb-ic-emoji">🎯</span></span
+            >クイズ
+          </button>
+          <button class="sb-it" onclick="openVerModal()">
+            <span class="sb-ic"><span class="sb-ic-emoji">📊</span></span
+            >Excelバージョン
+          </button>
+          <button class="sb-it" onclick="location.href = 'chat.html?tab=settings'">
+            <span class="sb-ic"><span class="sb-ic-emoji">⚙️</span></span
+            >設定
+          </button>
+        </nav>
+        <div class="sb-ft">
+          <span class="sb-bd sb-bd-d">デモ版</span>
+          <span class="sb-bd sb-bd-t">14日間無料トライアル中</span>
         </div>
-        <div class="b-chips-row b-chips-row-2">
-          <span class="b-ch" onclick="gotoChatWith('エラーを直したい')">⚠️ エラーを直したい</span>
-          <span class="b-ch" onclick="gotoChatWith('グラフを作って')">📊 グラフを作って</span>
-        </div>
-      </div>
-    </div>
+      </aside>
 
-    <!-- PC: 2カラムグリッド / モバイル: 縦順 -->
-    <div class="b-pc-grid">
+      <!-- メイン -->
 
-      <!-- 左カラム: CREATE + TOOLS -->
-      <div class="b-pc-col">
-        <div class="b-sec b-sec-pc">CREATE</div>
-        <div class="b-cs">
-          <div class="b-c" onclick="location.href='book.html'">
-            <div class="b-c-top">
-              <div class="b-c-ic"><svg><use href="#grid-icon"/></svg></div>
-              <div class="b-c-text">
-                <div class="b-c-tt">ブックを作る</div>
-                <div class="b-c-d">AIと一緒にExcelを作成</div>
+      <div class="mn">
+        <header class="mh">
+          <div class="mh-lg">
+            <span class="mh-en">Exally</span><span class="mh-ja">エクサリー</span>
+          </div>
+          <div class="mh-r">
+            <span class="vbm" onclick="openVerModal()">📊 <span id="vbmLabel">365</span> ▼</span>
+            <span class="hb hb-d">デモ版</span>
+            <span class="hb hb-t">14日間無料</span>
+          </div>
+        </header>
+        <span class="vbp" onclick="openVerModal()">📊 <span id="vbpLabel">365</span> ▼</span>
+
+        <div class="sc">
+          <div class="ct">
+            <!-- ヒーロー -->
+            <div class="b-hero">
+              <div class="b-eye">— EXALLY AI</div>
+              <div class="b-ttl">何でも<span class="b-ttl-mint">話しかけて</span>ね。</div>
+              <div class="b-sub">Excelの疑問、日本語でそのまま解決。</div>
+              <div class="b-srch-w">
+                <div class="b-srch">
+                  <span class="b-srch-ic">💬</span>
+                  <input
+                    type="text"
+                    id="srchInput"
+                    placeholder="例：VLOOKUPの使い方は？"
+                    onkeydown="if (event.key === 'Enter') gotoChat();"
+                  />
+                  <button class="b-srch-btn" onclick="gotoChat()">→</button>
+                </div>
+                <div class="b-chips-row">
+                  <span class="b-ch" onclick="gotoChatWith('VLOOKUPの使い方を教えて')"
+                    >📈 VLOOKUP教えて</span
+                  >
+                  <span class="b-ch" onclick="gotoChatWith('給料明細を作って')"
+                    >💰 給料明細作って</span
+                  >
+                  <span class="b-ch" onclick="gotoChatWith('請求書テンプレを作って')"
+                    >📋 請求書テンプレ</span
+                  >
+                </div>
+                <div class="b-chips-row b-chips-row-2">
+                  <span class="b-ch" onclick="gotoChatWith('エラーを直したい')"
+                    >⚠️ エラーを直したい</span
+                  >
+                  <span class="b-ch" onclick="gotoChatWith('グラフを作って')"
+                    >📊 グラフを作って</span
+                  >
+                </div>
               </div>
             </div>
-            <div class="b-c-foot">
-              <span class="b-c-meta">NEW / BLANK</span>
-              <span class="b-c-ar">OPEN →</span>
-            </div>
-          </div>
-          <div class="b-c nav-disabled">
-            <div class="b-c-top">
-              <div class="b-c-ic"><svg><use href="#import-icon"/></svg></div>
-              <div class="b-c-text">
-                <div class="b-c-tt">表を読み込む</div>
-                <div class="b-c-d">xlsx・画像・CSVを分析</div>
+
+            <!-- PC: 2カラムグリッド / モバイル: 縦順 -->
+            <div class="b-pc-grid">
+              <!-- 左カラム: CREATE + TOOLS -->
+              <div class="b-pc-col">
+                <div class="b-sec b-sec-pc">CREATE</div>
+                <div class="b-cs">
+                  <div class="b-c" onclick="location.href = 'book.html'">
+                    <div class="b-c-top">
+                      <div class="b-c-ic">
+                        <svg><use href="#grid-icon" /></svg>
+                      </div>
+                      <div class="b-c-text">
+                        <div class="b-c-tt">ブックを作る</div>
+                        <div class="b-c-d">AIと一緒にExcelを作成</div>
+                      </div>
+                    </div>
+                    <div class="b-c-foot">
+                      <span class="b-c-meta">NEW / BLANK</span>
+                      <span class="b-c-ar">OPEN →</span>
+                    </div>
+                  </div>
+                  <div class="b-c nav-disabled">
+                    <div class="b-c-top">
+                      <div class="b-c-ic">
+                        <svg><use href="#import-icon" /></svg>
+                      </div>
+                      <div class="b-c-text">
+                        <div class="b-c-tt">表を読み込む</div>
+                        <div class="b-c-d">xlsx・画像・CSVを分析</div>
+                      </div>
+                    </div>
+                    <div class="b-c-foot">
+                      <span class="b-c-meta">XLSX / CSV / IMG</span>
+                      <span class="b-c-ar">OPEN →</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="b-sec b-sec-pc" style="margin-top: 22px">TOOLS</div>
+                <div class="b-ss">
+                  <div class="b-s" onclick="location.href = 'template.html'">
+                    <div class="b-s-ic">
+                      <svg><use href="#template-icon" /></svg>
+                    </div>
+                    <div class="b-s-text">
+                      <div class="b-s-t">テンプレ</div>
+                      <div class="b-s-meta">— 12種類</div>
+                    </div>
+                  </div>
+                  <div class="b-s nav-disabled">
+                    <div class="b-s-ic">
+                      <svg><use href="#stamp-icon" /></svg>
+                    </div>
+                    <div class="b-s-text">
+                      <div class="b-s-t">電子判子<br />作成</div>
+                      <div class="b-s-meta">— PDF対応</div>
+                    </div>
+                  </div>
+                  <div class="b-s" onclick="location.href = 'chat.html?tab=book'">
+                    <div class="b-s-ic">
+                      <svg><use href="#book-icon" /></svg>
+                    </div>
+                    <div class="b-s-text">
+                      <div class="b-s-t">数式帳</div>
+                      <div class="b-s-meta">— 0件保存</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 右カラム: RECENT -->
+              <div class="b-pc-col">
+                <div class="b-sec b-sec-pc">RECENT</div>
+                <div class="b-rc-hd">
+                  <div class="b-rc-t">最近使ったファイル</div>
+                  <span class="b-rc-m">すべて見る →</span>
+                </div>
+                <div class="b-rc-list">
+                  <div class="b-rc-it nav-disabled">
+                    <div class="b-rc-it-t">売上管理.xlsx</div>
+                    <div class="b-rc-it-d">TODAY</div>
+                  </div>
+                  <div class="b-rc-it nav-disabled">
+                    <div class="b-rc-it-t">給料明細_4月.xlsx</div>
+                    <div class="b-rc-it-d">YESTERDAY</div>
+                  </div>
+                  <div class="b-rc-it nav-disabled">
+                    <div class="b-rc-it-t">顧客リスト.xlsx</div>
+                    <div class="b-rc-it-d">3 DAYS AGO</div>
+                  </div>
+                  <div class="b-rc-it nav-disabled">
+                    <div class="b-rc-it-t">請求書_山田商事.xlsx</div>
+                    <div class="b-rc-it-d">1 WEEK AGO</div>
+                  </div>
+                  <div class="b-rc-it nav-disabled">
+                    <div class="b-rc-it-t">経費精算_3月.xlsx</div>
+                    <div class="b-rc-it-d">1 WEEK AGO</div>
+                  </div>
+                  <div class="b-rc-it nav-disabled">
+                    <div class="b-rc-it-t">シフト表_4月.xlsx</div>
+                    <div class="b-rc-it-d">2 WEEKS AGO</div>
+                  </div>
+                </div>
               </div>
             </div>
-            <div class="b-c-foot">
-              <span class="b-c-meta">XLSX / CSV / IMG</span>
-              <span class="b-c-ar">OPEN →</span>
-            </div>
           </div>
         </div>
 
-        <div class="b-sec b-sec-pc" style="margin-top:22px;">TOOLS</div>
-        <div class="b-ss">
-          <div class="b-s" onclick="location.href='template.html'">
-            <div class="b-s-ic"><svg><use href="#template-icon"/></svg></div>
-            <div class="b-s-text">
-              <div class="b-s-t">テンプレ</div>
-              <div class="b-s-meta">— 12種類</div>
+        <!-- モバイル固定ボトムナビ（8項目） -->
+        <nav class="bn">
+          <button class="bn-i active">
+            <span class="bn-ic"><span class="bn-ic-emoji">🏠</span></span
+            ><span class="bn-lb">ホーム</span>
+          </button>
+          <button class="bn-i" onclick="location.href = 'chat.html'">
+            <span class="bn-ic"><span class="bn-ic-emoji">🤖</span></span
+            ><span class="bn-lb">AI</span>
+          </button>
+          <button class="bn-i" onclick="location.href = 'book.html'">
+            <span class="bn-ic"
+              ><svg><use href="#grid-sm" /></svg></span
+            ><span class="bn-lb">ブック</span>
+          </button>
+          <button class="bn-i" onclick="location.href = 'template.html'">
+            <span class="bn-ic"
+              ><svg><use href="#template-sm" /></svg></span
+            ><span class="bn-lb">テンプレ</span>
+          </button>
+          <button class="bn-i nav-disabled">
+            <span class="bn-ic"
+              ><svg><use href="#stamp-sm" /></svg></span
+            ><span class="bn-lb">電子ハンコ</span>
+          </button>
+          <button class="bn-i" onclick="location.href = 'chat.html?tab=book'">
+            <span class="bn-ic"
+              ><svg><use href="#book-sm" /></svg></span
+            ><span class="bn-lb">数式帳</span>
+          </button>
+          <button class="bn-i" onclick="location.href = 'chat.html?tab=quiz'">
+            <span class="bn-ic"><span class="bn-ic-emoji">🎯</span></span
+            ><span class="bn-lb">クイズ</span>
+          </button>
+          <button class="bn-i" onclick="location.href = 'chat.html?tab=settings'">
+            <span class="bn-ic"><span class="bn-ic-emoji">⚙️</span></span
+            ><span class="bn-lb">設定</span>
+          </button>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Excelバージョン選択モーダル -->
+
+    <div class="vm-ov" id="verModal">
+      <div class="vm-cd">
+        <div class="vm-hd">
+          <div class="vm-tt">Excelバージョンを選んでね</div>
+          <button class="vm-cl" onclick="closeVerModal()">×</button>
+        </div>
+        <div class="vm-bd">
+          <div class="vm-ht">💡 後で変えられる・Excelなくても使える</div>
+          <div class="vm-gr">
+            <div class="vm-op" data-ver="excel_365" onclick="selectVer('excel_365')">
+              <div class="vm-op-ic">🟢</div>
+              <div class="vm-op-lb">Excel 365</div>
             </div>
-          </div>
-          <div class="b-s nav-disabled">
-            <div class="b-s-ic"><svg><use href="#stamp-icon"/></svg></div>
-            <div class="b-s-text">
-              <div class="b-s-t">電子判子<br>作成</div>
-              <div class="b-s-meta">— PDF対応</div>
+            <div class="vm-op" data-ver="excel_2024" onclick="selectVer('excel_2024')">
+              <div class="vm-op-ic">🟢</div>
+              <div class="vm-op-lb">Excel 2024</div>
             </div>
-          </div>
-          <div class="b-s" onclick="location.href='chat.html?tab=book'">
-            <div class="b-s-ic"><svg><use href="#book-icon"/></svg></div>
-            <div class="b-s-text">
-              <div class="b-s-t">数式帳</div>
-              <div class="b-s-meta">— 0件保存</div>
+            <div class="vm-op" data-ver="excel_2021" onclick="selectVer('excel_2021')">
+              <div class="vm-op-ic">🔵</div>
+              <div class="vm-op-lb">Excel 2021</div>
+            </div>
+            <div class="vm-op" data-ver="excel_2019" onclick="selectVer('excel_2019')">
+              <div class="vm-op-ic">🔵</div>
+              <div class="vm-op-lb">Excel 2019</div>
+            </div>
+            <div class="vm-op" data-ver="excel_2016" onclick="selectVer('excel_2016')">
+              <div class="vm-op-ic">🔵</div>
+              <div class="vm-op-lb">Excel 2016</div>
+            </div>
+            <div class="vm-op" data-ver="excel_mac" onclick="selectVer('excel_mac')">
+              <div class="vm-op-ic">🍎</div>
+              <div class="vm-op-lb">Excel for Mac</div>
+            </div>
+            <div class="vm-op" data-ver="excel_online" onclick="selectVer('excel_online')">
+              <div class="vm-op-ic">☁️</div>
+              <div class="vm-op-lb">Excel Online</div>
+            </div>
+            <div class="vm-op" data-ver="excel_none" onclick="selectVer('excel_none')">
+              <div class="vm-op-ic">✨</div>
+              <div class="vm-op-lb">Excelなし</div>
             </div>
           </div>
         </div>
       </div>
-
-      <!-- 右カラム: RECENT -->
-      <div class="b-pc-col">
-        <div class="b-sec b-sec-pc">RECENT</div>
-        <div class="b-rc-hd">
-          <div class="b-rc-t">最近使ったファイル</div>
-          <span class="b-rc-m">すべて見る →</span>
-        </div>
-        <div class="b-rc-list">
-          <div class="b-rc-it nav-disabled">
-            <div class="b-rc-it-t">売上管理.xlsx</div>
-            <div class="b-rc-it-d">TODAY</div>
-          </div>
-          <div class="b-rc-it nav-disabled">
-            <div class="b-rc-it-t">給料明細_4月.xlsx</div>
-            <div class="b-rc-it-d">YESTERDAY</div>
-          </div>
-          <div class="b-rc-it nav-disabled">
-            <div class="b-rc-it-t">顧客リスト.xlsx</div>
-            <div class="b-rc-it-d">3 DAYS AGO</div>
-          </div>
-          <div class="b-rc-it nav-disabled">
-            <div class="b-rc-it-t">請求書_山田商事.xlsx</div>
-            <div class="b-rc-it-d">1 WEEK AGO</div>
-          </div>
-          <div class="b-rc-it nav-disabled">
-            <div class="b-rc-it-t">経費精算_3月.xlsx</div>
-            <div class="b-rc-it-d">1 WEEK AGO</div>
-          </div>
-          <div class="b-rc-it nav-disabled">
-            <div class="b-rc-it-t">シフト表_4月.xlsx</div>
-            <div class="b-rc-it-d">2 WEEKS AGO</div>
-          </div>
-        </div>
-      </div>
-
     </div>
 
-  </div>
-</div>
+    <!-- Toast -->
 
-<!-- モバイル固定ボトムナビ（8項目） -->
-<nav class="bn">
-  <button class="bn-i active"><span class="bn-ic"><span class="bn-ic-emoji">🏠</span></span><span class="bn-lb">ホーム</span></button>
-  <button class="bn-i" onclick="location.href='chat.html'"><span class="bn-ic"><span class="bn-ic-emoji">🤖</span></span><span class="bn-lb">AI</span></button>
-  <button class="bn-i" onclick="location.href='book.html'"><span class="bn-ic"><svg><use href="#grid-sm"/></svg></span><span class="bn-lb">ブック</span></button>
-  <button class="bn-i" onclick="location.href='template.html'"><span class="bn-ic"><svg><use href="#template-sm"/></svg></span><span class="bn-lb">テンプレ</span></button>
-  <button class="bn-i nav-disabled"><span class="bn-ic"><svg><use href="#stamp-sm"/></svg></span><span class="bn-lb">電子ハンコ</span></button>
-  <button class="bn-i" onclick="location.href='chat.html?tab=book'"><span class="bn-ic"><svg><use href="#book-sm"/></svg></span><span class="bn-lb">数式帳</span></button>
-  <button class="bn-i" onclick="location.href='chat.html?tab=quiz'"><span class="bn-ic"><span class="bn-ic-emoji">🎯</span></span><span class="bn-lb">クイズ</span></button>
-  <button class="bn-i" onclick="location.href='chat.html?tab=settings'"><span class="bn-ic"><span class="bn-ic-emoji">⚙️</span></span><span class="bn-lb">設定</span></button>
-</nav>
+    <div class="toast" id="toast"></div>
 
-  </div>
-</div>
+    <script>
+      // Excelバージョン管理（localStorageキー：exally_excel_version・chat.htmlと共有）
+      var VER_LABEL_MAP = {
+        excel_365: "365",
+        excel_2024: "2024",
+        excel_2021: "2021",
+        excel_2019: "2019",
+        excel_2016: "2016",
+        excel_mac: "Mac",
+        excel_online: "Online",
+        excel_none: "なし",
+      };
+      function getVerKey() {
+        try {
+          var v = localStorage.getItem("exally_excel_version");
+          return typeof v === "string" && v.length > 0 ? v : "excel_365";
+        } catch (e) {
+          return "excel_365";
+        }
+      }
+      function updateVerBadges() {
+        var v = getVerKey();
+        var label = VER_LABEL_MAP[v] || "365";
+        var m = document.getElementById("vbmLabel");
+        var p = document.getElementById("vbpLabel");
+        if (m) m.textContent = label;
+        if (p) p.textContent = label;
+      }
+      function openVerModal() {
+        var current = getVerKey();
+        document.querySelectorAll(".vm-op").forEach(function (el) {
+          el.classList.toggle("current", el.getAttribute("data-ver") === current);
+        });
+        document.getElementById("verModal").classList.add("show");
+      }
+      function closeVerModal() {
+        document.getElementById("verModal").classList.remove("show");
+      }
+      function selectVer(verKey) {
+        try {
+          localStorage.setItem("exally_excel_version", verKey);
+        } catch (e) {}
+        updateVerBadges();
+        closeVerModal();
+        showToast("Excelバージョンを" + (VER_LABEL_MAP[verKey] || verKey) + "に変更したよ");
+      }
+      function showToast(msg) {
+        var t = document.getElementById("toast");
+        if (!t) return;
+        t.textContent = msg;
+        t.classList.add("show");
+        setTimeout(function () {
+          t.classList.remove("show");
+        }, 2500);
+      }
+      // モーダル外クリックで閉じる
+      document.getElementById("verModal").addEventListener("click", function (e) {
+        if (e.target === this) closeVerModal();
+      });
+      // 起動時：バージョンバッジを更新・初回訪問ならバージョン選択を自動表示
+      window.addEventListener("load", function () {
+        updateVerBadges();
+        // localStorage に exally_excel_version が未保存なら、初回訪問と判断してモーダル表示
+        try {
+          var saved = localStorage.getItem("exally_excel_version");
+          if (!saved) {
+            setTimeout(function () {
+              openVerModal();
+            }, 400);
+          }
+        } catch (e) {}
+      });
 
-<!-- Excelバージョン選択モーダル -->
-
-<div class="vm-ov" id="verModal">
-  <div class="vm-cd">
-    <div class="vm-hd">
-      <div class="vm-tt">Excelバージョンを選んでね</div>
-      <button class="vm-cl" onclick="closeVerModal()">×</button>
-    </div>
-    <div class="vm-bd">
-      <div class="vm-ht">💡 後で変えられる・Excelなくても使える</div>
-      <div class="vm-gr">
-        <div class="vm-op" data-ver="excel_365" onclick="selectVer('excel_365')"><div class="vm-op-ic">🟢</div><div class="vm-op-lb">Excel 365</div></div>
-        <div class="vm-op" data-ver="excel_2024" onclick="selectVer('excel_2024')"><div class="vm-op-ic">🟢</div><div class="vm-op-lb">Excel 2024</div></div>
-        <div class="vm-op" data-ver="excel_2021" onclick="selectVer('excel_2021')"><div class="vm-op-ic">🔵</div><div class="vm-op-lb">Excel 2021</div></div>
-        <div class="vm-op" data-ver="excel_2019" onclick="selectVer('excel_2019')"><div class="vm-op-ic">🔵</div><div class="vm-op-lb">Excel 2019</div></div>
-        <div class="vm-op" data-ver="excel_2016" onclick="selectVer('excel_2016')"><div class="vm-op-ic">🔵</div><div class="vm-op-lb">Excel 2016</div></div>
-        <div class="vm-op" data-ver="excel_mac" onclick="selectVer('excel_mac')"><div class="vm-op-ic">🍎</div><div class="vm-op-lb">Excel for Mac</div></div>
-        <div class="vm-op" data-ver="excel_online" onclick="selectVer('excel_online')"><div class="vm-op-ic">☁️</div><div class="vm-op-lb">Excel Online</div></div>
-        <div class="vm-op" data-ver="excel_none" onclick="selectVer('excel_none')"><div class="vm-op-ic">✨</div><div class="vm-op-lb">Excelなし</div></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Toast -->
-
-<div class="toast" id="toast"></div>
-
-<script>
-// Excelバージョン管理（localStorageキー：exally_excel_version・chat.htmlと共有）
-var VER_LABEL_MAP = {
-  excel_365:'365', excel_2024:'2024', excel_2021:'2021', excel_2019:'2019',
-  excel_2016:'2016', excel_mac:'Mac', excel_online:'Online', excel_none:'なし'
-};
-function getVerKey(){
-  try{ var v=localStorage.getItem('exally_excel_version'); return (typeof v==='string' && v.length>0) ? v : 'excel_365'; }
-  catch(e){ return 'excel_365'; }
-}
-function updateVerBadges(){
-  var v=getVerKey();
-  var label=VER_LABEL_MAP[v]||'365';
-  var m=document.getElementById('vbmLabel');
-  var p=document.getElementById('vbpLabel');
-  if(m) m.textContent=label;
-  if(p) p.textContent=label;
-}
-function openVerModal(){
-  var current=getVerKey();
-  document.querySelectorAll('.vm-op').forEach(function(el){
-    el.classList.toggle('current', el.getAttribute('data-ver')===current);
-  });
-  document.getElementById('verModal').classList.add('show');
-}
-function closeVerModal(){
-  document.getElementById('verModal').classList.remove('show');
-}
-function selectVer(verKey){
-  try{ localStorage.setItem('exally_excel_version', verKey); }catch(e){}
-  updateVerBadges();
-  closeVerModal();
-  showToast('Excelバージョンを'+(VER_LABEL_MAP[verKey]||verKey)+'に変更したよ');
-}
-function showToast(msg){
-  var t=document.getElementById('toast');
-  if(!t) return;
-  t.textContent=msg;
-  t.classList.add('show');
-  setTimeout(function(){ t.classList.remove('show'); }, 2500);
-}
-// モーダル外クリックで閉じる
-document.getElementById('verModal').addEventListener('click', function(e){
-  if(e.target===this) closeVerModal();
-});
-// 起動時：バージョンバッジを更新・初回訪問ならバージョン選択を自動表示
-window.addEventListener('load', function(){
-  updateVerBadges();
-  // localStorage に exally_excel_version が未保存なら、初回訪問と判断してモーダル表示
-  try{
-    var saved = localStorage.getItem('exally_excel_version');
-    if(!saved){
-      setTimeout(function(){ openVerModal(); }, 400);
-    }
-  }catch(e){}
-});
-
-// 検索バー→chat.htmlへクエリ付き遷移
-function gotoChat(){
-  var inp=document.getElementById('srchInput');
-  var q=(inp&&inp.value)?inp.value.trim():'';
-  if(q){
-    location.href='chat.html?q='+encodeURIComponent(q);
-  }else{
-    location.href='chat.html';
-  }
-}
-function gotoChatWith(q){
-  location.href='chat.html?q='+encodeURIComponent(q);
-}
-</script>
-</body>
+      // 検索バー→chat.htmlへクエリ付き遷移
+      function gotoChat() {
+        var inp = document.getElementById("srchInput");
+        var q = inp && inp.value ? inp.value.trim() : "";
+        if (q) {
+          location.href = "chat.html?q=" + encodeURIComponent(q);
+        } else {
+          location.href = "chat.html";
+        }
+      }
+      function gotoChatWith(q) {
+        location.href = "chat.html?q=" + encodeURIComponent(q);
+      }
+    </script>
+  </body>
 </html>
