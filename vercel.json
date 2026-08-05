@@ -1,4 +1,23 @@
 {
+  "//": "★古いExallyホーム(/ , /index.html , /home.html , /exally-home.html)だけを今の入口へ308で飛ばす。 代行請求(daikou-seikyu.html)は実務で動いているので絶対に巻き込まない。 見張り: exally の scripts/check-hosts.mjs（週1）が、飛ぶことと【代行請求が飛んでいないこと】の両方を見る。",
+  "redirects": [
+    { "source": "/", "destination": "https://exally.vercel.app/hub.html", "permanent": true },
+    {
+      "source": "/index.html",
+      "destination": "https://exally.vercel.app/hub.html",
+      "permanent": true
+    },
+    {
+      "source": "/home.html",
+      "destination": "https://exally.vercel.app/hub.html",
+      "permanent": true
+    },
+    {
+      "source": "/exally-home.html",
+      "destination": "https://exally.vercel.app/hub.html",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/.netlify/functions/claude",
@@ -9,20 +28,8 @@
       "destination": "/api/claude"
     },
     {
-      "source": "/",
-      "destination": "/home.html"
-    },
-    {
-      "source": "/index.html",
-      "destination": "/home.html"
-    },
-    {
       "source": "/index6.html",
       "destination": "/chat.html"
-    },
-    {
-      "source": "/exally-home.html",
-      "destination": "/home.html"
     },
     {
       "source": "/exally-canvas-grid.html",
