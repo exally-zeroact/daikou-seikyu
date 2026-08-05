@@ -2,9 +2,9 @@
 // .iqyはHTMLの<table>しか読めないため、既存のexport_* RPC(JSON)をHTML表に変換して返す。
 // これでExcelが「ダブルクリック→自動更新テーブル」を作れる(=SharePointの仕組みと同型)。
 // 鍵(token)はURLに入り、export_* RPCがRLS的に本人ぶんだけ返す＝service_role不使用で安全。
-const SUPABASE_URL = "https://tnfwipbgfgjaymlszeid.supabase.co";
+const SUPABASE_URL = "https://khawdrnvssdenumbiwfg.supabase.co";
 const SUPABASE_ANON =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZndpcGJnZmdqYXltbHN6ZWlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1Nzk4MzQsImV4cCI6MjA5NzE1NTgzNH0.zhKPLSlW4zxsdjsXNvqDHvtP3wBqp-EKaxbjqLGW_ek";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtoYXdkcm52c3NkZW51bWJpd2ZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwMTQ2NzEsImV4cCI6MjEwMDU5MDY3MX0.VoI2cLXCiZp48qOJEDXL1thxKnIHJ5t1Cl6iVsfYHFY";
 
 const FN = {
   meisai: "export_meisai",
