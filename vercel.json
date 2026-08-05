@@ -1,5 +1,5 @@
 {
-  "//": "★古いExallyホーム(/ , /index.html , /home.html , /exally-home.html)だけを今の入口へ308で飛ばす。 代行請求(daikou-seikyu.html)は実務で動いているので絶対に巻き込まない。 見張り: exally の scripts/check-hosts.mjs（週1）が、飛ぶことと【代行請求が飛んでいないこと】の両方を見る。",
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "redirects": [
     { "source": "/", "destination": "https://exally.vercel.app/hub.html", "permanent": true },
     {
