@@ -3235,9 +3235,9 @@
    Supabase（クラウドDB＋ログイン）
    URL と anon(公開鍵) はクライアント埋め込みで安全＝RLSで各業者のデータを保護。
    =================================================================== */
-      var SUPABASE_URL = "https://khawdrnvssdenumbiwfg.supabase.co";
+      var SUPABASE_URL = "https://tnfwipbgfgjaymlszeid.supabase.co";
       var SUPABASE_ANON =
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtoYXdkcm52c3NkZW51bWJpd2ZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwMTQ2NzEsImV4cCI6MjEwMDU5MDY3MX0.VoI2cLXCiZp48qOJEDXL1thxKnIHJ5t1Cl6iVsfYHFY";
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZndpcGJnZmdqYXltbHN6ZWlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1Nzk4MzQsImV4cCI6MjA5NzE1NTgzNH0.zhKPLSlW4zxsdjsXNvqDHvtP3wBqp-EKaxbjqLGW_ek";
       // テストは偽のクラウドを差し込む（本物に通信せず配線だけ確かめる）
       var SB =
         window.__EXALLY_FAKE_SB__ || window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
@@ -8732,7 +8732,10 @@
       }
       function setEntryNum(i, k, el) {
         // 数字以外を即除去（オートフィルの文章混入を物理的に弾く）
-        var clean = String(el.value).replace(/[^0-9]/g, "");
+        // ★距離だけ小数点を通す (2026-08-05)★
+        //   ダイコメのメーターが 5.36km と実測どおり入れてくるようになったので、
+        //   手入力でも 5.36 と打てないと揃わない。金額・人数は今までどおり整数のみ。
+        var clean = String(el.value).replace(k === "距離" ? /[^0-9.]/g : /[^0-9]/g, "");
         if (el.value !== clean) el.value = clean;
         if (entryRows[i]) entryRows[i][k] = clean;
       }
@@ -8933,13 +8936,22 @@
             })[0];
             var t = def ? def.type : "text";
             var val = esc(r[k]);
+            // ★距離だけ小数を打てるようにする (2026-08-05)★
+            //   ダイコメのメーターが 5.36km と実測どおり入れてくるようになった。
+            //   数の欄は今まで [^0-9] を全部消していたので、★距離を打ち直すと
+            //   5.36 → 536 になっていた★。金額・人数は今までどおり整数のみ。
+            var _dec = k === "距離";
             var inp =
               t === "date"
                 ? '<input class="finput" type="date" id="ed_' + k + '" value="' + val + '">'
                 : t === "number"
-                  ? '<input class="finput fnum" inputmode="numeric" ' +
+                  ? '<input class="finput fnum" inputmode="' +
+                    (_dec ? "decimal" : "numeric") +
+                    '" ' +
                     NOFILL +
-                    ' oninput="this.value=this.value.replace(/[^0-9]/g,\'\')" id="ed_' +
+                    ' oninput="this.value=this.value.replace(' +
+                    (_dec ? "/[^0-9.]/g" : "/[^0-9]/g") +
+                    ",'')\" id=\"ed_" +
                     k +
                     '" value="' +
                     val +
