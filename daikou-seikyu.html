@@ -3235,6 +3235,19 @@
    Supabase（クラウドDB＋ログイン）
    URL と anon(公開鍵) はクライアント埋め込みで安全＝RLSで各業者のデータを保護。
    =================================================================== */
+      // ★★ここは司さんの本番です。倉庫を切り替えないでください★★ 2026-08-06
+      //   repo名もURLも "test" が付いていますが、★このアプリには本番用の別の家がありません★。
+      //   実測(2026-08-06):
+      //     exally-test.vercel.app/daikou-seikyu.html … 200 ← ここだけ
+      //     exally / exally-staging / daikome-jimusho … 全部404
+      //   ＝この住所で司さんが毎日 請求書を作っています(明細1080件 / 会社24件)。
+      //
+      //   ★一度これをテストDBへ向け替えて事故になりました★
+      //     画面はいつもどおり開き、エラーも出ず、★中身だけ空になる★。
+      //     アプリは「まだ誰も居ない」と判断してログイン画面を出し、
+      //     司さんが自分の画面に入れなくなりました。
+      //   切り替えるなら★先にテスト用の家(別ホスト)を建ててから★。
+      //   tests/warehouse-pointer.test.js が、ここが変わったら赤にします。
       var SUPABASE_URL = "https://tnfwipbgfgjaymlszeid.supabase.co";
       var SUPABASE_ANON =
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZndpcGJnZmdqYXltbHN6ZWlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1Nzk4MzQsImV4cCI6MjA5NzE1NTgzNH0.zhKPLSlW4zxsdjsXNvqDHvtP3wBqp-EKaxbjqLGW_ek";
