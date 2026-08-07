@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <base href="/" />
+    <title>edit band test</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: sans-serif;
+        background: #eef2f0;
+      }
+      .wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 8px;
+      }
+      .cell {
+        background: #fff;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+      }
+      .cap {
+        font-size: 12px;
+        font-weight: 700;
+        color: #2a4a3a;
+        padding: 3px 6px;
+        background: #d9eee3;
+      }
+      canvas {
+        display: block;
+        width: 360px;
+        height: auto;
+      }
+    </style>
+    <script src="invoice-pdf.js"></script>
+  </head>
+  <body>
+    <div class="wrap" id="wrap"></div>
+    <script>
+      // pdf.js をローカルから読む
+      function loadPdfjs() {
+        return new Promise(function (res, rej) {
+          var s = document.createElement("script");
+          s.src = "vendor/pdf.min.js";
+          s.onload = function () {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";
+            res(window.pdfjsLib);
+          };
+          s.onerror = rej;
+          document.head.appendChild(s);
+        });
+      }
+
+      var MASTER = {
+        有限会社さくら運送サービス: {
+          items: ["日付", "行き先", "金額"],
+          widths: {},
+          lead: "{月}月のご利用分です。",
+          tableTitle: "運転業務委託料",
+        },
+      };
+      var ROWS = [
+        { 日付: "2026-06-03", 行き先: "松山市内", 金額: 4500 },
+        { 日付: "2026-06-08", 行き先: "今治港", 金額: 6800 },
+        { 日付: "2026-06-15", 行き先: "高松駅", 金額: 9200 },
+      ];
+      function issuer(extra) {
+        var base = {
+          lines: ["合同会社ZEROact", "〒790-0000 愛媛県松山市〇〇1-2-3", "TEL 089-000-0000"],
+          bank: ["お振込先：伊予銀行 松山支店", "普通 1234567 ﾄﾞｳｺｳ ｾﾞﾛｱｸﾄ"],
+          paymentDue: "2026年7月31日",
+          dateEra: "seireki",
+          showInvoiceNo: true,
+          logoMode: "off",
+          pdfDesign: "elegant",
+        };
+        for (var k in extra) base[k] = extra[k];
+        return base;
+      }
+
+      var CASES = [
+        { cap: "既定（宛名左・振込先右）", iss: {} },
+        { cap: "宛名=中", iss: { posAite: "center" } },
+        { cap: "宛名=右（→振込先と衝突=段分け）", iss: { posAite: "right" } },
+        { cap: "振込先=左", iss: { posBank: "left" } },
+        { cap: "振込先=中（→宛名と衝突=段分け）", iss: { posBank: "center" } },
+        { cap: "宛名=右 / 振込先=左", iss: { posAite: "right", posBank: "left" } },
+        { cap: "振込先=左・行=右揃え", iss: { posBank: "left", lineBank: "right" } },
+        { cap: "宛名=中 / 振込先=中", iss: { posAite: "center", posBank: "center" } },
+      ];
+
+      async function renderCase(pdfjsLib, c) {
+        var co = Object.keys(MASTER)[0];
+        var bytes = await window.InvoicePDF.buildOne(
+          MASTER,
+          co,
+          ROWS,
+          "2026-06",
+          issuer(c.iss),
+          "2026-06-01"
+        );
+        var doc = await pdfjsLib.getDocument({ data: bytes }).promise;
+        var page = await doc.getPage(1);
+        var vp = page.getViewport({ scale: 2 });
+        var canvas = document.createElement("canvas");
+        // 上から約 38% だけ（ヘッダー＝宛名/振込先帯）を見る
+        var cropH = Math.round(vp.height * 0.4);
+        canvas.width = vp.width;
+        canvas.height = cropH;
+        var ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, canvas.width, cropH);
+        await page.render({ canvasContext: ctx, viewport: vp }).promise;
+        var cell = document.createElement("div");
+        cell.className = "cell";
+        var cap = document.createElement("div");
+        cap.className = "cap";
+        cap.textContent = c.cap;
+        cell.appendChild(cap);
+        cell.appendChild(canvas);
+        document.getElementById("wrap").appendChild(cell);
+      }
+
+      (async function () {
+        var pdfjsLib = await loadPdfjs();
+        for (var i = 0; i < CASES.length; i++) await renderCase(pdfjsLib, CASES[i]);
+        var done = document.createElement("div");
+        done.id = "alldone";
+        done.style.cssText = "width:100%;height:1px";
+        document.body.appendChild(done);
+      })();
+    </script>
+  </body>
+</html>

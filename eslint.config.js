@@ -6,7 +6,8 @@ const js = require("@eslint/js");
 
 module.exports = [
   {
-    ignores: ["node_modules/**", ".vercel/**", "**/*.min.js", "hyperformula.full.min.js"],
+    // ★2026-08-07: hyperformula.full.min.js は Exally の物なので外した（**/*.min.js で足りる）★
+    ignores: ["node_modules/**", ".vercel/**", "**/*.min.js"],
   },
   js.configs.recommended,
   {

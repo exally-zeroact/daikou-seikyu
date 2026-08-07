@@ -19,7 +19,8 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     command: "npx http-server -p 8080 -c-1 -s .",
-    url: "http://localhost:8080/home.html",
+    // ★2026-08-07: Exallyの home.html を外したので、代行請求書の画面で待つ★
+    url: "http://localhost:8080/daikou-seikyu.html",
     timeout: 60000,
     reuseExistingServer: !process.env.CI,
   },

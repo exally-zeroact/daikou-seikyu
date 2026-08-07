@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <base href="/" />
+    <title>color unify test</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: sans-serif;
+        background: #e7ece9;
+      }
+      h2 {
+        margin: 6px 10px 2px;
+        font-size: 13px;
+        color: #234;
+      }
+      .wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 10px;
+      }
+      .cell {
+        background: #fff;
+        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.18);
+      }
+      .cap {
+        font-size: 12px;
+        font-weight: 700;
+        color: #234;
+        padding: 3px 7px;
+        background: #d7e7de;
+      }
+      canvas {
+        display: block;
+        width: 470px;
+        height: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h2 id="hd"></h2>
+    <div class="wrap" id="wrap"></div>
+    <script>
+      var SRC =
+        new URLSearchParams(location.search).get("src") === "old"
+          ? "Temp/invoice-pdf-old.js"
+          : "invoice-pdf.js";
+      document.getElementById("hd").textContent = SRC;
+      function load(src, glob) {
+        return new Promise(function (res, rej) {
+          var s = document.createElement("script");
+          s.src = src;
+          s.onload = function () {
+            res(window[glob]);
+          };
+          s.onerror = rej;
+          document.head.appendChild(s);
+        });
+      }
+      var MASTER = {
+        株式会社黒田空調工業: {
+          items: ["日付", "行き先", "金額"],
+          widths: {},
+          lead: "{月}月のご利用分です。",
+          tableTitle: "運転業務委託料",
+          noteSummary: true,
+          noteGroups: ["役員", "社員"],
+        },
+      };
+      var ROWS = [
+        { 日付: "2026-06-03", 行き先: "松山市内", 金額: 4500, 備考: "役員" },
+        { 日付: "2026-06-08", 行き先: "今治港", 金額: 6800, 備考: "社員" },
+        { 日付: "2026-06-15", 行き先: "高松駅", 金額: 9200, 備考: "役員" },
+        { 日付: "2026-06-20", 行き先: "徳島空港", 金額: 5400, 備考: "社員" },
+      ];
+      function issuer(design) {
+        return {
+          lines: [
+            "合同会社ZEROact",
+            "〒790-0000 愛媛県松山市〇〇1-2-3",
+            "TEL 089-000-0000　担当：山田",
+          ],
+          bank: ["お振込先：伊予銀行 松山支店", "普通 1234567 ﾄﾞｳｺｳ ｾﾞﾛｱｸﾄ"],
+          paymentDue: "2026年7月31日",
+          dateEra: "seireki",
+          showInvoiceNo: true,
+          logoMode: "off",
+          pdfDesign: design,
+          headerStyle: "B",
+        };
+      }
+      async function render(pdfjsLib, design, cap) {
+        var co = Object.keys(MASTER)[0];
+        var bytes = await window.InvoicePDF.buildOne(
+          MASTER,
+          co,
+          ROWS,
+          "2026-06",
+          issuer(design),
+          "2026-06-01"
+        );
+        var doc = await pdfjsLib.getDocument({ data: bytes }).promise;
+        var page = await doc.getPage(1);
+        var vp = page.getViewport({ scale: 3 });
+        var cropH = Math.round(vp.height * 0.5); // 上半分（宛名/金額/明細/合計）を拡大表示
+        var canvas = document.createElement("canvas");
+        canvas.width = vp.width;
+        canvas.height = cropH;
+        var ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, vp.width, cropH);
+        await page.render({ canvasContext: ctx, viewport: vp }).promise;
+        var cell = document.createElement("div");
+        cell.className = "cell";
+        var c = document.createElement("div");
+        c.className = "cap";
+        c.textContent = cap;
+        cell.appendChild(c);
+        cell.appendChild(canvas);
+        document.getElementById("wrap").appendChild(cell);
+      }
+      (async function () {
+        await load(SRC, "InvoicePDF");
+        var pdfjsLib = await load("vendor/pdf.min.js", "pdfjsLib");
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";
+        await render(pdfjsLib, "elegant", "エレガント");
+        await render(pdfjsLib, "classic", "クラシック");
+        var d = document.createElement("div");
+        d.id = "alldone";
+        document.body.appendChild(d);
+      })();
+    </script>
+  </body>
+</html>

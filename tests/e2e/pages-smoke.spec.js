@@ -3,14 +3,12 @@ import { test, expect } from "@playwright/test";
 // 全主要画面が「実行時JSエラー無しで開き、本文が表示される」ことを毎回自動検証する。
 // pageerror(未捕捉例外)= 構文崩れ・未定義参照・IME二重発火のような実バグの信号。
 // これがゼロであることを画面ごとに保証する = 画面回帰の自動ガード。
-const PAGES = [
-  { path: "/home.html", name: "ホーム" },
-  { path: "/book.html", name: "スプレッドシート" },
-  { path: "/seikyusyo.html", name: "請求書" },
-  { path: "/mitsumoriyo.html", name: "見積書" },
-  { path: "/kyuuryoumeisai.html", name: "給料明細" },
-  // 飲み屋(売上管理)は nomiya-app / nomiya-app-test へ独立させたので、ここでは見ない
-];
+//
+// ★2026-08-07: このrepoは代行請求書アプリ専用になった★
+//   Exallyの画面(home / book / seikyusyo / mitsumoriyo / kyuuryoumeisai / chat)は
+//   exally repo が正なので、ここからは外した。
+//   飲み屋(売上管理)は 2026-08-01 に nomiya-app / nomiya-app-test へ独立済み。
+const PAGES = [{ path: "/daikou-seikyu.html", name: "代行請求書" }];
 
 for (const p of PAGES) {
   test(`${p.name} (${p.path}) が実行時エラー無しで開く`, async ({ page }) => {
