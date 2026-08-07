@@ -8,3 +8,7 @@ node_modules
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# ★2026-08-07: 追跡していなかった作業ファイルを git add -A で巻き込んだので、ここで止める★
+Temp/
+HANDOFF.md
