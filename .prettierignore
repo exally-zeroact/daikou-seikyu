@@ -6,3 +6,6 @@ package-lock.json
 hyperformula.full.min.js
 # ★book.html は 5,998行/243KB の巨大ファイル。一括整形は巨大diff+破損リスクのため除外。
 book.html
+
+# ★CLAUDE.md は全repoで バイト一致を保つ文書。整形で行が動くとsha256が変わるため除外★
+CLAUDE.md
