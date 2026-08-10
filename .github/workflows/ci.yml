@@ -17,7 +17,12 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # ★20 では jsdom が起動できず CI がずっと赤だった（2026-08-10 発見）★
+          #   jsdom@30 の engines = ^22.22.2 || ^24.15.0 || >=26.0.0
+          #   Node 20 だと undici が webidl.util.markAsUncloneable を呼べず
+          #   login-brand.test.js の worker が起動しない＝手元(Node24)は緑・CIだけ赤。
+          #   tests/ci-node-version.test.js が この版と engines の食い違いを見張る。
+          node-version: 22
           cache: npm
 
       - name: Install dependencies

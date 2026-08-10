@@ -7,9 +7,21 @@
  *   <script src="exally-login.js"></script>
  *   var LOGIN = ExallyLogin.mount({
  *     app: "売上管理",          // カードに出すアプリ名
+ *     brand: "🚗 ダイコメ",     // 製品名（省くと Exally）
+ *     brandSub: "",             // 製品名の右の小さい字（省くと エクサリー・空文字なら出さない）
+ *     logo: "/icons/logo.png",  // 文字入りのロゴ画像（あれば文字の代わりに出す）
+ *     theme: { accent:"#007aff", accentDark:"#0a5fd0", bg:"#f2f7ff" }, // 色（省くと今までの緑）
  *     sb: SB,                   // supabase クライアント
  *     onLogin: function (user) {…}, // ログインできたら呼ばれる
  *   });
+ *
+ * ★色は hex を直に渡す。CSS変数(var(--…))は使わない★
+ *   このrepoの決まり（CLAUDE.md「CSS変数禁止（直接hex値のみ）」）に合わせている。
+ *   飲み屋(Castally)の写しは :root の変数で合わせる作りだが、★決まりが逆★なので真似しない。
+ *
+ * ★この exally-login.js は repo ごとに別のファイル★（2026-08-09 sha照合で確認）
+ *   ここを直しても 飲み屋・給与・Exally のログイン画面は1文字も変わらない。
+ *   渡さなければ今までどおり Exally の緑なので、このrepoの他の画面も変わらない。
  *   LOGIN.show();  // ログイン画面を出す
  *   LOGIN.hide();  // 閉じる
  *
@@ -20,44 +32,101 @@
   "use strict";
 
   var CSS_ID = "exally-login-css";
-  var CSS = [
-    ".login-ov{position:fixed;inset:0;background:#eef7f1;z-index:400;display:none;",
-    "align-items:center;justify-content:center;overflow:auto;",
-    "padding:24px 18px calc(24px + env(safe-area-inset-bottom));}",
-    ".login-ov.open{display:flex;}",
-    ".login-card{width:100%;max-width:380px;background:#ffffff;border:1px solid #d4eae0;",
-    "border-radius:20px;box-shadow:0 6px 22px rgba(30,80,46,.10);padding:26px 20px 22px;",
-    "text-align:center;box-sizing:border-box;}",
-    ".login-logo{font-family:'DM Mono',ui-monospace,monospace;font-size:27px;letter-spacing:2px;",
-    "color:#52b788;}",
-    ".login-logo span{font-family:'Noto Sans JP',sans-serif;font-size:11px;letter-spacing:1px;",
-    "color:#7aa08c;margin-left:6px;}",
-    ".login-title{font-size:15px;font-weight:700;color:#2f5d45;margin:10px 0 2px;}",
-    ".login-sub{font-size:12px;color:#7aa08c;margin-bottom:16px;}",
-    ".login-inp{width:100%;box-sizing:border-box;font-size:16px;padding:13px 14px;",
-    "border:1px solid #d4eae0;border-radius:12px;background:#ffffff;color:#24422f;",
-    "margin-bottom:10px;font-family:inherit;outline:none;-webkit-appearance:none;}",
-    ".login-inp:focus{border-color:#52b788;}",
-    ".login-err{min-height:18px;font-size:12px;color:#c0392b;margin-bottom:6px;white-space:pre-wrap;}",
-    /* ログインと新規登録の間の案内。近い方（新規登録）に付いて見えるよう上を空けて下は詰める */
-    ".login-mid{font-size:11.5px;color:#7aa08c;line-height:1.9;margin:16px 0 7px;word-break:keep-all;}",
-    ".login-note{font-size:11px;color:#7aa08c;line-height:1.7;margin-top:14px;}",
-    ".login-forgot{display:inline-block;margin-top:12px;font-size:11.5px;color:#3d6b53;",
-    "background:none;border:none;padding:4px 6px;text-decoration:underline;cursor:pointer;",
-    "font-family:inherit;}",
-    ".login-btn{width:100%;box-sizing:border-box;font-family:inherit;font-size:14px;",
-    "font-weight:700;padding:14px 16px;border-radius:14px;cursor:pointer;border:1px solid transparent;}",
-    ".login-btn-main{background:#2f8f5b;color:#ffffff;}",
-    ".login-btn-sub{background:#eef7f1;color:#2f8f5b;border-color:#d4eae0;}",
-    ".login-btn:disabled{opacity:.55;}",
-  ].join("");
 
-  function injectCss() {
-    if (document.getElementById(CSS_ID)) return;
-    var st = document.createElement("style");
-    st.id = CSS_ID;
-    st.textContent = CSS;
-    document.head.appendChild(st);
+  // ★今までの色（Exallyの緑）★ 渡されなければこのまま＝他の画面は1色も変わらない
+  var GREEN = {
+    bg: "#eef7f1", // 画面の背景
+    card: "#ffffff", // カードの地
+    line: "#d4eae0", // 枠線
+    accent: "#52b788", // 製品名の色・入力欄を選んだ時の枠
+    accentDark: "#2f8f5b", // ログインボタンの地
+    title: "#2f5d45", // アプリ名
+    muted: "#7aa08c", // 小さい説明の字
+    ink: "#24422f", // 入力した字
+    link: "#3d6b53", // 「パスワードを忘れた」
+    danger: "#c0392b", // 間違いの字
+    shadow: "rgba(30,80,46,.10)",
+  };
+
+  // 渡された分だけ差し替える（★hexを直に埋める。var(--…)は使わない★）
+  function themeOf(t) {
+    var out = {};
+    for (var k in GREEN) if (Object.prototype.hasOwnProperty.call(GREEN, k)) out[k] = GREEN[k];
+    if (t && typeof t === "object") {
+      for (var j in out) {
+        if (Object.prototype.hasOwnProperty.call(t, j) && t[j]) out[j] = String(t[j]);
+      }
+    }
+    return out;
+  }
+
+  function cssFor(c) {
+    return [
+      ".login-ov{position:fixed;inset:0;background:" + c.bg + ";z-index:400;display:none;",
+      "align-items:center;justify-content:center;overflow:auto;",
+      "padding:24px 18px calc(24px + env(safe-area-inset-bottom));}",
+      ".login-ov.open{display:flex;}",
+      ".login-card{width:100%;max-width:380px;background:" +
+        c.card +
+        ";border:1px solid " +
+        c.line +
+        ";",
+      "border-radius:20px;box-shadow:0 6px 22px " + c.shadow + ";padding:26px 20px 22px;",
+      "text-align:center;box-sizing:border-box;}",
+      ".login-logo{font-family:'DM Mono',ui-monospace,monospace;font-size:27px;letter-spacing:2px;",
+      "color:" + c.accent + ";}",
+      // ★製品名を渡された時（＝日本語や絵文字が入る）は英字用の書体と字間を当てない★
+      //   当てたままだと「ダ イ コ メ」と間が開いて、事務所の見出しと違う物に見える（実際に見た）
+      ".login-logo.alt{font-family:inherit;font-weight:800;letter-spacing:normal;}",
+      ".login-logo span{font-family:'Noto Sans JP',sans-serif;font-size:11px;letter-spacing:1px;",
+      "color:" + c.muted + ";margin-left:6px;}",
+      ".login-mark{max-width:190px;height:auto;display:block;margin:0 auto;}",
+      ".login-title{font-size:15px;font-weight:700;color:" + c.title + ";margin:10px 0 2px;}",
+      ".login-sub{font-size:12px;color:" + c.muted + ";margin-bottom:16px;}",
+      ".login-inp{width:100%;box-sizing:border-box;font-size:16px;padding:13px 14px;",
+      "border:1px solid " +
+        c.line +
+        ";border-radius:12px;background:" +
+        c.card +
+        ";color:" +
+        c.ink +
+        ";",
+      "margin-bottom:10px;font-family:inherit;outline:none;-webkit-appearance:none;}",
+      ".login-inp:focus{border-color:" + c.accent + ";}",
+      ".login-err{min-height:18px;font-size:12px;color:" +
+        c.danger +
+        ";margin-bottom:6px;white-space:pre-wrap;}",
+      /* ログインと新規登録の間の案内。近い方（新規登録）に付いて見えるよう上を空けて下は詰める */
+      ".login-mid{font-size:11.5px;color:" +
+        c.muted +
+        ";line-height:1.9;margin:16px 0 7px;word-break:keep-all;}",
+      ".login-note{font-size:11px;color:" + c.muted + ";line-height:1.7;margin-top:14px;}",
+      ".login-forgot{display:inline-block;margin-top:12px;font-size:11.5px;color:" + c.link + ";",
+      "background:none;border:none;padding:4px 6px;text-decoration:underline;cursor:pointer;",
+      "font-family:inherit;}",
+      ".login-btn{width:100%;box-sizing:border-box;font-family:inherit;font-size:14px;",
+      "font-weight:700;padding:14px 16px;border-radius:14px;cursor:pointer;border:1px solid transparent;}",
+      ".login-btn-main{background:" + c.accentDark + ";color:#ffffff;}",
+      ".login-btn-sub{background:" +
+        c.bg +
+        ";color:" +
+        c.accentDark +
+        ";border-color:" +
+        c.line +
+        ";}",
+      ".login-btn:disabled{opacity:.55;}",
+    ].join("");
+  }
+
+  // ★色を渡された時は入れ直す★（既に入っている物を残すと 緑と青が混ざる）
+  function injectCss(theme) {
+    var st = document.getElementById(CSS_ID);
+    if (!st) {
+      st = document.createElement("style");
+      st.id = CSS_ID;
+      document.head.appendChild(st);
+    }
+    st.textContent = cssFor(themeOf(theme));
   }
 
   function esc(s) {
@@ -85,7 +154,7 @@
   function mount(opt) {
     var o = opt || {};
     var sb = o.sb;
-    injectCss();
+    injectCss(o.theme);
 
     var ov = document.getElementById("loginOv");
     if (!ov) {
@@ -96,7 +165,19 @@
     }
     ov.innerHTML =
       '<div class="login-card">' +
-      '<div class="login-logo">Exally <span>エクサリー</span></div>' +
+      // 製品名。渡されなければ今までどおり Exally（このrepoの他の画面は1文字も変わらない）
+      (o.logo
+        ? '<img class="login-mark" src="' +
+          esc(o.logo) +
+          '" alt="' +
+          esc(o.brand || "Exally") +
+          '">'
+        : '<div class="login-logo' +
+          (o.brand ? " alt" : "") +
+          '">' +
+          esc(o.brand || "Exally") +
+          (o.brandSub === "" ? "" : " <span>" + esc(o.brandSub || "エクサリー") + "</span>") +
+          "</div>") +
       '<div class="login-title">' +
       esc(o.app || "") +
       "</div>" +

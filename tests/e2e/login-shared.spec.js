@@ -27,7 +27,10 @@ test.describe("ログイン画面（全アプリ共通）", () => {
       const errors = await openLogin(page, app.url);
 
       // 出るものと並び順が全アプリで同じ
-      await expect(page.locator("#loginOv .login-logo")).toContainText("Exally");
+      // ★2026-08-09 f629b09 でログイン画面を「🚗 ダイコメ」にした（司さん指摘②）。
+      //   その時にここを直し忘れ、テスト線のCIは赤のままだった（2026-08-10 に発見）。
+      //   代行請求は ★ダイコメの製品★ なので、名乗るのは Exally ではなく ダイコメ。
+      await expect(page.locator("#loginOv .login-logo")).toContainText("ダイコメ");
       await expect(page.locator("#loginOv .login-title")).toHaveText(app.name); // ここだけアプリ名
       await expect(page.locator("#loginOv .login-sub")).toHaveText("メールでログイン");
       await expect(page.locator("#loginEmail")).toHaveAttribute("placeholder", "メールアドレス");

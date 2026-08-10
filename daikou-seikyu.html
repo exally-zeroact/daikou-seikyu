@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
-    <title>代行請求システム | Exally</title>
+    <!-- ★ホーム画面に置くとこの名前になる。Exally ではなく ダイコメ★ (2026-08-09) -->
+    <title>ダイコメ 代行請求</title>
     <link
       href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap"
       rel="stylesheet"
@@ -22,8 +23,8 @@
       }
       body {
         font-family: "Noto Sans JP", sans-serif;
-        background: #f0faf4;
-        color: #2e7d54;
+        background: #f2f7ff;
+        color: #0a5fd0;
         min-height: 100vh;
         padding-bottom: 72px;
       }
@@ -35,7 +36,7 @@
         position: fixed;
         inset: 0;
         z-index: 280;
-        background: #eef7f1;
+        background: #f2f7ff;
         align-items: center;
         justify-content: center;
       }
@@ -50,8 +51,8 @@
         width: 36px;
         height: 36px;
         margin: 0 auto 14px;
-        border: 3px solid #d4eae0;
-        border-top-color: #3d9e72;
+        border: 3px solid #dbe7f7;
+        border-top-color: #0b57d0;
         border-radius: 50%;
         animation: spin 0.8s linear infinite;
       }
@@ -63,26 +64,26 @@
       .load-msg {
         font-size: 13px;
         font-weight: 700;
-        color: #2e7d54;
+        color: #0a5fd0;
         margin-bottom: 12px;
         line-height: 1.6;
       }
       /* Excel自動連携カード */
       .exl-card {
         margin-top: 18px;
-        background: #f7fcf9;
-        border: 1.5px solid #d4eae0;
+        background: #f7f9fc;
+        border: 1.5px solid #dbe7f7;
         border-radius: 14px;
         padding: 14px;
       }
       .exl-title {
         font-size: 14px;
         font-weight: 800;
-        color: #2e7d54;
+        color: #0a5fd0;
       }
       .exl-sub {
         font-size: 11.5px;
-        color: #5c7c6a;
+        color: #5c6a7c;
         margin: 4px 0 12px;
         line-height: 1.6;
       }
@@ -97,15 +98,15 @@
         width: 38px;
         font-size: 11px;
         font-weight: 700;
-        color: #2e7d54;
+        color: #0a5fd0;
       }
       .exl-url {
         flex: 1;
         min-width: 0;
         font-size: 11px;
         font-family: "DM Mono", monospace;
-        color: #2e7d54;
-        border: 1.5px solid #d4eae0;
+        color: #0a5fd0;
+        border: 1.5px solid #dbe7f7;
         border-radius: 8px;
         padding: 7px 8px;
         background: #ffffff;
@@ -117,7 +118,7 @@
       }
       .exl-help {
         font-size: 11px;
-        color: #7aa08c;
+        color: #5a6b82;
         margin-top: 6px;
         line-height: 1.7;
       }
@@ -125,13 +126,13 @@
         width: 100%;
         border: 0;
         border-radius: 12px;
-        background: #2e7d54;
+        background: #0a5fd0;
         color: #fff;
         font-size: 14px;
         font-weight: 800;
         padding: 14px 12px;
         margin-top: 2px;
-        box-shadow: 0 2px 8px rgba(46, 125, 84, 0.28);
+        box-shadow: 0 2px 8px rgba(10, 95, 208, 0.28);
       }
       .exl-dl:disabled {
         opacity: 0.6;
@@ -146,7 +147,7 @@
       .exl-pick-h {
         font-size: 12px;
         font-weight: 800;
-        color: #2f7d5b;
+        color: #2f517d;
         margin: 0 0 4px;
       }
       .exl-pick {
@@ -157,7 +158,7 @@
         padding: 0 10px 0 4px;
         margin: 0 6px 4px 0;
         font-size: 13px;
-        border: 1px solid #e3eee8;
+        border: 1px solid #e3e8ee;
         border-radius: 8px;
       }
       .exl-pick input {
@@ -169,7 +170,7 @@
       }
       .exl-dlnote {
         font-size: 11px;
-        color: #5c7c6a;
+        color: #5c6a7c;
         line-height: 1.7;
         margin-top: 8px;
       }
@@ -178,13 +179,13 @@
       }
       .exl-adv > summary {
         font-size: 11.5px;
-        color: #7aa08c;
+        color: #5a6b82;
         cursor: pointer;
         list-style: revert;
       }
       .exl-advbody {
         font-size: 11px;
-        color: #5c7c6a;
+        color: #5c6a7c;
         line-height: 1.7;
         margin-top: 8px;
       }
@@ -227,30 +228,30 @@
       }
       .xl-cap {
         font-size: 12px;
-        color: #2e7d54;
+        color: #0a5fd0;
         font-weight: 700;
         line-height: 1.5;
         margin-bottom: 6px;
       }
       .xl-cap span {
-        color: #8a9a90;
+        color: #8a919a;
         font-weight: 600;
       }
       /* 画面のスクショ風枠 */
       .xl-shot {
-        border: 1px solid #cfd8d2;
+        border: 1px solid #cfd3d8;
         border-radius: 8px;
         overflow: hidden;
         background: #fff;
-        box-shadow: 0 1px 3px rgba(30, 80, 46, 0.08);
+        box-shadow: 0 1px 3px rgba(20, 36, 61, 0.08);
         font-family: -apple-system, "Segoe UI", sans-serif;
       }
       /* Excelのリボン（上のタブ帯） */
       .xl-ribbon {
         display: flex;
         gap: 2px;
-        background: #f3f5f4;
-        border-bottom: 1px solid #d8e0db;
+        background: #f3f4f5;
+        border-bottom: 1px solid #d8dbe0;
         padding: 5px 6px 0;
       }
       .xl-rtab {
@@ -285,16 +286,16 @@
         gap: 5px;
         font-size: 11px;
         font-weight: 700;
-        color: #2e7d54;
-        background: #eef6f1;
-        border: 1px solid #cfe3d7;
+        color: #0a5fd0;
+        background: #eef1f6;
+        border: 1px solid #cfd8e3;
         border-radius: 6px;
         padding: 6px 9px;
       }
       /* ドロップダウンの選択肢リスト */
       .xl-menu {
         margin-top: 7px;
-        border: 1px solid #d8e0db;
+        border: 1px solid #d8dbe0;
         border-radius: 6px;
         overflow: hidden;
         font-size: 11px;
@@ -302,15 +303,15 @@
       .xl-mi {
         padding: 7px 9px;
         color: #444;
-        border-bottom: 1px solid #eef2f0;
+        border-bottom: 1px solid #eef0f2;
         background: #fff;
       }
       .xl-mi:last-child {
         border-bottom: 0;
       }
       .xl-mi.on {
-        background: #e9f5ee;
-        color: #176b3f;
+        background: #e9eef5;
+        color: #173b6b;
         font-weight: 800;
       }
       /* 「Webから」ダイアログ窓 */
@@ -321,8 +322,8 @@
         font-size: 11px;
         font-weight: 700;
         color: #333;
-        background: #f3f5f4;
-        border-bottom: 1px solid #e0e6e2;
+        background: #f3f4f5;
+        border-bottom: 1px solid #e0e3e6;
         padding: 7px 10px;
       }
       .xl-dbody {
@@ -336,11 +337,11 @@
       .xl-field {
         border: 1.5px solid #217346;
         border-radius: 6px;
-        background: #fbfffd;
+        background: #fbfdff;
         padding: 7px 8px;
         font-size: 10px;
         font-family: "DM Mono", monospace;
-        color: #2e7d54;
+        color: #0a5fd0;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -380,14 +381,14 @@
         white-space: nowrap;
       }
       .xl-prev td {
-        border: 1px solid #e6ece9;
+        border: 1px solid #e6e9ec;
         padding: 4px 6px;
         color: #345;
         white-space: nowrap;
       }
       .xl-down {
         text-align: center;
-        color: #9bbdab;
+        color: #9baabd;
         font-size: 15px;
         line-height: 1;
         margin: 5px 0 0;
@@ -398,31 +399,31 @@
         top: 0;
         z-index: 50;
         background: #ffffff;
-        border-bottom: 1px solid #d4eae0;
+        border-bottom: 1px solid #dbe7f7;
         display: flex;
         align-items: center;
         gap: 8px;
         padding: 10px 14px;
-        box-shadow: 0 1px 4px rgba(30, 80, 46, 0.06);
+        box-shadow: 0 1px 4px rgba(20, 36, 61, 0.06);
       }
       .app-logo {
-        font-family: "DM Mono", monospace;
+        /* ★事務所(dashboard.html)の .logo と同じ見え方に揃える★ (2026-08-09)
+           太字の日本語なので DM Mono は当てない（英字用の書体で、絵文字と釣り合わない）。 */
         font-size: 20px;
-        font-weight: 500;
-        color: #52b788;
-        letter-spacing: -0.5px;
+        font-weight: 800;
+        color: #0a5fd0; /* 事務所の --blue-d */
       }
       .app-logo-ja {
         font-size: 10px;
         font-weight: 700;
-        color: #5c7c6a;
+        color: #5c6a7c;
         margin-left: -2px;
       }
       .app-title {
         margin-left: auto;
         font-size: 12px;
         font-weight: 700;
-        color: #5c7c6a;
+        color: #5c6a7c;
       }
 
       /* ===== SCREEN ===== */
@@ -438,12 +439,12 @@
       .scr-title {
         font-size: 16px;
         font-weight: 700;
-        color: #2e7d54;
+        color: #0a5fd0;
         margin-bottom: 4px;
       }
       .scr-sub {
         font-size: 11px;
-        color: #5c7c6a;
+        color: #5c6a7c;
         margin-bottom: 14px;
         line-height: 1.6;
       }
@@ -451,16 +452,16 @@
       /* ===== CARD ===== */
       .card {
         background: #ffffff;
-        border: 1px solid #d4eae0;
+        border: 1px solid #dbe7f7;
         border-radius: 16px;
-        box-shadow: 0 1px 4px rgba(30, 80, 46, 0.06);
+        box-shadow: 0 1px 4px rgba(20, 36, 61, 0.06);
         padding: 14px;
         margin-bottom: 12px;
       }
       .card-label {
         font-size: 10px;
         font-weight: 700;
-        color: #7aa08c;
+        color: #5a6b82;
         letter-spacing: 1.2px;
         text-transform: uppercase;
         margin-bottom: 10px;
@@ -479,27 +480,27 @@
       .flabel {
         font-size: 11px;
         font-weight: 700;
-        color: #3d6b53;
+        color: #3d516b;
       }
       .finput,
       .fselect {
         width: 100%;
         padding: 10px 12px;
-        border: 1.5px solid #d4eae0;
+        border: 1.5px solid #dbe7f7;
         border-radius: 10px;
         font-size: 14px;
         font-family: "Noto Sans JP", sans-serif;
-        color: #2e7d54;
+        color: #0a5fd0;
         outline: none;
         background: #ffffff;
         transition: border-color 0.15s;
       }
       .finput:focus,
       .fselect:focus {
-        border-color: #52b788;
+        border-color: #007aff;
       }
       .finput::placeholder {
-        color: #a9c4b6;
+        color: #a9b5c4;
       }
       .fnum {
         font-family: "DM Mono", monospace;
@@ -508,7 +509,7 @@
       .fselect {
         appearance: none;
         -webkit-appearance: none;
-        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' stroke='%233D9E72' stroke-width='1.6' fill='none' stroke-linecap='round'/></svg>");
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' stroke='%23007AFF' stroke-width='1.6' fill='none' stroke-linecap='round'/></svg>");
         background-repeat: no-repeat;
         background-position: right 12px center;
         padding-right: 30px;
@@ -528,26 +529,26 @@
         transition: all 0.15s;
       }
       .btn-primary {
-        background: #3d9e72;
+        background: #0b57d0;
         color: #ffffff;
         padding: 13px 16px;
         font-size: 14px;
         width: 100%;
-        box-shadow: 0 3px 12px rgba(61, 158, 114, 0.32);
+        box-shadow: 0 3px 12px rgba(0, 122, 255, 0.32);
       }
       .btn-primary:hover {
-        background: #357f5f;
+        background: #35557f;
       }
       .btn-ghost {
-        background: #f0faf4;
-        color: #3d9e72;
-        border: 1.5px solid #c8ecd8;
+        background: #f2f7ff;
+        color: #0b57d0;
+        border: 1.5px solid #cfe0ff;
         padding: 11px 14px;
         font-size: 13px;
         width: 100%;
       }
       .btn-ghost:hover {
-        background: #e2f4ea;
+        background: #e2eaf4;
       }
       .btn-sm {
         padding: 7px 12px;
@@ -591,7 +592,7 @@
       }
       .itb-lbl {
         font-size: 11px;
-        color: #7aa08c;
+        color: #5a6b82;
         font-weight: 700;
         white-space: nowrap; /* 「お支払期限」等のラベルを縦折れさせない */
       }
@@ -599,17 +600,17 @@
       .itb-font {
         font-size: 12px;
         padding: 5px 10px; /* チップと同じ縦幅に統一（行の高さを揃える） */
-        border: 1px solid #c8ecd8;
+        border: 1px solid #cfe0ff;
         border-radius: 8px;
         background: #fff;
-        color: #2e7d54;
+        color: #0a5fd0;
         cursor: pointer;
         font-family: inherit;
         white-space: nowrap;
       }
       .itb-btn.on {
-        background: #52b788;
-        border-color: #52b788;
+        background: #007aff;
+        border-color: #007aff;
         color: #fff;
         font-weight: 700;
       }
@@ -623,17 +624,17 @@
       .itb-chip {
         font-size: 12px;
         padding: 5px 10px;
-        border: 1px solid #c8ecd8;
+        border: 1px solid #cfe0ff;
         border-radius: 14px;
         background: #fff;
-        color: #2e7d54;
+        color: #0a5fd0;
         cursor: pointer;
         font-family: inherit;
         white-space: nowrap; /* 「西暦」「令和」等が縦書きに折り返さないように */
       }
       .itb-chip.on {
-        background: #2e7d54;
-        border-color: #2e7d54;
+        background: #0a5fd0;
+        border-color: #0a5fd0;
         color: #fff;
         font-weight: 700;
       }
@@ -644,9 +645,9 @@
         height: 24px;
         flex: none;
         padding: 0;
-        border: 1px solid #c8ecd8;
+        border: 1px solid #cfe0ff;
         border-radius: 12px;
-        background: #e6f4ec;
+        background: #e6ecf4;
         cursor: pointer;
         transition:
           background 0.15s,
@@ -665,8 +666,8 @@
         transition: left 0.15s;
       }
       .itb-switch.on {
-        background: #52b788;
-        border-color: #52b788;
+        background: #007aff;
+        border-color: #007aff;
       }
       .itb-switch.on::after {
         left: 24px;
@@ -678,7 +679,7 @@
         padding: 4px 8px;
         font-size: 12.5px;
         border-radius: 9px;
-        border: 1px solid #c8ecd8;
+        border: 1px solid #cfe0ff;
       }
       .inv-override {
         display: flex;
@@ -702,18 +703,18 @@
       .dseg-btn {
         flex: 1;
         padding: 10px 12px;
-        border: 1.5px solid #c8ecd8;
+        border: 1.5px solid #cfe0ff;
         border-radius: 10px;
         background: #fff;
-        color: #2e7d54;
+        color: #0a5fd0;
         font-weight: 700;
         font-size: 14px;
         cursor: pointer;
         font-family: inherit;
       }
       .dseg-btn.on {
-        background: #52b788;
-        border-color: #52b788;
+        background: #007aff;
+        border-color: #007aff;
         color: #fff;
       }
       .itb-font {
@@ -722,10 +723,10 @@
         gap: 8px;
         min-width: 150px;
         justify-content: space-between;
-        background: #f0faf4;
+        background: #f2f7ff;
       }
       .itb-caret {
-        color: #7aa08c;
+        color: #5a6b82;
       }
       .itb-fontpop {
         position: absolute;
@@ -734,16 +735,16 @@
         z-index: 50;
         width: 230px;
         background: #fff;
-        border: 1px solid #c8ecd8;
+        border: 1px solid #cfe0ff;
         border-radius: 10px;
-        box-shadow: 0 6px 20px rgba(30, 80, 46, 0.16);
+        box-shadow: 0 6px 20px rgba(20, 36, 61, 0.16);
         padding: 8px;
       }
       .itb-fontsearch {
         width: 100%;
         box-sizing: border-box;
         padding: 7px 9px;
-        border: 1px solid #c8ecd8;
+        border: 1px solid #cfe0ff;
         border-radius: 7px;
         font-size: 12.5px;
         margin-bottom: 6px;
@@ -753,14 +754,14 @@
         padding: 8px 9px;
         border-radius: 7px;
         font-size: 13px;
-        color: #2e7d54;
+        color: #0a5fd0;
         cursor: pointer;
       }
       .itb-fopt:hover {
-        background: #f0faf4;
+        background: #f2f7ff;
       }
       .itb-fopt.on {
-        background: #c8ecd8;
+        background: #cfe0ff;
         font-weight: 700;
       }
 
@@ -772,12 +773,12 @@
         margin: -4px 2px 12px;
         font-size: 12px;
         font-weight: 700;
-        color: #3d9e72;
+        color: #0b57d0;
       }
       .scope-clear {
-        background: #f0faf4;
-        border: 1.5px solid #c8ecd8;
-        color: #3d9e72;
+        background: #f2f7ff;
+        border: 1.5px solid #cfe0ff;
+        color: #0b57d0;
         font-size: 11px;
         font-weight: 700;
         padding: 4px 10px;
@@ -796,33 +797,33 @@
       .align-lbl {
         font-size: 11px;
         font-weight: 700;
-        color: #7aa08c;
+        color: #5a6b82;
         margin-right: 2px;
       }
       .align-btn {
         padding: 5px 12px;
-        border: 1.5px solid #d4eae0;
+        border: 1.5px solid #dbe7f7;
         border-radius: 8px;
         background: #ffffff;
         font-size: 12px;
         font-weight: 700;
-        color: #7aa08c;
+        color: #5a6b82;
         cursor: pointer;
         font-family: "Noto Sans JP", sans-serif;
       }
       .align-btn.on {
-        border-color: #52b788;
-        background: #f0faf4;
-        color: #2e7d54;
+        border-color: #007aff;
+        background: #f2f7ff;
+        color: #0a5fd0;
       }
 
       /* ===== ENTRY LINES (input screen) ===== */
       .entry-line {
-        border: 1.5px solid #e2f4ea;
+        border: 1.5px solid #e2eaf4;
         border-radius: 12px;
         padding: 10px 10px 11px;
         margin-bottom: 10px;
-        background: #fbfefc;
+        background: #fbfcfe;
       }
       .entry-line-hd {
         display: flex;
@@ -833,7 +834,7 @@
       .entry-line-no {
         font-size: 10px;
         font-weight: 700;
-        color: #7aa08c;
+        color: #5a6b82;
         letter-spacing: 0.5px;
       }
       .ef-grid {
@@ -856,22 +857,22 @@
       .ef-lb {
         font-size: 10px;
         font-weight: 700;
-        color: #7aa08c;
+        color: #5a6b82;
         padding-left: 2px;
       }
       .entry-inp {
         width: 100%;
         padding: 9px 10px;
-        border: 1.5px solid #e2f4ea;
+        border: 1.5px solid #e2eaf4;
         border-radius: 9px;
         font-size: 14px;
         font-family: "Noto Sans JP", sans-serif;
-        color: #2e7d54;
+        color: #0a5fd0;
         outline: none;
         background: #ffffff;
       }
       .entry-inp:focus {
-        border-color: #52b788;
+        border-color: #007aff;
       }
       .entry-inp.num {
         font-family: "DM Mono", monospace;
@@ -885,20 +886,20 @@
         display: block;
         width: 100%;
         padding: 9px 10px;
-        border: 1.5px solid #e2f4ea;
+        border: 1.5px solid #e2eaf4;
         border-radius: 9px;
         font-size: 14px;
         font-family: "DM Mono", monospace;
         text-align: center;
-        color: #2e7d54;
+        color: #0a5fd0;
         background: #ffffff;
         pointer-events: none;
       }
       .date-show.empty {
-        color: #a9c4b6;
+        color: #a9b5c4;
       }
       .date-wrap:focus-within .date-show {
-        border-color: #52b788;
+        border-color: #007aff;
       }
       .date-input {
         position: absolute;
@@ -917,9 +918,9 @@
         width: 26px;
         height: 26px;
         border-radius: 50%;
-        background: #f0faf4;
+        background: #f2f7ff;
         border: none;
-        color: #7aa08c;
+        color: #5a6b82;
         font-size: 14px;
         cursor: pointer;
         display: flex;
@@ -935,17 +936,17 @@
         width: 100%;
         margin-top: 8px;
         padding: 9px;
-        background: #f0faf4;
-        border: 1.5px dashed #c8ecd8;
+        background: #f2f7ff;
+        border: 1.5px dashed #cfe0ff;
         border-radius: 10px;
         font-size: 13px;
         font-weight: 700;
-        color: #3d9e72;
+        color: #0b57d0;
         cursor: pointer;
         font-family: "Noto Sans JP", sans-serif;
       }
       .add-line:hover {
-        background: #e2f4ea;
+        background: #e2eaf4;
       }
 
       /* ===== LIST ===== */
@@ -954,7 +955,7 @@
         align-items: center;
         gap: 10px;
         padding: 11px 4px;
-        border-bottom: 1px solid #eaf5ef;
+        border-bottom: 1px solid #eaeff5;
         cursor: pointer;
       }
       .list-item:last-child {
@@ -963,7 +964,7 @@
       .li-date {
         font-family: "DM Mono", monospace;
         font-size: 12px;
-        color: #5c7c6a;
+        color: #5c6a7c;
         min-width: 42px;
       }
       .li-main {
@@ -973,26 +974,26 @@
       .li-dest {
         font-size: 13px;
         font-weight: 500;
-        color: #2e7d54;
+        color: #0a5fd0;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
       }
       .li-meta {
         font-size: 10px;
-        color: #7aa08c;
+        color: #5a6b82;
         margin-top: 1px;
       }
       .li-amt {
         font-family: "DM Mono", monospace;
         font-size: 13px;
         font-weight: 500;
-        color: #3d9e72;
+        color: #0b57d0;
         white-space: nowrap;
       }
       .li-empty {
         text-align: center;
-        color: #a9c4b6;
+        color: #a9b5c4;
         font-size: 12px;
         padding: 30px 0;
       }
@@ -1015,8 +1016,8 @@
       }
       .pay-sum-cell {
         flex: 1;
-        background: #f7fcf9;
-        border: 1.5px solid #e2f4ea;
+        background: #f7f9fc;
+        border: 1.5px solid #e2eaf4;
         border-radius: 12px;
         padding: 9px 8px;
         text-align: center;
@@ -1024,13 +1025,13 @@
       .pay-sum-lb {
         font-size: 10px;
         font-weight: 700;
-        color: #7aa08c;
+        color: #5a6b82;
       }
       .pay-sum-val {
         font-family: "DM Mono", monospace;
         font-size: 14px;
         font-weight: 500;
-        color: #2e7d54;
+        color: #0a5fd0;
         margin-top: 2px;
       }
       .pay-sum-cell.rem .pay-sum-val {
@@ -1041,7 +1042,7 @@
         align-items: center;
         gap: 10px;
         padding: 11px 4px;
-        border-bottom: 1px solid #eaf5ef;
+        border-bottom: 1px solid #eaeff5;
         cursor: pointer;
       }
       .pay-item:last-child {
@@ -1054,14 +1055,14 @@
       .pay-co {
         font-size: 13px;
         font-weight: 700;
-        color: #2e7d54;
+        color: #0a5fd0;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
       }
       .pay-sub {
         font-size: 10px;
-        color: #7aa08c;
+        color: #5a6b82;
         margin-top: 2px;
         font-family: "DM Mono", monospace;
       }
@@ -1073,7 +1074,7 @@
         font-family: "DM Mono", monospace;
         font-size: 13px;
         font-weight: 500;
-        color: #2e7d54;
+        color: #0a5fd0;
       }
       .pay-rem {
         font-family: "DM Mono", monospace;
@@ -1100,9 +1101,9 @@
         border: 1.5px solid #f3e0b6;
       }
       .pay-pill.paid {
-        background: #f0faf4;
-        color: #2e7d54;
-        border: 1.5px solid #c8ecd8;
+        background: #f2f7ff;
+        color: #0a5fd0;
+        border: 1.5px solid #cfe0ff;
       }
       .pay-quick {
         display: flex;
@@ -1119,9 +1120,9 @@
         min-width: 56px;
         min-height: 44px;
         margin-left: 8px;
-        border: 1px solid #2e7d54;
+        border: 1px solid #0a5fd0;
         background: #fff;
-        color: #2e7d54;
+        color: #0a5fd0;
         border-radius: 10px;
         font-family: inherit;
         font-size: 12px;
@@ -1129,16 +1130,16 @@
         cursor: pointer;
       }
       .pay-full-btn:active {
-        background: #eafaf1;
+        background: #eaf1fa;
       }
       /* 複数選択して一括全入金 */
       .pay-sel-toggle {
         flex: 0 0 auto;
         min-height: 36px;
         padding: 0 14px;
-        border: 1px solid #cfe6da;
+        border: 1px solid #cfd9e6;
         background: #fff;
-        color: #2e7d54;
+        color: #0a5fd0;
         border-radius: 8px;
         font-family: inherit;
         font-weight: 700;
@@ -1146,8 +1147,8 @@
         cursor: pointer;
       }
       .pay-sel-toggle.on {
-        background: #2e7d54;
-        border-color: #2e7d54;
+        background: #0a5fd0;
+        border-color: #0a5fd0;
         color: #fff;
       }
       .pay-check {
@@ -1155,7 +1156,7 @@
         width: 24px;
         height: 24px;
         border-radius: 6px;
-        border: 2px solid #2e7d54;
+        border: 2px solid #0a5fd0;
         background: #fff;
         color: #fff;
         display: inline-flex;
@@ -1165,14 +1166,14 @@
         font-weight: 800;
       }
       .pay-check.on {
-        background: #2e7d54;
+        background: #0a5fd0;
       }
       .pay-check.dim {
         opacity: 0.25;
-        border-color: #b9d3c6;
+        border-color: #b9c4d3;
       }
       .pay-item.pay-sel {
-        background: #eafaf1;
+        background: #eaf1fa;
       }
       .pay-sel-bar {
         position: fixed;
@@ -1185,14 +1186,14 @@
         gap: 10px;
         padding: 10px 14px;
         background: #ffffff;
-        border-top: 1px solid #d4eae0;
-        box-shadow: 0 -2px 10px rgba(30, 80, 46, 0.08);
+        border-top: 1px solid #dbe7f7;
+        box-shadow: 0 -2px 10px rgba(20, 36, 61, 0.08);
       }
       .pay-sel-info {
         flex: 1;
         font-size: 13px;
         font-weight: 800;
-        color: #2e7d54;
+        color: #0a5fd0;
       }
       /* 取り消しボタン付きトースト（通常トーストと別） */
       .toast-undo {
@@ -1205,7 +1206,7 @@
         align-items: center;
         gap: 12px;
         max-width: 92%;
-        background: #2e7d54;
+        background: #0a5fd0;
         color: #fff;
         padding: 10px 12px 10px 16px;
         border-radius: 12px;
@@ -1225,7 +1226,7 @@
       .toast-undo-btn {
         flex: 0 0 auto;
         background: #fff;
-        color: #2e7d54;
+        color: #0a5fd0;
         border: none;
         border-radius: 8px;
         padding: 7px 12px;
@@ -1244,23 +1245,23 @@
       .rep-table th {
         font-size: 10px;
         font-weight: 700;
-        color: #7aa08c;
+        color: #5a6b82;
         text-align: right;
         padding: 6px 4px;
-        border-bottom: 1.5px solid #d4eae0;
+        border-bottom: 1.5px solid #dbe7f7;
       }
       .rep-table th:first-child {
         text-align: left;
       }
       .rep-table td {
         padding: 9px 4px;
-        border-bottom: 1px solid #eaf5ef;
+        border-bottom: 1px solid #eaeff5;
         vertical-align: middle;
       }
       .rep-co {
         font-size: 12px;
         font-weight: 700;
-        color: #2e7d54;
+        color: #0a5fd0;
         display: flex;
         align-items: center;
         gap: 6px;
@@ -1273,17 +1274,17 @@
       .rep-n {
         font-family: "DM Mono", monospace;
         text-align: right;
-        color: #2e7d54;
+        color: #0a5fd0;
         white-space: nowrap;
       }
       .rep-rem {
         color: #c0392b;
       }
       .rep-table tfoot td {
-        border-top: 1.5px solid #d4eae0;
+        border-top: 1.5px solid #dbe7f7;
         border-bottom: none;
         font-weight: 700;
-        color: #2e7d54;
+        color: #0a5fd0;
         padding-top: 10px;
       }
 
@@ -1291,8 +1292,8 @@
       .seg {
         display: flex;
         gap: 0;
-        background: #eef7f1;
-        border: 1.5px solid #d4eae0;
+        background: #f2f7ff;
+        border: 1.5px solid #dbe7f7;
         border-radius: 12px;
         padding: 3px;
         margin: 0 0 14px;
@@ -1306,14 +1307,14 @@
         font-family: "Noto Sans JP", sans-serif;
         font-size: 13px;
         font-weight: 700;
-        color: #7aa08c;
+        color: #5a6b82;
         cursor: pointer;
         transition: all 0.15s;
       }
       .seg-btn.on {
-        background: #3d9e72;
+        background: #0b57d0;
         color: #ffffff;
-        box-shadow: 0 2px 6px rgba(61, 158, 114, 0.28);
+        box-shadow: 0 2px 6px rgba(0, 122, 255, 0.28);
       }
       .seg-panel {
         display: none;
@@ -1331,7 +1332,7 @@
       }
       .tpl-card {
         position: relative;
-        border: 1.5px solid #c8ecd8;
+        border: 1.5px solid #cfe0ff;
         border-radius: 14px;
         overflow: hidden;
         background: #fff;
@@ -1344,15 +1345,15 @@
           box-shadow 0.12s;
       }
       .tpl-card.on {
-        border-color: #52b788;
-        box-shadow: 0 0 0 1.5px #52b788 inset;
+        border-color: #007aff;
+        box-shadow: 0 0 0 1.5px #007aff inset;
       }
       .tpl-thumb {
         width: 100%;
         aspect-ratio: 1 / 1.414;
-        background: #f0faf4;
+        background: #f2f7ff;
         display: block;
-        border-bottom: 1px solid #e3f2ea;
+        border-bottom: 1px solid #e3eaf2;
         object-fit: contain;
       }
       .tpl-meta {
@@ -1361,11 +1362,11 @@
       .tpl-name {
         font-weight: 700;
         font-size: 13px;
-        color: #2e7d54;
+        color: #0a5fd0;
       }
       .tpl-desc {
         font-size: 11px;
-        color: #7aa08c;
+        color: #5a6b82;
         margin-top: 2px;
         line-height: 1.35;
       }
@@ -1376,13 +1377,13 @@
         width: 22px;
         height: 22px;
         border-radius: 50%;
-        background: #3d9e72;
+        background: #0b57d0;
         color: #fff;
         display: none;
         align-items: center;
         justify-content: center;
         font-size: 13px;
-        box-shadow: 0 1px 4px rgba(61, 158, 114, 0.45);
+        box-shadow: 0 1px 4px rgba(0, 122, 255, 0.45);
       }
       .tpl-card.on .tpl-badge {
         display: flex;
@@ -1390,11 +1391,11 @@
       .tpl-hint {
         margin-top: 12px;
         padding: 10px 12px;
-        background: #f0faf4;
-        border: 1px solid #c8ecd8;
+        background: #f2f7ff;
+        border: 1px solid #cfe0ff;
         border-radius: 12px;
         font-size: 12px;
-        color: #2e7d54;
+        color: #0a5fd0;
         line-height: 1.5;
       }
 
@@ -1427,7 +1428,7 @@
       /* ===== MASTER ===== */
       .master-co {
         position: relative;
-        border: 1px solid #d4eae0;
+        border: 1px solid #dbe7f7;
         border-radius: 12px;
         margin-bottom: 10px;
         overflow: hidden;
@@ -1468,7 +1469,7 @@
       .list-swipe {
         position: relative;
         overflow: hidden;
-        border-bottom: 1px solid #eaf5ef;
+        border-bottom: 1px solid #eaeff5;
       }
       .list-swipe:last-child {
         border-bottom: none;
@@ -1489,9 +1490,9 @@
         top: 100%;
         margin-top: 2px;
         background: #ffffff;
-        border: 1.5px solid #c8ecd8;
+        border: 1.5px solid #cfe0ff;
         border-radius: 10px;
-        box-shadow: 0 8px 20px rgba(30, 80, 46, 0.14);
+        box-shadow: 0 8px 20px rgba(20, 36, 61, 0.14);
         max-height: 210px;
         overflow-y: auto;
         z-index: 50;
@@ -1503,8 +1504,8 @@
       .sugg-item {
         padding: 11px 12px;
         font-size: 13px;
-        color: #2e7d54;
-        border-bottom: 1px solid #eef7f1;
+        color: #0a5fd0;
+        border-bottom: 1px solid #f2f7ff;
         cursor: pointer;
         white-space: nowrap;
         overflow: hidden;
@@ -1514,31 +1515,31 @@
         border-bottom: none;
       }
       .sugg-item:active {
-        background: #f0faf4;
+        background: #f2f7ff;
       }
       .master-co-hd {
         display: flex;
         align-items: center;
         gap: 8px;
         padding: 11px 12px;
-        background: #f0faf4;
+        background: #f2f7ff;
         cursor: pointer;
       }
       .master-co-name {
         font-size: 14px;
         font-weight: 700;
-        color: #2e7d54;
+        color: #0a5fd0;
         flex: 1;
       }
       .master-co-cols {
         font-size: 10px;
-        color: #7aa08c;
+        color: #5a6b82;
         font-family: "DM Mono", monospace;
       }
       .master-co-body {
         display: none;
         padding: 12px;
-        border-top: 1px solid #d4eae0;
+        border-top: 1px solid #dbe7f7;
       }
       .master-co-body.open {
         display: block;
@@ -1555,18 +1556,18 @@
         gap: 5px;
         padding: 6px 11px;
         border-radius: 20px;
-        border: 1.5px solid #d4eae0;
+        border: 1.5px solid #dbe7f7;
         background: #ffffff;
         font-size: 12px;
         font-weight: 700;
-        color: #7aa08c;
+        color: #5a6b82;
         cursor: pointer;
         user-select: none;
       }
       .chip.on {
-        border-color: #52b788;
-        background: #f0faf4;
-        color: #2e7d54;
+        border-color: #007aff;
+        background: #f2f7ff;
+        color: #0a5fd0;
       }
       .dnd-list {
         display: flex;
@@ -1579,7 +1580,7 @@
         align-items: center;
         gap: 8px;
         padding: 8px 10px;
-        border: 1.5px solid #d4eae0;
+        border: 1.5px solid #dbe7f7;
         border-radius: 10px;
         background: #ffffff;
         /* Exally給料明細(.drag-tr)と同じ滑らかな遷移 */
@@ -1592,12 +1593,12 @@
       /* つかんで動かしている項目＝Exally給料明細(.drag-over)と同じ控えめ表現：
          ミント背景＋緑の上線だけ。枠で囲わない・持ち上げない・影なし。 */
       .dnd-item.dragging {
-        background: #f0faf4;
-        border-top: 2px solid #52b788;
+        background: #f2f7ff;
+        border-top: 2px solid #007aff;
       }
       .dnd-grip {
         cursor: grab;
-        color: #a9c4b6;
+        color: #a9b5c4;
         font-size: 16px;
         touch-action: none;
         user-select: none;
@@ -1615,7 +1616,7 @@
         align-items: center;
         font-size: 13px;
         font-weight: 700;
-        color: #2e7d54;
+        color: #0a5fd0;
         padding: 0 6px;
       }
       .dnd-del {
@@ -1648,20 +1649,20 @@
       .dnd-w {
         width: 64px;
         padding: 6px 8px;
-        border: 1.5px solid #e2f4ea;
+        border: 1.5px solid #e2eaf4;
         border-radius: 8px;
         font-family: "DM Mono", monospace;
         font-size: 12px;
         text-align: right;
-        color: #2e7d54;
+        color: #0a5fd0;
         outline: none;
       }
       .dnd-w:focus {
-        border-color: #52b788;
+        border-color: #007aff;
       }
       .dnd-wu {
         font-size: 10px;
-        color: #a9c4b6;
+        color: #a9b5c4;
       }
       .toggle-row {
         display: flex;
@@ -1669,13 +1670,13 @@
         gap: 8px;
         margin-top: 10px;
         font-size: 12px;
-        color: #3d6b53;
+        color: #3d516b;
         font-weight: 700;
       }
       .toggle-row input {
         width: 16px;
         height: 16px;
-        accent-color: #52b788;
+        accent-color: #007aff;
       }
 
       /* ===== INVOICE GEN ===== */
@@ -1733,7 +1734,7 @@
         left: 50%;
         transform: translateX(-50%);
         padding: 9px 18px;
-        background: #2e7d54;
+        background: #0a5fd0;
         color: #fff;
         font-weight: 700;
         font-size: 13.5px;
@@ -1763,8 +1764,8 @@
       }
       /* 選択中の塊＝ミント枠で常時ハイライト（アプリ配色・段階1の本機能）。 */
       .hit-box.sel {
-        outline: 2px solid #2f9e6f;
-        background: rgba(47, 158, 111, 0.12);
+        outline: 2px solid #2f5f9e;
+        background: rgba(0, 122, 255, 0.12);
         box-sizing: border-box;
         border-radius: 3px;
       }
@@ -1772,7 +1773,7 @@
       .edit-chips-lbl {
         font-size: 10.5px;
         font-weight: 800;
-        color: #2f7d5b;
+        color: #2f517d;
         margin: 0 2px 3px;
       }
       .edit-chips {
@@ -1785,9 +1786,9 @@
         flex: 0 0 auto;
         padding: 4px 8px;
         border-radius: 999px;
-        border: 1px solid #cfe6da;
+        border: 1px solid #cfd9e6;
         background: #fff;
-        color: #2f7d5b;
+        color: #2f517d;
         font-family: inherit;
         font-size: 11.5px;
         font-weight: 700;
@@ -1795,8 +1796,8 @@
         cursor: pointer;
       }
       .echip.on {
-        background: #2f9e6f;
-        border-color: #2f9e6f;
+        background: #2f5f9e;
+        border-color: #2f5f9e;
         color: #fff;
       }
       /* 全体設定チップ(デザイン/No.・有効期限)＝範囲チップと別行・別色で区別。 */
@@ -1840,7 +1841,7 @@
         /* 高さは fitInvoice が内容に合わせて設定（単ページ＝スクロールなしで全体表示）。 */
         overflow: hidden;
         background: #fff;
-        border: 1px solid #e3eee8;
+        border: 1px solid #e3e8ee;
         border-radius: 12px;
         padding: 8px;
         box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
@@ -1857,9 +1858,9 @@
       .epage-btn {
         min-width: 40px;
         height: 32px;
-        border: 1px solid #cfe6da;
+        border: 1px solid #cfd9e6;
         background: #fff;
-        color: #0f766e;
+        color: #0f3c76;
         border-radius: 8px;
         font-size: 15px;
         line-height: 1;
@@ -1881,21 +1882,21 @@
         position: sticky;
         top: var(--hdr-h, 50px);
         z-index: 8;
-        background: #eef7f1;
+        background: #f2f7ff;
         margin: 0 -12px;
         padding: 4px 12px 0;
       }
       .edit-live {
         font-size: 11px;
         font-weight: 800;
-        color: #2f9e6f;
+        color: #2f5f9e;
         margin: 0 2px 5px;
         display: flex;
         align-items: center;
         gap: 6px;
       }
       .edit-live .b {
-        background: #41a877;
+        background: #416ea8;
         color: #fff;
         border-radius: 8px;
         padding: 2px 7px;
@@ -1908,7 +1909,7 @@
         align-items: center;
         gap: 4px;
         background: #fff;
-        border: 1px solid #e6f0ea;
+        border: 1px solid #e6eaf0;
         border-radius: 12px;
         padding: 4px 6px;
         margin-bottom: 6px;
@@ -1917,7 +1918,7 @@
         flex: none;
         font-size: 10.5px;
         font-weight: 800;
-        color: #9cbbab;
+        color: #9ca9bb;
         padding: 0 8px 0 4px;
       }
       .etool {
@@ -1930,7 +1931,7 @@
         padding: 5px 0;
         border-radius: 8px;
         font-size: 11px;
-        color: #6f9685;
+        color: #6f8096;
         border: none;
         background: transparent;
         font-family: inherit;
@@ -1940,8 +1941,8 @@
         font-size: 14px;
       }
       .etool.on {
-        background: #eaf7f0;
-        color: #2f9e6f;
+        background: #eaf0f7;
+        color: #2f5f9e;
         font-weight: 800;
       }
       /* 見出し「編集すると即ここが変わる」の横に置く小さな初期化ボタン（確認ダイアログあり）。 */
@@ -1960,7 +1961,7 @@
       }
       .edit-panel {
         background: #fff;
-        border: 1px solid #dcefe3;
+        border: 1px solid #dce4ef;
         border-radius: 12px;
         padding: 10px 12px;
         min-height: 48px;
@@ -2021,7 +2022,7 @@
       }
       .edit-panel .note {
         font-size: 11.5px;
-        color: #7aa08c;
+        color: #5a6b82;
         margin: 0 0 10px;
         line-height: 1.5;
       }
@@ -2037,7 +2038,7 @@
         white-space: nowrap; /* 「選択範囲内の文字を」等の長いラベルも折り返さず1行（余白に収まる） */
         font-size: 12px;
         font-weight: 700;
-        color: #5f8a72;
+        color: #5f728a;
         flex: none;
       }
       .ep-seg {
@@ -2061,7 +2062,7 @@
         width: 100%;
         height: 10px;
         border-radius: 6px;
-        background: #c8ecd8;
+        background: #cfe0ff;
         touch-action: none; /* iOS Safariで縦スクロールに横取りされず一発で掴める */
         margin: 0;
         outline: none;
@@ -2072,7 +2073,7 @@
         width: 30px;
         height: 30px;
         border-radius: 50%;
-        background: #2e7d54;
+        background: #0a5fd0;
         border: 3px solid #fff;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
         cursor: pointer;
@@ -2081,7 +2082,7 @@
         width: 30px;
         height: 30px;
         border-radius: 50%;
-        background: #2e7d54;
+        background: #0a5fd0;
         border: 3px solid #fff;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
         cursor: pointer;
@@ -2093,24 +2094,24 @@
         display: flex;
         justify-content: space-between;
         font-size: 11px;
-        color: #7aa08c;
+        color: #5a6b82;
         font-weight: 700;
       }
       .ep-chip {
-        border: 1px solid #c8ecd8;
+        border: 1px solid #cfe0ff;
         background: #fff;
         border-radius: 14px;
         padding: 7px 13px;
         font-size: 12.5px;
         font-weight: 700;
-        color: #2e7d54;
+        color: #0a5fd0;
         font-family: inherit;
         cursor: pointer;
         white-space: nowrap;
       }
       .ep-chip.on {
-        background: #2e7d54;
-        border-color: #2e7d54;
+        background: #0a5fd0;
+        border-color: #0a5fd0;
         color: #fff;
       }
       .ep-num {
@@ -2121,10 +2122,10 @@
       .ep-num button {
         width: 34px;
         height: 34px;
-        border: 1px solid #c8ecd8;
+        border: 1px solid #cfe0ff;
         background: #fff;
         border-radius: 9px;
-        color: #2f9e6f;
+        color: #2f5f9e;
         font-size: 18px;
         font-weight: 800;
         font-family: inherit;
@@ -2138,7 +2139,7 @@
       .ep-alg {
         display: inline-flex;
         margin-left: auto;
-        border: 1px solid #c8ecd8;
+        border: 1px solid #cfe0ff;
         border-radius: 8px;
         overflow: hidden;
         flex: none;
@@ -2148,16 +2149,16 @@
         height: 30px;
         border: none;
         background: #fff;
-        color: #6f9685;
+        color: #6f8096;
         font-size: 12px;
-        border-left: 1px solid #e3f1ea;
+        border-left: 1px solid #e3e9f1;
         font-family: inherit;
       }
       .ep-alg button:first-child {
         border-left: none;
       }
       .ep-alg button.on {
-        background: #2e7d54;
+        background: #0a5fd0;
         color: #fff;
         font-weight: 700;
       }
@@ -2172,14 +2173,14 @@
         width: 44px;
         height: 24px;
         border-radius: 12px;
-        background: #52b788;
+        background: #007aff;
         position: relative;
         border: none;
         flex: none;
       }
       .ep-switch.off {
-        background: #e6f4ec;
-        border: 1px solid #c8ecd8;
+        background: #e6ecf4;
+        border: 1px solid #cfe0ff;
       }
       .ep-switch::after {
         content: "";
@@ -2209,9 +2210,9 @@
       .ep-reset {
         width: 100%;
         padding: 12px;
-        border: 1px solid #c8ecd8;
+        border: 1px solid #cfe0ff;
         background: #fff;
-        color: #2f9e6f;
+        color: #2f5f9e;
         font-weight: 800;
         border-radius: 12px;
         font-size: 14px;
@@ -2233,8 +2234,8 @@
         background: #ffffff;
         margin: 0 auto 18px;
         padding: 34px 38px;
-        border: 1px solid #d4eae0;
-        box-shadow: 0 4px 16px rgba(30, 80, 46, 0.1);
+        border: 1px solid #dbe7f7;
+        box-shadow: 0 4px 16px rgba(10, 95, 208, 0.1); /* = #0A5FD0 */
         color: #000000;
         font-size: 12px;
       }
@@ -2376,7 +2377,7 @@
       /* ヘッダーは縦線あり（枠で仕切る） */
       .sh-table th {
         border: 1px solid #000000;
-        background: #dcefe6;
+        background: #f2f7ff;
         text-align: center;
         font-weight: 700;
       }
@@ -2401,7 +2402,7 @@
         text-align: center;
       }
       .sh-table tr.tot td {
-        background: #dcefe6;
+        background: #f2f7ff;
         text-align: center;
         font-weight: 700;
       }
@@ -2463,10 +2464,10 @@
         right: 0;
         z-index: 60;
         background: #ffffff;
-        border-top: 1px solid #d4eae0;
+        border-top: 1px solid #dbe7f7;
         display: flex;
         justify-content: space-around;
-        box-shadow: 0 -2px 8px rgba(30, 80, 46, 0.05);
+        box-shadow: 0 -2px 8px rgba(20, 36, 61, 0.05);
         padding-bottom: env(safe-area-inset-bottom);
       }
       .nav-item {
@@ -2480,10 +2481,10 @@
         border: none;
         cursor: pointer;
         font-family: "Noto Sans JP", sans-serif;
-        color: #9cbbab;
+        color: #9ca9bb;
       }
       .nav-item.active {
-        color: #3d9e72;
+        color: #0b57d0;
       }
       .nav-ic {
         font-size: 18px;
@@ -2501,7 +2502,7 @@
         position: fixed;
         inset: 0;
         z-index: 100;
-        background: rgba(20, 50, 35, 0.45);
+        background: rgba(20, 36, 61, 0.45);
         align-items: flex-end;
         justify-content: center;
       }
@@ -2526,12 +2527,12 @@
       .modal-title {
         font-size: 15px;
         font-weight: 700;
-        color: #2e7d54;
+        color: #0a5fd0;
       }
       .modal-x {
         background: none;
-        border: 1.5px solid #d4eae0;
-        color: #7aa08c;
+        border: 1.5px solid #dbe7f7;
+        color: #5a6b82;
         border-radius: 18px;
         padding: 4px 12px;
         font-size: 12px;
@@ -2554,7 +2555,7 @@
         left: 50%;
         bottom: 84px;
         transform: translateX(-50%) translateY(16px);
-        background: #2e7d54;
+        background: #0a5fd0;
         color: #ffffff;
         padding: 10px 20px;
         border-radius: 22px;
@@ -2643,8 +2644,10 @@
 
     <!-- ===== HEADER ===== -->
     <div class="app-header">
-      <span class="app-logo">Exally</span>
-      <span class="app-logo-ja">エクサリー</span>
+      <!-- ★司さん「ログイン画面がExally系のままやないか」(2026-08-09)★
+           入る前(ログイン画面)だけ直しても、入った先の一番上が Exally のままでは直っていない。
+           事務所(dashboard.html)と同じ「🚗 ダイコメ」に揃える。 -->
+      <span class="app-logo">🚗 ダイコメ</span>
       <span class="app-title" id="appTitle">代行請求</span>
     </div>
 
@@ -2736,7 +2739,7 @@
               oninput="setIssuer('issuer', this.value)"
               onchange="toast('発行者を保存しました（請求書に反映）')"
             ></textarea>
-            <div style="font-size: 10px; color: #7aa08c; margin-top: 6px; line-height: 1.6">
+            <div style="font-size: 10px; color: #5a6b82; margin-top: 6px; line-height: 1.6">
               例：屋号／事業名／〒／住所／TEL／登録番号。<b>登録番号や事業名が無ければ、その行を消すだけ。</b>代表者名・FAX・メールなど足すのも自由。1行目が少し大きく出ます。<br />
               <b>文字揃えは「編集」タブ → 揃え</b> で（見ながら調整できます）。
             </div>
@@ -2790,14 +2793,14 @@
               align-items: center;
               gap: 8px;
               font-size: 13px;
-              color: #2e7d54;
+              color: #0a5fd0;
               cursor: pointer;
             "
           >
             <input
               type="checkbox"
               id="iss_showNo"
-              style="width: 18px; height: 18px; accent-color: #52b788"
+              style="width: 18px; height: 18px; accent-color: #007aff"
               onchange="
                 setIssuer('showInvoiceNo', this.checked);
                 generateInvoices();
@@ -2834,12 +2837,12 @@
               style="
                 width: 72px;
                 height: 72px;
-                border: 1.5px dashed #c8ecd8;
+                border: 1.5px dashed #cfe0ff;
                 border-radius: 10px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                color: #a9c4b6;
+                color: #a9b5c4;
                 font-size: 11px;
                 text-align: center;
                 overflow: hidden;
@@ -2901,12 +2904,12 @@
               style="
                 width: 96px;
                 height: 72px;
-                border: 1.5px dashed #c8ecd8;
+                border: 1.5px dashed #cfe0ff;
                 border-radius: 10px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                color: #a9c4b6;
+                color: #a9b5c4;
                 font-size: 11px;
                 text-align: center;
                 overflow: hidden;
@@ -2983,7 +2986,7 @@
       </div>
       <!-- /テンプレート -->
 
-      <div style="margin-top: 22px; border-top: 1px solid #eaf5ef; padding-top: 14px">
+      <div style="margin-top: 22px; border-top: 1px solid #eaeff5; padding-top: 14px">
         <div class="scr-sub" id="acctLine" style="margin-bottom: 8px"></div>
         <button class="btn btn-ghost btn-sm" onclick="doLogout()">ログアウト</button>
       </div>
@@ -4034,9 +4037,10 @@
         var BOX = { top: THIN, bottom: THIN, left: THIN, right: THIN };
         var YEN = '"¥"#,##0';
         // ★PDFのミント配色（文字色）。色未指定セル（＝黒）を本文＝濃い緑にして「色がPDFと違う」を解消。
-        var C_TEXT = { rgb: "1A4A2E" }; // 本文・タイトル・宛名・金額（#2E7D54）
-        var C_LABEL = { rgb: "3D9E72" }; // 見出し・ラベル（#3d9e72）
-        var C_MUTED = { rgb: "7AA08C" }; // 補助文・自社情報・あいさつ（#7aa08c）
+        // ★SheetJS の rgb は「#」を書かない★ ＝ 濃い緑の見張りが素通りしていた場所（2026-08-10 に発見）
+        var C_TEXT = { rgb: "0A5FD0" }; // 本文・タイトル・宛名・金額（#0A5FD0 事務所の青）
+        var C_LABEL = { rgb: "007AFF" }; // 見出し・ラベル（#007AFF 事務所の強めの青）
+        var C_MUTED = { rgb: "5A6B82" }; // 補助文・自社情報・あいさつ（#5A6B82 事務所の弱い字）
         var aoa = [],
           styles = {},
           merges = [],
@@ -4187,11 +4191,11 @@
           if (headerStyle === "A") extraFooter += 4; // 対角ヘッダーは天マージン等で上部が高い
           PER = Math.max(12, 28 - extraFooter);
           var pageCount = Math.max(1, Math.ceil(allRows.length / PER));
-          var GREEN = { fgColor: { rgb: "DCEFE6" } };
+          var BAND = { fgColor: { rgb: "F2F2F2" } }; // クラシックの帯＝★白黒のまま★（ごく薄い灰）
           // ★デザイン分岐：elegant＝淡ミント＋横罫だけ／classic＝緑＋#808080全罫（PDFと一致）★
           var isElegant = (iss.pdfDesign || "elegant") === "elegant";
-          var HDR_FILL = isElegant ? { fgColor: { rgb: "EAF7F0" } } : GREEN;
-          var HRULE = { style: "thin", color: { rgb: isElegant ? "DCE8E2" : "808080" } };
+          var HDR_FILL = isElegant ? { fgColor: { rgb: "F2F7FF" } } : BAND;
+          var HRULE = { style: "thin", color: { rgb: isElegant ? "DBE7F7" : "808080" } };
 
           // ★複数ページは最終に「サマリーページ（ご請求金額＋ページ別内訳＋合計＋振込先）」を足す＝PDF同様。
           var hasSummary = pageCount > 1;
@@ -4425,7 +4429,7 @@
                   font: { bold: true, sz: 12, color: C_LABEL },
                   alignment: { horizontal: sc === sumAmt ? "right" : "left", vertical: "center" },
                   fill: HDR_FILL,
-                  border: isElegant ? { bottom: { style: "thin", color: { rgb: "52B788" } } } : BOX,
+                  border: isElegant ? { bottom: { style: "thin", color: { rgb: "007AFF" } } } : BOX,
                 });
               pageSubs.forEach(function (sub, si) {
                 var sr2 = blank();
@@ -4468,7 +4472,7 @@
                   font: { bold: true, sz: 12, color: C_LABEL }, // 表ヘッダー sz12（PDFと同じ中緑）
                   alignment: { horizontal: "center", vertical: "center" },
                   fill: HDR_FILL,
-                  border: isElegant ? { bottom: { style: "thin", color: { rgb: "52B788" } } } : BOX,
+                  border: isElegant ? { bottom: { style: "thin", color: { rgb: "007AFF" } } } : BOX,
                 });
 
               // 明細22行（全幅・空行も枠線）
@@ -6477,7 +6481,7 @@
         // ★左=小・右=大のスライダー（押しながら左右に引っ張って調整・離した時に保存）。
         var dis = classic ? " disabled" : "";
         var h =
-          '<div class="ep-row" style="margin-top:8px;border-top:1px dashed #d6e6dd;padding-top:10px;align-items:flex-start">' +
+          '<div class="ep-row" style="margin-top:8px;border-top:1px dashed #dbe7f7;padding-top:10px;align-items:flex-start">' +
           '<span class="l">文字の大きさ</span>' +
           '<div class="ep-fs">' +
           '<input type="range" class="ep-fs-range" min="0.85" max="1.4" step="0.05" value="' +
@@ -7116,13 +7120,13 @@
             // フォールバック（範囲フィルタ無し）＝従来どおり全部表示。
             h = '<div class="ph">↔️ 揃え</div>';
             h +=
-              '<div class="note" style="font-weight:800;color:#5f8a72;margin-bottom:2px">あいさつ文</div>';
+              '<div class="note" style="font-weight:800;color:#5a6b82;margin-bottom:2px">あいさつ文</div>';
             h += _algGroup("選択範囲を", _av(s.posLead), "editSetLeadPos");
             h +=
-              '<div class="note" style="font-weight:800;color:#5f8a72;margin:10px 0 2px">ご請求金額</div>';
+              '<div class="note" style="font-weight:800;color:#5a6b82;margin:10px 0 2px">ご請求金額</div>';
             h += _algGroup("選択範囲を", _av(s.posGrand), "editSetGrandPos");
             h +=
-              '<div class="note" style="font-weight:800;color:#5f8a72;margin:10px 0 2px">会社名・住所（自社）</div>' +
+              '<div class="note" style="font-weight:800;color:#5a6b82;margin:10px 0 2px">会社名・住所（自社）</div>' +
               (isEle
                 ? ""
                 : '<div class="note" style="margin-top:0">※クラシックは右固定（エレガントで変わります）。</div>');
@@ -8974,7 +8978,7 @@
           })
           .join("");
         document.getElementById("modalBody").innerHTML =
-          '<div style="font-size:10px;color:#A9C4B6;font-family:DM Mono,monospace;margin-bottom:8px;">id: ' +
+          '<div style="font-size:10px;color:#a9b5c4;font-family:DM Mono,monospace;margin-bottom:8px;">id: ' +
           esc(r.id) +
           "</div>" +
           fields +
@@ -9255,7 +9259,7 @@
               .join(" / ")
           ) +
           "</span>" +
-          '<span style="color:#A9C4B6;">▾</span>' +
+          '<span style="color:#a9b5c4;">▾</span>' +
           "</div>" +
           '<div class="master-co-body" data-co="' +
           esc(co) +
@@ -10038,6 +10042,24 @@
         if (!LOGIN) {
           LOGIN = ExallyLogin.mount({
             app: "代行請求",
+            // ★司さん「ログイン画面がExally系のままやないか」(2026-08-09)★
+            //   代行請求はダイコメの製品。事務所の「請求書 ↗」から来るので、
+            //   事務所(dashboard.html)と同じ「🚗 ダイコメ」・同じ青にする。
+            //   ★部品の既定は Exally の緑のまま★＝渡しているここだけが変わる。
+            brand: "🚗 ダイコメ",
+            brandSub: "", // 製品名の右の小さい字は出さない（ダイコメだけを出す）
+            theme: {
+              accent: "#007aff", // 事務所の --blue
+              accentDark: "#0a5fd0", // 事務所の --blue-d
+              bg: "#f2f7ff", // 事務所の --bg
+              line: "#dbe7f7", // 事務所の --line
+              title: "#14243d", // 事務所の --ink
+              ink: "#14243d",
+              muted: "#5a6b82", // 事務所の --muted
+              link: "#0a5fd0",
+              danger: "#e0483d", // 事務所の --danger
+              shadow: "rgba(20,36,61,.10)",
+            },
             sb: SB,
             onLogin: function (user) {
               onLoggedIn(user);
