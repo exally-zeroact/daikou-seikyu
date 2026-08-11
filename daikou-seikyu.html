@@ -1388,6 +1388,28 @@
       .tpl-card.on .tpl-badge {
         display: flex;
       }
+      .invoice-actions .btn:disabled {
+        opacity: 0.45;
+        filter: grayscale(1);
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+      .regno-warn {
+        margin-top: 10px;
+        padding: 10px 12px;
+        background: #fff4f4;
+        border: 1px solid #f0c2c2;
+        border-left: 4px solid #c0392b;
+        border-radius: 10px;
+        color: #8a2b22;
+        font-size: 12.5px;
+        line-height: 1.7;
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+      .regno-warn b {
+        color: #c0392b;
+      }
       .tpl-hint {
         margin-top: 12px;
         padding: 10px 12px;
@@ -2740,9 +2762,26 @@
               onchange="toast('発行者を保存しました（請求書に反映）')"
             ></textarea>
             <div style="font-size: 10px; color: #5a6b82; margin-top: 6px; line-height: 1.6">
-              例：屋号／事業名／〒／住所／TEL／登録番号。<b>登録番号や事業名が無ければ、その行を消すだけ。</b>代表者名・FAX・メールなど足すのも自由。1行目が少し大きく出ます。<br />
+              例：屋号／事業名／〒／住所／TEL。<b>事業名が無ければ、その行を消すだけ。</b>代表者名・FAX・メールなど足すのも自由。1行目が少し大きく出ます。<br />
+              <b>登録番号は下の欄</b>で入れます（自由入力の行に書かなくて大丈夫です）。<br />
               <b>文字揃えは「編集」タブ → 揃え</b> で（見ながら調整できます）。
             </div>
+          </div>
+        </div>
+        <!-- ★登録番号は専用の欄★ 自由入力の1行だと 消しても気づけず、要件を満たさない紙が出ていた -->
+        <div class="card">
+          <div class="card-label">登録番号（インボイス）</div>
+          <div class="frow">
+            <input
+              class="finput"
+              id="iss_regno"
+              type="text"
+              inputmode="latin"
+              placeholder="T1234567890123"
+              oninput="setIssuer('regno', this.value.trim())"
+              onchange="toast('登録番号を保存しました（請求書に反映）')"
+            />
+            <div id="regnoHint" style="font-size: 10px; margin-top: 6px; line-height: 1.6"></div>
           </div>
         </div>
         <div class="card">
@@ -3016,14 +3055,18 @@
           </select>
         </div>
         <div class="invoice-actions no-print">
-          <button class="btn btn-primary btn-sm" onclick="exportInvoicePDF(this)">
+          <button class="btn btn-primary btn-sm" id="btnInvPdf" onclick="exportInvoicePDF(this)">
             📄 PDFで保存 / 送る
           </button>
-          <button class="btn btn-ghost btn-sm" onclick="printInvoicePDF(this)">🖨 印刷</button>
-          <button class="btn btn-ghost btn-sm" onclick="openExcelPicker()">
+          <button class="btn btn-ghost btn-sm" id="btnInvPrint" onclick="printInvoicePDF(this)">
+            🖨 印刷
+          </button>
+          <button class="btn btn-ghost btn-sm" id="btnInvExcel" onclick="openExcelPicker()">
             📊 Excelに書き出し
           </button>
         </div>
+        <!-- ★登録番号が無い／形が違う時は 出させない＋理由を出す★（適格請求書） -->
+        <div id="regnoWarn" class="regno-warn no-print" hidden></div>
         <div id="invoiceOut" class="sheet-scale inv-out"></div>
         <details class="scr-sub no-print" style="margin-top: 8px">
           <summary style="cursor: pointer; font-weight: 700">
@@ -3535,6 +3578,7 @@
           .maybeSingle();
         if (!i.error && i.data && i.data.config) ISSUER_SETTINGS[CURRENT_ACCOUNT] = i.data.config;
         if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
+        migrateRegno(ISSUER_SETTINGS[CURRENT_ACCOUNT]); // ★登録番号を専用の欄へ（1度だけ・紙は変わらない）★
         return ok;
       }
       /* ===================================================================
@@ -5929,13 +5973,7 @@
               v.key +
               "')\">" +
               '<div class="tpl-badge">✓</div>' +
-              '<img class="tpl-thumb" src="tpl_' +
-              design +
-              "_" +
-              v.key +
-              '.png" loading="lazy" alt="' +
-              v.label +
-              ' サンプル" />' +
+              tplThumbSvg(design, v) +
               '<div class="tpl-meta"><div class="tpl-name">' +
               v.label +
               '</div><div class="tpl-desc">' +
@@ -6050,6 +6088,7 @@
       // immediate=true（画面入場時）は debounce を挟まず即ビルド＋即「作成中」表示＝待ち感ゼロ。
       // 引数なし（連続編集）は従来どおり 220ms でまとめる。
       function generateInvoices(immediate) {
+        updateRegnoGate(); // ★紙を出す前に 登録番号を見る★
         if (_invGenTimer) clearTimeout(_invGenTimer);
         if (immediate) {
           var out = activeInvOut();
@@ -7991,7 +8030,8 @@
       var ISSUER_SETTINGS = {};
       // 自社情報は「自由な行」。要らない行は消す、足したい行は足す＝定義駆動。
       function defaultIssuer() {
-        return {
+        // ★既定も 専用の欄に移した形で返す（読む所を1本にする）★
+        return migrateRegno({
           issuer:
             "合同会社ZEROact\nZERO代行\n〒794-0018\n今治市本町7-3-40　00コーポ1号\nTEL090-5716-1946\n登録番号：T3500003003293",
           bank: "伊予銀行　今治支店　普通　4160657\nド）ゼロアクト",
@@ -8021,11 +8061,14 @@
           elegantVariant: "logo", // エレガント時の種類（logo / plain）
           classicVariant: "diag_logo", // クラシック時の種類（diag_logo / diag_plain / center）
           headerStyle: "A", // 旧フラグ（互換用）
-        };
+        });
       }
       function loadIssuer() {
         try {
           ISSUER_SETTINGS = JSON.parse(localStorage.getItem(ISSUER_KEY)) || {};
+          Object.keys(ISSUER_SETTINGS).forEach(function (k) {
+            migrateRegno(ISSUER_SETTINGS[k]);
+          });
         } catch (e) {
           ISSUER_SETTINGS = {};
         }
@@ -8081,6 +8124,73 @@
       function currentIssuer() {
         return ISSUER_SETTINGS[CURRENT_ACCOUNT] || defaultIssuer();
       }
+      /* ===== 登録番号（適格請求書） ===================================================
+         ★2026-08-11 まで 登録番号は「自社情報」の自由入力の1行に手で書いていた★。
+           その行を消して PDF を押すと、警告も無く ★要件を満たさない紙が出た★（年1,300通）。
+         ここで:
+           ① 専用の欄(regno)に出す＝1行消して黙って消える形をやめる
+           ② 空／形が違う（T+13桁でない）なら ★紙を出させない★
+         ★紙は1文字も変えない★：欄に移した後も、刷る行は元と同じ位置・同じ文字。
+      ============================================================================= */
+      var REGNO_RE = /^T\d{13}$/; // 適格請求書発行事業者の登録番号（T＋13桁）
+      var REGNO_PREFIX_DEFAULT = "登録番号：";
+      // 自由入力の中から「登録番号」の行を見つけて {idx, prefix, value} を返す（無ければ null）
+      function findRegnoLine(text) {
+        var ls = String(text || "").split(/\r?\n/);
+        for (var i = 0; i < ls.length; i++) {
+          if (ls[i].indexOf("登録番号") < 0) continue;
+          var m = ls[i].match(/^(\s*登録番号\s*[:：]?\s*)(.*)$/);
+          if (!m) continue;
+          return { idx: i, prefix: m[1].replace(/^\s+/, ""), value: m[2].trim() };
+        }
+        return null;
+      }
+      // ★専用の欄へ移す（1度だけ）★ 元の行は自由入力から外し、位置と見出しを覚えておく
+      function migrateRegno(s) {
+        if (!s || s.regno != null) return s; // 既に移してある
+        var f = findRegnoLine(s.issuer);
+        if (!f) {
+          s.regno = ""; // 元から無い＝空として持つ（黙って出させないため）
+          return s;
+        }
+        var ls = String(s.issuer || "").split(/\r?\n/);
+        ls.splice(f.idx, 1);
+        s.issuer = ls.join("\n");
+        s.regno = f.value;
+        s.regnoPrefix = f.prefix;
+        s.regnoIdx = f.idx; // 元の位置に戻して刷る＝紙が動かない
+        return s;
+      }
+      // 今の登録番号（未移行でも読めるようにする）
+      function regnoOf(s) {
+        if (s && s.regno != null) return String(s.regno).trim();
+        var f = findRegnoLine(s && s.issuer);
+        return f ? f.value : "";
+      }
+      // ★出させない理由★（問題なければ null）
+      function regnoNg(s) {
+        var v = regnoOf(s);
+        if (!v) return "登録番号が入っていません";
+        if (REGNO_RE.test(v)) return null;
+        if (/[Ｔ０-９]/.test(v)) return "登録番号が全角です（半角の T＋13桁で入れてください）";
+        if (/^T/.test(v)) return "登録番号の桁数が違います（T＋13桁・今は " + v.length + "文字）";
+        return "登録番号の形が違います（T で始まる13桁の数字）";
+      }
+      // 刷る行＝自由入力の行に、登録番号を ★元の位置★ で戻した物
+      function issuerLinesOf(s) {
+        var base = String(s && s.issuer ? s.issuer : "").split(/\r?\n/);
+        var v = regnoOf(s);
+        if (s && s.regno != null && v) {
+          var idx = Number(s.regnoIdx);
+          if (!(idx >= 0 && idx <= base.length)) idx = base.length;
+          base.splice(idx, 0, (s.regnoPrefix || REGNO_PREFIX_DEFAULT) + v);
+        }
+        return base
+          .map(function (l) {
+            return l.trim();
+          })
+          .filter(Boolean);
+      }
       function splitLines(t) {
         return String(t || "")
           .split(/\r?\n/)
@@ -8094,6 +8204,84 @@
       //  ・classic＝緑ヘッダー帯＋横罫の伝統型。種類は対角ロゴ有/対角ロゴ無/中央の3つ。
       //  状態は (pdfDesign, elegantVariant, classicVariant) の2次元で持つ＝デザインを跨いでも化けない。
       var DESIGN_LABELS = { elegant: "エレガント", classic: "クラシック" };
+      /* ===== サンプルのサムネ ─ ★その場で描く★ =====================================
+         ★2026-08-11 まで tpl_〈様式〉_〈種類〉.png という画像ファイルを読んでいたが、
+           そのファイルは repo に1枚も無く ★5枚とも404★ だった（司さんの実機で発覚）。
+           画面は壊れず「?」が出るだけなので、誰も気づかないまま残っていた。
+         ★ファイルを置く形には戻さない★：紙の様式や色を直すたびに作り直しになり、必ず古くなる。
+           （現に紙は 08-11 に緑→青／白黒へ変わった。png を置いていたら緑のサムネが残っていた）
+         ここで描く色は ★紙と同じ★：エレガント＝事務所の青／クラシック＝白黒。
+      ============================================================================= */
+      function tplThumbSvg(design, v) {
+        var ele = design !== "classic";
+        var ink = ele ? "#0A5FD0" : "#1A1A1A"; // 本文・タイトル
+        var acc = ele ? "#007AFF" : "#808080"; // 飾り線
+        var band = ele ? "#F2F7FF" : "#F2F2F2"; // 表の地
+        var rule = ele ? "#DBE7F7" : "#B0B0B0"; // 罫
+        var W = 100,
+          H = 141.4;
+        var centerTitle = v.headerStyle !== "A";
+        var logo = v.logoMode === "show";
+        var p = [];
+        p.push('<rect x="0" y="0" width="' + W + '" height="' + H + '" fill="#fff"/>');
+        // 見出し（中央 or 左）＋ロゴの位置
+        if (centerTitle) {
+          p.push('<rect x="34" y="12" width="32" height="6" rx="1" fill="' + ink + '"/>');
+          if (logo) p.push('<rect x="44" y="22" width="12" height="8" rx="1" fill="' + acc + '"/>');
+        } else {
+          p.push('<rect x="10" y="12" width="30" height="6" rx="1" fill="' + ink + '"/>');
+          if (logo)
+            p.push('<rect x="76" y="11" width="14" height="10" rx="1" fill="' + acc + '"/>');
+        }
+        p.push(
+          '<line x1="10" y1="' +
+            (centerTitle ? 34 : 26) +
+            '" x2="90" y2="' +
+            (centerTitle ? 34 : 26) +
+            '" stroke="' +
+            acc +
+            '" stroke-width="0.8"/>'
+        );
+        // 宛名・金額
+        p.push('<rect x="10" y="42" width="38" height="4" rx="1" fill="' + ink + '"/>');
+        p.push('<rect x="10" y="54" width="26" height="3" rx="1" fill="' + rule + '"/>');
+        p.push('<rect x="52" y="52" width="38" height="6" rx="1" fill="' + ink + '"/>');
+        // 表（見出しの帯＋4行）
+        p.push('<rect x="10" y="68" width="80" height="8" fill="' + band + '"/>');
+        for (var i = 0; i < 4; i++) {
+          var y = 80 + i * 8;
+          p.push(
+            '<line x1="10" y1="' +
+              y +
+              '" x2="90" y2="' +
+              y +
+              '" stroke="' +
+              rule +
+              '" stroke-width="0.6"/>'
+          );
+          p.push(
+            '<rect x="13" y="' + (y - 4) + '" width="34" height="2.4" rx="1" fill="' + rule + '"/>'
+          );
+          p.push(
+            '<rect x="74" y="' + (y - 4) + '" width="14" height="2.4" rx="1" fill="' + rule + '"/>'
+          );
+        }
+        // 合計
+        p.push('<line x1="52" y1="118" x2="90" y2="118" stroke="' + acc + '" stroke-width="0.8"/>');
+        p.push('<rect x="52" y="121" width="14" height="4" rx="1" fill="' + ink + '"/>');
+        p.push('<rect x="72" y="121" width="18" height="4" rx="1" fill="' + ink + '"/>');
+        return (
+          '<svg class="tpl-thumb" viewBox="0 0 ' +
+          W +
+          " " +
+          H +
+          '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="' +
+          esc(v.label) +
+          ' のサンプル">' +
+          p.join("") +
+          "</svg>"
+        );
+      }
       var DESIGN_VARIANTS = {
         elegant: [
           {
@@ -8208,7 +8396,7 @@
           dv = resolveDesignVariant();
         }
         return {
-          lines: splitLines(s.issuer),
+          lines: issuerLinesOf(s), // ★登録番号は専用の欄から 元の位置に戻して刷る★
           bank: bankLines.length ? ["お振込先"].concat(bankLines) : [],
           lineAlign: s.issuerAlign || "left",
           bankAlign: s.bankAlign || "left",
@@ -8235,6 +8423,28 @@
           fontScale: Number(s.fontScale) || 1, // ★文字サイズ係数（全体＝base）
           blkFs: s.blkFs || null, // ★範囲別 文字サイズ係数 {塊名:係数}（override・base優先）
         };
+      }
+      /* ★登録番号が無い／形が違う時は 紙を出させない★
+         押せて何も起きない、にしない＝★押させない＋理由（どこで入れるか）まで出す★ */
+      function updateRegnoGate() {
+        var ng = regnoNg(currentIssuer());
+        ["btnInvPdf", "btnInvPrint", "btnInvExcel"].forEach(function (id) {
+          var b = document.getElementById(id);
+          if (b) b.disabled = !!ng;
+        });
+        var w = document.getElementById("regnoWarn");
+        if (!w) return;
+        if (!ng) {
+          w.hidden = true;
+          w.textContent = "";
+          return;
+        }
+        w.hidden = false;
+        w.innerHTML =
+          "<b>" +
+          esc(ng) +
+          "</b><br>適格請求書（インボイス）には登録番号が要ります。" +
+          "<b>設定 ▸ 自社情報 ▸ 登録番号</b> に <b>T＋13桁</b>（例 T1234567890123）を入れると出せます。";
       }
       function setAlign(field, val) {
         setIssuer(field, val);
@@ -8264,12 +8474,24 @@
         if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
         ISSUER_SETTINGS[CURRENT_ACCOUNT][field] = value;
         saveIssuer();
+        updateRegnoGate(); // 直したその場で 出せる/出せないを切り替える
       }
       function renderIssuer() {
         var s = currentIssuer();
         ensureLogoTrimmed(); // 既存ロゴの余白を一度だけ自動トリミング（揃え）
         var ti = document.getElementById("iss_issuer");
         var tb = document.getElementById("iss_bank");
+        // ★登録番号の欄★ 今の値を出し、形が違えば その場で理由を出す
+        var tr = document.getElementById("iss_regno");
+        if (tr) tr.value = regnoOf(s);
+        var rh = document.getElementById("regnoHint");
+        if (rh) {
+          var ng = regnoNg(s);
+          rh.textContent = ng
+            ? ng + " ／ 入っていないと 請求書は出せません"
+            : "T＋13桁で入っています（請求書に刷られます）";
+          rh.style.color = ng ? "#c0392b" : "#5a6b82";
+        }
         var ia = s.issuerAlign || "left";
         var ba = s.bankAlign || "left";
         if (ti) {
@@ -9428,13 +9650,7 @@
                 v.key +
                 "')\">" +
                 '<div class="tpl-badge">✓</div>' +
-                '<img class="tpl-thumb" src="tpl_' +
-                design +
-                "_" +
-                v.key +
-                '.png" loading="lazy" alt="' +
-                esc(v.label) +
-                '" />' +
+                tplThumbSvg(design, v) +
                 '<div class="tpl-meta"><div class="tpl-name">' +
                 esc(v.label) +
                 '</div><div class="tpl-desc">' +
