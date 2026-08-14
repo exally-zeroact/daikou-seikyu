@@ -4629,14 +4629,46 @@
             }
             var amtC = lastCol; // 金額＝表の右端（右下隅・桁の縦ライン）
             var lblC = Math.max(amtC - 1, 0); // ラベルは金額のすぐ左
+            // ★合計欄のラベルは「列幅」で欠ける★（文字はセルに在るのに紙に出ない）
+            //   2026-08-14 実測：「消費税（10%・内税）」が Excel の紙で「費税（10%・内税」に欠けた。
+            //   中央揃えは 右隣(金額)が埋まっていると ★左右とも切り落とされる★（左へはみ出さない）。
+            //   なので 文字の要る幅を数えて、足りる所まで ★左へセルを結合してから★ 書く。
+            //   結合したセルは ★左上の値しか出ない★ ので、ラベルは結合の左端に置く。
+            function _wchAt(c) {
+              var w = (invCols && invCols[c] && invCols[c].wch) || (colWidths && colWidths[c]) || 9;
+              return Number(w) || 9;
+            }
+            function _needWch(s, sz) {
+              var n = 0;
+              String(s == null ? "" : s)
+                .split("")
+                .forEach(function (ch) {
+                  n += /[\x20-\x7E｡-ﾟ]/.test(ch) ? 1 : 2; // 全角=2・半角=1
+                });
+              return Math.ceil((n * (sz || 11)) / 11) + 2; // 左右の余白ぶん
+            }
+            function _lblFrom(s, sz, minCol) {
+              var need = _needWch(s, sz),
+                have = _wchAt(lblC),
+                from = lblC,
+                floorC = minCol == null ? 1 : minCol;
+              while (have < need && from > floorC) {
+                from--;
+                have += _wchAt(from);
+              }
+              return from;
+            }
             if (!(pageCount === 1 || isSummary)) {
               // ★途中の明細ページ：このページの小計だけ（PDF同様・振込先や総額・ご請求金額はサマリーページに）。
               var subFr = blank();
-              subFr[lblC] = "このページの小計";
+              var subFrom = _lblFrom("このページの小計", 11, 1);
+              subFr[subFrom] = "このページの小計";
               subFr[amtC] = pageTotal;
               var subRi = row(subFr);
-              M(subRi, 0, subRi, Math.max(lblC - 1, 0));
-              S(subRi, lblC, { font: { sz: 11 }, alignment: { horizontal: "center" } });
+              if (subFrom > 1) M(subRi, 0, subRi, subFrom - 1);
+              if (subFrom < lblC) M(subRi, subFrom, subRi, lblC);
+              for (var _sc = subFrom; _sc <= lblC; _sc++)
+                S(subRi, _sc, { font: { sz: 11 }, alignment: { horizontal: "center" } });
               S(subRi, amtC, {
                 font: { sz: 11 },
                 numFmt: YEN,
@@ -4650,8 +4682,10 @@
                 var fr = blank();
                 if (bank[f]) fr[0] = bank[f];
                 var t = tot[f];
+                var tFrom = lblC;
                 if (t) {
-                  fr[lblC] = t.l;
+                  tFrom = _lblFrom(t.l, t.big ? 13 : 11, bank[f] ? lblC : 1);
+                  fr[tFrom] = t.l;
                   fr[amtC] = t.v;
                 }
                 var rif = row(fr);
@@ -4667,11 +4701,14 @@
                   var topbd = t.line
                     ? { top: { style: "thin", color: { rgb: "000000" } } }
                     : undefined;
-                  S(rif, lblC, {
-                    font: { bold: !!t.big, sz: t.big ? 13 : 11 },
-                    alignment: { horizontal: "center" },
-                    border: topbd,
-                  });
+                  if (tFrom < lblC) M(rif, tFrom, rif, lblC);
+                  // 罫線は結合の全セルに引く（左上だけだと合計の上線が途中で切れる）
+                  for (var _tc = tFrom; _tc <= lblC; _tc++)
+                    S(rif, _tc, {
+                      font: { bold: !!t.big, sz: t.big ? 13 : 11 },
+                      alignment: { horizontal: "center" },
+                      border: topbd,
+                    });
                   S(rif, amtC, {
                     font: { bold: !!t.big, sz: t.big ? 13 : 11 },
                     numFmt: YENNEG,
@@ -4705,11 +4742,14 @@
               heights[hri] = 14;
               m.noteGroups.forEach(function (g) {
                 var sr = blank();
-                sr[lblC] = g;
+                var gFrom = _lblFrom(g, 10, 1); // 役職名が長くても欠けないよう左へ結合
+                sr[gFrom] = g;
                 if (rsums[g]) sr[amtC] = rsums[g];
                 var sri = row(sr);
+                if (gFrom < lblC) M(sri, gFrom, sri, lblC);
                 // 内訳も中央揃え（小計/合計と同じ＝見本準拠）・小さめ文字で従属表現
-                S(sri, lblC, { font: { sz: 10 }, alignment: { horizontal: "center" } });
+                for (var _gc = gFrom; _gc <= lblC; _gc++)
+                  S(sri, _gc, { font: { sz: 10 }, alignment: { horizontal: "center" } });
                 if (rsums[g])
                   S(sri, amtC, {
                     font: { sz: 10 },
@@ -4722,10 +4762,12 @@
             if (hasSummary && !isSummary) {
               // 明細ページ（サマリーが後ろに来る）＝次へ続く。★PDF同様に右側（金額列）に右揃え。
               var cr = blank();
-              cr[lastCol] = "次ページへ続く →";
+              // ★結合したセルは左上の値しか出ない★＝右端に書くと Excel では消える。
+              var _cFrom = Math.max(lastCol - 2, 0);
+              cr[_cFrom] = "次ページへ続く →";
               var ric = row(cr);
-              M(ric, Math.max(lastCol - 2, 0), ric, lastCol);
-              S(ric, lastCol, {
+              if (_cFrom < lastCol) M(ric, _cFrom, ric, lastCol);
+              S(ric, _cFrom, {
                 font: { italic: true, color: C_MUTED },
                 alignment: { horizontal: "right" },
               });
@@ -4736,10 +4778,12 @@
               heights[fgap] = 6;
               ftrInfo.forEach(function (ln, fi) {
                 var frr = blank();
-                frr[lastCol] = ln;
+                // ★結合したセルは左上の値しか出ない★＝右端に書くと Excel では自社情報が消える。
+                var _fFrom = Math.max(lastCol - 2, 0);
+                frr[_fFrom] = ln;
                 var frri = row(frr);
-                M(frri, Math.max(lastCol - 2, 0), frri, lastCol);
-                S(frri, lastCol, {
+                if (_fFrom < lastCol) M(frri, _fFrom, frri, lastCol);
+                S(frri, _fFrom, {
                   font: { sz: fi === 0 ? 11 : 9, color: fi === 0 ? C_TEXT : C_MUTED },
                   alignment: { horizontal: "right" },
                 });
