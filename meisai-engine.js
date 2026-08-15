@@ -56,9 +56,120 @@
   function inMonth(iso, month) {
     return iso && month && iso.slice(0, 7) === month;
   }
+  /* ★消費税の率は ここ1つ★（2026-08-12 指示役）
+     率を文字で書くと、率が変わった日・軽減税率が混ざった日に ★言葉だけ嘘になる★。
+     計算にも 紙の文言にも ★同じ TAX_RATE を使う★＝"10%" と書かない。 */
+  var TAX_RATE = 10;
   function tax10(total) {
-    return Math.round((total * 10) / 110);
-  } // 内税10%の内消費税
+    return Math.round((total * TAX_RATE) / (100 + TAX_RATE));
+  } // 内税の内消費税（既定の率）
+
+  /* ★請求の合計は ここだけで足す★（2026-08-11）
+     それまで ★4か所が別々に足していた★:
+       invoice-pdf.js の tax10（エレガント/クラシックで2回 使用）
+       daikou-seikyu.html の Excel の合計欄
+       daikou-seikyu.html の tax10（★誰も呼んでいない重複★）
+     今は答えが同じでも、片方だけ直すと ★同じ請求書の合計が紙とExcelで食い違う★。
+     （請求書アプリは同じ型で ★11,000円 少なく振り込まれる★所まで行った）
+     ★文言は様式ごとに違う（エレガント=消費税（10%）／クラシック=消費税（10%・内税））ので
+       ここでは数字だけを返し、見出しは今までどおり各様式が持つ＝紙は1文字も変わらない。★ */
+  /* ★繰越（会社ごとに選べる）★ 2026-08-11
+     並べる順（指示役 2026-08-11 が決めた形）:
+       今回請求額 → ＋前回繰越額 → 合計請求額 → −ご入金額 → 今回お支払額
+     ・★前回繰越額★ ＝ 当月より前の（請求 − 入金）の残り（＝まだ入っていない分）
+     ・★ご入金額★   ＝ 当月ぶんとして受け取った入金
+       ⇒ 前回繰越は過去の入金を引いた後の数なので ★二重に引かない★
+     ★0円と書かない★（指示役の合格条件）
+       前回の請求が1件も無い     → kurikoshi=null・riyu="前回の請求はありません"
+       入金が読めない（不明）    → nyukin=null・riyu に "入金は未確認"
+       ＝「無い」と「0円」は別物。0円と書くと 払い忘れと区別が付かなくなる。
+     kako = [{ month, seikyu, nyukin }]  seikyu/nyukin が null なら「不明」 */
+  function carryoverOf(kako, konkaiSeikyu, konkaiNyukin) {
+    var mae = (kako || []).filter(function (k) {
+      return k && k.month;
+    });
+    var riyu = [];
+    var kurikoshi = null;
+    if (!mae.length) {
+      riyu.push("前回の請求はありません");
+    } else if (
+      mae.some(function (k) {
+        return k.seikyu == null;
+      })
+    ) {
+      riyu.push("前回の請求額が読めません"); // 控えが無い月が混ざっている
+    } else if (
+      mae.some(function (k) {
+        return k.nyukin == null;
+      })
+    ) {
+      riyu.push("入金は未確認");
+    } else {
+      kurikoshi = mae.reduce(function (t, k) {
+        return t + (Number(k.seikyu) || 0) - (Number(k.nyukin) || 0);
+      }, 0);
+    }
+    var konkai = Number(konkaiSeikyu) || 0;
+    var nyukin = konkaiNyukin == null ? null : Number(konkaiNyukin) || 0;
+    if (konkaiNyukin == null) riyu.push("入金は未確認");
+    var goukeiSeikyu = kurikoshi == null ? null : konkai + kurikoshi;
+    var oshiharai = goukeiSeikyu == null || nyukin == null ? null : goukeiSeikyu - nyukin;
+    return {
+      konkai: konkai, // 今回請求額
+      kurikoshi: kurikoshi, // 前回繰越額（null＝出せない）
+      goukeiSeikyu: goukeiSeikyu, // 合計請求額
+      nyukin: nyukin, // ご入金額（null＝未確認）
+      oshiharai: oshiharai, // 今回お支払額（null＝出せない）
+      riyu: riyu.filter(function (x, i, a) {
+        return a.indexOf(x) === i;
+      }),
+    };
+  }
+
+  function invoiceTotals(rows, iss) {
+    var grand = (rows || []).reduce(function (t, r) {
+      return t + (Number(r && r.金額) || 0);
+    }, 0);
+    // ★言い方は1つ★：会社マスタに入っている値（"外税"）をそのまま見る。
+    //   別の綴り（"soto"等）を足すと、書く側と読む側で語彙がずれて必ず事故る。
+    var soto = !!(iss && iss.taxMode === "外税");
+    var tax = soto
+      ? Math.round((grand * TAX_RATE) / 100)
+      : Math.round((grand * TAX_RATE) / (100 + TAX_RATE));
+    return {
+      shoukei: grand, // 小計
+      zei: tax, // 消費税
+      goukei: soto ? grand + tax : grand, // 合計
+      soto: soto,
+      rate: TAX_RATE, // ★文言はこの数から組み立てる★
+    };
+  }
+
+  /* ★合計欄の言葉は ここ1つで組み立てる★（2026-08-12 指示役の裁定）
+     ・★率は計算に使った値から作る★（"10%" と直書きしない）
+     ・★内税/外税は 実際の設定から作る★（固定の既定にしない＝外税の紙が嘘をつかない）
+     ・会社ごとの言い換え（MASTER[会社].labels）を ★その上に被せる★
+       ＝仕組みを増やさない。何も入れなければ 下の既定が出る。
+     直す前は 同じ請求書なのに 出し方で4通りに割れていた:
+       "消費税（10%・内税）" / "消費税（10%）" / "消費税(10%)" / "消費税"
+       （★半角カッコと全角カッコまで混ざっていた★） */
+  function totalsLabels(m, iss) {
+    var soto = !!(iss && iss.taxMode === "外税");
+    var kihon = {
+      小計: "小計",
+      消費税: "消費税（" + TAX_RATE + "%・" + (soto ? "外税" : "内税") + "）",
+      合計: "合計",
+      前回繰越額: "前回繰越額",
+      合計請求額: "合計請求額",
+      ご入金額: "ご入金額",
+      今回お支払額: "今回お支払額",
+    };
+    var L = (m && m.labels) || {};
+    Object.keys(kihon).forEach(function (k) {
+      if (L[k]) kihon[k] = L[k]; // 会社ごとの言い換えを被せる
+    });
+    return kihon;
+  }
   function esc(s) {
     return String(s == null ? "" : s)
       .replace(/&/g, "&amp;")
@@ -162,7 +273,9 @@
       '<tr><td class="k">小計</td><td class="v">' +
       yen(pageTotal) +
       "</td></tr>" +
-      '<tr><td class="k">消費税（10%）</td><td class="v">' +
+      '<tr><td class="k">' +
+      totalsLabels(m, iss).消費税 +
+      '</td><td class="v">' +
       yen(tax10(pageTotal)) +
       "</td></tr>" +
       '<tr><td class="k' +
@@ -506,6 +619,10 @@
     buildMonth: buildMonth,
     buildWorkbookData: buildWorkbookData,
     invoiceNoFor: invoiceNoFor,
+    invoiceTotals: invoiceTotals, // ★合計を足すのはここだけ★
+    carryoverOf: carryoverOf, // ★繰越もここだけ★
+    totalsLabels: totalsLabels, // ★合計欄の言葉もここだけ★
+    TAX_RATE: TAX_RATE,
     listInvoices: listInvoices,
     utils: {
       yen: yen,

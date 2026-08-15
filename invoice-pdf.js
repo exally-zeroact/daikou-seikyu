@@ -160,8 +160,23 @@
     if (n === "" || n == null) return "";
     return Number(n).toLocaleString("ja-JP");
   }
-  function tax10(t) {
-    return Math.round((t * 10) / 110);
+  /* ★合計は meisai-engine.js の invoiceTotals ただ1本から取る★（2026-08-11）
+     ここに tax10 の写しを置いていたので、★同じ請求書の合計を紙とExcelが別々に足していた★。
+     見出しも 2026-08-12 に エンジン1本（totalsLabels）へ寄せた。 */
+  function totalsOf(rows, iss) {
+    var E = global.MeisaiEngine;
+    if (E && E.invoiceTotals) return E.invoiceTotals(rows, iss);
+    // エンジンが読めていない時は ★黙って別の答えを出さない★
+    throw new Error("MeisaiEngine.invoiceTotals が読めていません（合計を二重に持たない）");
+  }
+  /* ★合計欄の言葉も エンジン1本から★（2026-08-12）
+     ここに税の見出しを直書きしていたので、
+     ★同じ請求書なのに 様式ごとに違う言い方（4通り）★になっていた。
+     率も内税/外税も 計算に使った値から組み立てる＝紙が嘘をつかない。 */
+  function labelsOf(m, iss) {
+    var E = global.MeisaiEngine;
+    if (E && E.totalsLabels) return E.totalsLabels(m, iss);
+    throw new Error("MeisaiEngine.totalsLabels が読めていません（言葉を二重に持たない）");
   }
   function mdShort(iso) {
     if (!iso) return "";
@@ -578,11 +593,13 @@
         bx = RXp - bw,
         rx = RXp,
         sy = topY;
-      T(page, font, "小計", bx + 10, sy, 9.5, { color: MUTED });
-      T(page, font, yen(grand), rx - 10, sy, 9.5, { color: TEXT, align: "right" });
+      var _t = totalsOf(rows, iss); // ★合計はエンジン1本から★
+      var _L = labelsOf(m, iss); // ★言葉もエンジン1本から★
+      T(page, font, _L.小計, bx + 10, sy, 9.5, { color: MUTED });
+      T(page, font, yen(_t.shoukei), rx - 10, sy, 9.5, { color: TEXT, align: "right" });
       sy -= _g(16);
-      T(page, font, "消費税（10%）", bx + 10, sy, 9.5, { color: MUTED });
-      T(page, font, yen(tax10(grand)), rx - 10, sy, 9.5, { color: TEXT, align: "right" });
+      T(page, font, _L.消費税, bx + 10, sy, 9.5, { color: MUTED });
+      T(page, font, yen(_t.zei), rx - 10, sy, 9.5, { color: TEXT, align: "right" });
       sy -= _g(14); // ★線を消費税の文字／数字と重ねない（下げる）★
       line(page, bx + 8, sy, rx, sy, MINT, 0.8); // 合計の上に1本（アプリと同じ）
       sy -= _g(15);
@@ -591,8 +608,24 @@
       var _olT = 12 * 0.02,
         _ovT = 14 * 0.02;
       for (var _b = 0; _b < 3; _b++) {
-        T(page, font, "合計", bx + 10 + _olT * _b, sy, 12, { color: TEXT });
-        T(page, font, yen(grand), rx - 10 + _ovT * _b, sy - 1, 14, { color: TEXT, align: "right" });
+        T(page, font, _L.合計, bx + 10 + _olT * _b, sy, 12, { color: TEXT });
+        T(page, font, yen(_t.goukei), rx - 10 + _ovT * _b, sy - 1, 14, {
+          color: TEXT,
+          align: "right",
+        });
+      }
+      // ★繰越（会社が「使う」を選んだ時だけ）★ 出せない物は 0円と書かず 理由を出す
+      if (iss && iss.carry) {
+        var _c = iss.carry;
+        var _cr = function (lbl, val, big) {
+          sy -= _g(big ? 18 : 15);
+          T(page, font, lbl, bx + 10, sy, big ? 11 : 9.5, { color: big ? TEXT : MUTED });
+          T(page, font, val, rx - 10, sy, big ? 12 : 9.5, { color: TEXT, align: "right" });
+        };
+        _cr(_L.前回繰越額, _c.kurikoshi == null ? _c.riyu[0] || "—" : yen(_c.kurikoshi));
+        if (_c.goukeiSeikyu != null) _cr(_L.合計請求額, yen(_c.goukeiSeikyu));
+        _cr(_L.ご入金額, _c.nyukin == null ? "入金は未確認" : yen(-_c.nyukin));
+        if (_c.oshiharai != null) _cr(_L.今回お支払額, yen(_c.oshiharai), true);
       }
       sy -= _g(20);
       // 役職集計（内訳）
@@ -1006,11 +1039,21 @@
         }
         sy -= big ? 18 : 15;
       }
-      totRow("小計", yen(grand));
-      totRow("消費税（10%・内税）", yen(tax10(grand)));
+      var _tc = totalsOf(rows, iss); // ★合計はエンジン1本から★
+      var _Lc = labelsOf(m, iss); // ★言葉もエンジン1本から★
+      totRow(_Lc.小計, yen(_tc.shoukei));
+      totRow(_Lc.消費税, yen(_tc.zei));
       line(page, boxX, sy + 3, RX, sy + 3, GREY, 0.8);
       sy -= 2;
-      totRow("合計", yen(grand), true);
+      totRow(_Lc.合計, yen(_tc.goukei), true);
+      // ★繰越（会社が「使う」を選んだ時だけ）★ 出せない物は 0円と書かず 理由を出す
+      if (iss && iss.carry) {
+        var c = iss.carry;
+        totRow(_Lc.前回繰越額, c.kurikoshi == null ? c.riyu[0] || "—" : yen(c.kurikoshi));
+        if (c.goukeiSeikyu != null) totRow(_Lc.合計請求額, yen(c.goukeiSeikyu));
+        totRow(_Lc.ご入金額, c.nyukin == null ? "入金は未確認" : yen(-c.nyukin));
+        if (c.oshiharai != null) totRow(_Lc.今回お支払額, yen(c.oshiharai), true);
+      }
       if (m.noteSummary && (m.noteGroups || []).length) {
         var sums = {};
         (m.noteGroups || []).forEach(function (g) {

@@ -2848,6 +2848,23 @@
             />
             請求書番号を表示する（例：2026-06-02／会社ごとに自動採番）
           </label>
+          <!-- ★番号を刷り始める日の注意★（2026-08-11 司さん確認：今まで紙に刷っていない） -->
+          <div
+            style="
+              font-size: 11px;
+              color: #5a6b82;
+              margin-top: 8px;
+              line-height: 1.7;
+              border-left: 3px solid #dbe7f7;
+              padding-left: 10px;
+            "
+          >
+            <b>今まで請求書番号は紙に刷っていません。</b>
+            ここを<b>表示</b>にした日から、番号がお客さんに渡り始めます。<br />
+            <b>それ以前の番号は 誰にも渡っていません</b
+            >（渡した紙と食い違う心配はありません）。<br />
+            表示にした後は、<b>一度出した番号は変わりません</b>（出した時に控えと一緒に記録します）。
+          </div>
           <div class="align-row" style="margin-top: 12px">
             <span class="align-lbl">日付の表記</span>
             <button
@@ -3479,6 +3496,9 @@
           noteGroups: m.noteGroups || [],
           labels: m.labels || {},
         };
+        // ★繰越・税の扱いも「選ばれた時だけ」足す＝選んでいない会社の中身は今までと完全に同じ★
+        if (m.carryover) config.carryover = true;
+        if (m.taxMode === "外税") config.taxMode = "外税";
         // ★会社毎テンプレは「指定された時だけ」configに足す＝未設定会社のpayloadは従来と完全一致（バイト不変）。
         if (m.pdfDesign) {
           config.pdfDesign = m.pdfDesign;
@@ -3539,6 +3559,9 @@
               noteSummary: !!cf.noteSummary,
               noteGroups: cf.noteGroups || [],
               labels: cf.labels || {},
+              // ★繰越（既定は使わない）／消費税の扱い（既定は内税）★
+              carryover: !!cf.carryover,
+              taxMode: cf.taxMode === "外税" ? "外税" : "内税",
               // ★会社毎テンプレ（未設定=null=全体設定を使う＝既定）。
               pdfDesign: cf.pdfDesign || null,
               elegantVariant: cf.elegantVariant || null,
@@ -3576,6 +3599,29 @@
           .select("config")
           .eq("user_id", CURRENT_ACCOUNT)
           .maybeSingle();
+        // ★発行の控えを読む（繰越の材料）★
+        INVOICES = [];
+        try {
+          var ivs = await SB.from("invoices").select(
+            "month, company, invoice_no, total, issued_at"
+          );
+          if (ivs.error) cloudErr("請求書の控え読込", ivs.error);
+          else INVOICES = ivs.data || [];
+        } catch (e) {
+          cloudErr("請求書の控え読込", e);
+        }
+        // ★番号の台帳を読む（凍結した番号はここから出す）★
+        INVOICE_NO = {};
+        try {
+          var no = await SB.from("invoice_no").select("month, company, invoice_no");
+          if (no.error) cloudErr("請求番号の読込", no.error);
+          else
+            (no.data || []).forEach(function (r) {
+              INVOICE_NO[invNoKey(r.month, r.company)] = r.invoice_no;
+            });
+        } catch (e) {
+          cloudErr("請求番号の読込", e);
+        }
         if (!i.error && i.data && i.data.config) ISSUER_SETTINGS[CURRENT_ACCOUNT] = i.data.config;
         if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
         migrateRegno(ISSUER_SETTINGS[CURRENT_ACCOUNT]); // ★登録番号を専用の欄へ（1度だけ・紙は変わらない）★
@@ -4597,20 +4643,27 @@
               });
               var b10 = Math.round(t10s / 1.1),
                 b8 = Math.round(t8s / 1.08);
-              tot.push({ l: "10%対象", v: b10 });
-              tot.push({ l: "消費税(10%)", v: t10s - b10 });
-              tot.push({ l: "8%対象", v: b8 });
-              tot.push({ l: "消費税(8%)", v: t8s - b8 });
+              // ★率は文字で書かず 計算に使った数から組み立てる★（2026-08-12 指示役）
+              //   ここは半角カッコ "消費税(10%)" で、紙の全角カッコと違っていた＝4通りに割れた原因の1つ
+              var _r10 = 10,
+                _r8 = 8;
+              tot.push({ l: _r10 + "%対象", v: b10 });
+              tot.push({ l: "消費税（" + _r10 + "%）", v: t10s - b10 });
+              tot.push({ l: _r8 + "%対象", v: b8 });
+              tot.push({ l: "消費税（" + _r8 + "%）", v: t8s - b8 });
               baseGoukei = t10s + t8s;
               tot.push({ l: "合計", v: baseGoukei, big: 1, line: 1 });
             } else {
               // 内税:小計=合計=税込/消費税=内税分。外税:小計=税抜/消費税=小計×10%/合計=税込。
               // ★合計は請求全体(grand)で計算（最終ページにのみ出す＝PDF同様。途中ページはページ小計）。
-              var pTax = isSoto ? Math.round(grand * 0.1) : U.tax10(grand);
-              baseGoukei = isSoto ? grand + pTax : grand;
-              tot.push({ l: "小計", v: grand });
-              tot.push({ l: isSoto ? "消費税（10%）" : "消費税", v: pTax });
-              tot.push({ l: "合計", v: baseGoukei, big: 1, line: 1 });
+              // ★合計も言葉も エンジン1本から★（紙と別々に足さない・別々に書かない）
+              var _et = MeisaiEngine.invoiceTotals(allRows, { taxMode: m.taxMode });
+              var _eL = MeisaiEngine.totalsLabels(m, { taxMode: m.taxMode });
+              var pTax = _et.zei;
+              baseGoukei = _et.goukei;
+              tot.push({ l: _eL.小計, v: _et.shoukei });
+              tot.push({ l: _eL.消費税, v: pTax });
+              tot.push({ l: _eL.合計, v: baseGoukei, big: 1, line: 1 });
             }
             // 源泉徴収（個人宛）：税抜×10.21%を差引いてお振込金額
             if (m.withholding) {
@@ -4619,19 +4672,29 @@
               tot.push({ l: "源泉徴収税額", v: -gensen });
               tot.push({ l: "お振込金額", v: baseGoukei - gensen, big: 1, line: 1 });
             }
-            // 繰越請求：前回繰越＋今回請求−入金＝今回お支払額（本番は入金管理連動・demoはマスタ値）
-            if (m.carryover) {
-              var prev = Number(m.carryoverPrev) || 0,
-                paid = Number(m.carryoverPaid) || 0;
-              tot.push({ l: "前回繰越額", v: prev });
-              tot.push({ l: "今回ご入金額", v: -paid });
-              tot.push({ l: "今回お支払額", v: baseGoukei + prev - paid, big: 1, line: 1 });
+            // ★繰越★ 2026-08-12：マスタの手打ち(carryoverPrev/Paid)をやめ、
+            //   ★保存した控えと入金から出した物（iss.carry）をそのまま使う★＝紙とExcelが同じ数になる
+            if (m.carryover && iss.carry) {
+              var _c = iss.carry;
+              tot.push({
+                l: _eL.前回繰越額,
+                v: _c.kurikoshi,
+                t: _c.kurikoshi == null ? _c.riyu[0] || "—" : null,
+              });
+              if (_c.goukeiSeikyu != null) tot.push({ l: _eL.合計請求額, v: _c.goukeiSeikyu });
+              tot.push({
+                l: _eL.ご入金額,
+                v: _c.nyukin == null ? null : -_c.nyukin,
+                t: _c.nyukin == null ? "入金は未確認" : null,
+              });
+              if (_c.oshiharai != null)
+                tot.push({ l: _eL.今回お支払額, v: _c.oshiharai, big: 1, line: 1 });
             }
             var amtC = lastCol; // 金額＝表の右端（右下隅・桁の縦ライン）
             var lblC = Math.max(amtC - 1, 0); // ラベルは金額のすぐ左
             // ★合計欄のラベルは「列幅」で欠ける★（文字はセルに在るのに紙に出ない）
             //   2026-08-14 実測：「消費税（10%・内税）」が Excel の紙で「費税（10%・内税」に欠けた。
-            //   中央揃えは 右隣(金額)が埋まっていると ★左右とも切り落とされる★（左へはみ出さない）。
+            //   中央揃えは右隣(金額)が埋まっていると ★左右とも切り落とされる★（左へはみ出さない）。
             //   なので 文字の要る幅を数えて、足りる所まで ★左へセルを結合してから★ 書く。
             //   結合したセルは ★左上の値しか出ない★ ので、ラベルは結合の左端に置く。
             function _wchAt(c) {
@@ -4686,7 +4749,9 @@
                 if (t) {
                   tFrom = _lblFrom(t.l, t.big ? 13 : 11, bank[f] ? lblC : 1);
                   fr[tFrom] = t.l;
-                  fr[amtC] = t.v;
+                  // ★不明（繰越が出せない・入金が未確認）は紙と同じ言葉を金額欄に出す★
+                  //   数が無いからと空欄にすると、Excelだけ「0円で済んだ」に見える。
+                  fr[amtC] = t.v == null ? t.t || "—" : t.v;
                 }
                 var rif = row(fr);
                 if (bank[f]) {
@@ -4711,7 +4776,7 @@
                     });
                   S(rif, amtC, {
                     font: { bold: !!t.big, sz: t.big ? 13 : 11 },
-                    numFmt: YENNEG,
+                    numFmt: t.v == null ? undefined : YENNEG,
                     alignment: { horizontal: "center" },
                     border: topbd,
                   });
@@ -5885,9 +5950,8 @@
       function inMonth(iso, month) {
         return iso && month && iso.slice(0, 7) === month;
       }
-      function tax10(total) {
-        return Math.round((total * 10) / 110);
-      } // 内税10%の内消費税
+      // ★tax10 の写しはここに在ったが 誰も呼んでいなかったので消した（2026-08-11）★
+      //   合計を足すのは meisai-engine.js の invoiceTotals ただ1本。
       function esc(s) {
         return String(s == null ? "" : s)
           .replace(/&/g, "&amp;")
@@ -6738,14 +6802,18 @@
             toast("該当する明細がありません");
             return null;
           }
+          // ★番号は1回だけ決めて 紙と控えの両方に同じ物を使う★
+          //   別々に取ると「紙の番号と控えの番号が違う」が起きる（実際に一度そう書いてしまった）
+          var _no = await issueInvoiceNo(month, onlyCo); // ★決めるのはここ1回だけ★
           bytes = await InvoicePDF.buildOne(
             MASTER,
             onlyCo,
             rows,
             month,
             issuerForEngine(onlyCo),
-            MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, onlyCo)
+            _no
           );
+          await saveInvoiceCopy(month, onlyCo, rows, issuerForEngine(onlyCo), _no);
           fname = "請求書_" + month + "_" + onlyCo + ".pdf";
         } else {
           bytes = await InvoicePDF.buildMonth(
@@ -8074,6 +8142,123 @@
    自社情報（発行者・振込先・判子）＝請求書フォーマット定義の残りピース
    アカウント単位で保存。エンジンの issuer 形へ変換して請求書に渡す。
    =================================================================== */
+      /* ===== A 請求書を保存する（発行した瞬間に写しを残す）===========================
+         ★なぜ★ 本番で数えたら 控えを置く棚が1つも無く、PDFは端末に落とすだけだった。
+           請求書は毎回 明細から計算し直すので、★明細を直すと過去に渡した紙と食い違う★。
+           実測: 12,000→9,000 に直して同じ月を出すと 請求額も 9,000 に変わった。
+         ★2つの棚★
+           invoices   … 発行の控え（出すたび1行 積む）
+           invoice_no … 番号の台帳（月×会社に1つ）★一度決めた番号は動かさない★
+         ★凍結しても 今の番号は1つも変わらない★
+           台帳に無い間は 今までと同じ計算（invoiceNoFor）を返す＝見えている番号はそのまま。
+      ============================================================================= */
+      var INVOICE_NO = {}; // "YYYY-MM|会社名" -> "2026-05-03"
+      var INVOICES = []; // 発行の控え（繰越の材料）
+      function invNoKey(month, co) {
+        return month + "|" + co;
+      }
+      // 画面に出す番号（読むだけ・書かない）。台帳に在ればそれ、無ければ今までどおりの計算。
+      function invoiceNoFrozen(month, co) {
+        var k = invNoKey(month, co);
+        if (INVOICE_NO[k]) return INVOICE_NO[k];
+        return MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co);
+      }
+      /* ★番号を決めるのは この1本だけ★
+         決める所が2つに割れていると、片方を壊しても もう片方が庇って
+         ★試験が赤にならない★（実際にそう書いてしまい、わざと壊しても緑のままだった）。
+         「台帳に在ればそれを返す／無ければ今の並びで決めて台帳に止める」を ここだけで行う。 */
+      async function issueInvoiceNo(month, co) {
+        var k = invNoKey(month, co);
+        if (INVOICE_NO[k]) return INVOICE_NO[k]; // ★一度 決めた番号は動かさない★
+        var no = MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co);
+        INVOICE_NO[k] = no;
+        if (SB && CURRENT_ACCOUNT) {
+          try {
+            var r = await SB.from("invoice_no").upsert(
+              { user_id: CURRENT_ACCOUNT, month: month, company: co, invoice_no: no },
+              { onConflict: "user_id,month,company" }
+            );
+            if (r && r.error) cloudErr("請求番号の保存", r.error);
+          } catch (e) {
+            cloudErr("請求番号の保存", e);
+          }
+        }
+        return no;
+      }
+      /* ★繰越の材料を集める★（2026-08-12）
+         前回繰越は ★手打ちにしない★：保存した控え(INVOICES) と 入金(PAYMENTS) から出す。
+         ・控えが在る月 … その控えの total を「請求額」にする（★渡した紙の額★）
+         ・控えが無い月 … ★null（読めない）★にする。0円と書かない＝繰越は出さない
+         ・入金        … PAYMENTS に行が無い月は 0（入金なし）。未確認は null で表す */
+      function carryMaterialFor(month, co) {
+        var kako = [];
+        var tsuki = {};
+        (INVOICES || []).forEach(function (iv) {
+          if (iv.company !== co || iv.month >= month) return;
+          // 同じ月に何度も出していたら ★最後に出した控え★ が渡した紙
+          if (!tsuki[iv.month] || iv.issued_at > tsuki[iv.month].issued_at) tsuki[iv.month] = iv;
+        });
+        // 明細が在るのに控えが無い月＝「読めない」として混ぜる（黙って飛ばさない）
+        var arumonth = {};
+        DB.forEach(function (r) {
+          if (r.account_id !== CURRENT_ACCOUNT || r.会社名 !== co || !r.日付) return;
+          var m2 = r.日付.slice(0, 7);
+          if (m2 < month) arumonth[m2] = 1;
+        });
+        Object.keys(arumonth)
+          .sort()
+          .forEach(function (m2) {
+            var pay = PAYMENTS[CURRENT_ACCOUNT + "::" + m2 + "::" + co];
+            kako.push({
+              month: m2,
+              seikyu: tsuki[m2] ? Number(tsuki[m2].total) : null, // 控えが無い＝読めない
+              nyukin: pay ? Number(pay.paid) || 0 : 0,
+            });
+          });
+        return kako;
+      }
+      // 当月に受け取った入金（行が無ければ0＝入金なし）
+      function carryNyukinFor(month, co) {
+        var pay = PAYMENTS[CURRENT_ACCOUNT + "::" + month + "::" + co];
+        return pay ? Number(pay.paid) || 0 : 0;
+      }
+
+      // ★発行の控えを1行 積む★（明細・自社情報・様式の写しつき）
+      async function saveInvoiceCopy(month, co, rows, iss, no) {
+        var total = rows.reduce(function (t, r) {
+          return t + (Number(r.金額) || 0);
+        }, 0);
+        var rec = {
+          user_id: CURRENT_ACCOUNT,
+          month: month,
+          company: co,
+          invoice_no: no,
+          total: total,
+          tax: MeisaiEngine.utils.tax10(total),
+          rows_json: rows.map(function (r) {
+            var o = {};
+            MeisaiEngine.FIELD_DEFS.forEach(function (f) {
+              o[f.key] = r[f.key];
+            });
+            return o;
+          }),
+          issuer_json: { lines: iss.lines, bank: iss.bank, regno: regnoOf(currentIssuer()) },
+          design_json: {
+            templateId: iss.templateId,
+            items: (MASTER[co] && MASTER[co].items) || [],
+            widths: (MASTER[co] && MASTER[co].widths) || {},
+            aligns: (MASTER[co] && MASTER[co].aligns) || {},
+          },
+        };
+        if (!SB || !CURRENT_ACCOUNT) return rec;
+        try {
+          var r = await SB.from("invoices").insert(rec);
+          if (r && r.error) cloudErr("請求書の控え保存", r.error);
+        } catch (e) {
+          cloudErr("請求書の控え保存", e);
+        }
+        return rec;
+      }
       var ISSUER_SETTINGS = {};
       // 自社情報は「自由な行」。要らない行は消す、足したい行は足す＝定義駆動。
       function defaultIssuer() {
@@ -8421,6 +8606,25 @@
         return y + "/" + mo + "/" + d;
       }
       // エンジンが受け取る形（lines/bank/hanko）へ変換。空行は自動で除外。
+      /* ★繰越の中身を作る（会社が「使う」を選んだ時だけ）★
+         月は請求タブで選んでいる月。選ばれていなければ 繰越は出さない。 */
+      function _carryFor(co) {
+        if (!co || !MASTER[co] || !MASTER[co].carryover) return null;
+        var el = document.getElementById("invMonth");
+        var month = el ? el.value : "";
+        if (!month) return null;
+        var rows = DB.filter(function (r) {
+          return r.account_id === CURRENT_ACCOUNT && r.会社名 === co && inMonth(r.日付, month);
+        });
+        var konkai = MeisaiEngine.invoiceTotals(rows, {
+          taxMode: MASTER[co].taxMode,
+        }).goukei;
+        return MeisaiEngine.carryoverOf(
+          carryMaterialFor(month, co),
+          konkai,
+          carryNyukinFor(month, co)
+        );
+      }
       function issuerForEngine(co) {
         var s = currentIssuer();
         var bankLines = splitLines(s.bank);
@@ -8458,6 +8662,9 @@
             s.showPaymentDue && s.paymentDue
               ? fmtDueDate(s.paymentDue, s.paymentDueEra || "seireki")
               : "",
+          // ★繰越（会社ごと・既定は使わない）★ 紙とExcelに同じ物を渡す
+          taxMode: (_m && _m.taxMode) === "外税" ? "外税" : "内税",
+          carry: _carryFor(co),
           hanko: s.hanko || null,
           hankoSizeMm: Number(s.hankoSizeMm) || 21,
           logo: s.logo || null,
@@ -9628,6 +9835,31 @@
           " onchange=\"setMasterField('" +
           esc(co) +
           "','noteSummary',this.checked)\"> 備考で集計ボックスを出す（例：役職別や名前別など）</label>" +
+          /* ★繰越（2026-08-12 司さん「繰り越しに関しては選べるようにしろや」）★
+             既定は切＝今までどおり。入れると 前回の残りを次の請求に乗せる。
+             前回繰越は ★保存した控えと入金から自動★（手打ちにしない）。 */
+          '<label class="toggle-row"><input type="checkbox" ' +
+          (m.carryover ? "checked" : "") +
+          " onchange=\"setMasterField('" +
+          esc(co) +
+          "','carryover',this.checked)\"> 繰越を使う（前回の残りを次の請求に乗せる）</label>" +
+          '<div style="font-size:10px;color:#5a6b82;margin:2px 0 8px 26px;line-height:1.6;">' +
+          "前回繰越額・合計請求額・ご入金額・今回お支払額 が紙とExcelに出ます。" +
+          "前回の請求が無い会社は「前回の請求はありません」と出ます（0円とは書きません）。</div>" +
+          /* ★内税/外税（値は前から在ったが 切り替える所が無かった＝到達しない分岐だった）★ */
+          '<div class="frow"><div class="flabel">消費税の扱い</div>' +
+          '<div class="align-row">' +
+          '<button type="button" class="align-btn' +
+          (m.taxMode === "外税" ? "" : " on") +
+          '" onclick="setMasterField(\'' +
+          esc(co) +
+          "','taxMode','内税')\">内税（金額は税込）</button>" +
+          '<button type="button" class="align-btn' +
+          (m.taxMode === "外税" ? " on" : "") +
+          '" onclick="setMasterField(\'' +
+          esc(co) +
+          "','taxMode','外税')\">外税（金額は税抜）</button>" +
+          "</div></div>" +
           '<div class="frow" style="margin-top:6px;">' +
           '<div class="flabel">集計の並び（読点区切り）</div>' +
           '<input class="finput" placeholder="会長、社長、専務" value="' +
