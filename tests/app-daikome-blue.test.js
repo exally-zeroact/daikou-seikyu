@@ -21,7 +21,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
-import { colorsIn, EXALLY_GREEN, OFFICE_BLUE, looksGreen } from "./color-value.js";
+import { colorsIn, EXALLY_GREEN, OFFICE_BLUE, looksGreen, PAPER_INK } from "./color-value.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
@@ -57,8 +57,8 @@ describe("★画面から Exally の緑が消えているか★", () => {
   // ★7色は tests/color-value.js の1か所で持つ★（画面と紙で別々の一覧を持つと必ずズレる）
   for (const g of EXALLY_GREEN) {
     it("画面に #" + g + " が残っていない", () => {
-      const hit = RULES.filter((r) => !r.paper && !r.print && colorsIn(r.body).includes(g)).map(
-        (r) => r.sel.split("\n").pop().trim()
+      const hit = RULES.filter((r) => !r.paper && !r.print && colorsIn(r.body).includes(g)).map((r) =>
+        r.sel.split("\n").pop().trim()
       );
       expect(hit, "★#" + g + " が残っている: " + hit.join(" / ")).toEqual([]);
     });
@@ -201,17 +201,38 @@ describe("★PDF(invoice-pdf.js) の色は 注釈ではなく値で見る★", (
     return m ? colorsIn("rgb(" + m[1] + ")")[0] : null;
   };
 
-  it("本文・金額(TEXT) が 事務所の青", () => {
-    expect(hexOf("TEXT"), "★お客さんに渡すPDFの本文が青ではない★").toBe(OFFICE_BLUE.ink);
+  // ★色は 名前つきの定数から作るようになった★（hexRgb(rgb, PAPER_INK) の形）ので、
+  //   rgb(0.0,0.1,…) の直書きだけを見ていると ★何も見ていないのに緑★ になる。両方を見る。
+  const inkOf = (name) => {
+    const m = pdf.match(new RegExp("\\b" + name + '\\s*=\\s*hexRgb\\(rgb,\\s*"?([#A-Za-z0-9_]+)"?'));
+    if (!m) return hexOf(name);
+    const v = m[1];
+    if (v.startsWith("#")) return v.slice(1).toUpperCase();
+    const d = pdf.match(new RegExp("\\b" + v + '\\s*=\\s*"#([0-9A-Fa-f]{6})"'));
+    return d ? d[1].toUpperCase() : null;
+  };
+
+  // ★紙の文字は「全体の色」から作らない★（指示役 2026-08-15）
+  //   直す前は TEXT が #0A5FD0＝アプリの青そのもの＝全体の色を変えたら本文まで動いた。
+  //   ＝薄い色を選ばれた瞬間、読めない請求書が客先へ出る。
+  it("★本文・明細・金額(TEXT) が 固定の濃い墨★", () => {
+    expect(inkOf("TEXT"), "★紙の本文が固定の濃さではない（全体の色から作っていないか）★").toBe(
+      PAPER_INK.ink
+    );
   });
-  it("飾り線(MINT) が 強めの青", () => {
-    expect(hexOf("MINT")).toBe(OFFICE_BLUE.strong);
+  it("★副の情報(MUTED) が #444444 まで（薄い灰青にしない）★", () => {
+    expect(inkOf("MUTED")).toBe(PAPER_INK.sub);
+  });
+  it("★罫線は濃さで作る（色で作らない）★", () => {
+    expect(inkOf("RULE")).toBe(PAPER_INK.rule);
+    expect(inkOf("BORDER")).toBe(PAPER_INK.hair);
   });
   it("ヘッダー面(MINTBG) が 地の青", () => {
     expect(hexOf("MINTBG")).toBe(OFFICE_BLUE.bg);
   });
-  it("補助文(MUTED) が 弱い字の色", () => {
-    expect(hexOf("MUTED")).toBe(OFFICE_BLUE.muted);
+  it("★全体の色の既定は 事務所の青（タイトルと線だけに使う）★", () => {
+    const m = pdf.match(/paperAccent[\s\S]*?return[^;]*?"#([0-9A-Fa-f]{6})"/);
+    expect(m && m[1].toUpperCase(), "★全体の色の既定が読めない★").toBe(OFFICE_BLUE.ink);
   });
 
   // ★クラシックは「白黒で刷っても崩れない紙」が意匠★（指示役 2026-08-10）
@@ -305,9 +326,14 @@ describe("★Excelに書き出す文字色も 事務所の青★", () => {
     ).toBeLessThanOrEqual(6);
   });
 
-  it("本文・金額(C_TEXT)", () => expect(rgbOf("C_TEXT")).toBe(OFFICE_BLUE.ink));
-  it("見出し・ラベル(C_LABEL)", () => expect(rgbOf("C_LABEL")).toBe(OFFICE_BLUE.strong));
-  it("補助文(C_MUTED)", () => expect(rgbOf("C_MUTED")).toBe(OFFICE_BLUE.muted));
+  // ★Excelも紙。PDFと同じ濃さにする（画面の色とは別物）★
+  it("★本文・明細・金額(C_TEXT) が 固定の濃い墨★", () =>
+    expect(rgbOf("C_TEXT")).toBe(PAPER_INK.ink));
+  it("★見出し・ラベル(C_LABEL) も 墨（見出しの「字」に色は付けない）★", () =>
+    expect(rgbOf("C_LABEL")).toBe(PAPER_INK.ink));
+  it("★副の情報(C_MUTED) が #444444★", () => expect(rgbOf("C_MUTED")).toBe(PAPER_INK.sub));
+  it("★全体の色(C_ACCENT) はタイトルだけ★", () =>
+    expect(rgbOf("C_ACCENT")).toBe(OFFICE_BLUE.ink));
 });
 
 describe("★Excel の緑は残す★", () => {

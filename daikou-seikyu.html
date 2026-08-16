@@ -500,7 +500,7 @@
         border-color: #007aff;
       }
       .finput::placeholder {
-        color: #8a94a6;
+        color: #8A94A6;
       }
       .fnum {
         font-family: "DM Mono", monospace;
@@ -541,7 +541,7 @@
       }
       .btn-ghost {
         background: #f2f7ff;
-        color: #0a5fd0;
+        color: #0A5FD0;
         border: 1.5px solid #cfe0ff;
         padding: 11px 14px;
         font-size: 13px;
@@ -778,7 +778,7 @@
       .scope-clear {
         background: #f2f7ff;
         border: 1.5px solid #cfe0ff;
-        color: #0a5fd0;
+        color: #0A5FD0;
         font-size: 11px;
         font-weight: 700;
         padding: 4px 10px;
@@ -896,7 +896,7 @@
         pointer-events: none;
       }
       .date-show.empty {
-        color: #8a94a6;
+        color: #8A94A6;
       }
       .date-wrap:focus-within .date-show {
         border-color: #007aff;
@@ -941,7 +941,7 @@
         border-radius: 10px;
         font-size: 13px;
         font-weight: 700;
-        color: #0a5fd0;
+        color: #0A5FD0;
         cursor: pointer;
         font-family: "Noto Sans JP", sans-serif;
       }
@@ -993,7 +993,7 @@
       }
       .li-empty {
         text-align: center;
-        color: #8a94a6;
+        color: #8A94A6;
         font-size: 12px;
         padding: 30px 0;
       }
@@ -1940,7 +1940,7 @@
         flex: none;
         font-size: 10.5px;
         font-weight: 800;
-        color: #6b7787;
+        color: #6B7787;
         padding: 0 8px 0 4px;
       }
       .etool {
@@ -2258,7 +2258,7 @@
         padding: 34px 38px;
         border: 1px solid #dbe7f7;
         box-shadow: 0 4px 16px rgba(10, 95, 208, 0.1); /* = #0A5FD0 */
-        color: #000000;
+        color: #1a1a1a;
         font-size: 12px;
       }
       .sh-title {
@@ -2503,10 +2503,10 @@
         border: none;
         cursor: pointer;
         font-family: "Noto Sans JP", sans-serif;
-        color: #6b7787;
+        color: #6B7787;
       }
       .nav-item.active {
-        color: #0a5fd0;
+        color: #0A5FD0;
       }
       .nav-ic {
         font-size: 18px;
@@ -2861,8 +2861,7 @@
           >
             <b>今まで請求書番号は紙に刷っていません。</b>
             ここを<b>表示</b>にした日から、番号がお客さんに渡り始めます。<br />
-            <b>それ以前の番号は 誰にも渡っていません</b
-            >（渡した紙と食い違う心配はありません）。<br />
+            <b>それ以前の番号は 誰にも渡っていません</b>（渡した紙と食い違う心配はありません）。<br />
             表示にした後は、<b>一度出した番号は変わりません</b>（出した時に控えと一緒に記録します）。
           </div>
           <div class="align-row" style="margin-top: 12px">
@@ -3602,9 +3601,7 @@
         // ★発行の控えを読む（繰越の材料）★
         INVOICES = [];
         try {
-          var ivs = await SB.from("invoices").select(
-            "month, company, invoice_no, total, issued_at"
-          );
+          var ivs = await SB.from("invoices").select("month, company, invoice_no, total, issued_at");
           if (ivs.error) cloudErr("請求書の控え読込", ivs.error);
           else INVOICES = ivs.data || [];
         } catch (e) {
@@ -3870,8 +3867,6 @@
         //   Excelはセル格子なので「中央タイトル＋真横に請求日＋直下の装飾線」だけは
         //   PDFと同じにできない＝中途半端な見た目コピーは渡さない、と実物で確かめた上の決着。
         //   ★見た目の納品は PDF 一本。Excelは編集用のデータ（明細・集計・入金）に徹する。★
-        //   ※この決定は2026-07-21に出たのに ★pushされず26日間 出続けていた★。
-        //     「決めた」だけでは戻るので tests/e2e/excel-no-invoice-sheet.spec.js で毎回 数える。
         //   ※下の pick.invoice の枝は到達しない（消すと戻す時に困るので残置＝死にコード棚卸しで扱う）
         var sheetDefs = [
           ["meisai", "明細データ"],
@@ -4134,9 +4129,12 @@
         var YEN = '"¥"#,##0';
         // ★PDFのミント配色（文字色）。色未指定セル（＝黒）を本文＝濃い緑にして「色がPDFと違う」を解消。
         // ★SheetJS の rgb は「#」を書かない★ ＝ 濃い緑の見張りが素通りしていた場所（2026-08-10 に発見）
-        var C_TEXT = { rgb: "0A5FD0" }; // 本文・タイトル・宛名・金額（#0A5FD0 事務所の青）
-        var C_LABEL = { rgb: "007AFF" }; // 見出し・ラベル（#007AFF 事務所の強めの青）
-        var C_MUTED = { rgb: "5A6B82" }; // 補助文・自社情報・あいさつ（#5A6B82 事務所の弱い字）
+        // ★紙の文字の濃さは「全体の色」から作らない。固定する★（指示役 2026-08-15）
+        //   薄い色を選ばれた瞬間 読めない請求書が客先へ出る。紙はPDFと同じ濃さにする。
+        var C_TEXT = { rgb: "1A1A1A" }; // 本文・明細・金額・宛名（★旧 0A5FD0＝全体の色そのものだった★）
+        var C_LABEL = { rgb: "1A1A1A" }; // 見出し・ラベル（★見出しの「字」に色は付けない★）
+        var C_MUTED = { rgb: "444444" }; // 副の情報・自社情報・あいさつ（★旧 5A6B82＝薄い灰青★）
+        var C_ACCENT = { rgb: "0A5FD0" }; // ★全体の色。★線だけ★に使う（文字には使わない）
         var aoa = [],
           styles = {},
           merges = [],
@@ -4250,6 +4248,37 @@
           items.forEach(function (k, ci) {
             if (ci > textIdx) vlCols[colStart[ci]] = 1;
           });
+          // ★「ご請求金額」の下線は ★金額の下まで★（右端まで引かない）★
+          //   司さん 2026-08-15「なぜExcelの方のご請求金額の下線は右端までいっとんど／金額の下までやろが」
+          //   紙(PDF)は文字の幅ぶんだけ線を引く。Excelは列の切れ目でしか止められないので、
+          //   ★文字が届いた列★までで止める（列幅は本物の !cols から数える）。
+          function _wchOfCol(c) {
+            var w = (invCols && invCols[c] && invCols[c].wch) || (colWidths && colWidths[c]) || 9;
+            return Number(w) || 9;
+          }
+          function _needWchOf(str, sz) {
+            var n = 0;
+            String(str == null ? "" : str)
+              .split("")
+              .forEach(function (ch) {
+                n += /[ -~｡-ﾟ]/.test(ch) ? 1 : 2; // 全角=2・半角=1
+              });
+            return Math.ceil((n * (sz || 11)) / 11);
+          }
+          // ★線を止める列＝文字の幅を「超えない」最後の列★
+          //   超える方で数えると1列ぶん先まで線が伸びる（実測 金額の右端54.7%に対し線66.1%）。
+          //   超えない方で止めると 線は金額のほぼ真下で終わる（実測 52.2%）。
+          function _lineCols(str, sz, maxCol) {
+            var need = _needWchOf(str, sz),
+              acc = 0,
+              last = 0;
+            for (var c = 0; c <= maxCol; c++) {
+              acc += _wchOfCol(c);
+              if (acc > need) break;
+              last = c;
+            }
+            return last;
+          }
           var blank = function () {
             var a = [];
             for (var i = 0; i < W; i++) a.push("");
@@ -4291,7 +4320,8 @@
           // ★デザイン分岐：elegant＝淡ミント＋横罫だけ／classic＝緑＋#808080全罫（PDFと一致）★
           var isElegant = (iss.pdfDesign || "elegant") === "elegant";
           var HDR_FILL = isElegant ? { fgColor: { rgb: "F2F7FF" } } : BAND;
-          var HRULE = { style: "thin", color: { rgb: isElegant ? "DBE7F7" : "808080" } };
+          // ★罫線は濃さで作る（色で作らない）★ 白黒コピーで飛ばない灰
+          var HRULE = { style: "thin", color: { rgb: isElegant ? "BFBFBF" : "808080" } };
 
           // ★複数ページは最終に「サマリーページ（ご請求金額＋ページ別内訳＋合計＋振込先）」を足す＝PDF同様。
           var hasSummary = pageCount > 1;
@@ -4320,7 +4350,7 @@
               M(riTa, 0, riTa, Math.max(rightStart - 1, 0));
               heights[riTa] = 34;
               S(riTa, 0, {
-                font: { bold: true, sz: 22 },
+                font: { bold: true, sz: 22, color: C_TEXT }, // ★司さん「請求書って文字も同じ黒に」★
                 alignment: { horizontal: "left", vertical: "center" },
               });
               // ロゴ＝右上の隅（会議：空いた右上に大きめ）。右マージンを小さくした(非対称)ので
@@ -4391,15 +4421,23 @@
                   //   同じ行に自社情報がある時は左ゾーンだけ結合＝右の自社情報結合と重ならない（重複→修復/見切れ防止）。
                   var goseiR = issRestA[ka] ? rightStart - 1 : lastCol;
                   var yenA = "¥" + String(billTotal).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                  // ★線は「金額の下まで」★（右端まで引かない）＝司さん 2026-08-15
+                  //   Excelは列の切れ目でしか線を止められないので、
+                  //   ★ラベルと金額を別のセルにし、金額を右寄せ★にして
+                  //   その列の右端＝金額の右端＝線の終わり に揃える。
+                  // ★形は変えない★＝ラベルと金額は本番どおり1つのセル（司さん 2026-08-15）
+                  //   変えるのは ★線をどこで止めるか★ だけ。
                   aoa[rria][0] = "ご請求金額（税込）　　" + yenA;
+                  // ★結合は本番のまま★（縮めると 金額が「¥30,00」と欠ける＝結合は文字をはみ出させない）
                   M(rria, 0, rria, goseiR);
+                  var ulA = _lineCols(aoa[rria][0], 16, goseiR); // ★線を止める列だけ短くする★
                   S(rria, 0, {
                     font: { bold: true, sz: 16 }, // ★PDF同様に大きく目立たせる
                     alignment: { horizontal: "left", vertical: "center" },
                     border: { bottom: { style: "medium" } },
                   });
                   heights[rria] = 26;
-                  for (var uba = 1; uba <= goseiR; uba++)
+                  for (var uba = 1; uba <= ulA; uba++)
                     S(rria, uba, { border: { bottom: { style: "medium" } } });
                 }
               }
@@ -4437,7 +4475,7 @@
               heights[riT] = 28;
               S(riT, 0, {
                 // 専門家助言：字間/サイズを締める（26→20）。太字は司さん指定で維持。
-                font: { bold: true, sz: 20 },
+                font: { bold: true, sz: 20, color: C_TEXT }, // ★司さん「請求書って文字も同じ黒に」★
                 alignment: { horizontal: "center", vertical: "center" },
               });
               row(blank());
@@ -4491,14 +4529,18 @@
                   aoa[rri][0] = "ご請求金額（税込）　　" + yenStr;
                   // 同じ行に自社情報がある時は左ゾーンだけ結合＝右の自社情報結合と重ならない（重複→修復/見切れ防止）。
                   var goseiRB = issRest[k] ? rightStart - 1 : lastCol;
+                  // ★線は「金額の下まで」★（上と同じ作り）
+                  // ★形は変えない★＝本番どおり1つのセル。変えるのは線を止める列だけ。
+                  // ★結合は本番のまま★（縮めると金額が欠ける）
                   M(rri, 0, rri, goseiRB);
+                  var ulB = _lineCols(aoa[rri][0], 16, goseiRB); // ★線を止める列だけ短くする★
                   S(rri, 0, {
                     font: { bold: true, sz: 16 }, // ★PDF同様に大きく目立たせる
                     alignment: { horizontal: "left", vertical: "center" },
                     border: { bottom: { style: "medium" } },
                   });
                   heights[rri] = 26;
-                  for (var ub = 1; ub <= goseiRB; ub++)
+                  for (var ub = 1; ub <= ulB; ub++)
                     S(rri, ub, { border: { bottom: { style: "medium" } } });
                 }
               }
@@ -4525,7 +4567,7 @@
                   font: { bold: true, sz: 12, color: C_LABEL },
                   alignment: { horizontal: sc === sumAmt ? "right" : "left", vertical: "center" },
                   fill: HDR_FILL,
-                  border: isElegant ? { bottom: { style: "thin", color: { rgb: "007AFF" } } } : BOX,
+                  border: isElegant ? { bottom: { style: "thin", color: C_ACCENT } } : BOX,
                 });
               pageSubs.forEach(function (sub, si) {
                 var sr2 = blank();
@@ -4568,7 +4610,7 @@
                   font: { bold: true, sz: 12, color: C_LABEL }, // 表ヘッダー sz12（PDFと同じ中緑）
                   alignment: { horizontal: "center", vertical: "center" },
                   fill: HDR_FILL,
-                  border: isElegant ? { bottom: { style: "thin", color: { rgb: "007AFF" } } } : BOX,
+                  border: isElegant ? { bottom: { style: "thin", color: C_ACCENT } } : BOX,
                 });
 
               // 明細22行（全幅・空行も枠線）
@@ -8304,9 +8346,9 @@
       function loadIssuer() {
         try {
           ISSUER_SETTINGS = JSON.parse(localStorage.getItem(ISSUER_KEY)) || {};
-          Object.keys(ISSUER_SETTINGS).forEach(function (k) {
-            migrateRegno(ISSUER_SETTINGS[k]);
-          });
+        Object.keys(ISSUER_SETTINGS).forEach(function (k) {
+          migrateRegno(ISSUER_SETTINGS[k]);
+        });
         } catch (e) {
           ISSUER_SETTINGS = {};
         }
@@ -8452,10 +8494,11 @@
       ============================================================================= */
       function tplThumbSvg(design, v) {
         var ele = design !== "classic";
-        var ink = ele ? "#0A5FD0" : "#1A1A1A"; // 本文・タイトル
-        var acc = ele ? "#007AFF" : "#808080"; // 飾り線
+        // ★見本も本物と同じ濃さにする（見本だけ青いと 選ぶ時に嘘になる）★
+        var ink = "#1A1A1A"; // 本文・タイトル＝全体の色から作らない（本物と同じ）
+        var acc = ele ? "#007AFF" : "#808080"; // 飾り線（★線だけ全体の色★）
         var band = ele ? "#F2F7FF" : "#F2F2F2"; // 表の地
-        var rule = ele ? "#DBE7F7" : "#B0B0B0"; // 罫
+        var rule = ele ? "#BFBFBF" : "#B0B0B0"; // 罫＝濃さで作る
         var W = 100,
           H = 141.4;
         var centerTitle = v.headerStyle !== "A";
@@ -8468,8 +8511,7 @@
           if (logo) p.push('<rect x="44" y="22" width="12" height="8" rx="1" fill="' + acc + '"/>');
         } else {
           p.push('<rect x="10" y="12" width="30" height="6" rx="1" fill="' + ink + '"/>');
-          if (logo)
-            p.push('<rect x="76" y="11" width="14" height="10" rx="1" fill="' + acc + '"/>');
+          if (logo) p.push('<rect x="76" y="11" width="14" height="10" rx="1" fill="' + acc + '"/>');
         }
         p.push(
           '<line x1="10" y1="' +
@@ -8488,21 +8530,9 @@
         p.push('<rect x="10" y="68" width="80" height="8" fill="' + band + '"/>');
         for (var i = 0; i < 4; i++) {
           var y = 80 + i * 8;
-          p.push(
-            '<line x1="10" y1="' +
-              y +
-              '" x2="90" y2="' +
-              y +
-              '" stroke="' +
-              rule +
-              '" stroke-width="0.6"/>'
-          );
-          p.push(
-            '<rect x="13" y="' + (y - 4) + '" width="34" height="2.4" rx="1" fill="' + rule + '"/>'
-          );
-          p.push(
-            '<rect x="74" y="' + (y - 4) + '" width="14" height="2.4" rx="1" fill="' + rule + '"/>'
-          );
+          p.push('<line x1="10" y1="' + y + '" x2="90" y2="' + y + '" stroke="' + rule + '" stroke-width="0.6"/>');
+          p.push('<rect x="13" y="' + (y - 4) + '" width="34" height="2.4" rx="1" fill="' + rule + '"/>');
+          p.push('<rect x="74" y="' + (y - 4) + '" width="14" height="2.4" rx="1" fill="' + rule + '"/>');
         }
         // 合計
         p.push('<line x1="52" y1="118" x2="90" y2="118" stroke="' + acc + '" stroke-width="0.8"/>');
@@ -9857,12 +9887,12 @@
           '<div class="align-row">' +
           '<button type="button" class="align-btn' +
           (m.taxMode === "外税" ? "" : " on") +
-          '" onclick="setMasterField(\'' +
+          "\" onclick=\"setMasterField('" +
           esc(co) +
           "','taxMode','内税')\">内税（金額は税込）</button>" +
           '<button type="button" class="align-btn' +
           (m.taxMode === "外税" ? " on" : "") +
-          '" onclick="setMasterField(\'' +
+          "\" onclick=\"setMasterField('" +
           esc(co) +
           "','taxMode','外税')\">外税（金額は税抜）</button>" +
           "</div></div>" +

@@ -27,7 +27,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
-import { colorsIn as sharedColorsIn, OFFICE_BLUE } from "./color-value.js";
+import { colorsIn as sharedColorsIn, OFFICE_BLUE, PAPER_INK } from "./color-value.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
@@ -163,20 +163,25 @@ describe("★見張りが本当に見えているか（先に自分を疑う）�
 });
 
 describe("★repo に濃い緑 #1A4A2E が値として残っていない★", () => {
-  it("Excelに書き出す本文色（daikou-seikyu.html の C_TEXT）が濃い緑ではない", () => {
+  it("Excelに書き出す本文色（daikou-seikyu.html の C_TEXT）が 固定の濃い墨", () => {
     const html = fs.readFileSync(path.join(ROOT, "daikou-seikyu.html"), "utf8");
     const m = html.match(/var C_TEXT\s*=\s*\{\s*rgb:\s*"([0-9A-Fa-f]{6})"/);
     expect(m, "C_TEXT が見つからない").toBeTruthy();
-    // ★2026-08-10 指示役：紙は #2E7D54 ではなく ★事務所と同じ青★ にする★
-    expect(m[1].toUpperCase(), "★お客さんに渡すExcelの本文が青ではない★").toBe(OFFICE_BLUE.ink);
+    // ★2026-08-15 指示役：紙の文字は「全体の色」から作らない。#1A1A1A に固定★
+    //   （2026-08-10 は事務所の青にしていた＝全体の色を変えたら本文まで動く作りだった）
+    expect(m[1].toUpperCase(), "★お客さんに渡すExcelの本文が固定の濃さではない★").toBe(
+      PAPER_INK.ink
+    );
   });
 
-  it("PDFに刷る本文色（invoice-pdf.js の TEXT）が濃い緑ではない", () => {
+  it("PDFに刷る本文色（invoice-pdf.js の TEXT）が 固定の濃い墨", () => {
     const js = fs.readFileSync(path.join(ROOT, "invoice-pdf.js"), "utf8");
-    const m = js.match(/\bTEXT\s*=\s*rgb\(([^)]*)\)/);
+    // ★色は名前つきの定数から作る★ ので、定数の中身まで引く
+    const m = js.match(/\bTEXT\s*=\s*hexRgb\(rgb,\s*([A-Za-z_][A-Za-z0-9_]*)\)/);
     expect(m, "TEXT が見つからない").toBeTruthy();
-    const got = colorsIn("rgb(" + m[1] + ")")[0];
-    expect(got, "★お客さんに渡すPDFの本文が青ではない★").toBe(OFFICE_BLUE.ink);
+    const d = js.match(new RegExp("\\b" + m[1] + '\\s*=\\s*"#([0-9A-Fa-f]{6})"'));
+    expect(d, "TEXT が指している定数の値が読めない").toBeTruthy();
+    expect(d[1].toUpperCase(), "★お客さんに渡すPDFの本文が固定の濃さではない★").toBe(PAPER_INK.ink);
   });
 
   it("★どのファイルにも1件も無い（指示書・docs も含む）★", () => {

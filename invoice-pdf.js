@@ -24,7 +24,8 @@
   var CW = A4.w - M * 2; // 本文幅
   var ROWS_PER_PAGE = 22; // 1ページの明細スロット数（HTML/Excelと同じ）
   // Exallyブランドのミント配色（参考の上品レイアウト×アプリの色で統一）
-  var MINT, MINTD, MINTBG, BORDER, RULE, TEXT, MUTED, BLACK;
+  var MINT, MINTD, MINTBG, BORDER, RULE, TEXT, MUTED, BLACK
+  var ACCENT; // ★タイトルと見出しの線だけに使う全体の色★
   // クラシック（前テンプレ＝緑ヘッダー帯＋罫線）の配色
   var GREEN, GREY, DARK, INKSC, INKC, HAIRC;
   var _defColor = null; // T() の既定文字色（テーマ別に drawCompany 先頭で設定）
@@ -226,31 +227,52 @@
 
   // ---- PDF描画ヘルパ（1社ぶん。複数ページ） ----
   // ctx: { doc, font, rgb } を持つ
+  // ★紙の文字の濃さは「全体の色」から作らない。ここで固定する★（指示役 2026-08-15）
+  //   会社が全体の色を変えたら文字まで一緒に動く＝薄い色を選ばれた瞬間、
+  //   ★読めない請求書が客先へ出る★。紙は光っていないし、白黒コピー・FAX・7年保存に耐える必要がある。
+  //   ★この3つは 全体の色を何にしても 1ビットも動かない★
+  var PAPER_INK = "#1A1A1A"; // 本文・明細・金額・宛名・合計（画面の #333333 より濃く）
+  var PAPER_SUB = "#444444"; // 副の情報（住所・注記・ラベル）。これより薄くしない
+  var PAPER_RULE = "#999999"; // 罫線＝★濃さで作る（色で作らない）★
+  // ★全体の色は ★線だけ★ に使う（文字には使わない）★
+  //   司さん 2026-08-15「請求書って文字も同じ黒にして」＝タイトルも墨にした。
+  //   代行請求＝青。差し替えられるようにしてあるのは ★「変えても本文が動かない」事を試験で示すため★。
+  function paperAccent() {
+    var c = typeof window !== "undefined" && window.PAPER_ACCENT;
+    return /^#[0-9a-fA-F]{6}$/.test(c || "") ? c : "#0A5FD0";
+  }
+  function hexRgb(rgb, hex) {
+    return rgb(
+      parseInt(hex.slice(1, 3), 16) / 255,
+      parseInt(hex.slice(3, 5), 16) / 255,
+      parseInt(hex.slice(5, 7), 16) / 255
+    );
+  }
+
   function makeDrawer(ctx) {
     var rgb = ctx.rgb;
-    // ★文字色・濃さの統一トークン（デザイナー会議 wf_921e25d7 確定）。
-    //   役割=inkStrong(主役)/ink(本文)/muted(補助)/accentLine(罫)/ruleHairline(極薄罫)/surface(面)。
-    //   同役割は同色＝バラつき解消。緑/グレーは線だけ・テキストから排除。
-    MINT = rgb(0, 0.478, 1); // = #007AFF accentLine 線・飾り線のみ（事務所の強めの青）
-    MINTD = rgb(0, 0.478, 1); // = #007AFF ※テキスト不使用に降格（残置・未使用）
-    MINTBG = rgb(0.949, 0.969, 1); // = #F2F7FF surface ヘッダー面（事務所の地）
-    BORDER = rgb(0.859, 0.906, 0.969); // = #DBE7F7 ruleHairline 極薄罫（事務所の線）
-    RULE = rgb(0.69, 0.69, 0.69); // #b0b0b0 ruleHairline(エレガント) 行間罫（会議推奨=FAX/白黒で消えないよう一段濃く）
+    // 役割=ink(本文)/muted(副)/rule(罫)/accent(タイトルと見出しの線だけ)/surface(面)
+    MINT = hexRgb(rgb, paperAccent()); // accent 線・飾り線のみ（★文字には使わない★）
+    MINTD = MINT; // ※テキスト不使用（残置）
+    MINTBG = rgb(0.949, 0.969, 1); // = #F2F7FF surface ヘッダー面（面であって文字ではない）
+    BORDER = hexRgb(rgb, "#BFBFBF"); // 極薄罫＝★灰。事務所の青 #DBE7F7 をやめた★
+    RULE = hexRgb(rgb, PAPER_RULE); // 行間罫（白黒で飛ばない濃さ）
     // ★pdf-lib の rgb() は 0〜1 の小数★ ＝ 使わないと決めた濃い緑の見張りが素通りしていた場所
     //   （2026-08-10 発見）。旧値 0.102,0.29,0.18 は その禁止色そのもので、注釈とは別物だった。
-    TEXT = rgb(0.039, 0.373, 0.816); // = #0A5FD0 inkStrong/ink 本文・タイトル・宛名・金額（事務所の青）
-    MUTED = rgb(0.353, 0.42, 0.51); // = #5A6B82 muted 補助文（事務所の弱い字）
+    TEXT = hexRgb(rgb, PAPER_INK); // ★本文・明細・金額（旧 #0A5FD0＝全体の色そのものだった）★
+    MUTED = hexRgb(rgb, PAPER_SUB); // ★副（旧 #5A6B82＝薄い灰青）★
     BLACK = rgb(0, 0, 0); // ※純黒は不使用（残置）
-    // クラシック用（濃墨1系統＋グレー罫）
+    // クラシック用（もともと白黒の意匠。同じ濃さに揃える）
     GREEN = rgb(0.949, 0.949, 0.949); // = #F2F2F2 surface(クラシック) ヘッダー面
     //   ★クラシックは「白黒で刷っても崩れない紙」が意匠★（指示役 2026-08-10）。
     //   青の面を足すと その意匠を壊すので、ここは ★色を入れず ごく薄い灰★ にする。
     //   名前の GREEN は旧称（もう緑ではない）。他所から名前で参照されるので変えていない。
     GREY = rgb(0.5, 0.5, 0.5); // #808080 accentLine(クラシック) 罫・飾り線
-    DARK = rgb(0.42, 0.42, 0.42); // #6b6b6b muted(クラシック) 補助文（旧#212121本文から降格）
-    INKSC = rgb(0.051, 0.051, 0.051); // #0d0d0d inkStrong(クラシック) 主役インク（純黒回避）
-    INKC = rgb(0.102, 0.102, 0.102); // #1a1a1a ink(クラシック) 本文
-    HAIRC = rgb(0.69, 0.69, 0.69); // #b0b0b0 ruleHairline(クラシック) 行間罫（会議推奨=FAX/白黒で消えないよう一段濃く）
+    DARK = hexRgb(rgb, PAPER_SUB); // 副（旧 #6b6b6b）
+    INKSC = rgb(0.051, 0.051, 0.051); // #0d0d0d 主役インク（純黒回避）
+    INKC = hexRgb(rgb, PAPER_INK); // 本文
+    HAIRC = hexRgb(rgb, PAPER_RULE); // 行間罫
+    ACCENT = MINT; // 線にだけ使う（文字には使わない）
     return ctx;
   }
 
@@ -418,7 +440,7 @@
     function drawTop(page) {
       var cy = A4.h - 50;
       _curBlk = "title";
-      T(page, font, "請　求　書", CX, cy, 26, { align: "center", color: TEXT });
+      T(page, font, "請　求　書", CX, cy, 26, { align: "center", color: TEXT }); // ★司さん「請求書って文字も同じ黒に」2026-08-15★
       // 請求日 / No.（右上・控えめ）。No.なしのときは請求日を緑の線のすぐ上まで下げて空白を作らない。
       _curBlk = "meta";
       var showNo = iss && iss.showInvoiceNo && invoiceNo;
