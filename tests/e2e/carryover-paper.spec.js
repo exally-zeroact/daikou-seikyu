@@ -211,58 +211,10 @@ test("★外税の会社：紙に「外税」と刷られる★", async ({ page 
   expect(t, "★外税の合計が違う★\n" + j).toContain("¥11,000");
 });
 
-// ★Excelでも同じ数が出るか（紙だけ見て終わりにしない）★
-//   指示役の指摘：Excel側の繰越は ★コードを通しただけで 実物を数えていなかった★。
-test("★Excelにも繰越が出て、紙と同じ数★", async ({ page }) => {
-  fs.mkdirSync(OUT, { recursive: true });
-  await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
-  await page.addInitScript(seed, { carry: true, copy: true });
-  await page.goto("/daikou-seikyu.html", { waitUntil: "load" });
-  await expect(page.locator("#scr-input")).toBeVisible({ timeout: 20000 });
-  await page.locator('.nav-item[data-scr="billing"]').click();
-  await page.selectOption("#invMonth", "2026-06");
-  await page.selectOption("#invCompany", "繰越あり社");
-  await expect(page.locator("#invoiceOut.inv-loading")).toHaveCount(0, { timeout: 120000 });
+// ★Excelの繰越は測らない★
+//   Excelの「請求書（見た目つき）」は 2026-07-21 に廃止（司さん「できんのなら請求書の書き出しはやめろ」）。
+//   Excelは編集用データだけなので、繰越の欄そのものが無い。紙(PDF)で測る。
 
-  await page.waitForFunction(() => !!window.XLSX && !!window.XLSX.write, null, { timeout: 60000 });
-  await page.getByRole("button", { name: /Excelに書き出し/ }).click();
-  const picker = page.locator("#modalBody");
-  await expect(picker.getByText("入れる内容")).toBeVisible();
-  const dl = page.waitForEvent("download", { timeout: 120000 });
-  await picker.getByRole("button", { name: /このExcelを作る/ }).click();
-  const f = path.join(OUT, "carry.xlsx");
-  await (await dl).saveAs(f);
-
-  const cells = await page.evaluate(
-    async (arr) => {
-      const wb = window.XLSX.read(new Uint8Array(arr), { type: "array" });
-      const txt = [],
-        num = [];
-      for (const n of wb.SheetNames) {
-        const ws = wb.Sheets[n];
-        for (const k of Object.keys(ws)) {
-          if (k[0] === "!") continue;
-          if (typeof ws[k].v === "string") txt.push(ws[k].v);
-          if (typeof ws[k].v === "number") num.push(ws[k].v);
-        }
-      }
-      return { txt, num };
-    },
-    Array.from(fs.readFileSync(f))
-  );
-
-  // ★言葉★
-  for (const w of ["前回繰越額", "合計請求額", "ご入金額", "今回お支払額"]) {
-    expect(cells.txt, `★Excelに「${w}」が無い★`).toContain(w);
-  }
-  // ★数（手計算：37,200−20,000=17,200 ／ +12,000=29,200 ／ −5,000=24,200）★
-  expect(cells.num, "★Excelの前回繰越が 17,200 でない★").toContain(17200);
-  expect(cells.num, "★Excelの合計請求額が 29,200 でない★").toContain(29200);
-  expect(cells.num, "★Excelの今回お支払額が 24,200 でない★").toContain(24200);
-});
-
-// ★長い言葉が 紙の中で重ならないか★
-//   「今回お支払額」は今までで一番長い見出し。値と重なると紙が読めなくなる。
 test("★紙の中で 見出しと金額が重ならない★", async ({ page }) => {
   await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
   await page.addInitScript(seed, { carry: true, copy: true });

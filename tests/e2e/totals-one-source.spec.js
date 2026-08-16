@@ -90,7 +90,7 @@ async function pdfText(page, file) {
   }, bytes);
 }
 
-test("★紙とExcelとエンジンの合計が1円も違わない★", async ({ page }) => {
+test("★紙とエンジンの合計が1円も違わない★", async ({ page }) => {
   const OUT = path.join("test-results", "totals");
   fs.mkdirSync(OUT, { recursive: true });
 
@@ -123,36 +123,12 @@ test("★紙とExcelとエンジンの合計が1円も違わない★", async ({
   );
   expect(t, `★紙の消費税が違う（エンジン=${yen(engine.zei)}）`).toContain(yen(engine.zei));
 
-  // ③ Excel
-  await page.waitForFunction(() => !!window.XLSX && !!window.XLSX.write, null, { timeout: 60000 });
-  await page.getByRole("button", { name: /Excelに書き出し/ }).click();
-  const picker = page.locator("#modalBody");
-  await expect(picker.getByText("入れる内容")).toBeVisible();
-  const xdl = page.waitForEvent("download", { timeout: 120000 });
-  await picker.getByRole("button", { name: /このExcelを作る/ }).click();
-  const xlPath = path.join(OUT, "t.xlsx");
-  await (await xdl).saveAs(xlPath);
+  // ③ ★Excelの請求書（見た目つき）は2026-07-21に廃止★（司さん「できんのなら請求書の書き出しはやめろ」）
+  //   Excelは編集用データ（明細/集計/入金）だけを出す＝合計欄そのものが無い。
+  //   ここで測るのは ★紙とエンジン★。Excelに請求書が戻っていない事は
+  //   tests/e2e/excel-no-invoice-sheet.spec.js が見張る。
 
-  // Excelのセルの値に 小計・消費税・合計 が在るか
-  const vals = await page.evaluate(
-    async (arr) => {
-      const wb = window.XLSX.read(new Uint8Array(arr), { type: "array" });
-      const out = [];
-      for (const n of wb.SheetNames) {
-        const ws = wb.Sheets[n];
-        for (const k of Object.keys(ws))
-          if (k[0] !== "!" && typeof ws[k].v === "number") out.push(ws[k].v);
-      }
-      return out;
-    },
-    Array.from(fs.readFileSync(xlPath))
-  );
-
-  expect(vals, `★Excelの小計が違う（エンジン=${engine.shoukei}）`).toContain(engine.shoukei);
-  expect(vals, `★Excelの消費税が違う（エンジン=${engine.zei}）`).toContain(engine.zei);
-  expect(vals, `★Excelの合計が違う（エンジン=${engine.goukei}）`).toContain(engine.goukei);
-
-  // ④ ★言葉も3つで同じか★（半角/全角カッコまで含めて1文字も違わない）
+  // ④ ★言葉も 紙とエンジンで同じか★（半角/全角カッコまで含めて1文字も違わない）
   const L = await page.evaluate(() =>
     window.MeisaiEngine.totalsLabels(window.MASTER["飛勝工業株式会社"], {})
   );
@@ -162,22 +138,6 @@ test("★紙とExcelとエンジンの合計が1円も違わない★", async ({
 ${t.join(" / ")}`
   ).toContain(L.消費税);
   expect(t, "紙の小計の言い方が違う").toContain(L.小計);
-
-  const xtext = await page.evaluate(
-    async (arr) => {
-      const wb = window.XLSX.read(new Uint8Array(arr), { type: "array" });
-      const out = [];
-      for (const n of wb.SheetNames) {
-        const ws = wb.Sheets[n];
-        for (const k of Object.keys(ws))
-          if (k[0] !== "!" && typeof ws[k].v === "string") out.push(ws[k].v);
-      }
-      return out;
-    },
-    Array.from(fs.readFileSync(xlPath))
-  );
-  expect(xtext, `★Excelの税の言い方が違う（エンジン=${L.消費税}）`).toContain(L.消費税);
-  expect(xtext, "Excelの小計の言い方が違う").toContain(L.小計);
 });
 
 // ★率を文字で書かない★（指示役 2026-08-12）
