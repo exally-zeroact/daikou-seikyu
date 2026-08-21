@@ -2,7 +2,7 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
     <!-- ★ホーム画面に置くとこの名前になる。Exally ではなく ダイコメ★ (2026-08-09) -->
     <title>ダイコメ 代行請求</title>
     <link
@@ -147,7 +147,7 @@
       .exl-pick-h {
         font-size: 12px;
         font-weight: 800;
-        color: #2f517d;
+        color: #333333;
         margin: 0 0 4px;
       }
       .exl-pick {
@@ -488,7 +488,7 @@
         padding: 10px 12px;
         border: 1.5px solid #dbe7f7;
         border-radius: 10px;
-        font-size: 14px;
+        font-size: 16px;
         font-family: "Noto Sans JP", sans-serif;
         color: #333333;
         outline: none;
@@ -500,11 +500,10 @@
         border-color: #007aff;
       }
       .finput::placeholder {
-        color: #8A94A6;
+        color: #8a94a6;
       }
       .fnum {
         font-family: "DM Mono", monospace;
-        text-align: right;
       }
       .fselect {
         appearance: none;
@@ -541,7 +540,7 @@
       }
       .btn-ghost {
         background: #f2f7ff;
-        color: #0A5FD0;
+        color: #0a5fd0;
         border: 1.5px solid #cfe0ff;
         padding: 11px 14px;
         font-size: 13px;
@@ -592,7 +591,7 @@
       }
       .itb-lbl {
         font-size: 11px;
-        color: #5a6b82;
+        color: #555555;
         font-weight: 700;
         white-space: nowrap; /* 「お支払期限」等のラベルを縦折れさせない */
       }
@@ -778,7 +777,7 @@
       .scope-clear {
         background: #f2f7ff;
         border: 1.5px solid #cfe0ff;
-        color: #0A5FD0;
+        color: #0a5fd0;
         font-size: 11px;
         font-weight: 700;
         padding: 4px 10px;
@@ -797,7 +796,7 @@
       .align-lbl {
         font-size: 11px;
         font-weight: 700;
-        color: #5a6b82;
+        color: #555555;
         margin-right: 2px;
       }
       .align-btn {
@@ -865,9 +864,9 @@
         padding: 9px 10px;
         border: 1.5px solid #e2eaf4;
         border-radius: 9px;
-        font-size: 14px;
+        font-size: 16px;
         font-family: "Noto Sans JP", sans-serif;
-        color: #0a5fd0;
+        color: #333333;
         outline: none;
         background: #ffffff;
       }
@@ -876,7 +875,6 @@
       }
       .entry-inp.num {
         font-family: "DM Mono", monospace;
-        text-align: right;
       }
       /* 日付：カレンダーで選んで、表示は M/D（6/15） */
       .date-wrap {
@@ -888,15 +886,16 @@
         padding: 9px 10px;
         border: 1.5px solid #e2eaf4;
         border-radius: 9px;
-        font-size: 14px;
+        font-size: 16px;
         font-family: "DM Mono", monospace;
-        text-align: center;
-        color: #0a5fd0;
+        /* ★A1の決まり：数字・日付は右（ここだけ中央だった）★ 2026-08-21 */
+        text-align: right;
+        color: #333333;
         background: #ffffff;
         pointer-events: none;
       }
       .date-show.empty {
-        color: #8A94A6;
+        color: #8a94a6;
       }
       .date-wrap:focus-within .date-show {
         border-color: #007aff;
@@ -932,6 +931,33 @@
         background: #fdf1f0;
         color: #c0392b;
       }
+      /* ★2026-08-21 A3-④ 押せる物の色は1つ（濃紺と青が混ざっていた）★
+         「＋ 行を追加」も「保存する」も 同じ青（#0A5FD0系）で見せる。 */
+      /* ★よく行く所（押すと入る）★ 2026-08-21 */
+      .dest-often {
+        margin-top: 6px;
+        font-size: 11px;
+        color: #555555;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+      }
+      .dest-chip {
+        border: 1.5px solid #cfe0ff;
+        background: #f2f7ff;
+        color: #0a5fd0;
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 12px;
+        font-weight: 700;
+        font-family: "Noto Sans JP", sans-serif;
+        cursor: pointer;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
       .add-line {
         width: 100%;
         margin-top: 8px;
@@ -939,9 +965,9 @@
         background: #f2f7ff;
         border: 1.5px dashed #cfe0ff;
         border-radius: 10px;
-        font-size: 13px;
+        font-size: 14px;
         font-weight: 700;
-        color: #0A5FD0;
+        color: #0a5fd0;
         cursor: pointer;
         font-family: "Noto Sans JP", sans-serif;
       }
@@ -954,12 +980,57 @@
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 11px 4px;
+        /* ★1件を1行に近づける（潰さない）★ 2026-08-21
+           日付を「日ごとの見出し」へ移したぶん、上下の余白を 11px→8px に詰めた。
+           実測は下の見張り（tests/e2e/list-a2.spec.js）が毎回 数える */
+        padding: 7px 4px;
         border-bottom: 1px solid #eaeff5;
         cursor: pointer;
       }
       .list-item:last-child {
         border-bottom: none;
+      }
+      /* ★2026-08-21 A2 一覧の作り直し（司さん 08-15 実機の6つ）★
+         ②会社名を主役・行き先を副（前は逆だった）／⑤日ごとにまとめて日ごとの合計／
+         ④頭に「件数と合計」／⑥1件を1行に近づける（日付は日ごとの見出しへ移した） */
+      .list-sum {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 8px;
+        padding: 2px 2px 8px;
+        font-size: 12px;
+        color: #555555;
+      }
+      .list-sum .n {
+        font-weight: 700;
+        color: #333333;
+      }
+      .list-sum .v {
+        font-family: "DM Mono", monospace;
+        font-size: 15px;
+        font-weight: 700;
+        color: #333333;
+      }
+      .li-day {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 8px;
+        padding: 7px 2px 5px;
+        border-bottom: 1.5px solid #dbe7f7;
+        margin-top: 4px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #333333;
+      }
+      .li-day .d {
+        font-family: "DM Mono", monospace;
+      }
+      .li-day .s {
+        font-family: "DM Mono", monospace;
+        font-weight: 500;
+        color: #555555;
       }
       .li-date {
         font-family: "DM Mono", monospace;
@@ -971,18 +1042,26 @@
         flex: 1;
         min-width: 0;
       }
+      /* ★行き先＝副（読ませる字・薄い黒）★ */
       .li-dest {
-        font-size: 13px;
-        font-weight: 500;
+        font-size: 12px;
+        line-height: 1.25;
+        font-weight: 400;
+        color: #555555;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-top: 1px;
+      }
+      /* ★会社名＝主役（探す物を一番 濃く・大きく）★ */
+      .li-meta {
+        font-size: 14px;
+        line-height: 1.3;
+        font-weight: 700;
         color: #333333;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-      }
-      .li-meta {
-        font-size: 10px;
-        color: #555555;
-        margin-top: 1px;
       }
       .li-amt {
         font-family: "DM Mono", monospace;
@@ -993,7 +1072,7 @@
       }
       .li-empty {
         text-align: center;
-        color: #8A94A6;
+        color: #8a94a6;
         font-size: 12px;
         padding: 30px 0;
       }
@@ -1004,7 +1083,7 @@
       }
       .filterbar .fselect,
       .filterbar .finput {
-        font-size: 13px;
+        font-size: 16px;
         padding: 8px 10px;
       }
 
@@ -1031,7 +1110,7 @@
         font-family: "DM Mono", monospace;
         font-size: 14px;
         font-weight: 500;
-        color: #0a5fd0;
+        color: #333333;
         margin-top: 2px;
       }
       .pay-sum-cell.rem .pay-sum-val {
@@ -1055,7 +1134,7 @@
       .pay-co {
         font-size: 13px;
         font-weight: 700;
-        color: #0a5fd0;
+        color: #333333;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -1067,14 +1146,13 @@
         font-family: "DM Mono", monospace;
       }
       .pay-right {
-        text-align: right;
         white-space: nowrap;
       }
       .pay-amt {
         font-family: "DM Mono", monospace;
         font-size: 13px;
         font-weight: 500;
-        color: #0a5fd0;
+        color: #333333;
       }
       .pay-rem {
         font-family: "DM Mono", monospace;
@@ -1193,7 +1271,7 @@
         flex: 1;
         font-size: 13px;
         font-weight: 800;
-        color: #0a5fd0;
+        color: #333333;
       }
       /* 取り消しボタン付きトースト（通常トーストと別） */
       .toast-undo {
@@ -1246,12 +1324,8 @@
         font-size: 10px;
         font-weight: 700;
         color: #555555;
-        text-align: right;
         padding: 6px 4px;
         border-bottom: 1.5px solid #dbe7f7;
-      }
-      .rep-table th:first-child {
-        text-align: left;
       }
       .rep-table td {
         padding: 9px 4px;
@@ -1261,7 +1335,7 @@
       .rep-co {
         font-size: 12px;
         font-weight: 700;
-        color: #0a5fd0;
+        color: #333333;
         display: flex;
         align-items: center;
         gap: 6px;
@@ -1273,8 +1347,7 @@
       }
       .rep-n {
         font-family: "DM Mono", monospace;
-        text-align: right;
-        color: #0a5fd0;
+        color: #333333;
         white-space: nowrap;
       }
       .rep-rem {
@@ -1284,7 +1357,7 @@
         border-top: 1.5px solid #dbe7f7;
         border-bottom: none;
         font-weight: 700;
-        color: #0a5fd0;
+        color: #333333;
         padding-top: 10px;
       }
 
@@ -1356,17 +1429,39 @@
         border-bottom: 1px solid #e3eaf2;
         object-fit: contain;
       }
+      /* ★見本＝実際の紙をそのまま縮める★（作り物の線画をやめた 2026-08-18 司さん）
+         「他のアプリは実際の見せとんのに なんでこれだけ意味わからんやり方なんど」 */
+      .tpl-thumb-real {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        background: #ffffff;
+      }
+      .tpl-thumb-real canvas {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+      }
+      .tpl-thumb-msg {
+        font-size: 11px;
+        color: #555555;
+        text-align: center;
+        padding: 0 8px;
+        line-height: 1.5;
+      }
       .tpl-meta {
         padding: 9px 11px 11px;
       }
       .tpl-name {
         font-weight: 700;
         font-size: 13px;
-        color: #0a5fd0;
+        color: #333333;
       }
       .tpl-desc {
         font-size: 11px;
-        color: #5a6b82;
+        color: #555555;
         margin-top: 2px;
         line-height: 1.35;
       }
@@ -1417,7 +1512,7 @@
         border: 1px solid #cfe0ff;
         border-radius: 12px;
         font-size: 12px;
-        color: #0a5fd0;
+        color: #555555;
         line-height: 1.5;
       }
 
@@ -1618,9 +1713,13 @@
         background: #f2f7ff;
         border-top: 2px solid #007aff;
       }
+      /* ★取っ手は「押せる物」＝色は付けてよいが 読める濃さにする★ 2026-08-21 */
+      .master-co-caret {
+        color: #666666;
+      }
       .dnd-grip {
         cursor: grab;
-        color: #a9b5c4;
+        color: #666666;
         font-size: 16px;
         touch-action: none;
         user-select: none;
@@ -1638,7 +1737,7 @@
         align-items: center;
         font-size: 13px;
         font-weight: 700;
-        color: #0a5fd0;
+        color: #333333;
         padding: 0 6px;
       }
       .dnd-del {
@@ -1661,7 +1760,7 @@
       .addcustom-inp {
         flex: 1;
         min-width: 0;
-        font-size: 13px;
+        font-size: 16px;
         padding: 8px 10px;
       }
       .addcustom-btn {
@@ -1674,9 +1773,8 @@
         border: 1.5px solid #e2eaf4;
         border-radius: 8px;
         font-family: "DM Mono", monospace;
-        font-size: 12px;
-        text-align: right;
-        color: #0a5fd0;
+        font-size: 16px;
+        color: #333333;
         outline: none;
       }
       .dnd-w:focus {
@@ -1684,7 +1782,7 @@
       }
       .dnd-wu {
         font-size: 10px;
-        color: #a9b5c4;
+        color: #666666;
       }
       .toggle-row {
         display: flex;
@@ -1795,7 +1893,7 @@
       .edit-chips-lbl {
         font-size: 10.5px;
         font-weight: 800;
-        color: #2f517d;
+        color: #555555;
         margin: 0 2px 3px;
       }
       .edit-chips {
@@ -1916,6 +2014,9 @@
         display: flex;
         align-items: center;
         gap: 6px;
+        /* ★入力欄を16pxにすると 狭い画面で会社名が欠ける（375で+20px 実測）★
+           ＝欠けさせずに 次の行へ落とす。見張り: tests/e2e/zoom-allowed.spec.js */
+        flex-wrap: wrap;
       }
       .edit-live .b {
         background: #416ea8;
@@ -1940,7 +2041,7 @@
         flex: none;
         font-size: 10.5px;
         font-weight: 800;
-        color: #6B7787;
+        color: #555555;
         padding: 0 8px 0 4px;
       }
       .etool {
@@ -2044,7 +2145,7 @@
       }
       .edit-panel .note {
         font-size: 11.5px;
-        color: #5a6b82;
+        color: #555555;
         margin: 0 0 10px;
         line-height: 1.5;
       }
@@ -2116,7 +2217,7 @@
         display: flex;
         justify-content: space-between;
         font-size: 11px;
-        color: #5a6b82;
+        color: #555555;
         font-weight: 700;
       }
       .ep-chip {
@@ -2503,10 +2604,10 @@
         border: none;
         cursor: pointer;
         font-family: "Noto Sans JP", sans-serif;
-        color: #6B7787;
+        color: #555555;
       }
       .nav-item.active {
-        color: #0A5FD0;
+        color: #0a5fd0;
       }
       .nav-ic {
         font-size: 18px;
@@ -2549,7 +2650,7 @@
       .modal-title {
         font-size: 15px;
         font-weight: 700;
-        color: #0a5fd0;
+        color: #333333;
       }
       .modal-x {
         background: none;
@@ -2562,6 +2663,56 @@
         cursor: pointer;
         font-family: "Noto Sans JP", sans-serif;
       }
+      /* ★ログインの見出し（🚗 ダイコメ）は読む字＝薄い黒★ 2026-08-21
+         部品 exally-login.js は他アプリと共通（正本は1つ）なので、
+         ★部品は触らず 呼ぶ側のCSSで上書きする★（body を付けて 部品より強くする）。
+         押せる物・選ばれている物（ボタン・入力の枠）は今までどおり青のまま。 */
+      body .login-logo {
+        color: #333333;
+      }
+
+      /* ===== ★列の揃えは ここだけで決める★（指示役 2026-08-18 A1） =====
+         見出し＝中央 ／ 数字・日付＝右 ／ 言葉＝左 ／ 1文字＝中央 ／ ラベル＝左・値＝右
+         ★これは「列（横に並ぶ物）」の決まり★。カード（縦に積む物・pay-summary等）は中央のまま。
+         ★ここ以外で 列の text-align を書かない★
+         見張り: tests/e2e/screen-align.spec.js（描き終わった画面を 幅375/390/412 で測る） */
+      /* ①見出し用 */
+      .rep-table th,
+      .al-head {
+        text-align: center;
+      }
+      /* ②中身用（役割で決まる：右＝数字と日付／左＝言葉／中央＝1文字） */
+      .li-date,
+      .li-amt,
+      .pay-right,
+      .rep-n,
+      .fnum,
+      .entry-inp.num,
+      .dnd-w,
+      .al-num {
+        text-align: right;
+      }
+      .li-dest,
+      .li-meta,
+      .pay-co,
+      .pay-sub,
+      .rep-co,
+      .dnd-name,
+      .al-word {
+        text-align: left;
+      }
+      .al-one {
+        text-align: center;
+      }
+      /* ★入力欄は16px以上★（iOSは16px未満の欄に触れると 勝手に拡大して 戻らない）
+         ＝ズーム禁止(maximum-scale=1)を外した代わりの決まり。新しく足した欄の受け皿。
+         見張り: tests/e2e/zoom-allowed.spec.js */
+      input,
+      select,
+      textarea {
+        font-size: 16px;
+      }
+
       @media (min-width: 560px) {
         .modal-ov {
           align-items: center;
@@ -2676,9 +2827,15 @@
     <!-- ===== 入力 ===== -->
     <section class="screen active" id="scr-input">
       <div class="scr-title">明細を入力</div>
+      <!-- ★2026-08-21 A3-⑤ 記入ガイドは1行。詳しくは畳む（開いた時に3行 読ませない）★ -->
       <div class="scr-sub">
-        会社を選ぶと、その会社に必要な項目だけ表示されます。まとめて入力 →
-        保存で<b>Excel／DBに追加</b>（保存した時点でクラウドに入り、PCのExcelは開くと最新になります）。
+        会社を選ぶと、その会社の項目だけ出ます。
+        <details style="display: inline">
+          <summary style="display: inline; cursor: pointer">詳しく</summary>
+          <div style="margin-top: 4px">
+            まとめて入力して保存します。保存した時点でクラウドに入り、PCのExcelは開くと最新になります。
+          </div>
+        </details>
       </div>
 
       <div class="card">
@@ -2695,9 +2852,7 @@
         <div id="entryBody"></div>
         <button class="add-line" onclick="addEntryRow()">＋ 行を追加</button>
         <div style="margin-top: 12px">
-          <button class="btn btn-primary" onclick="saveEntries()">
-            保存する（Excel／DBに追加）
-          </button>
+          <button class="btn btn-primary" onclick="saveEntries()">保存する</button>
         </div>
       </div>
     </section>
@@ -2705,7 +2860,7 @@
     <!-- ===== 一覧 / 修正 ===== -->
     <section class="screen" id="scr-list">
       <div class="scr-title">明細一覧 / 修正</div>
-      <div class="scr-sub">タップで1件ずつ編集・削除できます（idで特定）。</div>
+      <div class="scr-sub">タップで1件ずつ 直せます・消せます。</div>
       <div class="filterbar">
         <select class="fselect" id="listCompany" onchange="renderList()">
           <option value="">全社</option>
@@ -2714,6 +2869,7 @@
           <option value="">全期間</option>
         </select>
       </div>
+      <div class="list-sum" id="listSum"></div>
       <div class="card">
         <div id="listBody"></div>
       </div>
@@ -2761,7 +2917,7 @@
               oninput="setIssuer('issuer', this.value)"
               onchange="toast('発行者を保存しました（請求書に反映）')"
             ></textarea>
-            <div style="font-size: 10px; color: #5a6b82; margin-top: 6px; line-height: 1.6">
+            <div style="font-size: 10px; color: #555555; margin-top: 6px; line-height: 1.6">
               例：屋号／事業名／〒／住所／TEL。<b>事業名が無ければ、その行を消すだけ。</b>代表者名・FAX・メールなど足すのも自由。1行目が少し大きく出ます。<br />
               <b>登録番号は下の欄</b>で入れます（自由入力の行に書かなくて大丈夫です）。<br />
               <b>文字揃えは「編集」タブ → 揃え</b> で（見ながら調整できます）。
@@ -2852,7 +3008,7 @@
           <div
             style="
               font-size: 11px;
-              color: #5a6b82;
+              color: #555555;
               margin-top: 8px;
               line-height: 1.7;
               border-left: 3px solid #dbe7f7;
@@ -2861,7 +3017,8 @@
           >
             <b>今まで請求書番号は紙に刷っていません。</b>
             ここを<b>表示</b>にした日から、番号がお客さんに渡り始めます。<br />
-            <b>それ以前の番号は 誰にも渡っていません</b>（渡した紙と食い違う心配はありません）。<br />
+            <b>それ以前の番号は 誰にも渡っていません</b
+            >（渡した紙と食い違う心配はありません）。<br />
             表示にした後は、<b>一度出した番号は変わりません</b>（出した時に控えと一緒に記録します）。
           </div>
           <div class="align-row" style="margin-top: 12px">
@@ -2897,7 +3054,7 @@
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                color: #a9b5c4;
+                color: #666666;
                 font-size: 11px;
                 text-align: center;
                 overflow: hidden;
@@ -2964,7 +3121,7 @@
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                color: #a9b5c4;
+                color: #666666;
                 font-size: 11px;
                 text-align: center;
                 overflow: hidden;
@@ -3092,7 +3249,7 @@
             同じ会社・同じ月で明細が1ページに収まらないときは、<b>明細を複数ページに分けて</b>出します。各明細ページの下には<b
               >「このページの小計」＋「次ページへ続く →」</b
             >を表示し、<b>最後のページに「ページ別の内訳一覧」と総合計（ご請求金額・合計）をまとめます</b>。取引先が混乱しないよう、途中ページには総額を出しません。<br />
-            ※エレガント＝「ページ別 内訳」／クラシック＝「内容（ページ別）」という表で集約します。
+            ※最後のページに「ページ別の内訳」をまとめます。
           </div>
         </details>
         <div class="scr-sub no-print" style="margin-top: 8px">
@@ -3148,6 +3305,7 @@
         </button>
       </div>
       <div id="paySummary" class="pay-summary"></div>
+      <div class="list-sum" id="payCount"></div>
       <div id="payBody"></div>
       <!-- 複数選択して一括「全入金」する時だけ出る固定バー（ナビの上） -->
       <div class="pay-sel-bar" id="paySelBar" style="display: none">
@@ -3174,9 +3332,9 @@
               margin-left: auto;
               width: auto;
               min-width: 92px;
-              max-width: 44%;
+              max-width: 100%;
               padding: 4px 8px;
-              font-size: 12px;
+              font-size: 16px;
             "
             onchange="editPickCompany()"
           ></select>
@@ -3601,7 +3759,9 @@
         // ★発行の控えを読む（繰越の材料）★
         INVOICES = [];
         try {
-          var ivs = await SB.from("invoices").select("month, company, invoice_no, total, issued_at");
+          var ivs = await SB.from("invoices").select(
+            "month, company, invoice_no, total, issued_at"
+          );
           if (ivs.error) cloudErr("請求書の控え読込", ivs.error);
           else INVOICES = ivs.data || [];
         } catch (e) {
@@ -3764,7 +3924,8 @@
           tot += Number(r.金額) || 0;
           aoa.push(
             cols.map(function (c) {
-              var v = r[c];
+              // ★行き先は エンジン1本から（画面・紙と同じ物）★ 2026-08-18
+              var v = c === "行き先" ? MeisaiEngine.utils.routeTextOf(r) : r[c];
               if (nums[c]) return v === "" || v == null ? "" : Number(v);
               return v == null ? "" : v;
             })
@@ -3822,7 +3983,8 @@
           tot += Number(r.金額) || 0;
           aoa.push(
             cols.map(function (c) {
-              var v = r[c];
+              // ★行き先は エンジン1本から（画面・紙と同じ物）★ 2026-08-18
+              var v = c === "行き先" ? MeisaiEngine.utils.routeTextOf(r) : r[c];
               if (nums[c]) return v === "" || v == null ? "" : Number(v);
               return v == null ? "" : v;
             })
@@ -6058,6 +6220,11 @@
           b.classList.toggle("active", b.dataset.scr === name);
         });
         document.getElementById("appTitle").textContent = titles[name] || "代行請求";
+        // ★2026-08-21 A2-③ 画面を切り替えたら 頭を出す★（前の画面のスクロール位置が残り、
+        //   一番上の説明文が途中から見えていた）
+        try {
+          window.scrollTo(0, 0);
+        } catch (e) {}
         if (name === "input") preselectInputCompany();
         if (name === "list") renderList();
         if (name === "billing") showBillingSeg("invoice"); // 既定＝請求書
@@ -6132,7 +6299,7 @@
               v.key +
               "')\">" +
               '<div class="tpl-badge">✓</div>' +
-              tplThumbSvg(design, v) +
+              tplThumbBox(design, v) +
               '<div class="tpl-meta"><div class="tpl-name">' +
               v.label +
               '</div><div class="tpl-desc">' +
@@ -6142,6 +6309,7 @@
             );
           })
           .join("");
+        paintTplThumbs(g); // ★見本＝実際の紙（作った順に1枚ずつ入る）★
         var hint = document.getElementById("tplLogoHint");
         if (hint) {
           var needLogo =
@@ -6697,7 +6865,7 @@
           "</div></div>";
         if (classic)
           h +=
-            '<div class="note" style="color:#b45309">※今のデザイン（前テンプレ）は文字サイズ変更に未対応です。エレガント系でお使いください。</div>';
+            '<div class="note">この形（枠と帯）は 文字の大きさが決まっています。変えるなら「線ひかえめ」の形を選んでください。</div>';
         else
           h += '<div class="note" style="margin-top:2px">※大きさはPDF用です（Excelは標準）。</div>';
         return h;
@@ -7240,9 +7408,10 @@
           h +=
             '<div class="note">請求書全体の文字の大きさを変えます。プレビューに即反映。大きくすると1枚に入る明細が減り、増えたぶんは自動で2ページ目に回ります。</div>';
           var curFs = Number(s.fontScale) || 1;
-          if (s.pdfDesign === "classic")
+          var fsFixed = s.pdfDesign === "classic"; // ★この形は大きさが決まっている＝押せない見た目にする★
+          if (fsFixed)
             h +=
-              '<div class="note" style="color:#b45309">※今のデザイン（前テンプレ）は文字サイズ変更に未対応です。エレガント系のデザインでお使いください。</div>';
+              '<div class="note">この形（枠と帯）は 文字の大きさが決まっています。変えるなら「線ひかえめ」の形を選んでください。</div>';
           h += '<div class="ep-row"><span class="l">大きさ</span><div class="ep-seg">';
           [
             ["小", 0.9],
@@ -7253,9 +7422,8 @@
             h +=
               '<button class="ep-chip' +
               (on ? " on" : "") +
-              '" onclick="editSetFontScale(' +
-              e[1] +
-              ')">' +
+              (fsFixed ? '" disabled' : '" onclick="editSetFontScale(' + e[1] + ")") +
+              '">' +
               e[0] +
               "</button>";
           });
@@ -7314,7 +7482,7 @@
               h += _algGroup("選択範囲内の文字を", _av(s.lineIssuer), "editSetIssuerLine");
             } else {
               h +=
-                '<div class="note">※今のデザイン（クラシック）は会社名・住所が<b>右固定</b>です。位置を変えるには「全体 → デザイン」で<b>エレガント</b>を選んでください。</div>';
+                '<div class="note">この形（枠と帯）は 会社名・住所が<b>右で固定</b>です。位置を変えるなら「全体 → デザイン」で<b>線ひかえめ</b>を選んでください。</div>';
               h += _algGroup("選択範囲を", _av(s.alignIssuer), "editSetIssuerAlign", true);
               h += _algGroup("選択範囲内の文字を", _av(s.lineIssuer), "editSetIssuerLine", true);
             }
@@ -7322,16 +7490,16 @@
             // フォールバック（範囲フィルタ無し）＝従来どおり全部表示。
             h = '<div class="ph">↔️ 揃え</div>';
             h +=
-              '<div class="note" style="font-weight:800;color:#5a6b82;margin-bottom:2px">あいさつ文</div>';
+              '<div class="note" style="font-weight:800;color:#333333;margin-bottom:2px">あいさつ文</div>';
             h += _algGroup("選択範囲を", _av(s.posLead), "editSetLeadPos");
             h +=
-              '<div class="note" style="font-weight:800;color:#5a6b82;margin:10px 0 2px">ご請求金額</div>';
+              '<div class="note" style="font-weight:800;color:#333333;margin:10px 0 2px">ご請求金額</div>';
             h += _algGroup("選択範囲を", _av(s.posGrand), "editSetGrandPos");
             h +=
-              '<div class="note" style="font-weight:800;color:#5a6b82;margin:10px 0 2px">会社名・住所（自社）</div>' +
+              '<div class="note" style="font-weight:800;color:#333333;margin:10px 0 2px">会社名・住所（自社）</div>' +
               (isEle
                 ? ""
-                : '<div class="note" style="margin-top:0">※クラシックは右固定（エレガントで変わります）。</div>');
+                : '<div class="note" style="margin-top:0">この形（枠と帯）は右で固定です（「線ひかえめ」なら変えられます）。</div>');
             h += _algGroup("選択範囲を", _av(s.alignIssuer), "editSetIssuerAlign", !isEle);
             h += _algGroup("選択範囲内の文字を", _av(s.lineIssuer), "editSetIssuerLine", !isEle);
           }
@@ -7778,6 +7946,30 @@
         var shown = rows.filter(function (x) {
           return !statusF || x.st === statusF;
         });
+        /* ★2026-08-21 A3-⑦ バッジ29 と 画面31 の食い違い★
+           数え方は summarize() 1本で同じ。違っていたのは ★数える範囲★：
+             バッジ ＝ ★全期間★の「未入金＋一部入金」の件数
+             この画面 ＝ ★絞り込んだ後★の一覧
+           ＝同じ物を2か所で別々に決めていた。★どちらの数かを その場に書く★。 */
+        var yetAll = summarize(null, "").rows.filter(function (x) {
+          return x.st !== "paid";
+        }).length;
+        var yetShown = shown.filter(function (x) {
+          return x.st !== "paid";
+        }).length;
+        var cntEl = document.getElementById("payCount");
+        if (cntEl)
+          cntEl.innerHTML =
+            '<span><span class="n">' +
+            shown.length +
+            "件</span>" +
+            (month || statusF ? "（絞り込み中）" : "") +
+            "</span><span>未入金・一部入金 " +
+            '<span class="v">' +
+            yetShown +
+            "件</span>" +
+            (yetShown !== yetAll ? "（全期間 " + yetAll + "件）" : "") +
+            "</span>";
         if (!shown.length) {
           box.innerHTML = '<div class="li-empty">該当する請求がありません</div>';
           return;
@@ -7851,6 +8043,7 @@
           })
           .join("");
         _updatePaySelBar();
+        updatePayBadge(); // ★同じ数え方(summarize)で 同時に数え直す★ 2026-08-21
       }
       // ===== 複数選択して一括「全入金」 =====
       var _paySelMode = false;
@@ -8346,9 +8539,9 @@
       function loadIssuer() {
         try {
           ISSUER_SETTINGS = JSON.parse(localStorage.getItem(ISSUER_KEY)) || {};
-        Object.keys(ISSUER_SETTINGS).forEach(function (k) {
-          migrateRegno(ISSUER_SETTINGS[k]);
-        });
+          Object.keys(ISSUER_SETTINGS).forEach(function (k) {
+            migrateRegno(ISSUER_SETTINGS[k]);
+          });
         } catch (e) {
           ISSUER_SETTINGS = {};
         }
@@ -8483,72 +8676,143 @@
       //  ・elegant＝中央タイトル＋ひし形・淡ミント表。種類はロゴ有/無の2つ（headerStyleは無視される設計）。
       //  ・classic＝緑ヘッダー帯＋横罫の伝統型。種類は対角ロゴ有/対角ロゴ無/中央の3つ。
       //  状態は (pdfDesign, elegantVariant, classicVariant) の2次元で持つ＝デザインを跨いでも化けない。
-      var DESIGN_LABELS = { elegant: "エレガント", classic: "クラシック" };
-      /* ===== サンプルのサムネ ─ ★その場で描く★ =====================================
-         ★2026-08-11 まで tpl_〈様式〉_〈種類〉.png という画像ファイルを読んでいたが、
-           そのファイルは repo に1枚も無く ★5枚とも404★ だった（司さんの実機で発覚）。
-           画面は壊れず「?」が出るだけなので、誰も気づかないまま残っていた。
-         ★ファイルを置く形には戻さない★：紙の様式や色を直すたびに作り直しになり、必ず古くなる。
-           （現に紙は 08-11 に緑→青／白黒へ変わった。png を置いていたら緑のサムネが残っていた）
-         ここで描く色は ★紙と同じ★：エレガント＝事務所の青／クラシック＝白黒。
+      /* ★人に見せる名前は「形」で言う★（2026-08-18 司さん／指示役 ④）
+         中の名前（elegant / classic）は データにそのまま残す＝過去の設定が化けない。
+         見張り: tests/e2e/template-thumbs.spec.js（人に見せる字に中の名前が0件） */
+      var DESIGN_LABELS = { elegant: "線ひかえめ", classic: "枠と帯" };
+      /* ===== 見本のサムネ ─ ★実際の紙を そのまま縮めて見せる★ ==========================
+         ★2026-08-18 司さん★
+           「他のアプリは実際の見せとんのに なんでこれだけ意味わからんやり方なんど」
+           「もともとちゃんと見せれとったろが」
+         ここは 2026-08-11 まで tpl_〈様式〉_〈種類〉.png を読んでいたが ★5枚とも404★ だった。
+         その後は ★線だけの作り物（SVG）★ を描いていた＝実物とは別物で、選ぶ時に嘘になる。
+         ⇒ ★本物のPDFを作って1ページ目を縮めて描く★。紙を直せば見本も同時に直る（古くならない）。
+           ・データは ★その人自身の明細★（一番新しい月）。1件も無い時だけ、形が分かる最小の見本。
+           ・作るのは開いた時だけ・1枚ずつ・同じ物はキャッシュ（フォントは請求タブと同じ物を使い回す）
+         見張り: tests/e2e/template-thumbs.spec.js（★本物の紙が描かれたか★を実際の絵で測る）
       ============================================================================= */
-      function tplThumbSvg(design, v) {
-        var ele = design !== "classic";
-        // ★見本も本物と同じ濃さにする（見本だけ青いと 選ぶ時に嘘になる）★
-        var ink = "#1A1A1A"; // 本文・タイトル＝全体の色から作らない（本物と同じ）
-        var acc = ele ? "#007AFF" : "#808080"; // 飾り線（★線だけ全体の色★）
-        var band = ele ? "#F2F7FF" : "#F2F2F2"; // 表の地
-        var rule = ele ? "#BFBFBF" : "#B0B0B0"; // 罫＝濃さで作る
-        var W = 100,
-          H = 141.4;
-        var centerTitle = v.headerStyle !== "A";
-        var logo = v.logoMode === "show";
-        var p = [];
-        p.push('<rect x="0" y="0" width="' + W + '" height="' + H + '" fill="#fff"/>');
-        // 見出し（中央 or 左）＋ロゴの位置
-        if (centerTitle) {
-          p.push('<rect x="34" y="12" width="32" height="6" rx="1" fill="' + ink + '"/>');
-          if (logo) p.push('<rect x="44" y="22" width="12" height="8" rx="1" fill="' + acc + '"/>');
-        } else {
-          p.push('<rect x="10" y="12" width="30" height="6" rx="1" fill="' + ink + '"/>');
-          if (logo) p.push('<rect x="76" y="11" width="14" height="10" rx="1" fill="' + acc + '"/>');
-        }
-        p.push(
-          '<line x1="10" y1="' +
-            (centerTitle ? 34 : 26) +
-            '" x2="90" y2="' +
-            (centerTitle ? 34 : 26) +
-            '" stroke="' +
-            acc +
-            '" stroke-width="0.8"/>'
-        );
-        // 宛名・金額
-        p.push('<rect x="10" y="42" width="38" height="4" rx="1" fill="' + ink + '"/>');
-        p.push('<rect x="10" y="54" width="26" height="3" rx="1" fill="' + rule + '"/>');
-        p.push('<rect x="52" y="52" width="38" height="6" rx="1" fill="' + ink + '"/>');
-        // 表（見出しの帯＋4行）
-        p.push('<rect x="10" y="68" width="80" height="8" fill="' + band + '"/>');
-        for (var i = 0; i < 4; i++) {
-          var y = 80 + i * 8;
-          p.push('<line x1="10" y1="' + y + '" x2="90" y2="' + y + '" stroke="' + rule + '" stroke-width="0.6"/>');
-          p.push('<rect x="13" y="' + (y - 4) + '" width="34" height="2.4" rx="1" fill="' + rule + '"/>');
-          p.push('<rect x="74" y="' + (y - 4) + '" width="14" height="2.4" rx="1" fill="' + rule + '"/>');
-        }
-        // 合計
-        p.push('<line x1="52" y1="118" x2="90" y2="118" stroke="' + acc + '" stroke-width="0.8"/>');
-        p.push('<rect x="52" y="121" width="14" height="4" rx="1" fill="' + ink + '"/>');
-        p.push('<rect x="72" y="121" width="18" height="4" rx="1" fill="' + ink + '"/>');
+      var _tplThumbCache = {}; // key(design|variant|会社|月|件数) -> PDFのバイト
+      function tplThumbBox(design, v) {
         return (
-          '<svg class="tpl-thumb" viewBox="0 0 ' +
-          W +
-          " " +
-          H +
-          '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="' +
+          '<div class="tpl-thumb tpl-thumb-real" data-design="' +
+          esc(design) +
+          '" data-variant="' +
+          esc(v.key) +
+          '" role="img" aria-label="' +
           esc(v.label) +
-          ' のサンプル">' +
-          p.join("") +
-          "</svg>"
+          ' の見本（実際の紙）"><span class="tpl-thumb-msg">見本を作っています…</span></div>'
         );
+      }
+      // 見本に使う明細＝★その人自身の物★（会社を指定されればその会社／無ければ一番新しい月）
+      function tplSampleRows(co) {
+        var mine = DB.filter(function (r) {
+          return r.account_id === CURRENT_ACCOUNT && (!co || r.会社名 === co);
+        });
+        if (!mine.length && co)
+          mine = DB.filter(function (r) {
+            return r.account_id === CURRENT_ACCOUNT;
+          });
+        if (!mine.length) return null;
+        var months = {};
+        mine.forEach(function (r) {
+          if (r.日付) months[String(r.日付).slice(0, 7)] = 1;
+        });
+        var month = Object.keys(months).sort().pop();
+        if (!month) return null;
+        var rows = mine
+          .filter(function (r) {
+            return String(r.日付 || "").slice(0, 7) === month;
+          })
+          .sort(function (a, b) {
+            return (
+              (a.日付 || "").localeCompare(b.日付 || "") || (a.id || "").localeCompare(b.id || "")
+            );
+          });
+        if (!rows.length) return null;
+        var company = co || rows[0].会社名;
+        rows = rows
+          .filter(function (r) {
+            return r.会社名 === company;
+          })
+          .slice(0, 8);
+        if (!rows.length) return null;
+        return { co: company, month: month, rows: rows };
+      }
+      // 1枚ぶんの本物のPDFを作る（同じ物は作り直さない）
+      async function tplThumbBytes(design, vkey, co) {
+        var samp = tplSampleRows(co);
+        if (!samp) return null; // ★1件も無い時は「まだ紙が無い」と正直に出す（作り物を出さない）★
+        var key = design + "|" + vkey + "|" + samp.co + "|" + samp.month + "|" + samp.rows.length;
+        if (_tplThumbCache[key]) return _tplThumbCache[key];
+        var v =
+          designVariants(design).filter(function (x) {
+            return x.key === vkey;
+          })[0] || designVariants(design)[0];
+        // ★実際に刷る時と同じ関数・同じ設定★。デザインと種類だけ この見本の物に差し替える。
+        var iss = issuerForEngine(samp.co);
+        iss = Object.assign({}, iss, {
+          pdfDesign: design,
+          headerStyle: v.headerStyle,
+          logoMode: v.logoMode,
+        });
+        var bytes = await InvoicePDF.buildOne(
+          MASTER,
+          samp.co,
+          samp.rows,
+          samp.month,
+          iss,
+          InvoicePDF.invoiceNoFor(MASTER, CURRENT_ACCOUNT, samp.month, samp.co, DB)
+        );
+        _tplThumbCache[key] = bytes;
+        return bytes;
+      }
+      var _tplThumbSeq = 0;
+      // 画面に出ている見本の枠を、1枚ずつ 本物の紙で埋める
+      //   ★見えている枠だけ★（閉じている会社の分まで作らない＝開いた時に作る）
+      async function paintTplThumbs(root) {
+        var boxes = [].filter.call(
+          (root || document).querySelectorAll(".tpl-thumb-real"),
+          function (b) {
+            var r = b.getBoundingClientRect();
+            return r.width > 0 && r.height > 0;
+          }
+        );
+        if (!boxes.length) return;
+        var seq = ++_tplThumbSeq;
+        if (typeof InvoicePDF === "undefined") return; // まだ読み込み中＝「作っています…」のまま
+        for (var i = 0; i < boxes.length; i++) {
+          if (seq !== _tplThumbSeq) return; // 別の画面に切り替わった＝やめる
+          var box = boxes[i];
+          try {
+            var host = box.closest("[data-co]"); // 会社ごとテンプレの中なら その会社の紙で見せる
+            var bytes = await tplThumbBytes(
+              box.dataset.design,
+              box.dataset.variant,
+              host ? host.dataset.co : null
+            );
+            if (seq !== _tplThumbSeq) return;
+            if (!bytes) {
+              box.innerHTML =
+                '<span class="tpl-thumb-msg">明細を1件 入れると<br />ここに実際の紙が出ます</span>';
+              continue;
+            }
+            var pdfjs = await ensurePdfjs();
+            var pdf = await pdfjs.getDocument({ data: bytes.slice(0) }).promise;
+            var pg = await pdf.getPage(1);
+            var w = Math.max(120, Math.round(box.getBoundingClientRect().width || 150));
+            var vp0 = pg.getViewport({ scale: 1 });
+            var vp = pg.getViewport({ scale: (w * 2) / vp0.width }); // 2倍解像度＝縮めても字が潰れない
+            var cv = document.createElement("canvas");
+            cv.width = vp.width;
+            cv.height = vp.height;
+            await pg.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise;
+            if (seq !== _tplThumbSeq) return;
+            box.innerHTML = "";
+            box.appendChild(cv);
+          } catch (e) {
+            box.innerHTML = '<span class="tpl-thumb-msg">見本を作れませんでした</span>';
+          }
+        }
       }
       var DESIGN_VARIANTS = {
         elegant: [
@@ -8780,7 +9044,7 @@
           rh.textContent = ng
             ? ng + " ／ 入っていないと 請求書は出せません"
             : "T＋13桁で入っています（請求書に刷られます）";
-          rh.style.color = ng ? "#c0392b" : "#5a6b82";
+          rh.style.color = ng ? "#c0392b" : "#555555";
         }
         var ia = s.issuerAlign || "left";
         var ba = s.bankAlign || "left";
@@ -9094,6 +9358,9 @@
       }
       function renderEntry() {
         var co = document.getElementById("inputCompany").value;
+        // ★候補の一覧は 画面を組み立てる前に作る★ 2026-08-21
+        //   後で呼んでいたので「よく行く所」が1回目に出なかった（自分で作ったバグ）。
+        refreshDestList(co);
         var items = inputItemsOrder(MASTER[co].items);
         var body = entryRows
           .map(function (row, i) {
@@ -9126,7 +9393,7 @@
                     "',this)\"></div>";
                 } else if (t === "number") {
                   inp =
-                    '<input class="entry-inp num" inputmode="numeric" placeholder="0" value="' +
+                    '<input class="entry-inp num" inputmode="numeric" placeholder="" value="' +
                     esc(row[k]) +
                     '" ' +
                     NOFILL +
@@ -9137,6 +9404,9 @@
                     "',this)\">";
                 } else if (k === "行き先") {
                   // 行き先は自前のサジェスト（タップで履歴表示・打つと絞り込み・iOSでも確実）
+                  // ★2026-08-21 A3-③ 空欄を並べて埋めさせない★
+                  //   その会社で よく出る行き先を ★先に3つ出す★（押すとそのまま入る）。
+                  //   出どころは refreshDestList（頻度順）＝サジェストと同じ1本。
                   inp =
                     '<div class="sugg-wrap">' +
                     '<input class="entry-inp" value="' +
@@ -9148,7 +9418,8 @@
                     i +
                     ',this)" onblur="hideSugg(this)">' +
                     '<div class="sugg-box"></div>' +
-                    "</div>";
+                    "</div>" +
+                    destOftenHtml(i);
                 } else {
                   inp =
                     '<input class="entry-inp" value="' +
@@ -9186,7 +9457,54 @@
           })
           .join("");
         document.getElementById("entryBody").innerHTML = body;
-        refreshDestList(co);
+      }
+      /* ★よく行く所を先に3つ出す★（2026-08-21 A3-③ 「聞いてあげる。埋めさせない」）
+         ・出どころは DEST_ALL（refreshDestList が作る 頻度順）＝★サジェストと同じ1本★
+         ・押すと その行の行き先に入る（打ち直さなくてよい）
+         ・まだ1件も明細が無い時は 何も出さない（★作り物の候補を見せない★） */
+      // 長い行き先は ★端と端を残して 途中を省く★（押す物なのに中身が読めないと選べない）
+      //   例: UNIQLO〜松本〜郷本町〜辻堂〜喜田村〜東予〜桜井 → UNIQLO〜…〜桜井
+      function destChipLabel(d) {
+        var s = String(d || "");
+        if (s.length <= 14) return s;
+        var p = s.split("〜");
+        if (p.length >= 3) {
+          var head = p[0];
+          var tail = p[p.length - 1];
+          if (head.length + tail.length <= 16) return head + "〜…〜" + tail;
+        }
+        return s.slice(0, 7) + "…" + s.slice(-5);
+      }
+      function destOftenHtml(i) {
+        var top = (DEST_ALL || []).slice(0, 3);
+        if (!top.length) return "";
+        return (
+          '<div class="dest-often">よく行く所：' +
+          top
+            .map(function (d) {
+              return (
+                '<button type="button" class="dest-chip" onclick="pickDestOften(' +
+                i +
+                ",'" +
+                String(d).replace(/'/g, "&#39;").replace(/"/g, "&quot;") +
+                "')" +
+                '" title="' +
+                esc(d) +
+                '">' +
+                esc(destChipLabel(d)) +
+                "</button>"
+              );
+            })
+            .join("") +
+          "</div>"
+        );
+      }
+      function pickDestOften(i, d) {
+        var wrap = document.querySelectorAll("#entryBody .sugg-wrap")[i];
+        var el = wrap && wrap.querySelector(".entry-inp");
+        if (!el) return;
+        el.value = d;
+        if (entryRows[i]) entryRows[i]["行き先"] = d;
       }
       // 行き先サジェストの母集合：過去明細から（その会社優先・少なければ全社）頻度順
       var DEST_ALL = [];
@@ -9367,7 +9685,7 @@
         updatePayBadge();
         entryRows = [blankEntry()];
         renderEntry();
-        toast(recs.length + "件を保存しました（Excel／DBに追加）");
+        toast(recs.length + "件を保存しました");
       }
 
       /* ===================================================================
@@ -9411,34 +9729,90 @@
           return (b._created || "").localeCompare(a._created || ""); // 同じ日付は後から入れた明細を上へ(最新が上)
         });
         var box = document.getElementById("listBody");
+        var sumEl = document.getElementById("listSum");
+        // ★④頭に「◯件／合計 ¥◯」★（絞り込むと数え直る＝今 見えている物の数）
+        var grand = rows.reduce(function (t, r) {
+          return t + (Number(r.金額) || 0);
+        }, 0);
+        if (sumEl)
+          sumEl.innerHTML =
+            '<span><span class="n">' +
+            rows.length +
+            "件</span>" +
+            (co || mo ? "（絞り込み中）" : "") +
+            '</span><span>合計 <span class="v">' +
+            esc(yen(grand)) +
+            "</span></span>";
         if (!rows.length) {
           box.innerHTML = '<div class="li-empty">明細がありません</div>';
           return;
         }
-        box.innerHTML = rows
-          .map(function (r) {
-            var meta = r.会社名 + (r.備考 ? "・" + esc(r.備考) : "");
-            var dateCell = r.日付
-              ? '<div class="li-date">' + esc(mdShort(r.日付)) + "</div>"
-              : '<div class="li-date li-nodate">⚠️日付なし</div>';
-            // 左スワイプで削除（会社マスタと同じ仕組み）・タップで編集
+        // ★⑤日ごとにまとめる（同じ日付を何度も読ませない）＋その日の合計★
+        var days = [];
+        var byDay = {};
+        rows.forEach(function (r) {
+          var k = r.日付 || "";
+          if (!byDay[k]) {
+            byDay[k] = [];
+            days.push(k);
+          }
+          byDay[k].push(r);
+        });
+        var WD = ["日", "月", "火", "水", "木", "金", "土"];
+        box.innerHTML = days
+          .map(function (k) {
+            var list = byDay[k];
+            var dsum = list.reduce(function (t, r) {
+              return t + (Number(r.金額) || 0);
+            }, 0);
+            var head;
+            if (k) {
+              var p = k.split("-");
+              var wd = WD[new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getDay()];
+              head =
+                '<div class="li-day"><span class="d">' +
+                esc(mdShort(k)) +
+                "（" +
+                wd +
+                '）</span><span class="s">' +
+                list.length +
+                "件 " +
+                esc(yen(dsum)) +
+                "</span></div>";
+            } else {
+              head =
+                '<div class="li-day"><span class="d">⚠️日付なし</span><span class="s">' +
+                list.length +
+                "件 " +
+                esc(yen(dsum)) +
+                "</span></div>";
+            }
             return (
-              '<div class="list-swipe">' +
-              '<div class="swipe-action"><button class="swipe-del" onclick="deleteRow(\'' +
-              r.id +
-              "')\">削除</button></div>" +
-              '<div class="swipe-content"><div class="list-item" onclick="openEdit(\'' +
-              r.id +
-              "')\">" +
-              dateCell +
-              '<div class="li-main"><div class="li-dest">' +
-              esc(r.行き先 || "（行き先なし）") +
-              '</div><div class="li-meta">' +
-              esc(meta) +
-              "</div></div>" +
-              '<div class="li-amt">' +
-              yen(r.金額 || 0) +
-              "</div></div></div></div>"
+              head +
+              list
+                .map(function (r) {
+                  // ★②会社名が主役・行き先は副★（前は逆だった＝探す物が一番 薄かった）
+                  var co2 = r.会社名 + (r.備考 ? "・" + r.備考 : "");
+                  return (
+                    '<div class="list-swipe">' +
+                    '<div class="swipe-action"><button class="swipe-del" onclick="deleteRow(\'' +
+                    r.id +
+                    "')\">削除</button></div>" +
+                    '<div class="swipe-content"><div class="list-item" onclick="openEdit(\'' +
+                    r.id +
+                    "')\">" +
+                    '<div class="li-main"><div class="li-meta">' +
+                    esc(co2) +
+                    '</div><div class="li-dest">' +
+                    // ★行き先の文字は エンジン1本から（紙・Excelと同じ物）★ 2026-08-18
+                    esc(MeisaiEngine.utils.routeTextOf(r) || "（行き先なし）") +
+                    "</div></div>" +
+                    '<div class="li-amt">' +
+                    yen(r.金額 || 0) +
+                    "</div></div></div></div>"
+                  );
+                })
+                .join("")
             );
           })
           .join("");
@@ -9490,9 +9864,8 @@
           })
           .join("");
         document.getElementById("modalBody").innerHTML =
-          '<div style="font-size:10px;color:#a9b5c4;font-family:DM Mono,monospace;margin-bottom:8px;">id: ' +
-          esc(r.id) +
-          "</div>" +
+          ""; /* ★中の言葉(id)は客に見せない★ 2026-08-21 */
+        "</div>" +
           fields +
           '<div style="display:flex;gap:8px;margin-top:14px;">' +
           '<button class="btn btn-danger btn-sm" style="flex:1;" onclick="deleteRow(\'' +
@@ -9771,7 +10144,7 @@
               .join(" / ")
           ) +
           "</span>" +
-          '<span style="color:#a9b5c4;">▾</span>' +
+          '<span class="master-co-caret">▾</span>' +
           "</div>" +
           '<div class="master-co-body" data-co="' +
           esc(co) +
@@ -9837,7 +10210,7 @@
           '<div class="chip-row">' +
           chips +
           "</div>" +
-          '<div class="addcustom"><input class="finput addcustom-inp" placeholder="自由な項目名（例：台数 / 担当）" ' +
+          '<div class="addcustom"><input class="finput addcustom-inp" placeholder="自由な項目名（例：台数）" ' +
           NOFILL +
           " onkeydown=\"if(event.key==='Enter'){addCustomItem('" +
           esc(co) +
@@ -9879,7 +10252,7 @@
           " onchange=\"setMasterField('" +
           esc(co) +
           "','carryover',this.checked)\"> 繰越を使う（前回の残りを次の請求に乗せる）</label>" +
-          '<div style="font-size:10px;color:#5a6b82;margin:2px 0 8px 26px;line-height:1.6;">' +
+          '<div style="font-size:10px;color:#555555;margin:2px 0 8px 26px;line-height:1.6;">' +
           "前回繰越額・合計請求額・ご入金額・今回お支払額 が紙とExcelに出ます。" +
           "前回の請求が無い会社は「前回の請求はありません」と出ます（0円とは書きません）。</div>" +
           /* ★内税/外税（値は前から在ったが 切り替える所が無かった＝到達しない分岐だった）★ */
@@ -9887,12 +10260,12 @@
           '<div class="align-row">' +
           '<button type="button" class="align-btn' +
           (m.taxMode === "外税" ? "" : " on") +
-          "\" onclick=\"setMasterField('" +
+          '" onclick="setMasterField(\'' +
           esc(co) +
           "','taxMode','内税')\">内税（金額は税込）</button>" +
           '<button type="button" class="align-btn' +
           (m.taxMode === "外税" ? " on" : "") +
-          "\" onclick=\"setMasterField('" +
+          '" onclick="setMasterField(\'' +
           esc(co) +
           "','taxMode','外税')\">外税（金額は税抜）</button>" +
           "</div></div>" +
@@ -9965,7 +10338,7 @@
                 v.key +
                 "')\">" +
                 '<div class="tpl-badge">✓</div>' +
-                tplThumbSvg(design, v) +
+                tplThumbBox(design, v) +
                 '<div class="tpl-meta"><div class="tpl-name">' +
                 esc(v.label) +
                 '</div><div class="tpl-desc">' +
@@ -10025,12 +10398,17 @@
       function toggleMasterBody(hd) {
         var body = hd.nextElementSibling;
         body.classList.toggle("open");
+        // ★開いた時に その会社の紙で見本を作る★（閉じている分は作らない）
+        if (body.classList.contains("open")) paintTplThumbs(body);
       }
       function reopen(co) {
         // マスタ再描画後、編集中の会社を開いたまま保つ
         renderMaster();
         var b = document.querySelector('.master-co-body[data-co="' + CSS.escape(co) + '"]');
-        if (b) b.classList.add("open");
+        if (b) {
+          b.classList.add("open");
+          paintTplThumbs(b); // ★見本＝実際の紙★
+        }
       }
       function toggleItem(co, key) {
         var m = MASTER[co];
@@ -10167,8 +10545,8 @@
         document.getElementById("modalTitle").textContent = "会社を追加";
         document.getElementById("modalBody").innerHTML =
           '<div class="frow"><div class="flabel">会社名（宛名）</div><input class="finput" id="newCoName" placeholder="例：テスト物流株式会社"></div>' +
-          '<div class="scr-sub" style="margin:2px 0 10px;">保存で<b>Excel／DBに追加</b>。追加後、設定→会社マスタで 項目・順番 を定義できます（初期＝日付/行き先/金額）。</div>' +
-          '<button class="btn btn-primary" onclick="addCompany()">保存する（Excel／DBに追加）</button>';
+          '<div class="scr-sub" style="margin:2px 0 10px;">追加した後、設定→会社マスタで 項目・順番 を決められます（初めは 日付／行き先／金額）。</div>' +
+          '<button class="btn btn-primary" onclick="addCompany()">保存する</button>';
         openModal();
       }
       function addCompany() {
@@ -10194,7 +10572,7 @@
         closeModal();
         renderMaster();
         refreshCompanySelects();
-        toast("保存しました（Excel／DBに追加）");
+        toast("保存しました");
       }
       async function deleteCompany(co) {
         if (!confirm(co + " をマスタから削除します。よろしいですか？（明細データは残ります）"))
@@ -10355,7 +10733,8 @@
           tot += Number(r.金額) || 0;
           aoa.push(
             cols.map(function (c) {
-              var v = r[c];
+              // ★行き先は エンジン1本から（画面・紙と同じ物）★ 2026-08-18
+              var v = c === "行き先" ? MeisaiEngine.utils.routeTextOf(r) : r[c];
               if (nums[c]) return v === "" || v == null ? "" : Number(v);
               return v == null ? "" : v;
             })
@@ -10584,9 +10963,13 @@
               accentDark: "#0a5fd0", // 事務所の --blue-d
               bg: "#f2f7ff", // 事務所の --bg
               line: "#dbe7f7", // 事務所の --line
-              title: "#14243d", // 事務所の --ink
-              ink: "#14243d",
-              muted: "#5a6b82", // 事務所の --muted
+              // ★2026-08-21 読ませる字は 薄い黒（#333/#555/#666）★
+              //   指示役が実配信のログイン画面から値で数えて見つけた：
+              //   説明3行が #5A6B82／アプリ名が #14243D／見出し「🚗 ダイコメ」が #007AFF だった。
+              //   ★客が一番先に見る画面が 直っていなかった★（私は画面を名指しで選んで数えていた）
+              title: "#333333",
+              ink: "#333333",
+              muted: "#555555",
               link: "#0a5fd0",
               danger: "#e0483d", // 事務所の --danger
               shadow: "rgba(20,36,61,.10)",

@@ -24,7 +24,7 @@
   var CW = A4.w - M * 2; // 本文幅
   var ROWS_PER_PAGE = 22; // 1ページの明細スロット数（HTML/Excelと同じ）
   // Exallyブランドのミント配色（参考の上品レイアウト×アプリの色で統一）
-  var MINT, MINTD, MINTBG, BORDER, RULE, TEXT, MUTED, BLACK
+  var MINT, MINTD, MINTBG, BORDER, RULE, TEXT, MUTED, BLACK;
   var ACCENT; // ★タイトルと見出しの線だけに使う全体の色★
   // クラシック（前テンプレ＝緑ヘッダー帯＋罫線）の配色
   var GREEN, GREY, DARK, INKSC, INKC, HAIRC;
@@ -178,6 +178,14 @@
     var E = global.MeisaiEngine;
     if (E && E.totalsLabels) return E.totalsLabels(m, iss);
     throw new Error("MeisaiEngine.totalsLabels が読めていません（言葉を二重に持たない）");
+  }
+  /* ★行き先の文字も エンジン1本から★（2026-08-18 指示役）
+     司さん「開始〜経由〜最終 で出せ」。画面(一覧)と紙とExcelが★同じ関数★を呼ぶ。
+     ここで組み立て直すと ★同じ物を2か所で作る★ ことになり、画面と紙が食い違う。 */
+  function routeOf(row) {
+    var E = global.MeisaiEngine;
+    if (E && E.utils && E.utils.routeTextOf) return E.utils.routeTextOf(row);
+    throw new Error("MeisaiEngine.utils.routeTextOf が読めていません（行き先を二重に持たない）");
   }
   function mdShort(iso) {
     if (!iso) return "";
@@ -344,9 +352,13 @@
     });
   }
 
-  // 列の揃え。会社マスタ m.aligns[列] が優先。無ければ役割の既定（金額=右・日付=中央・他=左）。
+  /* 列の揃え。会社マスタ m.aligns[列] が優先。無ければ役割の既定。
+     ★2026-08-18 指示役「画面と紙で違うのは駄目」★
+       既定を ★数字・日付＝右／言葉＝左★ に揃えた（それまで 日付だけ 紙は中央・画面は右）。
+       会社ごとに m.aligns で上書きしている所は今までどおり（司さんが決めた形を奪わない）。
+     見張り: tests/e2e/paper-date-right.spec.js（刷った紙の字の位置で測る） */
   function colAlign(m, k) {
-    var def = k === "金額" ? "right" : k === "日付" ? "center" : "left";
+    var def = k === "金額" || k === "日付" ? "right" : "left";
     var a = m && m.aligns && m.aligns[k];
     return a === "left" || a === "center" || a === "right" ? a : def;
   }
@@ -594,6 +606,8 @@
             val = cur && cur !== prevDate ? mdShort(cur) : "";
           } else if (k === "金額") {
             val = comma(row.金額);
+          } else if (k === "行き先") {
+            val = routeOf(row); // ★画面・紙・Excel で同じ物★
           } else {
             val = row[k];
           }
@@ -1161,6 +1175,8 @@
             val = cur && cur !== prevDate ? mdShort(cur) : "";
           } else if (k === "金額") {
             val = comma(row.金額);
+          } else if (k === "行き先") {
+            val = routeOf(row); // ★画面・紙・Excel で同じ物★
           } else {
             val = row[k];
           }

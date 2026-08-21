@@ -10,7 +10,8 @@
      .FIELD_DEFS / .DEFAULT_WIDTH / .ISSUER / .ROWS_PER_PAGE   … 器(スキーマ)と固定情報
      .buildInvoiceHTML(master, company, rows, month)          … 1社ぶんの請求書HTML(複数ページ)
      .buildMonth(master, db, month, accountId)                … 月＋アカウントで全社ぶんをまとめて生成
-     .utils … {yen,comma,mdShort,inMonth,tax10,esc,reiwaIssueDate}（必要なら外でも使える）
+     .utils … {yen,comma,mdShort,inMonth,tax10,esc,reiwaIssueDate,labelOf,routeTextOf}
+              ★routeTextOf = 行き先の文字を作る唯一の所（一覧・紙・Excel が同じ物を呼ぶ）★
    ========================================================================== */
 (function (root) {
   "use strict";
@@ -181,6 +182,33 @@
     return issueDateStr(month, "reiwa");
   }
   // 項目の表示見出し。会社マスタの labels で上書き可（自由項目・見出し名編集）。未設定はキーそのもの。
+  /* ★行き先の文字を作るのは ここ1本★（一覧・紙(PDF)・Excel が同じ物を呼ぶ）2026-08-18
+       司さん「開始 〜 経由 〜 最終 で出せ。区切りは 〜」
+
+     ★どこで作られているか（実測 2026-08-18）★
+       ・行き先の本文は ★ダイコメ側★ が作って meisai.destination に入れている。
+         正本 = Daikou-app-test/supabase/functions/dk-sync-jobs/meisai-row.js の routeText()
+         （出発〜経由〜到着／地元の市は落とす／市外は市名を付ける／取れていない所はとばす）
+       ・代行請求(この器)には ★経由地の列が無い★。だから ここで経路を組み立て直さない。
+         ＝★同じ物を2か所で作らない★。ここは「受け取った文字を出す所」1本。
+
+     ★1つだけ ここで合流させる物★
+       2026-08-05版の同期は destination に ★到着地だけ★ を入れ、出発地は extra.dk_from に入れていた。
+       その行は「〜」を持たないので、★出発地が在れば 出発〜到着 にして出す★（過去の行が読めるようになる）。
+       ★市名は落とさない★＝落とす決まりはダイコメ側の設定（地元の市）なので、ここで2か所目を作らない。
+
+     ★勝手に埋めない★＝無い物は足さない。経由地はこの器に無いので出せない。 */
+  function routeTextOf(row) {
+    if (!row) return "";
+    var dest = String(row["行き先"] == null ? "" : row["行き先"]).trim();
+    var from = String(row.dk_from == null ? "" : row.dk_from).trim(); // extra.dk_from（出発地）
+    if (!from) return dest;
+    if (!dest) return from;
+    if (dest.indexOf("〜") >= 0) return dest; // 既に 開始〜経由〜最終
+    if (from === dest || dest.indexOf(from) === 0) return dest; // 出発が既に先頭に在る
+    return from + "〜" + dest;
+  }
+
   function labelOf(m, k) {
     return (m && m.labels && m.labels[k]) || k;
   }
@@ -633,6 +661,7 @@
       esc: esc,
       reiwaIssueDate: reiwaIssueDate,
       labelOf: labelOf,
+      routeTextOf: routeTextOf,
     },
   };
 

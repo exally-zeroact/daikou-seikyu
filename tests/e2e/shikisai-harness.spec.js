@@ -12,7 +12,7 @@ import path from "node:path";
 //   ★押す物の一覧（先に書く）★
 //     1. 下のナビ「設定」          … 設定画面へ
 //     2. 「テンプレート」タブ       … デザインを選ぶ所へ
-//     3. 「エレガント」/「クラシック」… 紙の見た目を切り替える
+//     3. 「線ひかえめ」/「枠と帯」… 紙の見た目を切り替える
 //     4. 下のナビ「請求」          … 請求書の画面へ
 //     5. 「月」を 2026年5月 に      … select#invMonth
 //     6. 「会社」を 飛勝工業株式会社 … select#invCompany
@@ -25,9 +25,10 @@ import path from "node:path";
 
 const OUT = process.env.SHIKISAI_OUT || path.join("test-results", "shikisai");
 const CO = "飛勝工業株式会社";
+// ★人に見せる名前は「形」で言う（2026-08-18）★ 中の名前(elegant/classic)はデータのまま
 const DESIGNS = [
-  ["elegant", "エレガント"],
-  ["classic", "クラシック"],
+  ["elegant", "線ひかえめ"],
+  ["classic", "枠と帯"],
 ];
 
 function seedDb() {
