@@ -9863,9 +9863,13 @@
             return '<div class="frow"><div class="flabel">' + esc(k) + "</div>" + inp + "</div>";
           })
           .join("");
+        // ★2026-08-25 直し★：2026-08-21 に「（idで特定）」の見出しを消した時、
+        //   ★代入が `= "";` で終わってしまい、後ろの連結が誰にも渡らない ただの式★ になっていた。
+        //   ＝ 一覧から1件 押すと ★「明細を編集」と「閉じる」だけの空の画面★ が出る＝直せない。
+        //   構文は正しいので lint も試験も緑のまま通っていた。
+        //   見張り: tests/dead-expression.test.js（誰にも渡らない式が1件でも在れば赤）
         document.getElementById("modalBody").innerHTML =
-          ""; /* ★中の言葉(id)は客に見せない★ 2026-08-21 */
-        "</div>" +
+          /* ★中の言葉(id)は客に見せない★ 2026-08-21 */
           fields +
           '<div style="display:flex;gap:8px;margin-top:14px;">' +
           '<button class="btn btn-danger btn-sm" style="flex:1;" onclick="deleteRow(\'' +
