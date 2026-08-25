@@ -198,6 +198,32 @@
        ★市名は落とさない★＝落とす決まりはダイコメ側の設定（地元の市）なので、ここで2か所目を作らない。
 
      ★勝手に埋めない★＝無い物は足さない。経由地はこの器に無いので出せない。 */
+  // ★車ごと・早い順の並べ替え（2026-08-25 司さん）★
+  //   「一覧の並びも 上から車ごとに分けて 早い順で並べて」／「請求書の一覧もな」
+  //   ★一覧も請求書も 同じ決まりで並べる★（決まりを2か所に置かない）。
+  //   dk_car_no … 事務所で決めた車の並び順（1466=1番・4987=2番…）
+  //   dk_ref    … 「端末:業務開始:何本目」＝★何本目★が その晩の早い順
+  //   ★手で入れた分は どちらも無い★ので 車の後ろ・入れた順になる。
+  function carNoOf(r) {
+    var n = Number(r && r.dk_car_no);
+    return isFinite(n) && n > 0 ? n : 9999; // 車なしは最後
+  }
+  function seqOf(r) {
+    var p = String((r && r.dk_ref) || "").split(":");
+    var n = Number(p[2]);
+    return isFinite(n) ? n : null;
+  }
+  // ★同じ日の中の並びだけ★（車ごと → 早い順）。
+  //   ★日の順には 一切 手を出さない★＝呼ぶ側の今まで通りのまま（司さん 2026-08-25）。
+  function compareInDay(a, b) {
+    var c = carNoOf(a) - carNoOf(b);
+    if (c !== 0) return c;
+    var sa = seqOf(a),
+      sb = seqOf(b);
+    if (sa !== null && sb !== null && sa !== sb) return sa - sb;
+    return String(a._created || "").localeCompare(String(b._created || ""));
+  }
+
   function routeTextOf(row) {
     if (!row) return "";
     var dest = String(row["行き先"] == null ? "" : row["行き先"]).trim();
@@ -525,9 +551,14 @@
           return r.会社名 === co && inMonth(r.日付, month);
         })
         .sort(function (a, b) {
-          return (
-            (a.日付 || "").localeCompare(b.日付 || "") || (a.id || "").localeCompare(b.id || "")
-          );
+          // ★日の順は 今まで通り。1文字も触っていない★（司さん 2026-08-25「古い日は今まで通りでええ」）
+          //   足したのは ★同じ日の中の並びだけ★＝車ごと → 早い順。
+          //   前は「同じ日は id の順」＝★中身に意味の無い順★だった。
+          var d = (a.日付 || "").localeCompare(b.日付 || "");
+          if (d !== 0) return d;
+          var c = compareInDay(a, b);
+          if (c !== 0) return c;
+          return (a.id || "").localeCompare(b.id || "");
         });
       if (!rows.length) return;
       var co_html = buildInvoiceHTML(
@@ -662,6 +693,10 @@
       reiwaIssueDate: reiwaIssueDate,
       labelOf: labelOf,
       routeTextOf: routeTextOf,
+      // ★一覧も同じ決まりで並べる為に出す（決まりを2か所に置かない）★ 2026-08-25
+      carNoOf: carNoOf,
+      seqOf: seqOf,
+      compareInDay: compareInDay,
     },
   };
 
