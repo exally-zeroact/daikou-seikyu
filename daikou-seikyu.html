@@ -2814,6 +2814,64 @@
     </style>
   </head>
   <body>
+    <!-- ★テスト用の帯★ 2026-08-23（指示役⑧：テスト環境の帯が ここだけ出ていなかった）
+         ★本番(daikou-seikyu.vercel.app)には絶対に出さない★
+         ＝判定は ★自分のアドレス(location.hostname)だけ★（中の設定は信じない）。
+         色は ★ダイコメの帯と同じ #c0392b★（他アプリの色を持ってこない）。
+         ★帯は pointer-events:none（下の画面を押せるように）→ 中のボタンは auto に戻す★
+           ＝戻さないと ボタンが DOMに在るのに 永久に押せない（2026-08-21 メーターで実際に踏んだ）。
+         見張り: tests/test-band.test.js -->
+    <div
+      id="testBand"
+      style="
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 99999;
+        pointer-events: none;
+        opacity: 0.95;
+        background: #c0392b;
+        color: #ffffff;
+        font-size: 12px;
+        font-weight: 700;
+        text-align: center;
+        padding: 3px 6px;
+        letter-spacing: 1px;
+        font-family: &quot;Noto Sans JP&quot;, sans-serif;
+      "
+    >
+      テスト用（本番ではありません）
+      <a
+        href="https://daikou-seikyu.vercel.app/daikou-seikyu.html"
+        style="
+          pointer-events: auto;
+          display: inline-block;
+          margin-left: 8px;
+          padding: 1px 8px;
+          background: #ffffff;
+          color: #c0392b;
+          border-radius: 999px;
+          text-decoration: none;
+          font-weight: 700;
+        "
+        >本番を開く</a
+      >
+    </div>
+    <script>
+      // ★-test のアドレスの時だけ 帯を出す★（本番では1ドットも変わらない）
+      (function () {
+        "use strict";
+        var h = (location.hostname || "").toLowerCase();
+        if (!/-test\./.test(h) && !/-test$/.test(h)) return;
+        var el = document.getElementById("testBand");
+        if (!el) return;
+        el.style.display = "block";
+        // 帯の分だけ中身を下げる（頭が帯に隠れないように）
+        document.documentElement.style.paddingTop = el.offsetHeight + "px";
+      })();
+    </script>
     <!-- ===== 読み込み中／通信エラー ===== -->
     <div class="load-ov" id="loadOverlay">
       <div class="load-card">

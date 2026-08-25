@@ -151,6 +151,37 @@
     return m;
   }
 
+  /* ★メールから戻ってきた人の見分け方を3通り持つ（2026-08-23）★
+       ①自分で付けた目印 pwreset=1（? でも # でも拾う）
+       ②Supabase が付ける type=recovery
+       ③Supabase からの合図 PASSWORD_RECOVERY（mount の中で拾う）
+     1通りだけにすると、Supabase の付け方が変わった日に ★黙って行き止まり★ になる。 */
+  var RESET_MARK = "pwreset=1";
+  var recoveryOn = false;
+  function isRecovery() {
+    if (recoveryOn) return true;
+    try {
+      var h = String(location.hash || "") + "&" + String(location.search || "");
+      if (h.indexOf(RESET_MARK) >= 0) return true;
+      return /(^|[#&?])type=recovery(&|$)/.test(h);
+    } catch (e) {
+      return false;
+    }
+  }
+  // 決め終わったら目印を消す（読み直しで また再設定画面が出るのを防ぐ）
+  function cleanUrl() {
+    try {
+      if (!history || !history.replaceState) return;
+      var q = String(location.search || "")
+        .replace(RESET_MARK, "")
+        .replace(/[?&]+$/, "");
+      if (q === "?") q = "";
+      history.replaceState(null, "", location.pathname + q);
+    } catch (e) {
+      /* 消せなくても 動きは止めない */
+    }
+  }
+
   function mount(opt) {
     var o = opt || {};
     var sb = o.sb;
@@ -163,57 +194,102 @@
       ov.id = "loginOv";
       document.body.appendChild(ov);
     }
-    ov.innerHTML =
-      '<div class="login-card">' +
-      // 製品名。渡されなければ今までどおり Exally（このrepoの他の画面は1文字も変わらない）
-      (o.logo
+    function markHTML() {
+      return o.logo
         ? '<img class="login-mark" src="' +
-          esc(o.logo) +
-          '" alt="' +
-          esc(o.brand || "Exally") +
-          '">'
+            esc(o.logo) +
+            '" alt="' +
+            esc(o.brand || "Exally") +
+            '">'
         : '<div class="login-logo' +
-          (o.brand ? " alt" : "") +
-          '">' +
-          esc(o.brand || "Exally") +
-          (o.brandSub === "" ? "" : " <span>" + esc(o.brandSub || "エクサリー") + "</span>") +
-          "</div>") +
-      '<div class="login-title">' +
-      esc(o.app || "") +
-      "</div>" +
-      '<div class="login-sub">メールでログイン</div>' +
-      '<input class="login-inp" id="loginEmail" type="email" inputmode="email" ' +
-      'autocomplete="email" placeholder="メールアドレス">' +
-      '<input class="login-inp" id="loginPass" type="password" ' +
-      'autocomplete="current-password" placeholder="パスワード（6文字以上）">' +
-      '<div class="login-err" id="loginErr"></div>' +
-      '<button class="login-btn login-btn-main" type="button" id="btnLogin">ログイン</button>' +
-      // 折り返しの位置は自分で決める（機種任せだと語の途中で割れる）
-      '<div class="login-mid">はじめての方は、メールとパスワードを<br>' +
-      "入力してから新規登録ボタンを押して下さい</div>" +
-      '<button class="login-btn login-btn-sub" type="button" id="btnSignup">新規登録</button>' +
-      // パスワードを忘れた人の逃げ道（これが無いと、その店は自分の売上に二度と入れない）
-      (sb && sb.auth && sb.auth.resetPasswordForEmail
-        ? '<div><button class="login-forgot" type="button" id="btnForgot">パスワードを忘れた</button></div>'
-        : "") +
-      '<div class="login-note">' +
-      esc(o.note || "一度ログインすれば、次からは自動で入れます。") +
-      "</div>" +
-      "</div>";
+            (o.brand ? " alt" : "") +
+            '">' +
+            esc(o.brand || "Exally") +
+            (o.brandSub === "" ? "" : " <span>" + esc(o.brandSub || "エクサリー") + "</span>") +
+            "</div>";
+    }
+    /* ★送りました／新しいパスワードを決める（2026-08-23）★
+       これまでは メールは送れるのに 戻ってきた人の受け皿が無く、
+       ★リンクを押すと その場では入れるが パスワードは分からないまま★＝別の端末で また詰まる。 */
+    function sentHTML(email) {
+      return (
+        '<div class="login-card" id="loginResetSent">' +
+        markHTML() +
+        '<div class="login-title">パスワードの再設定メールを送りました</div>' +
+        '<div class="login-sub">' +
+        esc(email) +
+        "</div>" +
+        '<div class="login-mid">このメールに届いた リンクを押すと<br>' +
+        "新しいパスワードを決める画面が開きます。</div>" +
+        '<button class="login-btn login-btn-sub" type="button" id="btnBackLogin">ログイン画面へ戻る</button>' +
+        '<div class="login-note">メールが見つからない時は、迷惑メールの箱も見てください。</div>' +
+        "</div>"
+      );
+    }
+    function resetHTML() {
+      return (
+        '<div class="login-card" id="loginReset">' +
+        markHTML() +
+        '<div class="login-title">新しいパスワードを決める</div>' +
+        '<div class="login-sub">6文字以上</div>' +
+        '<input class="login-inp" id="loginNew" type="password" ' +
+        'autocomplete="new-password" placeholder="新しいパスワード">' +
+        '<div class="login-err" id="loginResetErr"></div>' +
+        '<button class="login-btn login-btn-main" type="button" id="btnSetPass">これにする</button>' +
+        "</div>"
+      );
+    }
+
+    function cardHTML() {
+      return (
+        "" +
+        '<div class="login-card">' +
+        // 製品名。渡されなければ今までどおり Exally（このrepoの他の画面は1文字も変わらない）
+        markHTML() +
+        '<div class="login-title">' +
+        esc(o.app || "") +
+        "</div>" +
+        '<div class="login-sub">メールでログイン</div>' +
+        '<input class="login-inp" id="loginEmail" type="email" inputmode="email" ' +
+        'autocomplete="email" placeholder="メールアドレス">' +
+        '<input class="login-inp" id="loginPass" type="password" ' +
+        'autocomplete="current-password" placeholder="パスワード（6文字以上）">' +
+        '<div class="login-err" id="loginErr"></div>' +
+        '<button class="login-btn login-btn-main" type="button" id="btnLogin">ログイン</button>' +
+        // 折り返しの位置は自分で決める（機種任せだと語の途中で割れる）
+        '<div class="login-mid">はじめての方は、メールとパスワードを<br>' +
+        "入力してから新規登録ボタンを押して下さい</div>" +
+        '<button class="login-btn login-btn-sub" type="button" id="btnSignup">新規登録</button>' +
+        // パスワードを忘れた人の逃げ道（これが無いと、その店は自分の売上に二度と入れない）
+        (sb && sb.auth && sb.auth.resetPasswordForEmail
+          ? '<div><button class="login-forgot" type="button" id="btnForgot">パスワードを忘れた</button></div>'
+          : "") +
+        '<div class="login-note">' +
+        esc(o.note || "一度ログインすれば、次からは自動で入れます。") +
+        "</div>" +
+        "</div>"
+      );
+    }
 
     var $ = function (id) {
       return document.getElementById(id);
     };
+    /* ★札(カード)を差し替える作りになったので、今 出ていない部品を触りに行かない★
+       （再設定の札には loginErr も loginPass も無い＝素で触ると そこで止まる） */
     function err(msg) {
-      $("loginErr").textContent = msg || "";
+      var e = $("loginErr");
+      if (e) e.textContent = msg || "";
     }
     function busy(on) {
-      $("btnLogin").disabled = on;
-      $("btnSignup").disabled = on;
+      ["btnLogin", "btnSignup", "btnForgot"].forEach(function (id) {
+        var b = $(id);
+        if (b) b.disabled = on;
+      });
     }
     function ok(user) {
       err("");
-      $("loginPass").value = "";
+      var p = $("loginPass");
+      if (p) p.value = "";
       hide();
       if (o.onLogin) o.onLogin(user);
     }
@@ -280,28 +356,85 @@
       }
       err("");
       busy(true);
+      /* ★戻り先に自分の目印を付ける★＝Supabase の付け方（# か ? か type=recovery）が
+         版で変わっても、こちらで拾える。★このURLは倉庫の「戻ってよい一覧」に入っている事★ */
       var r = await sb.auth.resetPasswordForEmail(email, {
-        redirectTo: location.origin + location.pathname,
+        redirectTo: location.origin + location.pathname + "?" + RESET_MARK,
       });
       busy(false);
       if (r && r.error) {
         err(friendly(r.error));
         return;
       }
-      err("");
-      $("loginErr").textContent =
-        "パスワードを作り直すメールを送りました。届いたメールを開いてください";
+      showResetSent(email);
     }
 
-    $("btnLogin").onclick = login;
-    $("btnSignup").onclick = signup;
-    if ($("btnForgot")) $("btnForgot").onclick = forgot;
-    $("loginPass").onkeydown = function (ev) {
-      if (ev.key === "Enter") login();
-    };
+    async function setNewPass() {
+      var pw = $("loginNew").value;
+      if (!pw || pw.length < 6) {
+        $("loginResetErr").textContent = "6文字以上で決めてください";
+        return;
+      }
+      $("loginResetErr").textContent = "";
+      $("btnSetPass").disabled = true;
+      var r = await sb.auth.updateUser({ password: pw });
+      $("btnSetPass").disabled = false;
+      if (r && r.error) {
+        $("loginResetErr").textContent = friendly(r.error);
+        return;
+      }
+      recoveryOn = false;
+      cleanUrl();
+      // 決め終わった時点で もう入れている＝ログイン画面に戻さない
+      ok((r && r.data && r.data.user) || null);
+    }
 
-    return { show: show, hide: hide, error: err, el: ov };
+    function bindCard() {
+      $("btnLogin").onclick = login;
+      $("btnSignup").onclick = signup;
+      if ($("btnForgot")) $("btnForgot").onclick = forgot;
+      $("loginPass").onkeydown = function (ev) {
+        if (ev.key === "Enter") login();
+      };
+    }
+    function bindReset() {
+      $("btnSetPass").onclick = setNewPass;
+      $("loginNew").onkeydown = function (ev) {
+        if (ev.key === "Enter") setNewPass();
+      };
+    }
+    function showLoginForm() {
+      ov.innerHTML = cardHTML();
+      bindCard();
+    }
+    function showResetSent(email) {
+      ov.innerHTML = sentHTML(email);
+      $("btnBackLogin").onclick = showLoginForm;
+    }
+    function showResetForm() {
+      ov.innerHTML = resetHTML();
+      bindReset();
+      show();
+    }
+
+    if (isRecovery()) showResetForm();
+    else showLoginForm();
+    /* ★Supabase 側からの合図でも受ける★＝目印が消えても行き止まりにしない */
+    try {
+      if (sb && sb.auth && sb.auth.onAuthStateChange) {
+        sb.auth.onAuthStateChange(function (ev) {
+          if (ev === "PASSWORD_RECOVERY") {
+            recoveryOn = true;
+            showResetForm();
+          }
+        });
+      }
+    } catch (e) {
+      /* 合図が無い版でも 目印で拾えるので止めない */
+    }
+
+    return { show: show, hide: hide, error: err, el: ov, isRecovery: isRecovery };
   }
 
-  root.ExallyLogin = { mount: mount, friendly: friendly };
+  root.ExallyLogin = { mount: mount, friendly: friendly, isRecovery: isRecovery };
 })(typeof window !== "undefined" ? window : this);
