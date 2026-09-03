@@ -9983,6 +9983,9 @@
           return x.id === id;
         })[0];
         if (!r) return;
+        // ★直す前の 姿を 控える（金額が 変わったかを 見る為）★ 2026-09-03
+        //   ★決まりは エンジン1本★（MeisaiEngine.utils.shouldPushFare）＝ここに 書き直さない
+        var _mae = { 金額: r.金額, dk_source: r.dk_source, dk_ref: r.dk_ref };
         var m = MASTER[r.会社名];
         var keys =
           m && m.items
@@ -10017,6 +10020,41 @@
         closeModal();
         renderList();
         toast("保存しました");
+        // ★事務所の売上へ 戻す★ 2026-09-03（司さん「一覧で金額とか修正したら事務所の売上とかも自動で修正されるように」）
+        //   ★保存は もう 終わっている★＝ここで 何が 起きても 一覧の 保存は 通ったまま。
+        await _jimushoHeModosu(r, _mae);
+      }
+      // ★直した金額を ダイコメ（事務所の売上）へ 戻す★ 2026-09-03
+      //   ★戻すかどうかは エンジンが 決める★（決まりを 2か所に 置かない）
+      //   ★戻す先★ supabase/functions/dk-fix-fare（ダイコメ側・service_role で 直す）
+      //     ・その代行1件の 金額 と その業務の 合計だけ 直す
+      //     ・★距離には 1mmも 触らない★
+      //   ★失敗しても 画面は 止めない★（倉庫が 落ちていても 一覧の 保存は 済んでいる）
+      async function _jimushoHeModosu(ato, mae) {
+        try {
+          var U = window.MeisaiEngine && window.MeisaiEngine.utils;
+          if (!U || typeof U.shouldPushFare !== "function") return;
+          if (!U.shouldPushFare(mae, ato)) return;
+          var ses = await SB.auth.getSession();
+          var tok = ses && ses.data && ses.data.session && ses.data.session.access_token;
+          if (!tok) return;
+          var res = await fetch(SUPABASE_URL + "/functions/v1/dk-fix-fare", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: "Bearer " + tok,
+              apikey: SUPABASE_ANON,
+            },
+            body: JSON.stringify({ meisai_id: ato.id }),
+          });
+          var j = await res.json().catch(function () {
+            return null;
+          });
+          if (j && j.ok && j.updated > 0) toast("事務所の売上も 直しました");
+        } catch (e) {
+          // ★黙って 落ちない為に 印だけ 残す（画面は 止めない）★
+          if (window.console && console.warn) console.warn("[dk-fix-fare]", e && e.message);
+        }
       }
       async function deleteRow(id) {
         // ソフト削除（deleted_atを立てる＝後で復活可能）

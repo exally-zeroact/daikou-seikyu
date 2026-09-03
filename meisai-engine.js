@@ -224,6 +224,25 @@
     return String(a._created || "").localeCompare(String(b._created || ""));
   }
 
+  // ★★一覧で 金額を 直したら 事務所の売上へ 戻すか★★ 2026-09-03（司さん）
+  //   「一覧で金額とか修正したら事務所の売上とかも自動で修正されるようにしろよ」
+  //
+  //   ★戻すのは 全部そろった時だけ★
+  //     ・その行が ★ダイコメ発★（dk_source === 'daikome'）
+  //     ・★戻す先が 分かる★（dk_ref＝端末:業務開始:何本目）
+  //     ・★金額が 実際に 変わった★（同じなら 何もしない＝無駄に 倉庫を 触らない）
+  //   ★手で入れた行は 戻さない★（戻す先が 無い）
+  //   ★決まりは ここ1本★（画面に 書き直さない＝食い違いを 作らない）
+  function shouldPushFare(mae, ato) {
+    if (!ato || ato.dk_source !== "daikome") return false;
+    if (!ato.dk_ref || typeof ato.dk_ref !== "string") return false;
+    var a = Number(mae && mae.金額);
+    var b = Number(ato.金額);
+    if (!isFinite(b)) return false;
+    if (isFinite(a) && a === b) return false; // ★同じなら 戻さない★
+    return true;
+  }
+
   function routeTextOf(row) {
     if (!row) return "";
     var dest = String(row["行き先"] == null ? "" : row["行き先"]).trim();
@@ -697,6 +716,8 @@
       carNoOf: carNoOf,
       seqOf: seqOf,
       compareInDay: compareInDay,
+      // ★一覧で 直した金額を 事務所へ 戻すかの 決まり（ここ1本）★ 2026-09-03
+      shouldPushFare: shouldPushFare,
     },
   };
 
