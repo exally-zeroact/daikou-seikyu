@@ -3507,6 +3507,10 @@
     <!-- 定義駆動 帳票エンジン（移植可能な共通モジュール／DOM非依存） -->
     <script src="meisai-engine.js"></script>
     <!-- 請求書のクリーンなベクターPDF出力（日本語フォント埋込・複数ページ／pdf-lib等は初回PDF時のみ遅延ロード） -->
+    <!-- ★字体を 軽くする（使う字だけ 形を 残す）★（司さん 2026-09-05「全アプリ共通やろが」）
+         ★invoice-pdf.js より 先に 読む★／★正本は Rakunally の lib/font-slim.js★ -->
+    <script src="lib/font-slim.js"></script>
+    <script src="lib/pdf-slim.js"></script>
     <script src="invoice-pdf.js"></script>
     <!-- 電子判子の画像処理（背景白抜き・透過判定／再利用モジュール） -->
     <script src="hanko.js"></script>

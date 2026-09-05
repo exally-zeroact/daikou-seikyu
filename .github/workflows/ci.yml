@@ -34,6 +34,22 @@ jobs:
       - name: Unit/logic tests (vitest)
         run: npm test
 
+      - name: ★PDFに 字体を 丸ごと 埋めない（全アプリ共通・司さん 2026-09-05「全アプリ共通やろが」）
+
+        run: node tests/pdf-font-weight.test.mjs
+
+      - name: ★同 わざと壊して 赤になるか（壊した数と 赤の数を 並べる）
+
+        run: node tests/pdf-font-weight.test.mjs --self-test
+
+      - name: ★字体を 軽くしても 字は 1つも 変わらない（形・番号・部品を 突き合わせ）
+
+        run: node tests/font-slim.test.mjs
+
+      - name: ★同 わざと壊して 赤になるか
+
+        run: node tests/font-slim.test.mjs --self-test
+
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 

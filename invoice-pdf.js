@@ -1264,46 +1264,68 @@
   }
 
   // ---- 公開: 1社 ----
+  /* ★字体を 軽くして 出す★（司さん 2026-09-05「3MBぐらいある／おかしいやろ／全アプリ共通やろが」）
+     ★紙を 2回 描く★＝1回目は 使う字を 拾うだけ（保存しない）。lib/pdf-slim.js が 面倒を 見る。
+     ★描く中身は 1行も 変えていない★／作れなければ 丸ごとの 字体で 出る（字を 落とさない）。
+     実測（請求書アプリ）… 3,087,087B → 88,558B（35分の1）・絵は 1画素も 違わない。 */
+  var _slimFallback = false;
+  /** ★丸ごとに 戻ってしまったか★（戻ったまま 気づかない を 作らない） */
+  function lastFallback() { return _slimFallback; }
+  function _slimBuild(a, draw) {
+    _slimFallback = false;
+    var PS = (typeof window !== 'undefined') ? window.PdfSlim : null;
+    if (!PS) {
+      /* ★★丸ごとに 戻る道（SLIM-FALLBACK）★★
+         受け皿が 読めていない時だけ 通る。★ここを 通ると PDFは 3MBに 戻る★。
+         ★黙って 戻る事★が 一番 怖いので
+           ・画面に 出る 知らせに 残す（lastFallback）
+           ・見張り tests/pdf-font-weight.test.mjs が
+             ★HTMLが font-slim.js を invoice-pdf.js より 先に 読んでいる事★を 毎回 数える
+         の 2つで 押さえている。★この道を 消すと 紙が 出なくなる★ので 残す。 */
+      _slimFallback = true;
+      return a.PDFLib.PDFDocument.create().then(async function (doc) {
+        doc.registerFontkit(a.fontkit);
+        var font = await doc.embedFont(a.fontBytes, { subset: false }); /* SLIM-FALLBACK */
+        await draw(doc, font);
+        return await doc.save();
+      });
+    }
+    return PS.build({ PDFLib: a.PDFLib, fontkit: a.fontkit, fontBytes: a.fontBytes, draw: draw });
+  }
+
   async function buildOne(master, co, rows, month, iss, invoiceNo) {
     var a = await loadAssets(iss && iss.pdfFont);
-    var doc = await a.PDFLib.PDFDocument.create();
-    _blkReset(doc); // 塊位置の集計をリセット（このdocで描く塊を記録）
-    doc.registerFontkit(a.fontkit);
-    var font = await doc.embedFont(a.fontBytes, { subset: false });
-    _cov = { fk: a.fontkit.create(a.fontBytes), missing: new Set() };
-    var ctx = makeDrawer({ doc: doc, font: font, rgb: a.PDFLib.rgb });
-    ctx.logoImg = await embedImg(doc, iss && iss.logo);
-    ctx.hankoImg = await embedImg(doc, iss && iss.hanko);
-    await drawCompany(
-      ctx,
-      master,
-      co,
-      rows,
-      month,
-      iss,
-      invoiceNo || invoiceNoFor(master, null, month, co)
-    );
-    _lastMissing = [..._cov.missing];
-    return await doc.save();
+    return await _slimBuild(a, async function (doc, font) {
+      _blkReset(doc); // 塊位置の集計をリセット（このdocで描く塊を記録）
+      _cov = { fk: a.fontkit.create(a.fontBytes), missing: new Set() };
+      var ctx = makeDrawer({ doc: doc, font: font, rgb: a.PDFLib.rgb });
+      ctx.logoImg = await embedImg(doc, iss && iss.logo);
+      ctx.hankoImg = await embedImg(doc, iss && iss.hanko);
+      await drawCompany(
+        ctx,
+        master,
+        co,
+        rows,
+        month,
+        iss,
+        invoiceNo || invoiceNoFor(master, null, month, co)
+      );
+      _lastMissing = [..._cov.missing];
+    });
   }
 
   // ---- 公開: 月内の全社（1つのPDFに連結） ----
   async function buildMonth(master, db, month, accountId, iss, issForCo) {
     var a = await loadAssets(iss && iss.pdfFont);
-    var doc = await a.PDFLib.PDFDocument.create();
-    _blkReset(doc); // 塊位置の集計をリセット（このdocで描く塊を記録）
-    doc.registerFontkit(a.fontkit);
-    var font = await doc.embedFont(a.fontBytes, { subset: false });
-    _cov = { fk: a.fontkit.create(a.fontBytes), missing: new Set() };
-    var ctx = makeDrawer({ doc: doc, font: font, rgb: a.PDFLib.rgb });
-    ctx.logoImg = await embedImg(doc, iss && iss.logo);
-    ctx.hankoImg = await embedImg(doc, iss && iss.hanko);
     var inMonth = function (iso) {
       return iso && iso.slice(0, 7) === month;
     };
     // ★会社マスタの会社に加え、マスタから消えても明細が残る孤児会社も回す＝請求漏れ防止。
     var cos = billableCompanies(master, db, accountId);
-    var any = false;
+    /* ★描く前に「何を描くか」を決める★（2026-09-05）
+       ＝紙を2回描く作りにしたので、★1通も無い時の判定を 描く中でやらない★。
+         ここで空なら そもそも 作らない（前と同じ＝null を返す）。 */
+    var shigoto = [];
     for (var ci = 0; ci < cos.length; ci++) {
       var co = cos[ci];
       var rows = db
@@ -1318,22 +1340,32 @@
           );
         });
       if (!rows.length) continue;
-      any = true;
-      // ★会社毎テンプレ：issForCo(co)があればその会社のデザインで描く（font/ロゴ/判子はdoc共通）。
-      var issCo = (typeof issForCo === "function" && issForCo(co)) || iss;
-      await drawCompany(
-        ctx,
-        master,
-        co,
-        rows,
-        month,
-        issCo,
-        invoiceNoFor(master, accountId, month, co, db)
-      );
+      shigoto.push({ co: co, rows: rows });
     }
-    if (!any) return null;
-    _lastMissing = [..._cov.missing];
-    return await doc.save();
+    if (!shigoto.length) return null;
+
+    return await _slimBuild(a, async function (doc, font) {
+      _blkReset(doc); // 塊位置の集計をリセット（このdocで描く塊を記録）
+      _cov = { fk: a.fontkit.create(a.fontBytes), missing: new Set() };
+      var ctx = makeDrawer({ doc: doc, font: font, rgb: a.PDFLib.rgb });
+      ctx.logoImg = await embedImg(doc, iss && iss.logo);
+      ctx.hankoImg = await embedImg(doc, iss && iss.hanko);
+      for (var si = 0; si < shigoto.length; si++) {
+        var co = shigoto[si].co, rows = shigoto[si].rows;
+        // ★会社毎テンプレ：issForCo(co)があればその会社のデザインで描く（font/ロゴ/判子はdoc共通）。
+        var issCo = (typeof issForCo === "function" && issForCo(co)) || iss;
+        await drawCompany(
+          ctx,
+          master,
+          co,
+          rows,
+          month,
+          issCo,
+          invoiceNoFor(master, accountId, month, co, db)
+        );
+      }
+      _lastMissing = [..._cov.missing];
+    });
   }
 
   // ---- 公開: 保存/共有 ----
@@ -1352,6 +1384,7 @@
   }
 
   global.InvoicePDF = {
+    lastFallback: lastFallback,
     buildOne: buildOne,
     buildMonth: buildMonth,
     billableCompanies: billableCompanies, // ★会社マスタ∪孤児会社（請求漏れ防止・UIの会社リスト共有用）
