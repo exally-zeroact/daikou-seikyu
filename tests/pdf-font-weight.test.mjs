@@ -88,7 +88,11 @@ T('② どの embedFont も 軽くした 字体を 渡している（生の 字�
    ★正本の sha256 を ここに 焼き込む★＝兄弟repoが 無い CI（GitHub）でも 効く。
    どの repo に 置いても ★自分の lib/ を 正本と 突き合わせる★。
    ★道具を 直したら ここの 数字も 一緒に 直す★（片方だけ 直すと 赤＝それが 狙い）。 */
-const SEIHON = { 'font-slim.js': 'b3bea102503fe522', 'pdf-slim.js': '4c5e6ab88910985f' };
+/* ★焼き込むのは ★LF での sha★★（2026-09-06 本番2本を 赤に した）
+   ＝手元は CRLF・git に 入るのは LF（.gitattributes の * text=auto eol=lf）。
+     ★手元の sha を 焼き込むと CI だけ 赤に なる★（手元は 緑のまま＝一番 見つけにくい）。
+   ★道具を 直したら ★LF に そろえてから★ sha を 取り直す事★ */
+const SEIHON = { 'font-slim.js': '26bd491a83818942', 'pdf-slim.js': '33e681caeb07b232' };
 T('③ 軽くする 道具が 正本と 同じバイト（正本 = rakually-test/lib）', () => {
   let mita = 0;
   for (const f of Object.keys(SEIHON)) {
