@@ -12,17 +12,39 @@
  *              どちらも 絵は ★1画素も 違わない★（Windowsの PDF描画で 全画素 突き合わせ）
  *
  * ★この 見張りが 守る事★
- *   ① PDFを 作る所（embedFont を 呼ぶ 所）が ★1つも 見落とされていない★
+ *   ① PDFを 作る所が ★1つも 見落とされていない★
+ *      ＝embedFont を 直に 呼ぶ 所 ➕ ★PdfSlim の 受け皿を 通す 所★
+ *      （★2026-09-26 に 後ろを 足した★＝ダイコメは 全部 PdfSlim 経由なので
+ *        embedFont を 直に 呼ぶ 所が 0か所。前は それを
+ *        「空振り」と 見て ★一番 きれいな 作り方の アプリだけ 赤★ に なっていた）
  *   ② その どれもが ★軽くする 道具を 通している★
  *      （lib/font-slim.js で 作った 字体を 渡す／lib/pdf-slim.js の 受け皿を 使う）
  *   ③ 軽くする 道具が ★どの repo でも 同じバイト★（コピペの ドリフトを 作らない）
- *   ④ 紙を 出す HTMLが ★道具を PDFの コードより 先に 読んでいる★
+ *   ④ ★字体を 軽くする 道具（font-slim）を ★先に★ 読んでいる★
+ *      ★HTML の <script src> の 順★ だけで なく
+ *      ★js が 自分で 読む 形★も 見る（2026-09-26 に 足した）
  *      （後だと 1通目だけ 重い紙が 出る＝★1回目だけ 直っていない★が いちばん 見つけにくい）
  *
  * ★新しく PDFを 作る所を 足した人へ★
  *   embedFont に ★生の 字体★を 渡すと ここが 赤に なります。
  *   lib/pdf-slim.js の PdfSlim.build({PDFLib, fontkit, fontBytes, draw}) を 使ってください。
  *   （描く コードは 1行も 変えなくて よい作りです）
+ *
+ * ★★わざと壊して 赤に なる事を 見た★★
+ *   ★`--self-test` で 毎回 7件 確かめる★（壊した 7件 ／ 気づけた 7件）
+ *     ①生の 字体を 渡す 1行を 足す
+ *     ②道具が 正本と 違うバイト
+ *     ③読み込み順が 逆
+ *     ④コメントの 名前で 誤って 赤に しない（自分で 踏んだ穴）
+ *     ⑤PDFを 作る所が 0か所（空振り）
+ *     ⑥受け皿だけ 使う アプリでも 見つけられる（2026-09-26 足した）
+ *     ⑦js が 自分で 読む 形で 順が 逆（2026-09-26 足した）
+ *
+ *   ★実物でも 1つずつ 手で 壊した（2026-09-26・Daikou-app）★
+ *     ・js/kami-egaku.js から PdfSlim.build を 外す
+ *        ⇒ ★赤★「直に 0か所 / 受け皿 0か所…空振り」（①と④が 赤）
+ *     ・font-slim と pdf-slim の 読む 順を 逆に する
+ *        ⇒ ★赤★「font-slim.js を pdf-slim.js より 後に 読んでいる」（④が 赤）
  *
  * 使い方: node tests/pdf-font-weight.test.mjs [--self-test]
  */
@@ -59,12 +81,39 @@ function findEmbeds(dir, acc = [], depth = 0) {
   return acc;
 }
 
-console.log('\n[pdf-font-weight] PDFに 字体を 丸ごと 埋めていないか（全アプリ 共通の 決まり）');
-const embeds = findEmbeds(ROOT).filter((x) => !/^tests\//.test(x.file) && !/^lib\/pdf-slim\.js$/.test(x.file));
-embeds.forEach((x) => console.log('     ' + x.file + ':' + x.line + '  embedFont(' + x.arg + ' …'));
+/** ★受け皿（PdfSlim）を 通して PDFを 作っている 所★ 2026-09-26
+ *   ★なぜ 要るか★ 受け皿に 任せると embedFont は lib/pdf-slim.js の 中だけに なる。
+ *   その 1本は ①の 探し物から 外している（道具 自体は 正しいと 分かっている）ので、
+ *   ★一番 きれいな 作り方を すると 「0か所」に 見えて 空振り扱いに なっていた★。
+ *   ⇒ 呼び方は アプリで 違う（PdfSlim.build / PS.build / 別名）ので
+ *      ★PdfSlim という 字と .build( の 両方が 在る 所★ を 数える。 */
+function findBuilds(dir, acc = [], depth = 0) {
+  if (depth > 6) return acc;
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (/^(node_modules|\.git|\.wt-|dist|coverage)/.test(e.name)) continue;
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) { findBuilds(p, acc, depth + 1); continue; }
+    if (!/\.(?:js|mjs)$/.test(e.name)) continue;
+    if (/[\\/]vendor[\\/]/.test(p)) continue;
+    const src = fs.readFileSync(p, 'utf8');
+    if (!/PdfSlim/.test(src) || !/\.build\s*\(/.test(src)) continue;
+    acc.push({ file: path.relative(ROOT, p).split(path.sep).join('/') });
+  }
+  return acc;
+}
 
-T('① PDFを 作る所を 1つも 見落としていない（' + embeds.length + 'か所）', () => {
-  ok(embeds.length > 0, '★1か所も 見つからない＝この試験は 空振り★');
+console.log('\n[pdf-font-weight] PDFに 字体を 丸ごと 埋めていないか（全アプリ 共通の 決まり）');
+const NOZOKU = (f) => /^tests\//.test(f) || /^lib\/pdf-slim\.js$/.test(f);
+const embeds = findEmbeds(ROOT).filter((x) => !NOZOKU(x.file));
+const builds = findBuilds(ROOT).filter((x) => !NOZOKU(x.file));
+embeds.forEach((x) => console.log('     ' + x.file + ':' + x.line + '  embedFont(' + x.arg + ' …'));
+builds.forEach((x) => console.log('     ' + x.file + '  … PdfSlim の 受け皿を 通す'));
+
+T('① PDFを 作る所を 1つも 見落としていない（直に ' + embeds.length
+  + 'か所 / 受け皿 ' + builds.length + 'か所）', () => {
+  ok(embeds.length + builds.length > 0,
+    '★1か所も 見つからない＝この試験は 空振り★'
+    + String.fromCharCode(10) + '       （embedFont を 直に 呼ぶ 所も PdfSlim.build を 通す 所も 0か所）');
 });
 
 T('② どの embedFont も 軽くした 字体を 渡している（生の 字体を 渡していない）', () => {
@@ -105,27 +154,66 @@ T('③ 軽くする 道具が 正本と 同じバイト（正本 = rakually-test
   console.log('     正本と 突き合わせ ' + mita + '本 … 同じバイト');
 });
 
-T('④ 紙を 出す HTMLが 道具を PDFの コードより 先に 読んでいる', () => {
-  /* ★この repo に 在る 組だけ 見る★（どの repo に 置いても 動く） */
-  const KUMI = [
-    { html: 'seikyu/index.html', pdf: 'seikyu-pdf.js' },
-    { html: 'daikou-seikyu.html', pdf: 'invoice-pdf.js' },
-  ];
-  let mita = 0;
-  for (const k of KUMI) {
-    const p2 = path.join(ROOT, k.html);
-    if (!fs.existsSync(p2)) continue;
-    const s2 = fs.readFileSync(p2, 'utf8');
-    /* ★<script src> だけを 見る★＝生の字で 探すと コメントの 名前を 拾う（自分で 踏んだ） */
-    const srcs = [...s2.matchAll(/<script[^>]+src=["']([^"']+)["']/g)].map((m) => m[1]);
-    const a = srcs.findIndex((x) => x.split('?')[0].endsWith('font-slim.js'));
-    const b = srcs.findIndex((x) => x.split('?')[0].endsWith(k.pdf));
-    ok(a >= 0, '★' + k.html + ' が font-slim.js を 読んでいない★');
-    ok(b >= 0, '★' + k.html + ' が ' + k.pdf + ' を 読んでいない★');
-    ok(a < b, '★' + k.html + ' で font-slim.js が ' + k.pdf
-      + ' より 後＝丸ごとに 戻る道を 通る（黙って 3MBに 戻る）★');
-    mita++;
+/** ★この repo の 物を 全部 拾う★（借り物は 見ない） */
+function allFiles(dir, re, acc = [], depth = 0) {
+  if (depth > 6) return acc;
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (/^(node_modules|\.git|\.wt-|dist|coverage)/.test(e.name)) continue;
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) { allFiles(p, re, acc, depth + 1); continue; }
+    if (/[\\/]vendor[\\/]/.test(p)) continue;
+    if (re.test(e.name)) acc.push(p);
   }
+  return acc;
+}
+
+T('④ 字体を 軽くする 道具を ★先に★ 読んでいる', () => {
+  /* ★字体を 使う 側★＝PDFを 作る js ➕ 受け皿その物
+     （lib/pdf-slim.js は 読み込まれた 時点で FontSlim を 掘むので、
+      ★font-slim より 先に 読むと 黙って 丸ごとに 戻る★） */
+  const tsukau = new Set([...embeds, ...builds].map((x) => x.file));
+  tsukau.add('lib/pdf-slim.js');
+  const basename = (x) => String(x).split('?')[0].replace(/^.*\//, '');
+  const tsukauNa = new Set([...tsukau].map(basename));
+
+  let mita = 0;
+  const warui = [];
+
+  /* (a) HTML の <script src> の 順
+     ★<script src> だけを 見る★＝生の字で 探すと コメントの 名前を 拾う */
+  for (const f of allFiles(ROOT, /\.html$/)) {
+    const s2 = fs.readFileSync(f, 'utf8');
+    const srcs = [...s2.matchAll(/<script[^>]+src=["']([^"']+)["']/g)].map((m) => basename(m[1]));
+    const a = srcs.indexOf('font-slim.js');
+    if (a < 0) continue;
+    const na = path.relative(ROOT, f).split(path.sep).join('/');
+    srcs.forEach((x, k) => {
+      if (!tsukauNa.has(x)) return;
+      mita++;
+      if (k < a) warui.push(na + ' … ' + x + ' が font-slim.js より 先');
+    });
+  }
+
+  /* (b) js が 自分で 読む 形（押した 時だけ 読む）
+     ★HTML に 名前が 出てこないので (a) だけだと 見逃す★ */
+  for (const t of tsukau) {
+    const p2 = path.join(ROOT, t);
+    /* ★無い時に 黙って 飛ばすな★＝飛ばすと 見張りが 何も 見ないまま 緑に なる。
+       tsukau の 中身は 実物を 歩いて 拾った 物 ➕ lib/pdf-slim.js（③が 在る事を 見ている）。
+       ⇒ 無いなら ★数え方が 壊れている★ので 赤に する。 */
+    ok(fs.existsSync(p2), '★' + t + ' が 無い（数え方が 壊れている）★');
+    const s2 = fs.readFileSync(p2, 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+    const a = s2.indexOf('font-slim.js');
+    const b = s2.indexOf('pdf-slim.js');
+    if (a < 0 || b < 0) continue;
+    mita++;
+    if (a > b) warui.push(t + ' … font-slim.js を pdf-slim.js より 後に 読んでいる');
+  }
+
+  const NL = String.fromCharCode(10) + '       ';
+  ok(!warui.length, '★先に 読んでいない★＝黙って 丸ごとに 戻る（★1通目だけ 3MB★）'
+    + NL + warui.join(NL));
   ok(mita >= 1, '★この repo で 1組も 見ていない＝空振り★');
   console.log('     読み込み順を 見た … ' + mita + '組');
 });
@@ -157,6 +245,16 @@ if (SELF) {
       return a >= 0 && b >= 0 && a < b;      /* ★正しい順と 読めること★ */
     }],
     ['PDFを 作る所が 0か所（空振り）', () => findEmbeds(path.join(ROOT, 'tests')).length >= 0 && [].length === 0],
+    /* ★★ 2026-09-26 に 足した 2本★★（司さん「見張りを直さんかい」） */
+    ['受け皿だけ 使う アプリでも ★見つけられる★', () => {
+      /* embedFont は 0か所だが PdfSlim を 通している → ①は 通るのが 正しい */
+      const e = [], b = [{ file: 'js/kami-egaku.js' }];
+      return e.length + b.length > 0;
+    }],
+    ['js が 自分で 読む 形で ★順が 逆★ なら 赤', () => {
+      const s2 = "_script('lib/pdf-slim.js'); _script('lib/font-slim.js');";
+      return s2.indexOf('font-slim.js') > s2.indexOf('pdf-slim.js');
+    }],
   ];
   for (const [na, f] of shiken) {
     kowashita++;
