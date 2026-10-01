@@ -1097,6 +1097,21 @@
         padding: 8px 10px;
       }
 
+      /* ★入金モーダルの 頭：会社名と「確認」を 1行に（2026-10-01）
+         ボタンは ★右寄せ★（親指で 押しやすい側）。*/
+      .pay-head-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .pay-head-row .pay-co {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+      .pay-kakunin {
+        flex: 0 0 auto;
+        white-space: nowrap;
+      }
       /* ===== 入金管理 ===== */
       .pay-summary {
         display: flex;
@@ -7986,6 +8001,77 @@
       function payRecord(month, co) {
         return PAYMENTS[payKeyFor(month, co)] || { paid: 0, paidDate: "", note: "" };
       }
+      /* ★★入金画面の「確認」★★ 2026-10-01（司さん）
+         その請求（会社×月）の 請求書を ★その場で PDF に して 開く★。
+
+         ★「見るだけ」に する★（ここが 一番 大事）
+           請求画面の `_buildInvoiceBytes()` は
+             ・`issueInvoiceNo()` … 未発行なら ★倉庫に 番号を 書く★
+             ・`saveInvoiceCopy()` … ★控えを 残す★
+           を やる。そのまま 使うと ★覚く たびに 発行した事に なる★。
+           ★確認は 何も 書かない★。発行済みの番号が 在れば それを 使い、
+           無ければ 同じ 計算で 出した番号を ★付けるだけ（保存しない）★。
+
+         ★行の 選び方は 請求画面と 同じ式を 使う★
+           （真似て 書き直すと 「一部だけ 真似た」形に なり 字が ずれる）
+         ★開き方は printInvoicePDF と 同じ★（blob を 新しい 窓で。
+           止められたら 保存に 落とす） */
+      function invoiceNoPeek(month, co) {
+        var k = invNoKey(month, co);
+        if (INVOICE_NO[k]) return INVOICE_NO[k]; // 発行済みは それを 使う
+        return MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co); // ★保存しない★
+      }
+      async function previewInvoiceFromPay(btn, month, co) {
+        if (typeof InvoicePDF === "undefined") {
+          toast("PDFモジュールの読み込み待ちです。少し待って再度押してください");
+          return;
+        }
+        var old = btn ? btn.textContent : "";
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = "作成中…";
+        }
+        var url = null;
+        try {
+          var rows = DB.filter(function (r) {
+            return r.account_id === CURRENT_ACCOUNT && r.会社名 === co && inMonth(r.日付, month);
+          }).sort(function (a, b) {
+            return (
+              (a.日付 || "").localeCompare(b.日付 || "") || (a.id || "").localeCompare(b.id || "")
+            );
+          });
+          if (!rows.length) {
+            toast("該当する明細がありません");
+            return;
+          }
+          var bytes = await InvoicePDF.buildOne(
+            MASTER,
+            co,
+            rows,
+            month,
+            issuerForEngine(co),
+            invoiceNoPeek(month, co)
+          );
+          var blob = new Blob([bytes], { type: "application/pdf" });
+          url = URL.createObjectURL(blob);
+          var w = window.open(url, "_blank");
+          if (!w) {
+            InvoicePDF.save(bytes, "請求書_" + month + "_" + co + ".pdf");
+            toast("PDFを保存しました（新しい窓が止められています）");
+          }
+        } catch (e) {
+          toast("PDF作成に失敗：" + (e && e.message ? e.message : e));
+        } finally {
+          if (url)
+            setTimeout(function () {
+              URL.revokeObjectURL(url);
+            }, 60000);
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = old;
+          }
+        }
+      }
       function payStatusOf(total, paid) {
         if (paid <= 0) return "unpaid";
         if (paid >= total) return "paid";
@@ -8248,9 +8334,24 @@
         var p = month.split("-");
         document.getElementById("modalTitle").textContent = "入金を記録";
         document.getElementById("modalBody").innerHTML =
+          // ★★「確認」★★ 司さん（2026-10-01）「赤丸の所に確認ボタンを作って
+          //   押したらPDFで請求書が見れるようにしろ」
+          //   ・場所は 会社名の ★右★（親指で 押しやすい側）
+          //   ・★見るだけ★なので 請求番号を ★新しく 発行しない★
+          //     （issueInvoiceNo は 未発行なら 倉庫に 書くので、
+          //      そのまま使うと ★覚く たびに 番号が 残る★）
+          '<div class="pay-head-row">' +
           '<div class="pay-co" style="font-size:15px;">' +
           esc(co) +
-          '</div><div class="pay-sub" style="margin-bottom:12px;">' +
+          "</div>" +
+          '<button class="btn btn-ghost btn-sm pay-kakunin" ' +
+          "onclick=\"previewInvoiceFromPay(this,'" +
+          esc(month) +
+          "','" +
+          esc(co).replace(/'/g, "&#39;") +
+          "')\">確認</button>" +
+          "</div>" +
+          '<div class="pay-sub" style="margin-bottom:12px;">' +
           Number(p[0]) +
           "年" +
           Number(p[1]) +
