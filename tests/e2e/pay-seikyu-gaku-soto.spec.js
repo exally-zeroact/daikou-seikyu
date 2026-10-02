@@ -131,3 +131,25 @@ test("★外税の 会社：入金画面の 請求額 ＝ 請求書の 合計★
     "★★入金画面の 請求額が 請求書の 合計と 違う（外税の 消費税が 抜けている）★★"
   ).toBe(GOUKEI);
 });
+
+// ★★控え（invoices）の 合計も 請求書と 同じ（外税＝税込）★★ 2026-10-02 夜（対立役）
+//   控えの total は 繰越の「前回の 請求額」。前は 税抜（15,400）・消費税は 内税の 式（1,400）で 残した。
+//   ★わざと壊して 赤（10-02 夜 実測）★ 直す前の 字に 戻す ⇒ 赤（total 15,400）
+test("★外税の 会社：控えの 合計が 請求書の 合計（税込）★", async ({ page }) => {
+  await page.route(/cdn\.jsdelivr\.net/, (r) => r.abort());
+  await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
+  await page.addInitScript(seed);
+  await page.goto("/daikou-seikyu.html", { waitUntil: "load" });
+  await expect(page.locator("#scr-input")).toBeVisible({ timeout: 20000 });
+  const hikae = await page.evaluate(async (co) => {
+    const rows = DB.filter((r) => r.会社名 === co && String(r.日付).slice(0, 7) === "2026-05");
+    await saveInvoiceCopy("2026-05", co, rows, issuerForEngine(co), "TEST-1");
+    return JSON.parse(localStorage.getItem("__fake_supa_db__")).tables.invoices.map((i) => [
+      i.total,
+      i.tax,
+    ]);
+  }, CO);
+  expect(hikae, "★控えの 合計が 外税の 税込に なっていない（繰越が 消費税の 分 ずれる）★").toEqual([
+    [GOUKEI, GOUKEI - ZEINUKI],
+  ]);
+});
