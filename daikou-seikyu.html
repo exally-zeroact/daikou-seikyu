@@ -8105,22 +8105,61 @@
              ⇒ ★外税の 会社だけ 入金画面が 消費税の 分 少なく 出た★
                （手元で 本物の 画面を 動かして 実測：入金 15,400 ／ 請求書 16,940）
            ★今★ 入金の 3か所（一覧・入金を記録・まとめ/Excel の 入金）は ★全部 ここ★ から 読む。
-             zeinuki に 元の 税抜を 残す。 */
+             zeinuki に 元の 税抜を 残す。
+         ★★入金も ここで 決める（paid）★★ 2026-10-02 司さん「バグがあるなら直せ」
+           ★前★ 入金は ★記録した 月の 行★に そのまま 付けていた。
+             「繰越を使う」会社が 前の月の 残り＋今月ぶんを ★まとめて★ 払うと
+             ⇒ 前の月は ★未入金の まま★／今月は ★請求より 多い 入金★ に 見え、
+               未入金の バッジも 前の月を 数え続けた（合計と 繰越の 額は 合っていた）。
+           ★今★「繰越を使う」会社だけ、記録した 入金を その会社の 全部の 月で 足し、
+             ★古い 月から 順に 請求額 いっぱいまで 当てる★。余りは 一番 新しい 月に 乗せる。
+             ★記録した 入金（PAYMENTS）は 1円も 書き換えない★＝見え方だけ。
+             繰越を 使わない 会社は 今まで通り（記録した 月の 額）。 */
       function seikyuList(month) {
-        var invs = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, month || null);
+        var invs = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, null);
         var rowsBy = {};
         DB.forEach(function (r) {
           if (r.account_id !== CURRENT_ACCOUNT || !r.日付) return;
           var k = String(r.日付).slice(0, 7) + " " + r.会社名;
           (rowsBy[k] = rowsBy[k] || []).push(r);
         });
-        return invs.map(function (iv) {
+        var all = invs.map(function (iv) {
           var m = MASTER[iv.company] || {};
           var t = MeisaiEngine.invoiceTotals(rowsBy[iv.month + " " + iv.company] || [], {
             taxMode: m.taxMode,
           });
-          return Object.assign({}, iv, { zeinuki: iv.total, total: t.goukei });
+          var kiroku = Number(payRecord(iv.month, iv.company).paid) || 0;
+          return Object.assign({}, iv, {
+            zeinuki: iv.total,
+            total: t.goukei,
+            paid: kiroku,
+            paidKiroku: kiroku,
+          });
         });
+        // 繰越を使う 会社＝古い 月から 順に 当てる
+        var byCo = {};
+        all.forEach(function (x) {
+          if (MASTER[x.company] && MASTER[x.company].carryover)
+            (byCo[x.company] = byCo[x.company] || []).push(x);
+        });
+        Object.keys(byCo).forEach(function (co) {
+          var list = byCo[co].sort(function (a, b) {
+            return a.month.localeCompare(b.month);
+          });
+          var pool = list.reduce(function (t, x) {
+            return t + x.paidKiroku;
+          }, 0);
+          list.forEach(function (x, i) {
+            var a = i === list.length - 1 ? pool : Math.min(Math.max(x.total, 0), pool);
+            x.paid = a;
+            pool -= a;
+          });
+        });
+        return month
+          ? all.filter(function (x) {
+              return x.month === month;
+            })
+          : all;
       }
       function renderPayments() {
         var _nav = document.querySelector(".bottom-nav"); // 一括バーの位置用（--nav-h）
@@ -8133,8 +8172,7 @@
         var totalSum = 0,
           paidSum = 0;
         var rows = invs.map(function (iv) {
-          var rec = payRecord(iv.month, iv.company);
-          var paid = Number(rec.paid) || 0;
+          var paid = iv.paid; // ★seikyuList が 決めた 入金（繰越の 会社は 古い 月から 当てた 額）★
           var st = payStatusOf(iv.total, paid);
           totalSum += iv.total;
           paidSum += paid;
@@ -11057,7 +11095,7 @@
         var rows = invs
           .map(function (iv) {
             var rec = payRecord(iv.month, iv.company);
-            var paid = Number(rec.paid) || 0;
+            var paid = iv.paid; // ★一覧と 同じ 入金（繰越の 会社は 古い 月から 当てた 額）★
             return {
               month: iv.month,
               company: iv.company,
