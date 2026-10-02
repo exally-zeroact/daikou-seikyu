@@ -8099,13 +8099,36 @@
             .join("");
         if (months.indexOf(keep) >= 0 || keep === "") sel.value = keep;
       }
+      /* ★★入金で 使う「請求額」は 請求書の 合計と 同じ 関数で 出す★★ 2026-10-02
+           ★前★ MeisaiEngine.listInvoices の total ＝ ★明細の 金額を 足した だけ★（税抜）
+             請求書の 合計は invoiceTotals ＝ 外税なら ★税抜 ＋ 消費税★
+             ⇒ ★外税の 会社だけ 入金画面が 消費税の 分 少なく 出た★
+               （手元で 本物の 画面を 動かして 実測：入金 15,400 ／ 請求書 16,940）
+           ★今★ 入金の 3か所（一覧・入金を記録・まとめ/Excel の 入金）は ★全部 ここ★ から 読む。
+             zeinuki に 元の 税抜を 残す。 */
+      function seikyuList(month) {
+        var invs = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, month || null);
+        var rowsBy = {};
+        DB.forEach(function (r) {
+          if (r.account_id !== CURRENT_ACCOUNT || !r.日付) return;
+          var k = String(r.日付).slice(0, 7) + " " + r.会社名;
+          (rowsBy[k] = rowsBy[k] || []).push(r);
+        });
+        return invs.map(function (iv) {
+          var m = MASTER[iv.company] || {};
+          var t = MeisaiEngine.invoiceTotals(rowsBy[iv.month + " " + iv.company] || [], {
+            taxMode: m.taxMode,
+          });
+          return Object.assign({}, iv, { zeinuki: iv.total, total: t.goukei });
+        });
+      }
       function renderPayments() {
         var _nav = document.querySelector(".bottom-nav"); // 一括バーの位置用（--nav-h）
         if (_nav) document.documentElement.style.setProperty("--nav-h", _nav.offsetHeight + "px");
         refreshPayMonthSelect();
         var month = document.getElementById("payMonth").value;
         var statusF = document.getElementById("payStatus").value;
-        var invs = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, month || null);
+        var invs = seikyuList(month || null);
         // 状態を付与しつつ集計
         var totalSum = 0,
           paidSum = 0;
@@ -8326,7 +8349,7 @@
         toast("取り消しました");
       }
       function openPayEdit(month, co) {
-        var iv = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, month).filter(function (x) {
+        var iv = seikyuList(month).filter(function (x) {
           return x.company === co;
         })[0];
         if (!iv) return;
@@ -11030,7 +11053,7 @@
    請求は明細(DB)、入金は PAYMENTS から都度計算＝一方向アーキ維持。
    =================================================================== */
       function summarize(month, statusF) {
-        var invs = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, month || null);
+        var invs = seikyuList(month || null); // ★請求書の 合計と 同じ 額★（外税は 税込み）
         var rows = invs
           .map(function (iv) {
             var rec = payRecord(iv.month, iv.company);
