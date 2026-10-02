@@ -145,3 +145,76 @@ test("★繰越の 会社は まとめた 入金を 古い 月から 当てる�
     ["2026-06", FUTSU, 20000],
   ]);
 });
+
+// ============================================================
+// ★★10-02 夜（対立役に 叩かれて 足した）：当てた 後の 窓・Excel・一括入金★★
+//   6月に 15,000 だけ 記録（5月 10,000・6月 10,000 の 請求）
+//   ・5月の「入金を記録」の 窓：前は 記録 0 と「全額」を 出し ★二重に 記録しやすかった★
+//   ・Excel の 入金シート：前は 当てた 額（5月 10,000・日 空／6月 5,000）＝★記録 15,000 が 消えて 見えた★
+//   ・一括入金：前は 6月の 記録を ★請求額 10,000 で 上書き★＝5,000 の 記録が 消えた
+//   ★わざと壊して 赤（10-02 夜 実測）★ 直す前の 画面で ★赤★＝最初の ①「窓の 説明が 無い」で 止まる。
+//     ②Excel・③一括入金 は その 手前で 止まるので ★個別には 赤を 見ていない★（直す前の 字では 10,000 に なる 見立て）
+// ============================================================
+function seed15() {
+  const raw = JSON.parse(localStorage.getItem("__fake_supa_db__") || "null");
+  if (!raw) return;
+  raw.tables.payments = raw.tables.payments.map((p) =>
+    p.company === "繰越工業株式会社" ? Object.assign({}, p, { paid: 15000 }) : p
+  );
+  localStorage.setItem("__fake_supa_db__", JSON.stringify(raw));
+}
+
+test("★当てた 後も 窓・Excel・一括入金で 記録が 消えない★", async ({ page }) => {
+  await page.route(/cdn\.jsdelivr\.net/, (r) => r.abort());
+  await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
+  await page.addInitScript(seed);
+  await page.addInitScript(seed15);
+  await page.goto("/daikou-seikyu.html", { waitUntil: "load" });
+  await expect(page.locator("#scr-input")).toBeVisible({ timeout: 20000 });
+  await page.locator('.nav-item[data-scr="payment"]').click();
+  await expect(page.locator("#scr-payment")).toBeVisible();
+
+  // 当て方：5月 10,000（入金済）・6月 5,000（一部）
+  const jou = await page.evaluate(() =>
+    summarize(null, "").rows.map((x) => [x.month, x.company, x.st, x.paid])
+  );
+  expect(jou).toContainEqual(["2026-05", "繰越工業株式会社", "paid", 10000]);
+  expect(jou).toContainEqual(["2026-06", "繰越工業株式会社", "partial", 5000]);
+
+  // ① 5月の 窓＝説明が 出て「全額」が 無い・入金額の 欄は 記録（0）
+  await page.evaluate(() => openPayEdit("2026-05", "繰越工業株式会社"));
+  await expect(page.locator("#payAteNote"), "★当てている 説明が 窓に 無い★").toBeVisible();
+  await expect(page.locator("#payAteNote")).toContainText("10,000");
+  await expect(page.locator("#modalBody").getByText("全額（", { exact: false })).toHaveCount(0);
+  await expect(page.locator("#pay_amt")).toHaveValue("0");
+  await page.evaluate(() => closeModal && closeModal());
+
+  // ② Excel の 入金シート＝記録どおり（6月 15,000）
+  const aoa = await page.evaluate(() => _exlPayAoa(summarize(null, "").rows));
+  const kuri = aoa.filter((r) => r[1] === "繰越工業株式会社").map((r) => [r[0], r[2]]);
+  expect(kuri, "★Excel の 入金シートが 記録と 違う★").toEqual([["2026年6月", 15000]]);
+
+  // ③ 一括入金（ボタンが 呼ぶ 関数を そのまま 呼ぶ）
+  await page.evaluate(async () => {
+    payToggleSelMode();
+    payToggleRow("2026-06", "繰越工業株式会社", 10000);
+    payToggleRow("2026-05", "普通商事株式会社", 10000);
+    await bulkMarkPaid();
+  });
+  const kiroku = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("__fake_supa_db__"))
+      .tables.payments.map((p) => [p.month, p.company, p.paid])
+      .sort()
+  );
+  expect(kiroku, "★一括入金で 記録が 上書きされて 消えた★").toEqual([
+    ["2026-05", "普通商事株式会社", 10000], // 繰越を 使わない 会社＝今まで通り 請求額
+    ["2026-06", "普通商事株式会社", 20000],
+    ["2026-06", "繰越工業株式会社", 20000], // 15,000 ＋ 残り 5,000
+  ]);
+  const ato = await page.evaluate(() =>
+    summarize(null, "")
+      .rows.filter((x) => x.company === "繰越工業株式会社")
+      .map((x) => x.st)
+  );
+  expect(ato).toEqual(["paid", "paid"]);
+});

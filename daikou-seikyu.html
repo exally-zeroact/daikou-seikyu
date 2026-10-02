@@ -4070,9 +4070,11 @@
       function _exlPayAoa(rows) {
         var aoa = [["月", "会社名", "入金額", "入金日", "メモ"]];
         rows.forEach(function (x) {
-          if (!x.paid && !x.date && !x.note) return; // 入金実績のある行だけ
+          // ★入金の 記録の 帳面＝記録した 額と 日★（10-02 夜：当てた 額を 出すと 記録が 消えて 見えた）
+          var kiroku = x.kiroku != null ? x.kiroku : x.paid;
+          if (!kiroku && !x.date && !x.note) return; // 入金実績のある行だけ
           var p = x.month.split("-");
-          aoa.push([Number(p[0]) + "年" + Number(p[1]) + "月", x.company, x.paid, x.date, x.note]);
+          aoa.push([Number(p[0]) + "年" + Number(p[1]) + "月", x.company, kiroku, x.date, x.note]);
         });
         return aoa;
       }
@@ -8073,6 +8075,8 @@
         }
       }
       function payStatusOf(total, paid) {
+        // ★請求 0円の 月は 払う 物が 無い＝入金済★（10-02 夜：繰越で 当てても「未入金」の まま 残った）
+        if (total <= 0 && paid >= 0) return "paid";
         if (paid <= 0) return "unpaid";
         if (paid >= total) return "paid";
         return "partial";
@@ -8334,17 +8338,31 @@
         var snaps = [],
           ok = 0,
           fail = 0;
+        /* ★★一括入金は「記録に 残りを 足す」★★ 2026-10-02 夜（対立役に 叩かれて 見つけた）
+             前は その月の 記録を ★請求額で 上書き★ していた。繰越を使う 会社は 入金を 古い月から
+             当てるので、例：5月10,000・6月10,000・6月に 15,000 記録 → 6月は「一部 5,000」と 出る。
+             そこで 6月を 一括入金すると ★記録 15,000 が 10,000 に 上書き★＝5,000 の 記録が 消えた。
+             今は ★押す 前の 当て方で 足りない 額（請求 − 当てた額）を 記録に 足す★。
+             繰越を 使わない 会社は 当てた額＝記録 なので 結果は 前と 同じ（＝請求額）。 */
+        var mae = {};
+        seikyuList(null).forEach(function (iv) {
+          mae[payKeyFor(iv.month, iv.company)] = iv;
+        });
         for (var i = 0; i < keys.length; i++) {
           var k = keys[i],
             sel = _paySelected[k];
           var prev = PAYMENTS[k] ? Object.assign({}, PAYMENTS[k]) : null;
+          var iv0 = mae[k];
+          var atarashii = iv0
+            ? iv0.paidKiroku + Math.max(iv0.total - iv0.paid, 0)
+            : Number(sel.total) || 0;
           var up = await SB.from("payments")
             .upsert(
               {
                 user_id: CURRENT_ACCOUNT,
                 month: sel.month,
                 company: sel.co,
-                paid: sel.total,
+                paid: atarashii,
                 paid_date: date,
                 memo: (prev && prev.note) || "",
                 deleted_at: null,
@@ -8358,7 +8376,7 @@
             continue;
           }
           PAYMENTS[k] = {
-            paid: sel.total,
+            paid: atarashii,
             paidDate: date,
             note: (prev && prev.note) || "",
             _dbid: up.data.id,
@@ -8421,38 +8439,62 @@
           "件　請求額 " +
           yen(iv.total) +
           "</div>" +
+          /* ★★繰越を 使う 会社＝一覧は 古い 月から 当てた 額で 数える★★ 2026-10-02 夜（対立役）
+               この窓の 入金額は ★その月の 記録★（直す 物）。前は 当てて 入金済の 月でも
+               記録 0 と「全額」ボタンを 出し、★二重に 記録しやすい★ 形だった。
+               ⇒ 当てた 額と 記録を 並べて 見せ、ボタンは「残りを 足す」に する。 */
+          (MASTER[co] && MASTER[co].carryover
+            ? '<div class="pay-sub" id="payAteNote" style="margin:-6px 0 10px;color:#555555;">' +
+              "繰越の会社：この月は " +
+              yen(iv.paid) +
+              " 入金済と数えています（この月の入金の記録 " +
+              yen(iv.paidKiroku) +
+              "・他の月の入金から古い順に当てています）" +
+              (iv.total - iv.paid > 0 ? "。残り " + yen(iv.total - iv.paid) : "") +
+              "</div>"
+            : "") +
           '<div class="frow"><div class="flabel">入金額（税込）</div>' +
           '<input class="finput fnum" inputmode="numeric" ' +
           NOFILL +
           ' oninput="this.value=this.value.replace(/[^0-9]/g,\'\')" id="pay_amt" value="' +
           (Number(rec.paid) || 0) +
           '"></div>' +
-          '<div class="pay-quick"><button class="btn btn-ghost btn-sm" onclick="payFill(' +
-          iv.total +
-          ')">全額（' +
-          yen(iv.total) +
-          ")</button>" +
-          // ★残額（請求−入金済）・半額のクイック。既存 payFill を再利用。
-          (function () {
-            var rem = iv.total - (Number(rec.paid) || 0);
-            var half = Math.round(iv.total / 2);
-            var h = "";
-            if (rem > 0 && rem !== iv.total)
-              h +=
-                '<button class="btn btn-ghost btn-sm" onclick="payFill(' +
-                rem +
-                ')">残額（' +
-                yen(rem) +
-                "）</button>";
-            h +=
-              '<button class="btn btn-ghost btn-sm" onclick="payFill(' +
-              half +
-              ')">半額（' +
-              yen(half) +
-              "）</button>";
-            return h;
-          })() +
-          '<button class="btn btn-ghost btn-sm" onclick="payFill(0)">未入金(0)</button></div>' +
+          (MASTER[co] && MASTER[co].carryover
+            ? '<div class="pay-quick">' +
+              (iv.total - iv.paid > 0
+                ? '<button class="btn btn-ghost btn-sm" id="payNokori" onclick="payFill(' +
+                  (iv.paidKiroku + iv.total - iv.paid) +
+                  ')">残りを足す（' +
+                  yen(iv.total - iv.paid) +
+                  "）</button>"
+                : "") +
+              '<button class="btn btn-ghost btn-sm" onclick="payFill(0)">未入金(0)</button></div>'
+            : '<div class="pay-quick"><button class="btn btn-ghost btn-sm" onclick="payFill(' +
+              iv.total +
+              ')">全額（' +
+              yen(iv.total) +
+              ")</button>" +
+              // ★残額（請求−入金済）・半額のクイック。既存 payFill を再利用。
+              (function () {
+                var rem = iv.total - (Number(rec.paid) || 0);
+                var half = Math.round(iv.total / 2);
+                var h = "";
+                if (rem > 0 && rem !== iv.total)
+                  h +=
+                    '<button class="btn btn-ghost btn-sm" onclick="payFill(' +
+                    rem +
+                    ')">残額（' +
+                    yen(rem) +
+                    "）</button>";
+                h +=
+                  '<button class="btn btn-ghost btn-sm" onclick="payFill(' +
+                  half +
+                  ')">半額（' +
+                  yen(half) +
+                  "）</button>";
+                return h;
+              })() +
+              '<button class="btn btn-ghost btn-sm" onclick="payFill(0)">未入金(0)</button></div>') +
           '<div class="frow"><div class="flabel">入金日</div>' +
           '<input class="finput" type="date" id="pay_date" value="' +
           esc(rec.paidDate || "") +
@@ -8727,16 +8769,22 @@
 
       // ★発行の控えを1行 積む★（明細・自社情報・様式の写しつき）
       async function saveInvoiceCopy(month, co, rows, iss, no) {
-        var total = rows.reduce(function (t, r) {
-          return t + (Number(r.金額) || 0);
-        }, 0);
+        /* ★控えの 合計は 請求書と 同じ 関数で 出す★ 2026-10-02 夜（対立役）
+             前は 明細の 足し算（＝外税なら 税抜）と 内税の 式の 消費税を 残していた。
+             控えの total は 繰越の「前回の 請求額」に 使う ⇒ 外税の 会社は
+             ★消費税の 分 少なく 残り、お客さんが 請求書どおり 払うと 繰越が「払い過ぎ」に 出た★。
+             内税の 会社は 合計も 消費税も 前と 同じ 数。 */
+        var _t = MeisaiEngine.invoiceTotals(rows, {
+          taxMode: (MASTER[co] && MASTER[co].taxMode) || "",
+        });
+        var total = _t.goukei;
         var rec = {
           user_id: CURRENT_ACCOUNT,
           month: month,
           company: co,
           invoice_no: no,
           total: total,
-          tax: MeisaiEngine.utils.tax10(total),
+          tax: _t.zei,
           rows_json: rows.map(function (r) {
             var o = {};
             MeisaiEngine.FIELD_DEFS.forEach(function (f) {
@@ -11102,6 +11150,7 @@
               count: iv.count,
               total: iv.total,
               paid: paid,
+              kiroku: iv.paidKiroku, // ★Excel の 入金シート＝記録した 額（当てた 額では ない）★
               st: payStatusOf(iv.total, paid),
               rem: iv.total - paid,
               date: rec.paidDate || "",
