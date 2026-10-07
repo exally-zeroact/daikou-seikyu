@@ -3801,7 +3801,44 @@
         return { data: out, error: null, count: out.length };
       }
       // ログイン後の一括読み込み（RLSで自分の行だけ返る）
+      // ★★読めなかった 物の 印（最初は 全部 立てて 読めた 物だけ 下ろす）★★ 2026-10-08
+      //   司さん「お金の出力は 1人でも 計算できなければ 止めて 警告」・対立役：
+      //   入金・自社情報・控え・番号の 台帳は 読めなくても toast だけで 画面が 動き、
+      //   既定の 自社情報（振込先・登録番号）で 請求書が 出る／番号を 新しく 作って 台帳を 上書き／入金を 上書き した
+      var YOMENAI = { issuer: true, invoices: true, invoice_no: true, payments: true };
+      var YOMENAI_NA = {
+        issuer: "自社情報",
+        invoices: "請求書の控え",
+        invoice_no: "請求番号の台帳",
+        payments: "入金",
+      };
+      var YOMENAI_ZEN = ["issuer", "invoices", "invoice_no", "payments"];
+      function yomenaiNo(keys) {
+        return (keys || YOMENAI_ZEN).filter(function (k) {
+          return YOMENAI[k];
+        });
+      }
+      function yomenaiBun(keys, what) {
+        return (
+          keys
+            .map(function (k) {
+              return YOMENAI_NA[k];
+            })
+            .join("・") +
+          " を 読めなかったので " +
+          what +
+          " は しません。画面を 開き直してください。"
+        );
+      }
+      // ★止める（真＝止めた）★
+      function yomenaiTomeru(keys, what) {
+        var k = yomenaiNo(keys);
+        if (!k.length) return false;
+        toast(yomenaiBun(k, what));
+        return true;
+      }
       async function loadAllCloud() {
+        YOMENAI = { issuer: true, invoices: true, invoice_no: true, payments: true };
         DB = [];
         MASTER = {};
         PAYMENTS = {};
@@ -3857,7 +3894,8 @@
             .range(a, b);
         });
         if (p.error) cloudErr("入金読込", p.error);
-        else
+        else YOMENAI.payments = false;
+        if (!p.error)
           p.data.forEach(function (r) {
             PAYMENTS[CURRENT_ACCOUNT + "::" + r.month + "::" + r.company] = {
               paid: r.paid,
@@ -3873,26 +3911,47 @@
         // ★発行の控えを読む（繰越の材料）★
         INVOICES = [];
         try {
-          var ivs = await SB.from("invoices").select(
-            "month, company, invoice_no, total, issued_at"
-          );
+          // ★1000行で 黙って 切れない 様に 全部 読む★（対立役 B）
+          var ivs = await fetchAllQ(function (a, b) {
+            return SB.from("invoices")
+              .select("month, company, invoice_no, total, issued_at", { count: "exact" })
+              .order("issued_at")
+              .order("company")
+              .order("month")
+              .range(a, b);
+          });
           if (ivs.error) cloudErr("請求書の控え読込", ivs.error);
-          else INVOICES = ivs.data || [];
+          else {
+            INVOICES = ivs.data || [];
+            YOMENAI.invoices = false;
+          }
         } catch (e) {
           cloudErr("請求書の控え読込", e);
         }
         // ★番号の台帳を読む（凍結した番号はここから出す）★
         INVOICE_NO = {};
         try {
-          var no = await SB.from("invoice_no").select("month, company, invoice_no");
+          // ★1000行で 黙って 切れない 様に 全部 読む★（切れると 台帳に 無い 月の 番号を 作り直して 上書きした・対立役 B）
+          var no = await fetchAllQ(function (a, b) {
+            return SB.from("invoice_no")
+              .select("month, company, invoice_no", { count: "exact" })
+              .order("month")
+              .order("company")
+              .range(a, b);
+          });
           if (no.error) cloudErr("請求番号の読込", no.error);
-          else
+          else {
             (no.data || []).forEach(function (r) {
               INVOICE_NO[invNoKey(r.month, r.company)] = r.invoice_no;
             });
+            YOMENAI.invoice_no = false;
+          }
         } catch (e) {
           cloudErr("請求番号の読込", e);
         }
+        // ★自社情報：行が 無い（新しい 客）は 読めた 扱い・エラーは 読めない★
+        if (i && !i.error) YOMENAI.issuer = false;
+        else cloudErr("自社情報読込", i && i.error);
         if (!i.error && i.data && i.data.config) ISSUER_SETTINGS[CURRENT_ACCOUNT] = i.data.config;
         if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
         migrateRegno(ISSUER_SETTINGS[CURRENT_ACCOUNT]); // ★登録番号を専用の欄へ（1度だけ・紙は変わらない）★
@@ -4222,6 +4281,14 @@
           toast("入れる内容を1つ以上選んでください");
           return;
         }
+        // ★請求書・入金の 表は 読めなかった 物が 在れば 作らない★（対立役 D：Excel が 漏れていた）
+        //   集計・会社別集計も 入金額・残額・状態を 載せる（対立役：入金を 読めないと「全部 未入金」の 表が 出た）
+        var xlKeys = pick.invoice
+          ? YOMENAI_ZEN
+          : pick.pay || pick.summary || pick.byco
+            ? ["payments"]
+            : [];
+        if (yomenaiTomeru(xlKeys, "Excel の 作成")) return;
         var allCo = document.getElementById("xlAllCo").checked;
         var allMo = document.getElementById("xlAllMo").checked;
         var cos = allCo
@@ -6625,6 +6692,16 @@
       async function _doGenerateInvoices() {
         var out = activeInvOut();
         if (!out) return;
+        // ★画面の 請求書も 読めなかった 物が 在れば 描かない★（既定の 振込先・0円 入金の 繰越を 見せない）
+        var yk = yomenaiNo(YOMENAI_ZEN);
+        if (yk.length) {
+          out.classList.remove("inv-loading");
+          out.innerHTML =
+            '<div class="yomenai-obi" style="padding:16px;color:#b42318;font-weight:700">' +
+            esc(yomenaiBun(yk, "請求書の 表示")) +
+            "</div>";
+          return;
+        }
         ensureLogoTrimmed(); // 既存ロゴの余白を一度だけ自動トリミング（揃え）
         // ★編集タブは独自の月・会社（_editMonth / editCompany）を使い、請求タブの選択を汚さない。
         var editing = !!(
@@ -7112,6 +7189,7 @@
       }
       // 請求書PDFのbytes生成（保存/印刷で共有）。該当なし等は toast して null を返す。
       async function _buildInvoiceBytes() {
+        if (yomenaiTomeru(YOMENAI_ZEN, "請求書の 作成")) return null;
         var month = document.getElementById("invMonth").value;
         if (!month) {
           toast("月を選んでください");
@@ -8024,6 +8102,7 @@
         return MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co); // ★保存しない★
       }
       async function previewInvoiceFromPay(btn, month, co) {
+        if (yomenaiTomeru(YOMENAI_ZEN, "請求書の 確認")) return;
         if (typeof InvoicePDF === "undefined") {
           toast("PDFモジュールの読み込み待ちです。少し待って再度押してください");
           return;
@@ -8326,6 +8405,8 @@
       }
       // 選択した請求を1件ずつ全額入金へ。部分失敗は明示。最後に一括取り消しを出す。
       async function bulkMarkPaid() {
+        // ★入金を 読めていない 時は 書かない・消さない★（未入金に 見えた まま 上書き・取り消しで 消した・対立役 A1）
+        if (yomenaiTomeru(["payments"], "入金の 保存")) return;
         var keys = Object.keys(_paySelected);
         if (!keys.length) return;
         var d = new Date();
@@ -8520,6 +8601,8 @@
         if (el) el.value = v;
       }
       async function savePay(month, co, total) {
+        // ★入金を 読めていない 時は 書かない・消さない★（未入金に 見えた まま 上書き・取り消しで 消した・対立役 A1）
+        if (yomenaiTomeru(["payments"], "入金の 保存")) return;
         var amt =
           Number(String(document.getElementById("pay_amt").value).replace(/[^0-9]/g, "")) || 0;
         var date = document.getElementById("pay_date").value || "";
@@ -8571,6 +8654,8 @@
       }
       // ★行から直接ワンタップで全額入金済に（確認なし＝取り消しトースト付き）。savePayと同一のupsertを流用。
       async function markPaidFull(month, co, total) {
+        // ★入金を 読めていない 時は 書かない・消さない★（未入金に 見えた まま 上書き・取り消しで 消した・対立役 A1）
+        if (yomenaiTomeru(["payments"], "入金の 保存")) return;
         var key = payKeyFor(month, co);
         var snap = PAYMENTS[key] ? Object.assign({}, PAYMENTS[key]) : null; // 取り消し用に前の状態を保持
         var d = new Date();
@@ -8613,6 +8698,8 @@
       }
       // 全入金の取り消し＝直前の状態へ戻す（元が未入金なら記録削除）。
       async function undoPayState(month, co, snap) {
+        // ★入金を 読めていない 時は 書かない・消さない★（未入金に 見えた まま 上書き・取り消しで 消した・対立役 A1）
+        if (yomenaiTomeru(["payments"], "入金の 保存")) return;
         var key = payKeyFor(month, co);
         if (snap === null) {
           var del = await SB.from("payments").delete().eq("month", month).eq("company", co);
@@ -8712,6 +8799,8 @@
          ★試験が赤にならない★（実際にそう書いてしまい、わざと壊しても緑のままだった）。
          「台帳に在ればそれを返す／無ければ今の並びで決めて台帳に止める」を ここだけで行う。 */
       async function issueInvoiceNo(month, co) {
+        // ★台帳を 読めていない 時は 番号を 決めない・書かない★（凍結した 番号を 上書きしない）
+        if (YOMENAI.invoice_no) throw new Error("請求番号の台帳を読めていません");
         var k = invNoKey(month, co);
         if (INVOICE_NO[k]) return INVOICE_NO[k]; // ★一度 決めた番号は動かさない★
         var no = MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co);
@@ -8895,6 +8984,8 @@
         if (changed) saveIssuer();
       }
       async function saveIssuer() {
+        // ★自社情報を 読めていない 時は 書かない★（既定の 値で 本物の 判子・振込先・登録番号を 上書きした・対立役 A2）
+        if (yomenaiTomeru(["issuer"], "自社情報の 保存")) return;
         // 自社情報（1業者1行）をクラウドにupsert
         var cfg = ISSUER_SETTINGS[CURRENT_ACCOUNT] || defaultIssuer();
         var up = await SB.from("issuer").upsert(
@@ -9290,7 +9381,9 @@
       /* ★登録番号が無い／形が違う時は 紙を出させない★
          押せて何も起きない、にしない＝★押させない＋理由（どこで入れるか）まで出す★ */
       function updateRegnoGate() {
-        var ng = regnoNg(currentIssuer());
+        // ★読めなかった 物が 在れば 出す ボタンも 止める★（ボタンの「出せる」と 門が 同じ 物を 見る）
+        var yk = yomenaiNo(YOMENAI_ZEN);
+        var ng = yk.length ? yomenaiBun(yk, "請求書の 作成") : regnoNg(currentIssuer());
         ["btnInvPdf", "btnInvPrint", "btnInvExcel"].forEach(function (id) {
           var b = document.getElementById(id);
           if (b) b.disabled = !!ng;
@@ -9303,6 +9396,10 @@
           return;
         }
         w.hidden = false;
+        if (yk.length) {
+          w.innerHTML = "<b>" + esc(ng) + "</b>";
+          return;
+        }
         w.innerHTML =
           "<b>" +
           esc(ng) +
@@ -11264,6 +11361,8 @@
       }
       // 表示中の月の集計を帳簿用 .xlsx に（金額は数値＝Excel側で集計/編集できる）
       function exportReport() {
+        // ★集計の Excel も 入金を 読めていない 時は 作らない★（入金 0・全部 未入金 の 表を 出さない）
+        if (yomenaiTomeru(["payments"], "集計の Excel の 作成")) return;
         if (typeof XLSX === "undefined") {
           toast("Excelライブラリの読み込み待ちです。少し待って再度押してください");
           return;
@@ -11403,6 +11502,9 @@
           return;
         }
         hideLoad();
+        // ★読めなかった 物が 在れば 最初に 知らせる★（請求書・入金・自社情報の 保存は 止まる）
+        if (yomenaiNo().length)
+          toast(yomenaiBun(yomenaiNo(), "請求書の 作成と 入金・自社情報の 保存"));
         refreshCompanySelects();
         showScreen("input");
         updatePayBadge();
@@ -11427,6 +11529,7 @@
       // ログイン後の空き時間に「最新月×データのある会社」の請求書を1枚だけ先行ビルドしてキャッシュ。
       //   編集/請求タブを開いた時は再ビルド不要＝描画だけ（解像度はそのまま）。
       async function _prebuildPreview() {
+        if (yomenaiNo(YOMENAI_ZEN).length) return; // ★読めなかった 物が 在れば 先作り しない★
         try {
           if (!window.InvoicePDF || !InvoicePDF.buildOne) return;
           var rowsAll = DB.filter(function (r) {
