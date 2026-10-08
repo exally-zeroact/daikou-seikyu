@@ -64,7 +64,7 @@ function seed() {
             user_id: uid,
             config: {
               issuer: "合同会社ZEROact\nZERO代行\n登録番号：T3500003003293",
-              bank: "伊予銀行　今治支店　普通　4160657",
+              bank: "伊予銀行　今治支店　普通　0000001",
             },
             updated_at: "2026-08-01T00:00:00.000Z",
           },
@@ -97,10 +97,9 @@ test("★Excelに請求書のシートが1枚も無い（PDF一本の方針）�
 
   // ① 選ぶ所に「請求書」が出ていない（人が選べてしまわない）
   const pickText = (await picker.innerText()).replace(/\s+/g, "");
-  expect(
-    pickText.includes("請求書"),
-    "★Excelの選ぶ所に「請求書（見た目つき）」が戻っている★"
-  ).toBe(false);
+  expect(pickText.includes("請求書"), "★Excelの選ぶ所に「請求書（見た目つき）」が戻っている★").toBe(
+    false
+  );
 
   const dl = page.waitForEvent("download", { timeout: 120000 });
   await picker.getByRole("button", { name: /このExcelを作る/ }).click();
@@ -108,10 +107,13 @@ test("★Excelに請求書のシートが1枚も無い（PDF一本の方針）�
   await (await dl).saveAs(xlPath);
 
   // ② 出来上がった Excel のシート名を数える
-  const names = await page.evaluate(async (arr) => {
-    const wb = window.XLSX.read(new Uint8Array(arr), { type: "array" });
-    return wb.SheetNames;
-  }, Array.from(fs.readFileSync(xlPath)));
+  const names = await page.evaluate(
+    async (arr) => {
+      const wb = window.XLSX.read(new Uint8Array(arr), { type: "array" });
+      return wb.SheetNames;
+    },
+    Array.from(fs.readFileSync(xlPath))
+  );
 
   expect(names.length, "★シートが1枚も無い（0枚の緑は未検査）★").toBeGreaterThan(0);
   // 請求書シートは ★会社名がシート名★ になる作りだった

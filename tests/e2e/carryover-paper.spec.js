@@ -90,7 +90,7 @@ function seed(opt) {
             user_id: uid,
             config: {
               issuer:
-                "合同会社ZEROact\nZERO代行\n〒794-0018\n今治市本町7-3-40　00コーポ1号\nTEL090-5716-1946\n登録番号：T3500003003293",
+                "合同会社ZEROact\nZERO代行\n〒794-0018\n今治市本町7-3-40　00コーポ1号\nTEL000-0000-0000\n登録番号：T3500003003293",
               bank: "伊予銀行",
             },
             updated_at: "2026-08-01T00:00:00.000Z",

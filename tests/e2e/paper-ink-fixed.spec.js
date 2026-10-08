@@ -77,8 +77,8 @@ function seed() {
             user_id: uid,
             config: {
               issuer:
-                "合同会社ZEROact\nZERO代行\n〒794-0018\n今治市本町7-3-40　00コーポ1号\nTEL090-5716-1946\n登録番号：T3500003003293",
-              bank: "伊予銀行　今治支店　普通　4160657",
+                "合同会社ZEROact\nZERO代行\n〒794-0018\n今治市本町7-3-40　00コーポ1号\nTEL000-0000-0000\n登録番号：T3500003003293",
+              bank: "伊予銀行　今治支店　普通　0000001",
             },
             updated_at: "2026-08-01T00:00:00.000Z",
           },
@@ -118,7 +118,8 @@ async function inkOf(page, pdfPath, wants) {
       const norm = (t) => String(t).replace(/[\s\u3000]/g, ""); // \u3000 = zenkaku space
       for (const want of wants) {
         const w = norm(want);
-        const it = tc.items.find((i) => norm(i.str) === w) || tc.items.find((i) => norm(i.str).includes(w));
+        const it =
+          tc.items.find((i) => norm(i.str) === w) || tc.items.find((i) => norm(i.str).includes(w));
         if (!it) {
           out[want] = "(見つからない)";
           continue;
@@ -220,12 +221,13 @@ test("★全体の色を3つに変えても 本文・明細・金額の濃さが
     const f = path.join(OUT, "acc" + acc.slice(1) + ".pdf");
     await (await dl).saveAs(f);
     const ink = await inkOf(page, f, WANTS);
-    const linePx = await countPx(page, f, ACCENTS.map(([a]) => a));
-    got.push({ acc, label, ink, linePx });
-    console.log(
-      `[paper-ink] ${label} ${acc} → ` +
-        WANTS.map((w) => `${w}:${ink[w]}`).join(" / ")
+    const linePx = await countPx(
+      page,
+      f,
+      ACCENTS.map(([a]) => a)
     );
+    got.push({ acc, label, ink, linePx });
+    console.log(`[paper-ink] ${label} ${acc} → ` + WANTS.map((w) => `${w}:${ink[w]}`).join(" / "));
   }
 
   expect(got.length, "★1枚も出していない★").toBe(3);

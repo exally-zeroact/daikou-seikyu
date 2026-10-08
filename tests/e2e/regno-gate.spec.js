@@ -26,7 +26,7 @@ const OUT = process.env.REGNO_OUT || path.join("test-results", "regno");
 const CO = "飛勝工業株式会社";
 // ★本番に今 入っている物と同じ形（6行）★
 const HONBAN_ISSUER =
-  "合同会社ZEROact\nZERO代行\n〒794-0018\n今治市本町7-3-40　00コーポ1号\nTEL090-5716-1946\n登録番号：T3500003003293";
+  "合同会社ZEROact\nZERO代行\n〒794-0018\n今治市本町7-3-40　00コーポ1号\nTEL000-0000-0000\n登録番号：T3500003003293";
 
 function seed(issuerText) {
   const uid = "u_regno";
@@ -68,7 +68,7 @@ function seed(issuerText) {
         issuer: [
           {
             user_id: uid,
-            config: { issuer: issuerText, bank: "伊予銀行　今治支店　普通　4160657" },
+            config: { issuer: issuerText, bank: "伊予銀行　今治支店　普通　0000001" },
             updated_at: "2026-08-01T00:00:00.000Z",
           },
         ],
