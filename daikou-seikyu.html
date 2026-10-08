@@ -6697,6 +6697,8 @@
           "|" +
           month +
           "|" +
+          invoiceNoMiru(month, co) +
+          "|" +
           _issFp(iss) +
           "|" +
           _coFp(MASTER[co]) +
@@ -6775,7 +6777,7 @@
                 rows,
                 month,
                 _coIss,
-                invoiceNoFrozen(month, onlyCo)
+                invoiceNoMiru(month, onlyCo)
               );
               blocks = window.InvoicePDF && InvoicePDF.lastBlocks ? InvoicePDF.lastBlocks() : [];
               _invCache = { sig: sig, bytes: bytes, blocks: blocks };
@@ -7225,7 +7227,6 @@
         var _m0 = document.getElementById("invMonth").value;
         var _c0 = document.getElementById("invCompany").value;
         if (_m0 && kurikoshiTomeru(_c0 ? [_c0] : tsukiNoKaisha(_m0), "請求書の 作成")) return null;
-        if (_m0 && bangouTomeru(_m0, _c0 ? [_c0] : tsukiNoKaisha(_m0))) return null;
         var month = document.getElementById("invMonth").value;
         if (!month) {
           toast("月を選んでください");
@@ -7250,7 +7251,13 @@
           }
           // ★番号は1回だけ決めて 紙と控えの両方に同じ物を使う★
           //   別々に取ると「紙の番号と控えの番号が違う」が起きる（実際に一度そう書いてしまった）
-          var _no = await issueInvoiceNo(month, onlyCo); // ★決めるのはここ1回だけ★
+          var _no;
+          try {
+            _no = await issueInvoiceNo(month, onlyCo); // ★決めるのはここ1回だけ★（倉庫の 台帳に 書けた 番号）
+          } catch (e) {
+            toast(bangouNgBun(e));
+            return null;
+          }
           bytes = await InvoicePDF.buildOne(
             MASTER,
             onlyCo,
@@ -7262,6 +7269,20 @@
           await saveInvoiceCopy(month, onlyCo, rows, issuerForEngine(onlyCo), _no);
           fname = "請求書_" + month + "_" + onlyCo + ".pdf";
         } else {
+          // ★全社も 描く 前に 全部の 会社の 番号を 台帳に 書く★（1社でも 書けなければ 作らない）
+          var _nos = {};
+          var _tcos = tsukiNoKaisha(month);
+          if (!_tcos.length) {
+            toast("該当する明細がありません");
+            return null;
+          }
+          try {
+            for (var _ti = 0; _ti < _tcos.length; _ti++)
+              _nos[_tcos[_ti]] = await issueInvoiceNo(month, _tcos[_ti]);
+          } catch (e) {
+            toast(bangouNgBun(e));
+            return null;
+          }
           bytes = await InvoicePDF.buildMonth(
             MASTER,
             DB,
@@ -7270,6 +7291,10 @@
             iss,
             function (co) {
               return issuerForEngine(co);
+            },
+            function (co) {
+              if (!_nos[co]) throw new Error("請求番号が 決まっていない 会社: " + co);
+              return _nos[co];
             }
           );
           if (!bytes) {
@@ -8135,7 +8160,7 @@
       function invoiceNoPeek(month, co) {
         var k = invNoKey(month, co);
         if (INVOICE_NO[k]) return INVOICE_NO[k]; // 発行済みは それを 使う
-        return bangouKeisan(month, co); // ★保存しない★
+        return invoiceNoMiru(month, co); // ★まだ 出していない 番号は「未発行」★（見るだけで 番号を 決めると 後で 違う 番号に なり得る）
       }
       async function previewInvoiceFromPay(btn, month, co) {
         if (yomenaiTomeru(SEIKYU_KEYS, "請求書の 確認")) return;
@@ -8174,7 +8199,8 @@
           url = URL.createObjectURL(blob);
           var w = window.open(url, "_blank");
           if (!w) {
-            InvoicePDF.save(bytes, "請求書_" + month + "_" + co + ".pdf");
+            // ★確認（見るだけ）の 紙は 名前で 分かる 様に★（本物と 同じ 名前だと 番号「未発行」の 紙を 先方へ 送れてしまう・対立役）
+            InvoicePDF.save(bytes, "確認用_請求書_" + month + "_" + co + ".pdf");
             toast("PDFを保存しました（新しい窓が止められています）");
           }
         } catch (e) {
@@ -8817,91 +8843,118 @@
          ★2つの棚★
            invoices   … 発行の控え（出すたび1行 積む）
            invoice_no … 番号の台帳（月×会社に1つ）★一度決めた番号は動かさない★
-         ★凍結しても 今の番号は1つも変わらない★
-           台帳に無い間は 今までと同じ計算（invoiceNoFor）を返す＝見えている番号はそのまま。
+         ★番号は 重ならない★（2026-10-08 作り直し・下の issueInvoiceNo）
+           台帳に 無い 間は 番号を 出さない（紙を 作る 時に 台帳へ 書いて から 使う・見るだけは「未発行」）
       ============================================================================= */
-      var INVOICE_NO = {}; // "YYYY-MM|会社名" -> "2026-05-03"
+      var INVOICE_NO = {}; // "YYYY-MM|会社名" -> "2026-05-03"（倉庫の 台帳に 書けた 番号 だけ）
       var INVOICES = []; // 発行の控え（繰越の材料）
       function invNoKey(month, co) {
         return month + "|" + co;
       }
-      // 画面に出す番号（読むだけ・書かない）。台帳に在ればそれ、無ければ今までどおりの計算。
-      // ★★番号は 1か所で 決める★★ 2026-10-08（司さん「台帳ってなんど、ほんでなんで変わるんど」）
-      //   台帳（出した 番号の 控え）に 在れば それ。無ければ「全部の 月の 会社の 並び」の 計算（全社 PDF と 同じ 1本）
-      //   前は 1社の PDF・全社 PDF・Excel・画面の 見本で 計算が 2通り 在り、会社を 足すと 番号が ずれた
-      function bangouKeisan(month, co) {
-        return InvoicePDF.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co, DB);
-      }
+      /* ★★請求書番号は 重ならない★★ 2026-10-08（司さん「重なったらいかんやろ、そもそもなんの番号ど」）
+         番号＝紙の 右上の「No. 2026-08-03」（その 月の 何通目か）
+         前は「会社の 並びの 何番目か」の 計算で、並びが 動くと 別の 会社に 出した 番号と 重なった
+         （本番 実測：控えで 西栄工業 7月 と アネラ 7月 が 同じ 2026-07-07）
+         ・台帳（invoice_no）に 在る 番号は 動かさない
+         ・無い 時は 紙を 作る 前に その 月で 空いている 一番 小さい 番号を ★倉庫の 台帳に 書いてから★ 使う
+           空きは 台帳＋控え（invoices）の 両方で 数える。倉庫は (user_id, invoice_no) が 一意＝2台 同時でも 重ならない
+         ・書けなければ 紙は 作らない（番号の 無い・重なる 紙を 出さない）
+         ・見るだけの 所（画面・確認・見本）は 台帳に 在る 番号 だけ 出す（まだ 出していない 番号は 出さない） */
       function invoiceNoFrozen(month, co) {
-        var k = invNoKey(month, co);
-        if (INVOICE_NO[k]) return INVOICE_NO[k];
-        return bangouKeisan(month, co);
+        return INVOICE_NO[invNoKey(month, co)] || "";
       }
-      // ★台帳に 無い 会社の 計算の 番号が、台帳で 別の 会社に 出した 番号と 同じ＝重なり★（止める）
-      // ★番号を 紙に 刷らない 時（showInvoiceNo が 切）は 止めない★ 2026-10-08 対立役
-      //   刷らない 番号の ために 月の 全社まとめを 止めていた（本番は 切＝飛勝工業 8月で 8月の 全社 PDF が 止まる 所だった）
-      function bangouButsukari(month, cos) {
-        if (!currentIssuer().showInvoiceNo) return [];
-        return bangouKasanari(month, cos);
+      // ★見るだけの 紙（画面・確認・見本）の 番号★：出した 番号 か「未発行」（空だと 番号の 無い 紙に 見える・対立役）
+      function invoiceNoMiru(month, co) {
+        return invoiceNoFrozen(month, co) || "未発行";
       }
-      // 刷るか どうかに 関わらず 重なりを 数える（台帳へ 書く 前に 使う＝同じ 番号を 2社に 書かない）
-      function bangouKasanari(month, cos) {
-        var deta = {};
+      function bangouNiketa(n) {
+        return n < 10 ? "0" + n : String(n);
+      }
+      // その 月で 使われている 番号（台帳＋控え）
+      function tsukattaBangou(month) {
+        var used = {};
+        var hd = month + "-";
         Object.keys(INVOICE_NO).forEach(function (k) {
-          deta[INVOICE_NO[k]] = k.split("|").slice(1).join("|");
+          var no = INVOICE_NO[k];
+          if (String(no).indexOf(hd) === 0) used[no] = k;
         });
-        var out = [];
-        (cos || []).forEach(function (co) {
-          if (INVOICE_NO[invNoKey(month, co)]) return;
-          var no = bangouKeisan(month, co);
-          if (deta[no] && deta[no] !== co) out.push({ co: co, no: no, saki: deta[no] });
+        (INVOICES || []).forEach(function (iv) {
+          var no = iv && iv.invoice_no;
+          if (no && String(no).indexOf(hd) === 0 && !used[no])
+            used[no] = invNoKey(iv.month, iv.company);
         });
-        return out;
+        return used;
       }
-      function bangouBun(month, b) {
-        return (
-          "請求番号が 重なります：" +
-          b
-            .map(function (x) {
-              return x.co + " の 番号 " + x.no + " は 既に " + x.saki + " に 出した 番号です";
-            })
-            .join("／") +
-          "。この 請求書は 出しません。"
-        );
+      function akiBangou(month, used) {
+        for (var n = 1; n < 10000; n++) {
+          var no = month + "-" + bangouNiketa(n);
+          if (!used[no]) return no;
+        }
+        throw new Error("請求番号の 空きが ありません");
       }
-      function bangouTomeru(month, cos) {
-        var b = bangouButsukari(month, cos);
-        if (!b.length) return false;
-        toast(bangouBun(month, b));
-        return true;
+      // 倉庫の 台帳を その 月 だけ 読み直す（他の 端末が 出した 番号を 拾う）
+      async function daichoYominaoshi(month) {
+        var r = await SB.from("invoice_no")
+          .select("month, company, invoice_no")
+          .eq("month", month)
+          .order("company");
+        if (r.error) throw new Error("請求番号の 台帳を 読めません");
+        Object.keys(INVOICE_NO).forEach(function (k) {
+          if (k.indexOf(month + "|") === 0) delete INVOICE_NO[k];
+        });
+        (r.data || []).forEach(function (x) {
+          INVOICE_NO[invNoKey(x.month, x.company)] = x.invoice_no;
+        });
       }
       /* ★番号を決めるのは この1本だけ★
          決める所が2つに割れていると、片方を壊しても もう片方が庇って
          ★試験が赤にならない★（実際にそう書いてしまい、わざと壊しても緑のままだった）。
-         「台帳に在ればそれを返す／無ければ今の並びで決めて台帳に止める」を ここだけで行う。 */
+         ★倉庫の 台帳に 書けた 番号 だけを 返す★。書けなければ 投げる（呼ぶ 側は 紙を 作らない） */
       async function issueInvoiceNo(month, co) {
-        // ★台帳を 読めていない 時は 番号を 決めない・書かない★（凍結した 番号を 上書きしない）
-        if (YOMENAI.invoice_no) throw new Error("請求番号の台帳を読めていません");
+        // ★台帳・控えを 読めていない 時は 番号を 決めない★（空きを 数え 間違える）
+        if (YOMENAI.invoice_no || YOMENAI.invoices)
+          throw new Error("請求番号の台帳を読めていません");
         var k = invNoKey(month, co);
         if (INVOICE_NO[k]) return INVOICE_NO[k]; // ★一度 決めた番号は動かさない★
-        var no = bangouKeisan(month, co);
-        if (bangouKasanari(month, [co]).length) {
-          if (currentIssuer().showInvoiceNo) throw new Error("請求番号が 重なります");
-          return no; // ★刷らない 時は 出すが 台帳には 書かない★（別の 会社の 番号を 2重に 控えない）
-        }
-        INVOICE_NO[k] = no;
-        if (SB && CURRENT_ACCOUNT) {
-          try {
-            var r = await SB.from("invoice_no").upsert(
-              { user_id: CURRENT_ACCOUNT, month: month, company: co, invoice_no: no },
-              { onConflict: "user_id,month,company" }
-            );
-            if (r && r.error) cloudErr("請求番号の保存", r.error);
-          } catch (e) {
-            cloudErr("請求番号の保存", e);
+        if (!SB || !CURRENT_ACCOUNT)
+          throw new Error("請求番号を 控えられません（ログインしていません）");
+        await daichoYominaoshi(month);
+        if (INVOICE_NO[k]) return INVOICE_NO[k];
+        var used = tsukattaBangou(month);
+        // 控えに この 会社の この 月の 番号が 在り、他で 使われていなければ それを 台帳へ（控えと 揃える）
+        var hikae = "";
+        (INVOICES || []).forEach(function (iv) {
+          if (iv && iv.month === month && iv.company === co && iv.invoice_no) hikae = iv.invoice_no;
+        });
+        var kouho = hikae && used[hikae] === k ? hikae : "";
+        for (var tabi = 0; tabi < 20; tabi++) {
+          var no = kouho || akiBangou(month, used);
+          kouho = "";
+          var r = await SB.from("invoice_no").insert({
+            user_id: CURRENT_ACCOUNT,
+            month: month,
+            company: co,
+            invoice_no: no,
+          });
+          if (!r || !r.error) {
+            INVOICE_NO[k] = no;
+            return no;
           }
+          if (r.error.code !== "23505") throw new Error("請求番号を 控えられません");
+          // ぶつかった＝他の 端末が 先に 書いた。読み直して、同じ 会社なら その 番号・違えば 次の 空き
+          await daichoYominaoshi(month);
+          if (INVOICE_NO[k]) return INVOICE_NO[k];
+          used = tsukattaBangou(month);
+          used[no] = used[no] || "ぶつかった";
         }
-        return no;
+        throw new Error("請求番号を 決められません");
+      }
+      function bangouNgBun(e) {
+        return (
+          "請求番号を 控えられませんでした（" +
+          ((e && e.message) || "通信") +
+          "）。番号の 重なる 紙を 出さない ため、請求書は 作っていません。通信を 確かめて もう一度 押してください。"
+        );
       }
       /* ★繰越の材料を集める★（2026-08-12）
          前回繰越は ★手打ちにしない★：保存した控え(INVOICES) と 入金(PAYMENTS) から出す。
@@ -9248,7 +9301,18 @@
       async function tplThumbBytes(design, vkey, co) {
         var samp = tplSampleRows(co);
         if (!samp) return null; // ★1件も無い時は「まだ紙が無い」と正直に出す（作り物を出さない）★
-        var key = design + "|" + vkey + "|" + samp.co + "|" + samp.month + "|" + samp.rows.length;
+        var key =
+          design +
+          "|" +
+          vkey +
+          "|" +
+          samp.co +
+          "|" +
+          samp.month +
+          "|" +
+          samp.rows.length +
+          "|" +
+          invoiceNoMiru(samp.month, samp.co); // ★番号を 出した 後に「未発行」の まま 残らない★
         if (_tplThumbCache[key]) return _tplThumbCache[key];
         var v =
           designVariants(design).filter(function (x) {
@@ -9267,7 +9331,7 @@
           samp.rows,
           samp.month,
           iss,
-          invoiceNoFrozen(samp.month, samp.co) // ★見本も 台帳の 番号（番号の 道を 1本に）★
+          invoiceNoMiru(samp.month, samp.co) // ★見本も 台帳の 番号・無ければ「未発行」★
         );
         _tplThumbCache[key] = bytes;
         return bytes;
@@ -9498,17 +9562,14 @@
               return MASTER[c] && MASTER[c].carryover;
             })
           : [];
-        var _gban = _gm ? bangouButsukari(_gm, _gcos) : [];
         var ng = yk.length
           ? yomenaiBun(yk, "請求書の 作成")
           : _gkuri.length
             ? "通信が 途切れて 入金 を 取って来られませんでした。前回繰越を 載せる " +
               _gkuri.join("・") +
               " の 請求書は しません。画面を 開き直してください。"
-            : _gban.length
-              ? bangouBun(_gm, _gban)
-              : jishaNg(currentIssuer());
-        if (_gkuri.length || _gban.length) yk = ["_"];
+            : jishaNg(currentIssuer());
+        if (_gkuri.length) yk = ["_"];
         ["btnInvPdf", "btnInvPrint", "btnInvExcel"].forEach(function (id) {
           var b = document.getElementById(id);
           if (b) b.disabled = !!ng;
@@ -11207,13 +11268,54 @@
           renderMaster();
           return;
         }
+        // ★請求番号の 台帳も 名前を 変える★ 2026-10-08 対立役（変えないと 同じ 請求に 新しい 番号が 振られた）
+        //   新しい 名前に 前の 台帳が 残っていて ぶつかる 時は 名前を 変えない（同じ 月に 番号が 2つに なる）
+        if (YOMENAI.invoice_no) {
+          toast(
+            "請求番号の 台帳を 読めていないので 会社名を 変えられません。画面を 開き直してください。"
+          );
+          renderMaster();
+          return;
+        }
+        var u0 = await SB.from("invoice_no").update({ company: newName }).eq("company", oldName);
+        if (u0 && u0.error) {
+          cloudErr("会社名変更（請求番号の 台帳）", u0.error);
+          renderMaster();
+          return;
+        }
         // クラウド側：会社名に紐づく明細・入金もまとめて改名（RLSで自分の分だけ）
         var u1 = await SB.from("meisai").update({ company: newName }).eq("company", oldName);
         var u2 = await SB.from("payments").update({ company: newName }).eq("company", oldName);
         if ((u1 && u1.error) || (u2 && u2.error)) {
+          // ★明細・入金の 改名が 落ちたら 台帳の 名前も 戻す★（対立役：台帳だけ 新しい 名前に なると 古い 名前で 出した 時に 番号が 2つ目に なる）
+          var m0 = await SB.from("invoice_no").update({ company: oldName }).eq("company", newName);
+          var m1 =
+            u1 && !u1.error
+              ? await SB.from("meisai").update({ company: oldName }).eq("company", newName)
+              : null;
+          if ((m0 && m0.error) || (m1 && m1.error)) {
+            // ★戻しも 落ちた＝台帳・明細の 名前が 割れて いる★（黙らない・対立役）
+            toast(
+              "会社名の 変更が 途中で 止まり、元に 戻せませんでした（請求番号の 台帳・明細の 一部が「" +
+                newName +
+                "」の まま）。請求書を 出す 前に 画面を 開き直し、もう一度「" +
+                newName +
+                "」へ 変えてください。"
+            );
+            renderMaster();
+            return;
+          }
           cloudErr("会社名変更", (u1 && u1.error) || (u2 && u2.error));
+          renderMaster();
           return;
         }
+        Object.keys(INVOICE_NO).forEach(function (k) {
+          var p = k.split("|");
+          if (p.slice(1).join("|") === oldName) {
+            INVOICE_NO[invNoKey(p[0], newName)] = INVOICE_NO[k];
+            delete INVOICE_NO[k];
+          }
+        });
         // MASTERの並び順を保ったままキーを差し替え
         var rebuilt = {};
         Object.keys(MASTER).forEach(function (k) {
@@ -11693,7 +11795,7 @@
             rows,
             month,
             iss,
-            invoiceNoFrozen(month, co)
+            invoiceNoMiru(month, co)
           );
           var blocks = InvoicePDF.lastBlocks ? InvoicePDF.lastBlocks() : [];
           _invCache = { sig: sig, bytes: bytes, blocks: blocks };
