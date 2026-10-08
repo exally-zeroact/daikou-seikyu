@@ -28,17 +28,8 @@
   ];
   var DEFAULT_WIDTH = { 日付: 64, 行き先: 240, 金額: 100, 備考: 80, 距離: 80, 人数: 64, 名前: 96 };
   var ROWS_PER_PAGE = 22; // 1ページの明細スロット数（実物Excel基準）
-  var ISSUER = {
-    lines: [
-      "合同会社ZEROact",
-      "ZERO代行",
-      "〒794-0018",
-      "今治市本町7-3-40　00コーポ1号",
-      "TEL090-5716-1946",
-      "登録番号：T3500003003293",
-    ],
-    bank: ["お振込先", "伊予銀行　今治支店　普通　4160657", "ド）ゼロアクト"],
-  };
+  // ★既定の 自社情報は 空★ 2026-10-08（司さん「他のユーザーにZEROactの情報はあかんやろ」）
+  var ISSUER = { lines: [], bank: [] };
 
   // ===== 純粋ユーティリティ =====
   function yen(n) {
@@ -273,7 +264,7 @@
   }
 
   // ===== 1ページぶんのシートHTML（純粋） =====
-  // issuer = { lines:[], bank:[], hanko:dataURL|null }。未指定なら組み込み既定(ZEROact・判子なし)。
+  // issuer = { lines:[], bank:[], hanko:dataURL|null }。未指定なら 空（判子なし）。
   function buildSheet(m, co, items, pageRows, ctx, issuer) {
     var iss = issuer || { lines: ISSUER.lines, bank: ISSUER.bank, hanko: null };
     var leadFilled = (m.lead || "").replace("{月}", ctx.monthNum);
