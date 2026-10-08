@@ -3818,17 +3818,50 @@
           return YOMENAI[k];
         });
       }
+      // ★文は 平らに★ 2026-10-08（司さん「読めなかったってそもそも意味が分からん」）
       function yomenaiBun(keys, what) {
         return (
+          "通信が 途切れて " +
           keys
             .map(function (k) {
               return YOMENAI_NA[k];
             })
             .join("・") +
-          " を 読めなかったので " +
+          " を 取って来られませんでした。" +
           what +
           " は しません。画面を 開き直してください。"
         );
+      }
+      // ★請求書に 要る 物★（入金は 入らない＝入金が 取れなくても 請求書は 出す・司さん 10-08）
+      var SEIKYU_KEYS = ["issuer", "invoices", "invoice_no"];
+      // ★入金が 取れない 時に 止める 会社＝前回繰越を 載せる 会社 だけ★（入金で 繰越を 計算する）
+      function kurikoshiTomeru(cos, what) {
+        if (!YOMENAI.payments) return false;
+        var ng = (cos || []).filter(function (c) {
+          return MASTER[c] && MASTER[c].carryover;
+        });
+        if (!ng.length) return false;
+        toast(
+          "通信が 途切れて 入金 を 取って来られませんでした。前回繰越を 載せる " +
+            ng.join("・") +
+            " の " +
+            what +
+            " は しません。画面を 開き直してください。"
+        );
+        return true;
+      }
+      // その 月に 明細の 在る 会社
+      function tsukiNoKaisha(month) {
+        var seen = {};
+        var out = [];
+        DB.forEach(function (r) {
+          if (r.account_id !== CURRENT_ACCOUNT || !r.会社名 || !inMonth(r.日付, month)) return;
+          if (!seen[r.会社名]) {
+            seen[r.会社名] = 1;
+            out.push(r.会社名);
+          }
+        });
+        return out;
       }
       // ★止める（真＝止めた）★
       function yomenaiTomeru(keys, what) {
@@ -3953,7 +3986,7 @@
         if (i && !i.error) YOMENAI.issuer = false;
         else cloudErr("自社情報読込", i && i.error);
         if (!i.error && i.data && i.data.config) ISSUER_SETTINGS[CURRENT_ACCOUNT] = i.data.config;
-        if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
+        if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = blankIssuer();
         migrateRegno(ISSUER_SETTINGS[CURRENT_ACCOUNT]); // ★登録番号を専用の欄へ（1度だけ・紙は変わらない）★
         return ok;
       }
@@ -4283,12 +4316,19 @@
         }
         // ★請求書・入金の 表は 読めなかった 物が 在れば 作らない★（対立役 D：Excel が 漏れていた）
         //   集計・会社別集計も 入金額・残額・状態を 載せる（対立役：入金を 読めないと「全部 未入金」の 表が 出た）
-        var xlKeys = pick.invoice
-          ? YOMENAI_ZEN
-          : pick.pay || pick.summary || pick.byco
-            ? ["payments"]
-            : [];
+        //   請求書は 入金が 取れなくても 出す（繰越の 会社 だけ 止める）・入金の 数を 載せる 表は 入金が 要る
+        var xlKeys = (pick.invoice ? SEIKYU_KEYS : []).concat(
+          pick.pay || pick.summary || pick.byco ? ["payments"] : []
+        );
         if (yomenaiTomeru(xlKeys, "Excel の 作成")) return;
+        if (pick.invoice) {
+          var _xjng = jishaNg(currentIssuer());
+          if (_xjng) {
+            toast(_xjng);
+            return;
+          }
+          if (kurikoshiTomeru(Object.keys(MASTER), "Excel の 請求書")) return;
+        }
         var allCo = document.getElementById("xlAllCo").checked;
         var allMo = document.getElementById("xlAllMo").checked;
         var cos = allCo
@@ -4705,10 +4745,7 @@
                 logoAnchors.push(anchorAt(lastCol, rmar, 90000, 0));
               // 請求日/No/期限（左・小・1グループ）。自社情報はここに出さず、下の宛名の高さに置く。
               var leftMeta = ["請求日　" + issDateStr(month, iss.dateEra)];
-              if (iss.showInvoiceNo)
-                leftMeta.push(
-                  "No. " + MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co)
-                );
+              if (iss.showInvoiceNo) leftMeta.push("No. " + invoiceNoFrozen(month, co));
               var _pdueA = iss.paymentDue || m.paymentDue;
               if (_pdueA) leftMeta.push("お支払期限　" + _pdueA);
               // ★ページ番号は請求日に足さない（PDF同様。右下に別途出す＝_xlPageNo）。
@@ -4791,8 +4828,7 @@
               // ===== 中央タイトル型（従来＝整理版） =====
               // 請求日（右上・西暦/令和は設定に従う）
               var meta = "請求日　" + issDateStr(month, iss.dateEra);
-              if (iss.showInvoiceNo)
-                meta += "　No." + MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co);
+              if (iss.showInvoiceNo) meta += "　No." + invoiceNoFrozen(month, co);
               // ★ページ番号は請求日に足さない（PDF同様・右下へ）。
               var r0 = blank();
               r0[rightStart] = meta;
@@ -5067,8 +5103,9 @@
             }
             // ★繰越★ 2026-08-12：マスタの手打ち(carryoverPrev/Paid)をやめ、
             //   ★保存した控えと入金から出した物（iss.carry）をそのまま使う★＝紙とExcelが同じ数になる
-            if (m.carryover && iss.carry) {
-              var _c = iss.carry;
+            var _crx = _carryFor(co, month); // ★その 紙の 月の 繰越★
+            if (m.carryover && _crx) {
+              var _c = _crx;
               tot.push({
                 l: _eL.前回繰越額,
                 v: _c.kurikoshi,
@@ -6693,7 +6730,7 @@
         var out = activeInvOut();
         if (!out) return;
         // ★画面の 請求書も 読めなかった 物が 在れば 描かない★（既定の 振込先・0円 入金の 繰越を 見せない）
-        var yk = yomenaiNo(YOMENAI_ZEN);
+        var yk = yomenaiNo(SEIKYU_KEYS);
         if (yk.length) {
           out.classList.remove("inv-loading");
           out.innerHTML =
@@ -6748,7 +6785,7 @@
                 rows,
                 month,
                 _coIss,
-                InvoicePDF.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, onlyCo, DB)
+                invoiceNoFrozen(month, onlyCo)
               );
               blocks = window.InvoicePDF && InvoicePDF.lastBlocks ? InvoicePDF.lastBlocks() : [];
               _invCache = { sig: sig, bytes: bytes, blocks: blocks };
@@ -7073,7 +7110,7 @@
       // スライダー適用。save=false(oninput)=ライブ反映(クラウド保存しない)／save=true(onchange=離した時)=クラウド保存。
       //   ★ドラッグ中はパネル(スライダー)を再描画しない＝つまみが指の下から飛ばない。
       function _fsApply(key, raw, save) {
-        if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
+        if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = blankIssuer();
         var s = ISSUER_SETTINGS[CURRENT_ACCOUNT];
         var m = Object.assign({}, s.blkFs || {});
         m[key] = _fsSnap(raw);
@@ -7189,7 +7226,16 @@
       }
       // 請求書PDFのbytes生成（保存/印刷で共有）。該当なし等は toast して null を返す。
       async function _buildInvoiceBytes() {
-        if (yomenaiTomeru(YOMENAI_ZEN, "請求書の 作成")) return null;
+        if (yomenaiTomeru(SEIKYU_KEYS, "請求書の 作成")) return null;
+        var _jng = jishaNg(currentIssuer());
+        if (_jng) {
+          toast(_jng);
+          return null;
+        }
+        var _m0 = document.getElementById("invMonth").value;
+        var _c0 = document.getElementById("invCompany").value;
+        if (_m0 && kurikoshiTomeru(_c0 ? [_c0] : tsukiNoKaisha(_m0), "請求書の 作成")) return null;
+        if (_m0 && bangouTomeru(_m0, _c0 ? [_c0] : tsukiNoKaisha(_m0))) return null;
         var month = document.getElementById("invMonth").value;
         if (!month) {
           toast("月を選んでください");
@@ -7748,7 +7794,7 @@
         renderEditPanel("cols");
       }
       function editLogoSize(delta) {
-        if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
+        if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = blankIssuer();
         var s = ISSUER_SETTINGS[CURRENT_ACCOUNT];
         s.logoSizeMm = Math.max(10, Math.min(46, (Number(s.logoSizeMm) || 40) + delta));
         saveIssuerSoon();
@@ -7757,7 +7803,7 @@
         renderEditPanel("logo");
       }
       function editHankoSize(delta) {
-        if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
+        if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = blankIssuer();
         var s = ISSUER_SETTINGS[CURRENT_ACCOUNT];
         s.hankoSizeMm = Math.max(10, Math.min(40, (Number(s.hankoSizeMm) || 21) + delta));
         saveIssuerSoon();
@@ -8099,10 +8145,11 @@
       function invoiceNoPeek(month, co) {
         var k = invNoKey(month, co);
         if (INVOICE_NO[k]) return INVOICE_NO[k]; // 発行済みは それを 使う
-        return MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co); // ★保存しない★
+        return bangouKeisan(month, co); // ★保存しない★
       }
       async function previewInvoiceFromPay(btn, month, co) {
-        if (yomenaiTomeru(YOMENAI_ZEN, "請求書の 確認")) return;
+        if (yomenaiTomeru(SEIKYU_KEYS, "請求書の 確認")) return;
+        if (kurikoshiTomeru([co], "請求書の 確認")) return;
         if (typeof InvoicePDF === "undefined") {
           toast("PDFモジュールの読み込み待ちです。少し待って再度押してください");
           return;
@@ -8130,7 +8177,7 @@
             co,
             rows,
             month,
-            issuerForEngine(co),
+            issuerForEngine(co, month),
             invoiceNoPeek(month, co)
           );
           var blob = new Blob([bytes], { type: "application/pdf" });
@@ -8789,10 +8836,54 @@
         return month + "|" + co;
       }
       // 画面に出す番号（読むだけ・書かない）。台帳に在ればそれ、無ければ今までどおりの計算。
+      // ★★番号は 1か所で 決める★★ 2026-10-08（司さん「台帳ってなんど、ほんでなんで変わるんど」）
+      //   台帳（出した 番号の 控え）に 在れば それ。無ければ「全部の 月の 会社の 並び」の 計算（全社 PDF と 同じ 1本）
+      //   前は 1社の PDF・全社 PDF・Excel・画面の 見本で 計算が 2通り 在り、会社を 足すと 番号が ずれた
+      function bangouKeisan(month, co) {
+        return InvoicePDF.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co, DB);
+      }
       function invoiceNoFrozen(month, co) {
         var k = invNoKey(month, co);
         if (INVOICE_NO[k]) return INVOICE_NO[k];
-        return MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co);
+        return bangouKeisan(month, co);
+      }
+      // ★台帳に 無い 会社の 計算の 番号が、台帳で 別の 会社に 出した 番号と 同じ＝重なり★（止める）
+      // ★番号を 紙に 刷らない 時（showInvoiceNo が 切）は 止めない★ 2026-10-08 対立役
+      //   刷らない 番号の ために 月の 全社まとめを 止めていた（本番は 切＝飛勝工業 8月で 8月の 全社 PDF が 止まる 所だった）
+      function bangouButsukari(month, cos) {
+        if (!currentIssuer().showInvoiceNo) return [];
+        return bangouKasanari(month, cos);
+      }
+      // 刷るか どうかに 関わらず 重なりを 数える（台帳へ 書く 前に 使う＝同じ 番号を 2社に 書かない）
+      function bangouKasanari(month, cos) {
+        var deta = {};
+        Object.keys(INVOICE_NO).forEach(function (k) {
+          deta[INVOICE_NO[k]] = k.split("|").slice(1).join("|");
+        });
+        var out = [];
+        (cos || []).forEach(function (co) {
+          if (INVOICE_NO[invNoKey(month, co)]) return;
+          var no = bangouKeisan(month, co);
+          if (deta[no] && deta[no] !== co) out.push({ co: co, no: no, saki: deta[no] });
+        });
+        return out;
+      }
+      function bangouBun(month, b) {
+        return (
+          "請求番号が 重なります：" +
+          b
+            .map(function (x) {
+              return x.co + " の 番号 " + x.no + " は 既に " + x.saki + " に 出した 番号です";
+            })
+            .join("／") +
+          "。この 請求書は 出しません。"
+        );
+      }
+      function bangouTomeru(month, cos) {
+        var b = bangouButsukari(month, cos);
+        if (!b.length) return false;
+        toast(bangouBun(month, b));
+        return true;
       }
       /* ★番号を決めるのは この1本だけ★
          決める所が2つに割れていると、片方を壊しても もう片方が庇って
@@ -8803,7 +8894,11 @@
         if (YOMENAI.invoice_no) throw new Error("請求番号の台帳を読めていません");
         var k = invNoKey(month, co);
         if (INVOICE_NO[k]) return INVOICE_NO[k]; // ★一度 決めた番号は動かさない★
-        var no = MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co);
+        var no = bangouKeisan(month, co);
+        if (bangouKasanari(month, [co]).length) {
+          if (currentIssuer().showInvoiceNo) throw new Error("請求番号が 重なります");
+          return no; // ★刷らない 時は 出すが 台帳には 書かない★（別の 会社の 番号を 2重に 控えない）
+        }
         INVOICE_NO[k] = no;
         if (SB && CURRENT_ACCOUNT) {
           try {
@@ -8900,6 +8995,28 @@
       }
       var ISSUER_SETTINGS = {};
       // 自社情報は「自由な行」。要らない行は消す、足したい行は足す＝定義駆動。
+      // ★★自社情報の 行が 無い 客の 既定＝会社名・振込先・登録番号は 空★★ 2026-10-08（司さん「自社情報を入れて下さいと警告をだせや」）
+      //   前は defaultIssuer()＝ZEROact の 会社名・住所・振込先・登録番号が 入り、そのまま 他の 客の 請求書に 刷られた
+      //   （様式・字の 大きさを 1回 触ると ZEROact の 字ごと その 客の 行に 保存された）
+      function blankIssuer() {
+        var b = defaultIssuer();
+        b.issuer = "";
+        b.bank = "";
+        b.regno = "";
+        delete b.regnoPrefix;
+        delete b.regnoIdx;
+        return b;
+      }
+      // ★自社情報が 入っていない 時の 文（真＝止める）★
+      function jishaNg(s) {
+        var naki = [];
+        if (!String((s && s.issuer) || "").trim()) naki.push("会社名・住所");
+        if (!String((s && s.bank) || "").trim()) naki.push("振込先");
+        if (!regnoOf(s)) naki.push("登録番号");
+        if (naki.length)
+          return "自社情報を入れてください（設定 ▸ 自社情報）。" + naki.join("・") + " が 空です。";
+        return regnoNg(s);
+      }
       function defaultIssuer() {
         // ★既定も 専用の欄に移した形で返す（読む所を1本にする）★
         return migrateRegno({
@@ -8943,7 +9060,7 @@
         } catch (e) {
           ISSUER_SETTINGS = {};
         }
-        if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
+        if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = blankIssuer();
         migrateIssuer();
       }
       // 旧「固定8項目」形式があれば自由行形式へ変換／デザイン項目の補完
@@ -8987,7 +9104,7 @@
         // ★自社情報を 読めていない 時は 書かない★（既定の 値で 本物の 判子・振込先・登録番号を 上書きした・対立役 A2）
         if (yomenaiTomeru(["issuer"], "自社情報の 保存")) return;
         // 自社情報（1業者1行）をクラウドにupsert
-        var cfg = ISSUER_SETTINGS[CURRENT_ACCOUNT] || defaultIssuer();
+        var cfg = ISSUER_SETTINGS[CURRENT_ACCOUNT] || blankIssuer();
         var up = await SB.from("issuer").upsert(
           { user_id: CURRENT_ACCOUNT, config: cfg, updated_at: new Date().toISOString() },
           { onConflict: "user_id" }
@@ -8995,7 +9112,7 @@
         if (up.error) cloudErr("自社情報保存", up.error);
       }
       function currentIssuer() {
-        return ISSUER_SETTINGS[CURRENT_ACCOUNT] || defaultIssuer();
+        return ISSUER_SETTINGS[CURRENT_ACCOUNT] || blankIssuer();
       }
       /* ===== 登録番号（適格請求書） ===================================================
          ★2026-08-11 まで 登録番号は「自社情報」の自由入力の1行に手で書いていた★。
@@ -9149,7 +9266,7 @@
             return x.key === vkey;
           })[0] || designVariants(design)[0];
         // ★実際に刷る時と同じ関数・同じ設定★。デザインと種類だけ この見本の物に差し替える。
-        var iss = issuerForEngine(samp.co);
+        var iss = issuerForEngine(samp.co, samp.month);
         iss = Object.assign({}, iss, {
           pdfDesign: design,
           headerStyle: v.headerStyle,
@@ -9161,7 +9278,7 @@
           samp.rows,
           samp.month,
           iss,
-          InvoicePDF.invoiceNoFor(MASTER, CURRENT_ACCOUNT, samp.month, samp.co, DB)
+          invoiceNoFrozen(samp.month, samp.co) // ★見本も 台帳の 番号（番号の 道を 1本に）★
         );
         _tplThumbCache[key] = bytes;
         return bytes;
@@ -9308,10 +9425,11 @@
       // エンジンが受け取る形（lines/bank/hanko）へ変換。空行は自動で除外。
       /* ★繰越の中身を作る（会社が「使う」を選んだ時だけ）★
          月は請求タブで選んでいる月。選ばれていなければ 繰越は出さない。 */
-      function _carryFor(co) {
+      // ★月は 引数で★ 2026-10-08（対立役：Excel で 複数の 月を 出すと 請求タブで 選んだ 月の 繰越が 他の 月の 紙にも 刷られた）
+      function _carryFor(co, mo) {
         if (!co || !MASTER[co] || !MASTER[co].carryover) return null;
         var el = document.getElementById("invMonth");
-        var month = el ? el.value : "";
+        var month = mo || (el ? el.value : "");
         if (!month) return null;
         var rows = DB.filter(function (r) {
           return r.account_id === CURRENT_ACCOUNT && r.会社名 === co && inMonth(r.日付, month);
@@ -9325,7 +9443,7 @@
           carryNyukinFor(month, co)
         );
       }
-      function issuerForEngine(co) {
+      function issuerForEngine(co, mo) {
         var s = currentIssuer();
         var bankLines = splitLines(s.bank);
         // ★デザインの解決順：①請求タブ一時上書き(全社強制) → ②会社毎テンプレ → ③全体設定（既定）。
@@ -9364,7 +9482,7 @@
               : "",
           // ★繰越（会社ごと・既定は使わない）★ 紙とExcelに同じ物を渡す
           taxMode: (_m && _m.taxMode) === "外税" ? "外税" : "内税",
-          carry: _carryFor(co),
+          carry: _carryFor(co, mo),
           hanko: s.hanko || null,
           hankoSizeMm: Number(s.hankoSizeMm) || 21,
           logo: s.logo || null,
@@ -9382,8 +9500,26 @@
          押せて何も起きない、にしない＝★押させない＋理由（どこで入れるか）まで出す★ */
       function updateRegnoGate() {
         // ★読めなかった 物が 在れば 出す ボタンも 止める★（ボタンの「出せる」と 門が 同じ 物を 見る）
-        var yk = yomenaiNo(YOMENAI_ZEN);
-        var ng = yk.length ? yomenaiBun(yk, "請求書の 作成") : regnoNg(currentIssuer());
+        var yk = yomenaiNo(SEIKYU_KEYS);
+        var _gm = (document.getElementById("invMonth") || {}).value || "";
+        var _gc = (document.getElementById("invCompany") || {}).value || "";
+        var _gcos = _gm ? (_gc ? [_gc] : tsukiNoKaisha(_gm)) : [];
+        var _gkuri = YOMENAI.payments
+          ? _gcos.filter(function (c) {
+              return MASTER[c] && MASTER[c].carryover;
+            })
+          : [];
+        var _gban = _gm ? bangouButsukari(_gm, _gcos) : [];
+        var ng = yk.length
+          ? yomenaiBun(yk, "請求書の 作成")
+          : _gkuri.length
+            ? "通信が 途切れて 入金 を 取って来られませんでした。前回繰越を 載せる " +
+              _gkuri.join("・") +
+              " の 請求書は しません。画面を 開き直してください。"
+            : _gban.length
+              ? bangouBun(_gm, _gban)
+              : jishaNg(currentIssuer());
+        if (_gkuri.length || _gban.length) yk = ["_"];
         ["btnInvPdf", "btnInvPrint", "btnInvExcel"].forEach(function (id) {
           var b = document.getElementById(id);
           if (b) b.disabled = !!ng;
@@ -9396,7 +9532,8 @@
           return;
         }
         w.hidden = false;
-        if (yk.length) {
+        // ★自社情報が 空の 時は 登録番号の 案内を 足さない★（振込先が 空の 客に 違う 直し方を 教えていた・対立役）
+        if (yk.length || ng.indexOf("自社情報を入れてください") === 0) {
           w.innerHTML = "<b>" + esc(ng) + "</b>";
           return;
         }
@@ -9431,7 +9568,7 @@
         toast("お支払期限を" + (val === "reiwa" ? "令和" : "西暦") + "表記にしました");
       }
       function setIssuer(field, value) {
-        if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = defaultIssuer();
+        if (!ISSUER_SETTINGS[CURRENT_ACCOUNT]) ISSUER_SETTINGS[CURRENT_ACCOUNT] = blankIssuer();
         ISSUER_SETTINGS[CURRENT_ACCOUNT][field] = value;
         saveIssuer();
         updateRegnoGate(); // 直したその場で 出せる/出せないを切り替える
@@ -11529,7 +11666,7 @@
       // ログイン後の空き時間に「最新月×データのある会社」の請求書を1枚だけ先行ビルドしてキャッシュ。
       //   編集/請求タブを開いた時は再ビルド不要＝描画だけ（解像度はそのまま）。
       async function _prebuildPreview() {
-        if (yomenaiNo(YOMENAI_ZEN).length) return; // ★読めなかった 物が 在れば 先作り しない★
+        if (yomenaiNo(YOMENAI_ZEN).length) return; // ★取って来られなかった 物が 在れば 先作り しない★
         try {
           if (!window.InvoicePDF || !InvoicePDF.buildOne) return;
           var rowsAll = DB.filter(function (r) {
@@ -11567,7 +11704,7 @@
             rows,
             month,
             iss,
-            MeisaiEngine.invoiceNoFor(MASTER, CURRENT_ACCOUNT, month, co)
+            invoiceNoFrozen(month, co)
           );
           var blocks = InvoicePDF.lastBlocks ? InvoicePDF.lastBlocks() : [];
           _invCache = { sig: sig, bytes: bytes, blocks: blocks };

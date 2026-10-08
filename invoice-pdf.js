@@ -1270,10 +1270,12 @@
      実測（請求書アプリ）… 3,087,087B → 88,558B（35分の1）・絵は 1画素も 違わない。 */
   var _slimFallback = false;
   /** ★丸ごとに 戻ってしまったか★（戻ったまま 気づかない を 作らない） */
-  function lastFallback() { return _slimFallback; }
+  function lastFallback() {
+    return _slimFallback;
+  }
   function _slimBuild(a, draw) {
     _slimFallback = false;
-    var PS = (typeof window !== 'undefined') ? window.PdfSlim : null;
+    var PS = typeof window !== "undefined" ? window.PdfSlim : null;
     if (!PS) {
       /* ★★丸ごとに 戻る道（SLIM-FALLBACK）★★
          受け皿が 読めていない時だけ 通る。★ここを 通ると PDFは 3MBに 戻る★。
@@ -1351,7 +1353,8 @@
       ctx.logoImg = await embedImg(doc, iss && iss.logo);
       ctx.hankoImg = await embedImg(doc, iss && iss.hanko);
       for (var si = 0; si < shigoto.length; si++) {
-        var co = shigoto[si].co, rows = shigoto[si].rows;
+        var co = shigoto[si].co,
+          rows = shigoto[si].rows;
         // ★会社毎テンプレ：issForCo(co)があればその会社のデザインで描く（font/ロゴ/判子はdoc共通）。
         var issCo = (typeof issForCo === "function" && issForCo(co)) || iss;
         await drawCompany(
@@ -1361,7 +1364,10 @@
           rows,
           month,
           issCo,
-          invoiceNoFor(master, accountId, month, co, db)
+          // ★台帳の 番号（画面の invoiceNoFrozen）が 在れば それ★ 2026-10-08（1社の PDF と 同じ 番号）
+          typeof invoiceNoFrozen === "function"
+            ? invoiceNoFrozen(month, co)
+            : invoiceNoFor(master, accountId, month, co, db)
         );
       }
       _lastMissing = [..._cov.missing];

@@ -121,8 +121,15 @@ export const STOPS = [
     },
     close: async (p) => {
       // 次の所のために 入り直す（作り物データを元に戻す）
+      // ★元の 人（u_ink）で 入り直す★ 2026-10-08（前は 消した session の まま＝別の 人で 入り、
+      //   自社情報の 無い 客に なった。前は ZEROact の 既定が 埋めていて 気づかなかった）
       await p.addInitScript(() => {
         window.__FAKE_NO_SESSION__ = false;
+        try {
+          const db = JSON.parse(localStorage.getItem("__fake_supa_db__") || "{}");
+          db.session = { user: { id: "u_ink", email: "t@x.com" } };
+          localStorage.setItem("__fake_supa_db__", JSON.stringify(db));
+        } catch (e) {}
       });
       await p.reload({ waitUntil: "load" });
       await p.waitForSelector("#scr-input", { state: "visible", timeout: 30000 });
