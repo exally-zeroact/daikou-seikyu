@@ -1,0 +1,8 @@
+# 禁止の字の見張りの白名簿（道<TAB>種類<TAB>git の blob の id 頭16字<TAB>訳）。中身を見て 本物の隠す値でないと確かめた物だけ。
+vendor/fonts/BIZUDGothic-Bold.ttf	未測定1	6f7a113738fc4dce	借り物の字体・BIZ UD
+vendor/fonts/BIZUDGothic-Regular.ttf	未測定1	dd215603417e88b1	借り物の字体・BIZ UD
+vendor/fonts/BIZUDMincho-Bold.ttf	未測定1・当たり5	9396ff9bfe28e026	借り物の字体・BIZ UD
+vendor/fonts/BIZUDMincho-Regular.ttf	未測定1・当たり1	b5a3f4cc698be74c	借り物の字体・BIZ UD
+vendor/fonts/BIZUDPGothic-Bold.ttf	未測定1	8cfe34552b6106d0	借り物の字体・BIZ UD
+vendor/fonts/BIZUDPGothic-Regular.ttf	未測定1	0753da0963c2fa25	借り物の字体・BIZ UD
+vendor/fonts/BIZUDPMincho-Regular.ttf	未測定1・当たり1	7c8da027434fdafe	借り物の字体・BIZ UD

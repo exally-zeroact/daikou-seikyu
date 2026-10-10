@@ -2,6 +2,7 @@
   "name": "exally",
   "version": "1.0.0",
   "scripts": {
+    "kinshi": "node tests/kinshi-ji.test.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
