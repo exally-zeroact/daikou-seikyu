@@ -26,7 +26,7 @@ const OUT = process.env.REGNO_OUT || path.join("test-results", "regno");
 const CO = "飛勝工業株式会社";
 // ★本番に今 入っている物と同じ形（6行）★
 const HONBAN_ISSUER =
-  "合同会社ZEROact\nZERO代行\n〒794-0018\n今治市本町7-3-40　00コーポ1号\nTEL000-0000-0000\n登録番号：T3500003003293";
+  "合同会社ZEROact\nZERO代行\n〒100-0000\n東京都架空区見本台1-2-3\nTEL000-0000-0000\n登録番号：T9000000000009";
 
 function seed(issuerText) {
   const uid = "u_regno";
@@ -68,7 +68,7 @@ function seed(issuerText) {
         issuer: [
           {
             user_id: uid,
-            config: { issuer: issuerText, bank: "伊予銀行　今治支店　普通　0000001" },
+            config: { issuer: issuerText, bank: "見本銀行　見本支店　普通　7654321" },
             updated_at: "2026-08-01T00:00:00.000Z",
           },
         ],
@@ -95,16 +95,16 @@ test("★形の判定★ 空・T無し・桁違い・全角 を弾き、正し�
     const f = window.regnoNg;
     const T = (v) => (f({ regno: v }) ? "弾く" : "通す");
     return {
-      "正しい T+13桁": T("T3500003003293"),
+      "正しい T+13桁": T("T9000000000009"),
       空: T(""),
       未設定: window.regnoNg({}) ? "弾く" : "通す",
-      "T が無い": T("3500003003293"),
-      "12桁": T("T350000300329"),
-      "14桁": T("T35000030032931"),
-      全角のT: T("Ｔ3500003003293"),
-      全角の数字: T("T３５００００３００３２９３"),
-      前後に空白: T("  T3500003003293  "),
-      小文字t: T("t3500003003293"),
+      "T が無い": T("9000000000009"),
+      "12桁": T("T900000000000"),
+      "14桁": T("T90000000000091"),
+      全角のT: T("Ｔ9000000000009"),
+      全角の数字: T("T９０００００００００００９"),
+      前後に空白: T("  T9000000000009  "),
+      小文字t: T("t9000000000009"),
     };
   });
   expect(r).toEqual({
@@ -188,7 +188,7 @@ test("★専用の欄に移しても 自社情報は1文字も消えない★", 
     return { moto: moto.split("\n"), ima: lines, regno: window.regnoOf(s) };
   }, HONBAN_ISSUER);
 
-  expect(r.regno, "登録番号が専用の欄に移っていない").toBe("T3500003003293");
+  expect(r.regno, "登録番号が専用の欄に移っていない").toBe("T9000000000009");
   // ★紙に出る行は 元と1行も違わない★
   expect(
     r.ima,

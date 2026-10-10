@@ -91,8 +91,8 @@ function seed() {
           {
             user_id: uid,
             config: {
-              issuer: "合同会社ZEROact\nZERO代行\n今治市本町7-3-40",
-              bank: "伊予銀行",
+              issuer: "合同会社ZEROact\nZERO代行\n東京都架空区見本台1-2-3",
+              bank: "見本銀行",
               showInvoiceNo: true,
             },
             updated_at: "2026-08-01T00:00:00.000Z",

@@ -75,8 +75,8 @@ function seed(amount) {
             user_id: uid,
             config: {
               issuer:
-                "合同会社ZEROact\nZERO代行\n〒794-0018\n今治市本町7-3-40　00コーポ1号\nTEL000-0000-0000\n登録番号：T3500003003293",
-              bank: "伊予銀行",
+                "合同会社ZEROact\nZERO代行\n〒100-0000\n東京都架空区見本台1-2-3\nTEL000-0000-0000\n登録番号：T9000000000009",
+              bank: "見本銀行",
               showInvoiceNo: true, // ★紙にも番号を出す＝紙の番号まで数えるため★
             },
             updated_at: "2026-08-01T00:00:00.000Z",
@@ -154,7 +154,7 @@ test("★出した瞬間に控えが残り、明細を直しても その控え�
   // 写しの中身（明細・自社情報・様式）
   expect(after1.invoices[0].rows_json.length, "明細の写しが無い").toBe(1);
   expect(after1.invoices[0].rows_json[0].金額).toBe(12000);
-  expect(after1.invoices[0].issuer_json.regno, "登録番号の写しが無い").toBe("T3500003003293");
+  expect(after1.invoices[0].issuer_json.regno, "登録番号の写しが無い").toBe("T9000000000009");
 
   // ★明細を後から直す＋会社を1社 足す（同じ画面で）★
   //   会社を足さないと 番号は元々動かないので、

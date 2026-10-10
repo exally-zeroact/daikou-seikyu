@@ -57,8 +57,8 @@ function seed() {
           {
             user_id: uid,
             config: {
-              issuer: "合同会社ZEROact\n登録番号：T3500003003293",
-              bank: "伊予銀行",
+              issuer: "合同会社ZEROact\n登録番号：T9000000000009",
+              bank: "見本銀行",
             },
             updated_at: "2026-08-01T00:00:00.000Z",
           },
@@ -251,10 +251,10 @@ test("★自社情報の 無い 客 ⇒ 警告・請求書は 作らない・ZER
   });
   console.log("★自社情報 無し★ " + JSON.stringify(r).slice(0, 300));
   expect(r.bank + r.issuer, "★ZEROact の 字が 入っている★").not.toMatch(
-    /ZEROact|0000001|T3500003003293/
+    /ZEROact|7654321|T9000000000009/
   );
   expect(r.saved, "★ZEROact の 字が 他の 客の 行に 保存された★").not.toMatch(
-    /0000001|T3500003003293/
+    /7654321|T9000000000009/
   );
   expect(r.bytes, "★自社情報が 無いのに 請求書を 作った★").toBeNull();
 });

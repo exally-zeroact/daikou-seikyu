@@ -66,7 +66,7 @@ function seed() {
         issuer: [
           {
             user_id: uid,
-            config: { issuer: "合同会社ZEROact\nZERO代行", bank: "伊予銀行", showInvoiceNo: true },
+            config: { issuer: "合同会社ZEROact\nZERO代行", bank: "見本銀行", showInvoiceNo: true },
             updated_at: "2026-08-01T00:00:00.000Z",
           },
         ],
