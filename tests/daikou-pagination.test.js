@@ -5,7 +5,7 @@ import { fileURLToPath } from "url";
 
 // ★2026-07-30 の実バグ回帰: 代行請求アプリが meisai を .select("*") だけで読んでいて、
 //   Supabase(PostgREST) の既定 max_rows=1000 で 1000件を超えると"黙って"欠落していた。
-//   司さん本人の 1,080件が請求書に反映されず飛勝工業ほかの一覧が消えていた。
+//   司さん本人の 1,080件が請求書に反映されず験模工業ほかの一覧が消えていた。
 //   根治として fetchAllQ(build)（count:"exact"を見て .range で全ページ取得）を入れた。
 //   このテストは "画面が読むのと同じ実ファイル" から fetchAllQ を取り出して固定する（写経ではない）。
 
@@ -49,8 +49,8 @@ function makeSource(total, opts = {}) {
       if (opts.errorOnCall && calls === opts.errorOnCall) {
         return Promise.resolve({ data: null, error: { message: "boom" }, count: null });
       }
-      const cap = opts.serverCap || PAGE;           // サーバ側 max_rows（既定1000・小さくもできる）
-      const width = Math.min(to - from + 1, cap);   // 1回で返せるのは最大 cap
+      const cap = opts.serverCap || PAGE; // サーバ側 max_rows（既定1000・小さくもできる）
+      const width = Math.min(to - from + 1, cap); // 1回で返せるのは最大 cap
       const slice = all.slice(from, from + width);
       return Promise.resolve({
         data: slice,

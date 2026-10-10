@@ -23,13 +23,13 @@ import path from "node:path";
 
 test.setTimeout(180000);
 
-const CO = "飛勝工業株式会社";
+const CO = "験模工業株式会社";
 // 端数が出る額にする（1円のズレが見える）
 const KINGAKU = [12345, 8601, 9407];
 
 function seed(amounts) {
   const uid = "u_tot";
-  const co = "飛勝工業株式会社";
+  const co = "験模工業株式会社";
   localStorage.setItem(
     "__fake_supa_db__",
     JSON.stringify({
@@ -106,7 +106,7 @@ test("★紙とエンジンの合計が1円も違わない★", async ({ page })
 
   // ① エンジンの答え（唯一の計算元）
   const engine = await page.evaluate(() => {
-    const rows = window.DB.filter((r) => r.会社名 === "飛勝工業株式会社");
+    const rows = window.DB.filter((r) => r.会社名 === "験模工業株式会社");
     return window.MeisaiEngine.invoiceTotals(rows, {});
   });
   expect(engine.shoukei, "見本の合計が違う").toBe(KINGAKU.reduce((a, b) => a + b, 0));
@@ -130,7 +130,7 @@ test("★紙とエンジンの合計が1円も違わない★", async ({ page })
 
   // ④ ★言葉も 紙とエンジンで同じか★（半角/全角カッコまで含めて1文字も違わない）
   const L = await page.evaluate(() =>
-    window.MeisaiEngine.totalsLabels(window.MASTER["飛勝工業株式会社"], {})
+    window.MeisaiEngine.totalsLabels(window.MASTER["験模工業株式会社"], {})
   );
   expect(
     t,

@@ -38,7 +38,7 @@ const ACCENTS = [
 
 function seed() {
   const uid = "u_pi";
-  const co = "株式会社 生野組";
+  const co = "株式会社 標様本";
   const rows = [0, 1, 2].map((i) => ({
     id: "m" + i,
     user_id: uid,
@@ -204,7 +204,7 @@ test("★全体の色を3つに変えても 本文・明細・金額の濃さが
   await expect(page.locator("#scr-input")).toBeVisible({ timeout: 30000 });
   await page.locator('.nav-item[data-scr="billing"]').click();
   await page.selectOption("#invMonth", "2026-05");
-  await page.selectOption("#invCompany", "株式会社 生野組");
+  await page.selectOption("#invCompany", "株式会社 標様本");
   await expect(page.locator("#invoiceOut.inv-loading")).toHaveCount(0, { timeout: 120000 });
 
   // 紙の中の代表を4つ測る：明細の文字／明細の金額／合計／タイトル

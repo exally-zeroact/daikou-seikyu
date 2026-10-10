@@ -15,7 +15,7 @@ import path from "node:path";
 //     3. 「線ひかえめ」/「枠と帯」… 紙の見た目を切り替える
 //     4. 下のナビ「請求」          … 請求書の画面へ
 //     5. 「月」を 2026年5月 に      … select#invMonth
-//     6. 「会社」を 飛勝工業株式会社 … select#invCompany
+//     6. 「会社」を 験模工業株式会社 … select#invCompany
 //     7. 「📄 PDFで保存 / 送る」    … → <design>.pdf
 //     8. 「📊 Excelに書き出し」     … モーダルを開く
 //     9. 「📥 このExcelを作る」     … → <design>.xlsx
@@ -24,7 +24,7 @@ import path from "node:path";
 // ============================================================
 
 const OUT = process.env.SHIKISAI_OUT || path.join("test-results", "shikisai");
-const CO = "飛勝工業株式会社";
+const CO = "験模工業株式会社";
 // ★人に見せる名前は「形」で言う（2026-08-18）★ 中の名前(elegant/classic)はデータのまま
 const DESIGNS = [
   ["elegant", "線ひかえめ"],
@@ -33,7 +33,7 @@ const DESIGNS = [
 
 function seedDb() {
   const uid = "u_shikisai";
-  const co = "飛勝工業株式会社";
+  const co = "験模工業株式会社";
   const rows = [
     ["2026-05-06", "本社〜北浜〜曽根崎", 12000, "深夜"],
     ["2026-05-11", "南森町〜天満橋", 8600, ""],

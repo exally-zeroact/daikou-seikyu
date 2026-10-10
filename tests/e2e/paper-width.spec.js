@@ -34,7 +34,7 @@ const WIDTHS = [375, 390, 412];
 
 function seedDb() {
   const uid = "u_width";
-  const co = "飛勝工業株式会社";
+  const co = "験模工業株式会社";
   localStorage.setItem(
     "__fake_supa_db__",
     JSON.stringify({

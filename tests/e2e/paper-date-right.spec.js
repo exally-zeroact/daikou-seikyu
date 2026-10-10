@@ -14,7 +14,7 @@ import { test, expect } from "@playwright/test";
 
 test.setTimeout(240000);
 
-const CO = "飛勝工業株式会社";
+const CO = "験模工業株式会社";
 // 桁の違う日付を混ぜる（8/6 と 8/11 と 8/18）＝右揃えと中央揃えの差が必ず出る
 const ROWS = [
   ["2026-08-06", "本社〜北浜〜曽根崎", 12000],

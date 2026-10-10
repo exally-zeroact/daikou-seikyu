@@ -12,11 +12,11 @@ function seedDb() {
   const total = 1080;
   const meisai = [];
   for (let i = 0; i < total; i++) {
-    // 5月に集中させ、飛勝工業と別会社に散らす（"最近だけ落ちる"のではない事も兼ねて）
+    // 5月に集中させ、験模工業と別会社に散らす（"最近だけ落ちる"のではない事も兼ねて）
     meisai.push({
       id: "m" + i,
       user_id: uid,
-      company: i % 3 === 0 ? "飛勝工業株式会社" : "協同組合友愛会",
+      company: i % 3 === 0 ? "験模工業株式会社" : "験模雛式架験模",
       date: "2026-05-" + String((i % 28) + 1).padStart(2, "0"),
       destination: "現場" + i,
       amount: 1000 + i,
@@ -38,7 +38,7 @@ function seedDb() {
         {
           id: "c1",
           user_id: uid,
-          name: "飛勝工業株式会社",
+          name: "験模工業株式会社",
           items: [],
           config: {},
           created_at: "2026-05-01T00:00:00.000Z",
@@ -47,7 +47,7 @@ function seedDb() {
         {
           id: "c2",
           user_id: uid,
-          name: "協同組合友愛会",
+          name: "験模雛式架験模",
           items: [],
           config: {},
           created_at: "2026-05-01T00:00:00.000Z",
@@ -77,9 +77,9 @@ test("代行請求: 1,080件（1000超）を1件も落とさず全部読み込�
   const loaded = await page.evaluate(() => window.DB.length);
   expect(loaded, "1000件で頭打ち＝ページングが効いていない").toBe(TOTAL);
 
-  // 飛勝工業の分（i%3===0）も全部そろっている
+  // 験模工業の分（i%3===0）も全部そろっている
   const hikatsu = await page.evaluate(
-    () => window.DB.filter((r) => r["会社名"] === "飛勝工業株式会社").length
+    () => window.DB.filter((r) => r["会社名"] === "験模工業株式会社").length
   );
   expect(hikatsu).toBe(Math.floor((TOTAL + 2) / 3)); // i=0,3,...,1079 → 360件
 

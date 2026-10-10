@@ -12,8 +12,8 @@
 // 画面に出す作り物のデータ（実物と同じ形）。入金が無いと 入金/集計の数字を見ないまま緑になる。
 export function seed() {
   const uid = "u_ink";
-  const co1 = "株式会社 生野組";
-  const co2 = "飛勝工業株式会社";
+  const co1 = "株式会社 標様本";
+  const co2 = "験模工業株式会社";
   const dests = ["今治市喜田村", "今治市東鳥生町", "西条市郷桜井", "今治市小泉", "今治市東門町"];
   const rows = dests.map((d, i) => ({
     id: "m" + i,

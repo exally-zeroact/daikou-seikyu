@@ -14,7 +14,7 @@ import { test, expect } from "@playwright/test";
 //   ★★わざと壊して 赤に なるのを 見た（2026-10-08 実測）★★ 下の 試験の 頭に 書く
 // ============================================================
 
-const CO = "飛勝工業株式会社";
+const CO = "験模工業株式会社";
 test.setTimeout(120000);
 
 function seed() {

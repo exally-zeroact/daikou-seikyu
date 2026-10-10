@@ -29,7 +29,7 @@ import { test, expect } from "@playwright/test";
 //     戻した後 ………………………………………… 赤 0 / 全 2
 // ============================================================
 
-const CO = "飛勝工業株式会社";
+const CO = "験模工業株式会社";
 const TSUKI = "2026-05";
 
 // ★3MBのPDFを作って 中身の字まで 読む★ ので 既定の30秒では 時間切れで 赤に なる。
@@ -37,7 +37,7 @@ test.setTimeout(180000);
 
 function seed() {
   const uid = "u_kakunin";
-  const co = "飛勝工業株式会社";
+  const co = "験模工業株式会社";
   localStorage.setItem(
     "__fake_supa_db__",
     JSON.stringify({

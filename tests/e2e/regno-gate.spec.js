@@ -23,14 +23,14 @@ import path from "node:path";
 // ============================================================
 
 const OUT = process.env.REGNO_OUT || path.join("test-results", "regno");
-const CO = "飛勝工業株式会社";
+const CO = "験模工業株式会社";
 // ★本番に今 入っている物と同じ形（6行）★
 const HONBAN_ISSUER =
   "合同会社ZEROact\nZERO代行\n〒100-0000\n東京都架空区見本台1-2-3\nTEL000-0000-0000\n登録番号：T9000000000009";
 
 function seed(issuerText) {
   const uid = "u_regno";
-  const co = "飛勝工業株式会社";
+  const co = "験模工業株式会社";
   localStorage.setItem(
     "__fake_supa_db__",
     JSON.stringify({

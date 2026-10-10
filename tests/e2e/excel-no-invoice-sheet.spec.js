@@ -20,12 +20,12 @@ import path from "node:path";
 
 test.setTimeout(240000);
 
-const CO = "株式会社 生野組";
+const CO = "株式会社 標様本";
 const DATA_SHEETS = ["明細", "月次集計", "会社別集計", "入金"];
 
 function seed() {
   const uid = "u_nx";
-  const co = "株式会社 生野組";
+  const co = "株式会社 標様本";
   const rows = [0, 1, 2].map((i) => ({
     id: "m" + i,
     user_id: uid,

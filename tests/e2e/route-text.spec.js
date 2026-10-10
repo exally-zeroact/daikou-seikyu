@@ -21,7 +21,7 @@ import { test, expect } from "@playwright/test";
 
 test.setTimeout(240000);
 
-const CO = "飛勝工業株式会社";
+const CO = "験模工業株式会社";
 // [id, 日付, destination, extra.dk_from, 期待する「出す文字」]
 const CASES = [
   ["r1", "2026-08-06", "松本〜蔵敷〜祇園", null, "松本〜蔵敷〜祇園"], // 経由あり
