@@ -1,3 +1,5 @@
 # ★push直前にテストを強制実行。緑でなければ push をブロック。
 # (lint は commit 時 lint-staged が --fix 済。lint を push ゲートに含めない=既存コードで全 push が止まるのを防ぐ)
-npm test
+# ★2026-10-11★ push の前に まだどの遠くにも無い commit の文（実在の字・家の札）と 作者の欄（noreply か）を見る。
+#   cherry-pick・rebase・--no-verify は commit-msg の門を通らない＝公開の前の 最後の関所。
+node scripts/kinshi-commit-msg.mjs --pre-push "$@" && npm test
