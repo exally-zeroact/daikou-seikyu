@@ -3,3 +3,9 @@
 #   ★これから先の守り★＝過去の配信・git の過去の版には 残る。
 tests/
 .githooks/
+
+# ★押す時の門の 道具★（2026-10-11・指示役の決め＝ダイコメ本体と揃える）
+#   アプリの頁は読まない。scripts/ を丸ごと外さない＝名指しの物だけ。
+scripts/kinshi-commit-msg.mjs
+scripts/ci-yuka.sh
+.husky/
