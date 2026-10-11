@@ -1,0 +1,5 @@
+# ★配信から外す物★（2026-10-11・ダイコメの Daikou-app の決め A と揃える）
+#   tests/ と .githooks/ は 試験と 押す時の門＝アプリの頁は 読まない（daikou-seikyu.html・invoice-pdf.js・api/ の中は 注の字だけ・SW は無い）。
+#   ★これから先の守り★＝過去の配信・git の過去の版には 残る。
+tests/
+.githooks/
