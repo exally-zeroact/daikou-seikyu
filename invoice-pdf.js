@@ -395,9 +395,10 @@
     var amtIdx = items.indexOf("金額");
     var pDue = (iss && iss.paymentDue) || m.paymentDue; // お支払期限（自社情報優先・会社マスタfallback）
     var cw = colWidths(items, m.widths);
-    var grand = rows.reduce(function (s, r) {
-      return s + (Number(r.金額) || 0);
-    }, 0);
+    // ★御請求金額（税込）＝ 合計（税込）と 同じ 数★ 2026-10-14（対立役・本物の 紙で 確かめた）
+    //   前は 明細の 金額を 足した だけ＝外税の 会社は 税抜の 額に「税込」と 書いて 刷っていた
+    //   （下の 合計は 税込で 同じ 紙に 2つの 額）。合計は エンジン 1本（invoiceTotals の goukei）から
+    var grand = totalsOf(rows, iss).goukei;
     var logo = ctx.logoImg,
       hanko = ctx.hankoImg;
     var showLogo = logo && iss && iss.logoMode === "show";
@@ -878,9 +879,10 @@
     var amtIdx = items.indexOf("金額");
     var pDue = (iss && iss.paymentDue) || m.paymentDue; // お支払期限（自社情報優先・会社マスタfallback）
     var cw = colWidths(items, m.widths);
-    var grand = rows.reduce(function (s, r) {
-      return s + (Number(r.金額) || 0);
-    }, 0);
+    // ★御請求金額（税込）＝ 合計（税込）と 同じ 数★ 2026-10-14（対立役・本物の 紙で 確かめた）
+    //   前は 明細の 金額を 足した だけ＝外税の 会社は 税抜の 額に「税込」と 書いて 刷っていた
+    //   （下の 合計は 税込で 同じ 紙に 2つの 額）。合計は エンジン 1本（invoiceTotals の goukei）から
+    var grand = totalsOf(rows, iss).goukei;
     var style = (iss && iss.headerStyle) === "A" ? "A" : "B";
     var logo = ctx.logoImg,
       hanko = ctx.hankoImg;
