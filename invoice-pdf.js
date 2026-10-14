@@ -164,6 +164,11 @@
   /* ★合計は meisai-engine.js の invoiceTotals ただ1本から取る★（2026-08-11）
      ここに tax10 の写しを置いていたので、★同じ請求書の合計を紙とExcelが別々に足していた★。
      見出しも 2026-08-12 に エンジン1本（totalsLabels）へ寄せた。 */
+  // ★表の 金額の 見出し★ 2026-10-14（対立役：外税の 会社でも「金額（税込）」と 書いて 税抜の 額を 刷っていた）
+  //   外税＝明細の 金額は 税抜。内税（設定が 空も）＝税込。言い方（税込／税込み）は 今までの 字の まま
+  function kingakuMidashi(iss, komi) {
+    return iss && iss.taxMode === "外税" ? "金額（税抜）" : "金額（" + (komi || "税込") + "）";
+  }
   function totalsOf(rows, iss) {
     var E = global.MeisaiEngine;
     if (E && E.invoiceTotals) return E.invoiceTotals(rows, iss);
@@ -581,7 +586,7 @@
       items.forEach(function (k, ci) {
         var cx0 = colX[ci],
           cx1 = colX[ci + 1];
-        var label = k === "金額" ? "金額（税込）" : (m.labels && m.labels[k]) || k;
+        var label = k === "金額" ? kingakuMidashi(iss) : (m.labels && m.labels[k]) || k;
         var al = colAlign(m, k);
         var tx = colCellX(al, cx0, cx1, 8);
         T(page, font, label, tx, tableTop - 5, 9, { align: al, color: MUTED });
@@ -849,7 +854,7 @@
       var sAmtX = RXp;
       rect(spage, M, cy2, CW, headH, MINTBG);
       T(spage, font, "ページ", M + 10, cy2 - 5, 9, { color: MUTED });
-      T(spage, font, "金額（税込）", RXp - 8, cy2 - 5, 9, { align: "right", color: MUTED });
+      T(spage, font, kingakuMidashi(iss), RXp - 8, cy2 - 5, 9, { align: "right", color: MUTED });
       line(spage, M, cy2, RXp, cy2, BORDER, 0.5);
       line(spage, M, cy2 - headH, RXp, cy2 - headH, MINT, 0.8);
       var sbTop = cy2 - headH;
@@ -1137,10 +1142,18 @@
         );
       }
       if (amtIdx >= 0) {
-        T(page, font, "金額（税込み）", (colX[amtIdx] + colX[amtIdx + 1]) / 2, tableTop - 3, 9.5, {
-          align: "center",
-          color: DARK,
-        });
+        T(
+          page,
+          font,
+          kingakuMidashi(iss, "税込み"),
+          (colX[amtIdx] + colX[amtIdx + 1]) / 2,
+          tableTop - 3,
+          9.5,
+          {
+            align: "center",
+            color: DARK,
+          }
+        );
         items.slice(amtIdx + 1).forEach(function (k, j) {
           var ci = amtIdx + 1 + j;
           T(
@@ -1205,7 +1218,7 @@
         align: "center",
         color: DARK,
       });
-      T(page, font, "金額（税込み）", (splitX + tableRight) / 2, tableTop - 3, 9.5, {
+      T(page, font, kingakuMidashi(iss, "税込み"), (splitX + tableRight) / 2, tableTop - 3, 9.5, {
         align: "center",
         color: DARK,
       });

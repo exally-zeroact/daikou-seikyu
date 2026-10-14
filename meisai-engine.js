@@ -286,7 +286,9 @@
       headCells +=
         '<th colspan="' + leadCount + '">' + esc(m.tableTitle || "運転業務委託料") + "</th>";
     if (amtIdx >= 0) {
-      headCells += "<th>金額（税込み）</th>";
+      // 外税の 会社は 明細の 金額＝税抜（2026-10-14・紙と 同じ）
+      headCells +=
+        "<th>" + (iss && iss.taxMode === "外税" ? "金額（税抜）" : "金額（税込み）") + "</th>";
       items.slice(amtIdx + 1).forEach(function (k) {
         headCells += "<th>" + esc(labelOf(m, k)) + "</th>";
       });
@@ -518,9 +520,8 @@
     var m = master[co];
     if (!m) return "";
     var items = m.items;
-    var grand = rows.reduce(function (s, r) {
-      return s + (Number(r.金額) || 0);
-    }, 0);
+    // ★ご請求金額（税込）＝ 合計（税込）★ 2026-10-14（紙 invoice-pdf.js と 同じ・外税で 税抜を 出さない）
+    var grand = invoiceTotals(rows, issuer).goukei;
     var pages = [];
     for (var i = 0; i < rows.length; i += ROWS_PER_PAGE)
       pages.push(rows.slice(i, i + ROWS_PER_PAGE));

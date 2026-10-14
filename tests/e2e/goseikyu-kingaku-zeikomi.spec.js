@@ -38,7 +38,11 @@ function seedOf() {
         users: { "s@x.com": { id: uid, email: "s@x.com", password: "himitsu123" } },
         session: { user: { id: uid, email: "s@x.com" } },
         tables: {
-          meisai: [meisai("m1", "2026-05-06", 12000), meisai("m2", "2026-05-07", 3400)],
+          meisai: arg.n
+            ? Array.from({ length: arg.n }, (_, k) =>
+                meisai("m" + k, "2026-05-" + String((k % 28) + 1).padStart(2, "0"), 1000)
+              )
+            : [meisai("m1", "2026-05-06", 12000), meisai("m2", "2026-05-07", 3400)],
           companies: [
             {
               id: "c1",
@@ -71,16 +75,20 @@ function seedOf() {
   };
 }
 
-for (const [na, tm, goukei, design] of [
-  ["外税（15,400＋消費税 1,540）", "外税", 16940, null],
-  ["内税（金額＝税込）", "内税", 15400, null],
-  ["外税・クラシックの 紙", "外税", 16940, "classic"],
-  ["内税・クラシックの 紙", "内税", 15400, "classic"],
+// 表の 金額の 見出し：外税＝「金額（税抜）」・内税＝「金額（税込）」（2026-10-14 対立役：外税でも 税込と 書いていた）
+//   ★わざと壊して 赤に なるのを 見た★：見出しを 直す 前の invoice-pdf.js で 外税の 4本が 赤（「金額（税込」が 在る）
+for (const [na, tm, goukei, design, n] of [
+  ["外税（15,400＋消費税 1,540）", "外税", 16940, null, 0],
+  ["内税（金額＝税込）", "内税", 15400, null, 0],
+  ["外税・クラシックの 紙", "外税", 16940, "classic", 0],
+  ["内税・クラシックの 紙", "内税", 15400, "classic", 0],
+  ["外税・明細 40行（頁が 分かれる）", "外税", 44000, null, 40],
+  ["外税・クラシック・明細 40行", "外税", 44000, "classic", 40],
 ]) {
   test("御請求金額（税込）＝ 紙の 合計：" + na, async ({ page }) => {
     await page.route(/cdn\.jsdelivr\.net/, (r) => r.abort());
     await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
-    await page.addInitScript(seedOf(), { tm, design });
+    await page.addInitScript(seedOf(), { tm, design, n });
     await page.addInitScript(() => {
       window.open = () => null;
     });
@@ -97,15 +105,33 @@ for (const [na, tm, goukei, design] of [
     const p = await (await dl).path();
     const fsx = await import("node:fs");
     const bytes = Array.from(fsx.readFileSync(p));
+    // 全部の 頁を 読む（頁が 分かれる 紙は 御請求金額が 最後の 頁に 出る）
     const items = await page.evaluate(async (arr) => {
       const doc = await window.pdfjsLib.getDocument({ data: new Uint8Array(arr) }).promise;
-      const pg = await doc.getPage(1);
-      return (await pg.getTextContent()).items.map((i) => i.str).filter((s) => s.trim());
+      const out = [];
+      for (let k = 1; k <= doc.numPages; k++) {
+        const pg = await doc.getPage(k);
+        (await pg.getTextContent()).items.forEach((i) => {
+          if (i.str.trim()) out.push(i.str);
+        });
+      }
+      return out;
     }, bytes);
     const i = items.findIndex((s) => /御請求金額|ご請求金額/.test(s));
     expect(i, "紙に 御請求金額 が 無い").toBeGreaterThanOrEqual(0);
-    // ラベルの 後で 最初に 出る ¥ の 額（太字は 3回 重ねて 描くので 同じ 字が 続く）
-    const atai = items.slice(i + 1).find((s) => /[¥￥]\s*[\d,]+/.test(s));
+    // ラベルの すぐ 後（太字の 重ね描きで 同じ ラベルが 続く 分は 飛ばす）が ★額で ある★ こと
+    //   （前の 作りは「後で 最初の ¥」を 拾い、額が 描かれないと 下の 小計を 拾って 内税が 緑の まま だった＝対立役）
+    const lbl = items[i];
+    const tsugi = items.slice(i + 1).find((s) => s !== lbl);
+    expect(tsugi, "御請求金額の すぐ 後が 額で ない").toMatch(/^[¥￥]\s*[\d,]+$/);
+    const atai = tsugi;
+    const zen = items.join(" ");
+    if (tm === "外税") {
+      expect(zen, "外税の 紙の 表の 見出しが 税込と 書いている").not.toMatch(/(?<!請求)金額（税込/);
+      expect(zen, "外税の 紙の 表の 見出しに 税抜が 無い").toContain("金額（税抜）");
+    } else {
+      expect(zen, "内税の 紙の 表の 見出しに 税込が 無い").toMatch(/(?<!請求)金額（税込/);
+    }
 
     console.log(na, "御請求金額 =", atai, "／ 合計 =", goukei);
     expect(kazu(atai), "御請求金額（税込）が 紙の 合計（税込）と 違う").toBe(goukei);
