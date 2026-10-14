@@ -958,6 +958,14 @@
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      /* 出した 請求書と 今の 明細の 額の 差 2026-10-14 */
+      .pay-sagaku {
+        margin-top: 3px;
+        font-size: 12px;
+        line-height: 1.5;
+        color: #c0392b;
+        font-weight: 700;
+      }
       /* 事務所の 売上へ 戻せなかった 行の 知らせ 2026-10-14 */
       .dkfix-obi {
         position: relative;
@@ -3972,7 +3980,9 @@
           // ★1000行で 黙って 切れない 様に 全部 読む★（対立役 B）
           var ivs = await fetchAllQ(function (a, b) {
             return SB.from("invoices")
-              .select("month, company, invoice_no, total, issued_at", { count: "exact" })
+              .select("month, company, invoice_no, total, issued_at, design_json", {
+                count: "exact",
+              })
               .order("issued_at")
               .order("company")
               .order("month")
@@ -3980,11 +3990,42 @@
           });
           if (ivs.error) cloudErr("請求書の控え読込", ivs.error);
           else {
-            INVOICES = ivs.data || [];
+            // ★全社まとめで 残した 写し（design_json.zensha）は 繰越の 材料に しない★ 2026-10-14（対立役）
+            //   全社まとめは 前から 写しを 残さなかった＝繰越の 材料は 前と 同じ 集まりの まま（額は 1円も 変わらない）。
+            //   写しは 入金の 画面の「出した 時と 額が 違う」知らせ だけが 使う
+            INVOICES = (ivs.data || []).filter(function (x) {
+              return !(x && x.design_json && x.design_json.zensha === true);
+            });
             YOMENAI.invoices = false;
           }
         } catch (e) {
           cloudErr("請求書の控え読込", e);
+        }
+        // ★出した 時の 明細（知らせ 専用）★ 2026-10-14（司さん「編集したらちゃんと反映」・指示役：渡した 紙と 額が
+        //   変わる 事を 黙らない）。繰越の 計算（INVOICES）とは 別に 持つ＝繰越の 額は 1円も 変えない。
+        //   比べるのは「出した 時の 明細の 行」を 今の 足し方（invoiceTotals・今の 内税／外税）に 通した 額と 今の 額
+        //   （前の 外税の 古い 写しは total が 税抜＝total を 比べると 嘘の「違う」が 出る・対立役）
+        DASHITA = {};
+        NOKOSENAI = nokosenaiYomu();
+        try {
+          var dsh = await fetchAllQ(function (a, b) {
+            return SB.from("invoices")
+              .select("month, company, invoice_no, total, issued_at, rows_json", { count: "exact" })
+              .order("issued_at")
+              .order("company")
+              .order("month")
+              .range(a, b);
+          });
+          if (dsh.error) DASHITA_YOMENAI = true;
+          else {
+            DASHITA_YOMENAI = false;
+            (dsh.data || []).forEach(function (x) {
+              DASHITA[x.month + " " + x.company] = x; // 古い 順に 並べて 上書き＝最後に 出した 物
+            });
+          }
+        } catch (e) {
+          // 読めない 時は 黙らない（「明細が 残っていない」と 嘘を 出さない・対立役）。請求・入金は 止めない
+          DASHITA_YOMENAI = true;
         }
         // ★番号の台帳を読む（凍結した番号はここから出す）★
         INVOICE_NO = {};
@@ -6426,14 +6467,14 @@
         }
         return "令和" + (y - 2018) + "年" + m + "月1日";
       }
-      function toast(msg) {
+      function toast(msg, ms) {
         var t = document.getElementById("toast");
         t.textContent = msg;
         t.classList.add("show");
         clearTimeout(t._tm);
         t._tm = setTimeout(function () {
           t.classList.remove("show");
-        }, 1700);
+        }, ms || 1700);
       }
       // 連続入力(oninput等)で1回だけ出す保存トースト。入力が止まってからまとめて確認を出す。
       var _toastDebT = null;
@@ -7301,7 +7342,9 @@
             issuerForEngine(onlyCo),
             _no
           );
-          await saveInvoiceCopy(month, onlyCo, rows, issuerForEngine(onlyCo), _no);
+          var _ng = await writeInvoiceCopies([
+            makeInvoiceCopy(month, onlyCo, rows, issuerForEngine(onlyCo), _no),
+          ]);
           fname = "請求書_" + month + "_" + onlyCo + ".pdf";
         } else {
           // ★全社も 描く 前に 全部の 会社の 番号を 台帳に 書く★（1社でも 書けなければ 作らない）
@@ -7336,9 +7379,32 @@
             toast("該当する明細がありません");
             return null;
           }
+          // ★全社まとめでも 出した 明細を 残す★ 2026-10-14（対立役：残さないと 出し直した 月に 古い 額と 比べて
+          //   「先方に 渡した 請求書と 額が 違います」と 嘘を 出した）。行の 選び方は 1社の 時と 同じ。
+          //   ★印 zensha を 付ける★＝繰越の 材料（INVOICES）は これを 読まない（前と 同じ＝繰越の 額は 1円も 変えない）。
+          //   全部の 会社を 1回の 書き込みで 残す（途中の 会社まで 残る 事が 無い・会社の 数だけ 待たない）
+          var _recs = [];
+          for (var _si = 0; _si < _tcos.length; _si++) {
+            var _sco = _tcos[_si];
+            var _srows = DB.filter(function (r) {
+              return (
+                r.account_id === CURRENT_ACCOUNT && r.会社名 === _sco && inMonth(r.日付, month)
+              );
+            }).sort(function (a, b) {
+              return (
+                (a.日付 || "").localeCompare(b.日付 || "") || (a.id || "").localeCompare(b.id || "")
+              );
+            });
+            if (_srows.length) {
+              var _rec = makeInvoiceCopy(month, _sco, _srows, issuerForEngine(_sco), _nos[_sco]);
+              _rec.design_json.zensha = true;
+              _recs.push(_rec);
+            }
+          }
+          var _ng = await writeInvoiceCopies(_recs);
           fname = "請求書_" + month + "_全社.pdf";
         }
-        return { bytes: bytes, fname: fname };
+        return { bytes: bytes, fname: fname, nokosenai: _ng || [] };
       }
       // 請求書をクリーンなPDF（ブラウザのURL足跡なし・日本語埋込・複数ページ）で保存/共有。
       async function exportInvoicePDF(btn) {
@@ -7361,6 +7427,7 @@
               ? "PDFを作成（注意：この字は出せず〓表示→ " + miss.join(" ") + "）"
               : "PDFを作成しました"
           );
+          nokosenaiShiraseru(r);
         } catch (e) {
           toast("PDF作成に失敗：" + (e && e.message ? e.message : e));
         } finally {
@@ -7369,6 +7436,15 @@
             btn.textContent = old;
           }
         }
+      }
+      function nokosenaiShiraseru(r) {
+        if (!r || !r.nokosenai || !r.nokosenai.length) return;
+        toast(
+          "請求書は出来ましたが、出した時の明細を残せませんでした（通信）：" +
+            r.nokosenai.join("、") +
+            "。入金の画面で額が変わったかを比べられません。",
+          8000
+        );
       }
       // ★印刷＝自前PDFを開いてそこから印刷する。window.print()だとブラウザが
       //   ページ最下部にURL＋日付フッターを足してしまう（自前PDFで消した足跡）ため。
@@ -7395,6 +7471,7 @@
           } else {
             toast("PDFを開きました。共有／プリントから印刷を（URLフッター無し）");
           }
+          nokosenaiShiraseru(r);
           setTimeout(function () {
             URL.revokeObjectURL(url);
           }, 60000);
@@ -8296,6 +8373,67 @@
              ★古い 月から 順に 請求額 いっぱいまで 当てる★。余りは 一番 新しい 月に 乗せる。
              ★記録した 入金（PAYMENTS）は 1円も 書き換えない★＝見え方だけ。
              繰越を 使わない 会社は 今まで通り（記録した 月の 額）。 */
+      // ★出した 請求書と 今の 明細の 額の 差★ 2026-10-14（1か所・入金の 一覧と 窓が 呼ぶ）
+      //   返り値：null（出していない）／{ kind:"onaji" }／{ kind:"chigau", dashita, ima, sa, no, hi }
+      //          ／{ kind:"wakaranai", no }（番号だけ 決まって 出した 時の 明細が 残っていない）
+      // 出した 時の 合計が 税込（goukei）で 残る 様に なった 本番の 時刻（daikou-seikyu 84a9c02）。
+      //   これより 後に 出した 物は 残った 合計を そのまま 比べる（内税↔外税を 切り替えた 会社も 拾う・対立役）。
+      //   これより 前は 外税の 合計が 税抜で 残っている ので、明細の 行を 今の 足し方に 通す
+      var DASHITA_GOUKEI_KARA = "2026-10-02T13:47:13Z";
+      function sagakuOf(month, co, imaGoukei) {
+        if (DASHITA_YOMENAI) return { kind: "yomenai" };
+        var d = DASHITA[month + " " + co];
+        var no = INVOICE_NO[invNoKey(month, co)] || (d && d.invoice_no) || "";
+        var ng = NOKOSENAI[month + " " + co];
+        // 最後に 出した 時に 明細を 残せなかった（それより 前の 写しと 比べると 嘘に なる）
+        if (ng && !(d && Date.parse(d.issued_at) > Date.parse(ng.at)))
+          return { kind: "nokosenai", no: ng.no || no };
+        if (!d || !Array.isArray(d.rows_json)) return no ? { kind: "wakaranai", no: no } : null;
+        var m = MASTER[co] || {};
+        var dashita =
+          Date.parse(d.issued_at) >= Date.parse(DASHITA_GOUKEI_KARA) && isFinite(Number(d.total))
+            ? Number(d.total)
+            : MeisaiEngine.invoiceTotals(d.rows_json, { taxMode: m.taxMode }).goukei;
+        if (dashita === imaGoukei) return { kind: "onaji" };
+        return {
+          kind: "chigau",
+          dashita: dashita,
+          ima: imaGoukei,
+          sa: imaGoukei - dashita,
+          no: d.invoice_no || no,
+          hi: d.issued_at ? jstMD(d.issued_at) : "",
+        };
+      }
+      // 日本時間の M/D（倉庫の 時刻は UTC＝そのまま 切ると 朝 9時 前が 前の 日に なる・対立役）
+      function jstMD(iso) {
+        var t = Date.parse(iso);
+        if (!isFinite(t)) return "";
+        var d = new Date(t + 9 * 3600 * 1000);
+        return d.getUTCMonth() + 1 + "/" + d.getUTCDate();
+      }
+      function sagakuJi(g) {
+        if (g && g.kind === "nokosenai")
+          return (
+            "請求書" +
+            (g.no ? "（No. " + g.no + "）" : "") +
+            "を出した時に明細を残せませんでした（通信）。額が変わったかは比べられません。"
+          );
+        if (!g || g.kind !== "chigau") return "";
+        return (
+          "請求書" +
+          (g.no ? "（No. " + g.no + "）" : "") +
+          "を" +
+          (g.hi ? g.hi + " に" : "") +
+          "出した後に明細が変わりました。出した時 " +
+          yen(g.dashita) +
+          " → 今 " +
+          yen(g.ima) +
+          "（" +
+          (g.sa > 0 ? "+" : "−") +
+          yen(Math.abs(g.sa)) +
+          "）。先方に渡した請求書と額が違います。"
+        );
+      }
       function seikyuList(month) {
         var invs = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, null);
         var rowsBy = {};
@@ -8458,7 +8596,12 @@
               esc(x.iv.company) +
               '</div><div class="pay-sub">' +
               esc(sub) +
-              "</div></div>" +
+              "</div>" +
+              (function () {
+                var ji = sagakuJi(sagakuOf(x.iv.month, x.iv.company, x.iv.total));
+                return ji ? '<div class="pay-sagaku">' + esc(ji) + "</div>" : "";
+              })() +
+              "</div>" +
               '<div class="pay-right"><div class="pay-amt">' +
               yen(x.iv.total) +
               "</div>" +
@@ -8618,6 +8761,36 @@
           "件　請求額 " +
           yen(iv.total) +
           "</div>" +
+          (function () {
+            var g = sagakuOf(month, co, iv.total);
+            if (g && g.kind === "chigau")
+              return (
+                '<div class="pay-sagaku" style="margin:-6px 0 10px;">' + esc(sagakuJi(g)) + "</div>"
+              );
+            if (g && g.kind === "wakaranai")
+              return (
+                '<div class="pay-sub" style="margin:-6px 0 10px;color:#555555;">' +
+                esc(
+                  "No. " +
+                    g.no +
+                    " で発行済み。この画面では出した時の明細が見つからないので（会社名を変えた月など）、額が変わったかは比べられません。"
+                ) +
+                "</div>"
+              );
+            if (g && g.kind === "nokosenai")
+              return (
+                '<div class="pay-sagaku" style="margin:-6px 0 10px;">' + esc(sagakuJi(g)) + "</div>"
+              );
+            if (g && g.kind === "yomenai")
+              return (
+                '<div class="pay-sagaku" style="margin:-6px 0 10px;">' +
+                esc(
+                  "出した請求書の明細を読めませんでした（通信）。額が変わったかは、画面を開き直して確かめてください。"
+                ) +
+                "</div>"
+              );
+            return "";
+          })() +
           /* ★★繰越を 使う 会社＝一覧は 古い 月から 当てた 額で 数える★★ 2026-10-02 夜（対立役）
                この窓の 入金額は ★その月の 記録★（直す 物）。前は 当てて 入金済の 月でも
                記録 0 と「全額」ボタンを 出し、★二重に 記録しやすい★ 形だった。
@@ -8883,6 +9056,8 @@
       ============================================================================= */
       var INVOICE_NO = {}; // "YYYY-MM|会社名" -> "2026-05-03"（倉庫の 台帳に 書けた 番号 だけ）
       var INVOICES = []; // 発行の控え（繰越の材料）
+      var DASHITA = {}; // 出した 時の 明細（知らせ 専用・月 会社 → {invoice_no, total, issued_at, rows_json}）
+      var DASHITA_YOMENAI = false; // 出した 時の 明細を 読めなかった
       function invNoKey(month, co) {
         return month + "|" + co;
       }
@@ -9031,6 +9206,11 @@
 
       // ★発行の控えを1行 積む★（明細・自社情報・様式の写しつき）
       async function saveInvoiceCopy(month, co, rows, iss, no) {
+        var rec = makeInvoiceCopy(month, co, rows, iss, no);
+        await writeInvoiceCopies([rec]);
+        return rec;
+      }
+      function makeInvoiceCopy(month, co, rows, iss, no) {
         /* ★控えの 合計は 請求書と 同じ 関数で 出す★ 2026-10-02 夜（対立役）
              前は 明細の 足し算（＝外税なら 税抜）と 内税の 式の 消費税を 残していた。
              控えの total は 繰越の「前回の 請求額」に 使う ⇒ 外税の 会社は
@@ -9062,15 +9242,64 @@
             aligns: (MASTER[co] && MASTER[co].aligns) || {},
           },
         };
-        if (!SB || !CURRENT_ACCOUNT) return rec;
+        return rec;
+      }
+      // 書けた 時は 知らせ 用の 表へ。書けなかった 時は ★黙らない★ 2026-10-14（対立役：toast が 次の 知らせで
+      //   上書きされ、その後 古い 写しと 比べて 嘘の「額が 違います」が 出た）⇒ この 会社×月は「残せなかった」と
+      //   この 端末に 覚え、入金の 画面で「比べられません」と 出す。返り値＝残せなかった 会社の 名前
+      async function writeInvoiceCopies(recs) {
+        if (!SB || !CURRENT_ACCOUNT || !recs.length) return [];
+        var ok = false;
         try {
-          var r = await SB.from("invoices").insert(rec);
+          var r = await SB.from("invoices").insert(recs.length === 1 ? recs[0] : recs);
           if (r && r.error) cloudErr("請求書の控え保存", r.error);
+          else ok = true;
         } catch (e) {
           cloudErr("請求書の控え保存", e);
         }
-        return rec;
+        var ima = new Date().toISOString();
+        var ng = nokosenaiYomu();
+        recs.forEach(function (rec) {
+          var k = rec.month + " " + rec.company;
+          if (ok) {
+            DASHITA[k] = {
+              month: rec.month,
+              company: rec.company,
+              invoice_no: rec.invoice_no,
+              total: rec.total,
+              issued_at: ima,
+              rows_json: rec.rows_json,
+            }; // 知らせ 専用（出し直した 直後に 古い 額と 比べて 嘘の「違う」を 出さない）
+            delete ng[k];
+          } else ng[k] = { no: rec.invoice_no, at: ima };
+        });
+        nokosenaiKaku(ng);
+        return ok
+          ? []
+          : recs.map(function (rec) {
+              return rec.company;
+            });
       }
+      // 残せなかった 会社×月（ログインした 人ごと・この 端末）。読み直しても 嘘の「違う」に 戻らない 様に
+      function nokosenaiKagi() {
+        return "dashitaNokosenai:" + String(CURRENT_ACCOUNT || "");
+      }
+      function nokosenaiYomu() {
+        try {
+          return JSON.parse(localStorage.getItem(nokosenaiKagi()) || "{}") || {};
+        } catch (e) {
+          return {};
+        }
+      }
+      function nokosenaiKaku(m) {
+        try {
+          localStorage.setItem(nokosenaiKagi(), JSON.stringify(m));
+        } catch (e) {
+          /* 覚えられない 端末＝この 画面の 間だけ */
+        }
+        NOKOSENAI = m;
+      }
+      var NOKOSENAI = {};
       var ISSUER_SETTINGS = {};
       // 自社情報は「自由な行」。要らない行は消す、足したい行は足す＝定義駆動。
       // ★★自社情報の 行が 無い 客の 既定＝会社名・振込先・登録番号は 空★★ 2026-10-08（司さん「自社情報を入れて下さいと警告をだせや」）
