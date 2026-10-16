@@ -3973,6 +3973,7 @@
           cloudErr("明細読込", m.error);
           ok = false;
         } else DB = m.data.map(meisaiFromDb);
+        var payYomiHajime = Date.now();
         var p = await fetchAllQ(function (a, b) {
           return SB.from("payments")
             .select("*", { count: "exact" })
@@ -3982,7 +3983,7 @@
         if (p.error) cloudErr("入金読込", p.error);
         else {
           YOMENAI.payments = false;
-          PAY_YONDA = Date.now(); // この タブが 入金を 読んだ 時刻（帯の「直った」判じに 使う）
+          PAY_YONDA = payYomiHajime; // 入金を 読み始めた 時刻（帯の「直った」判じに 使う・読み終えた 時刻に しない）
         }
         if (!p.error)
           p.data.forEach(function (r) {
@@ -8864,6 +8865,22 @@
       function payKaita(key) {
         PAY_KOSHIN[key] = Date.now();
       }
+      // 会社名の 付け替え：帯の 行の 会社名も 変える（端末の 覚えが 読めれば それを 正に）
+      function modoseNaWoKaeru(oldName, newName) {
+        var y = modoseYomu();
+        var m = y !== undefined && MODOSE_KAKETA ? y : MODOSE;
+        if (!m || !m.dame) return;
+        var kaeta = false;
+        m.dame.forEach(function (x) {
+          if (x.co === oldName) {
+            x.co = newName;
+            kaeta = true;
+          }
+        });
+        if (!kaeta) return;
+        MODOSE = m;
+        modoseKaku();
+      }
       function modoseTojiru() {
         MODOSE = null;
         modoseKaku();
@@ -8903,7 +8920,7 @@
         var key = payKeyFor(x.month, x.co);
         var shinsen = Math.max(PAY_YONDA, PAY_KOSHIN[key] || 0);
         var t = Date.parse(x.at);
-        if (isFinite(t) && t > shinsen) return false; // この タブの 入金は その 行より 古い＝判じない
+        if (!isFinite(t) || t > shinsen) return false; // 日時が 読めない・この タブの 入金が その 行より 古い＝判じない
         var r = PAYMENTS[key];
         // 前が 記録なし＝記録が 消えたか 額が 0（未入金(0) で 保存した 形）なら 直った
         if (!x.snap) return !r || Number(r.paid) === 0;
@@ -12196,6 +12213,7 @@
             payKaita(parts[0] + "::" + parts[1] + "::" + newName);
           }
         });
+        modoseNaWoKaeru(oldName, newName);
         await saveMaster(); // 会社名(name)の更新をクラウドへ
         refreshCompanySelects();
         renderMaster();

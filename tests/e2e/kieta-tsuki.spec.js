@@ -658,3 +658,37 @@ test("古い タブは 自分が 入金を 読んだ 後に 起きた 行を「�
   expect(tsugi && tsugi.dame.length, "古い タブが 別の タブの 行を 消した").toBe(1);
   await expect(page.locator("#payModose")).toContainText("明細ある株式会社");
 });
+
+// ── 本番前の 対立役（a9cc53e）の 指摘 ──
+test("会社名を 変えても 帯の 行は 新しい 名前で 残る（前は 記録なしに 見えて 黙って 消え、全入金が 残った）", async ({
+  page,
+}) => {
+  await hiraku(page);
+  await page.evaluate(async () => {
+    await markPaidFull("2026-05", "明細ある株式会社", 15400);
+    modoseNakattaMado(1, [{ month: "2026-05", co: "明細ある株式会社", snap: null }]);
+    await renameCompany("明細ある株式会社", "名前を変えた株式会社");
+    renderPayments();
+  });
+  await page.locator('.nav-item[data-scr="payment"]').click();
+  await expect(page.locator("#payModose")).toContainText("2026年5月 名前を変えた株式会社", {
+    timeout: 10000,
+  });
+});
+
+test("日時が 読めない 行は「直った」と 判じない（分からない 時は 消さない）", async ({ page }) => {
+  await hiraku(page);
+  const nokori = await page.evaluate(() => {
+    const k = "payModose:" + CURRENT_ACCOUNT;
+    localStorage.setItem(
+      k,
+      JSON.stringify({
+        dame: [{ month: "2026-05", co: "明細ある株式会社", at: "よめない", snap: null }],
+      })
+    );
+    renderPayments();
+    const o = JSON.parse(localStorage.getItem(k) || "null");
+    return o ? o.dame.length : 0;
+  });
+  expect(nokori).toBe(1);
+});
