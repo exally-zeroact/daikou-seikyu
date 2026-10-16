@@ -8551,7 +8551,7 @@
           if (k.indexOf(mae) !== 0) return;
           var r = PAYMENTS[k] || {};
           if (r.uid != null && r.uid !== CURRENT_ACCOUNT) return;
-          if (!(Number(r.paid) > 0 || String(r.note || "").trim() || r.paidDate)) return;
+          if (!nyukinGaMieru(r.paid, r.note, r.paidDate)) return;
           var rest = k.slice(mae.length);
           var i = rest.indexOf("::");
           if (i < 0) return;
@@ -12090,7 +12090,20 @@
           '<button class="btn btn-primary" onclick="addCompany()">保存する</button>';
         openModal();
       }
-      function addCompany() {
+      var KAISHA_KIKU_CHU = false; // 会社の 足し・付け替えを 確かめている 間（2回 押しで 2回 訊かない・対立役）
+      async function addCompany() {
+        if (KAISHA_KIKU_CHU) {
+          toast("会社の 記録を 確かめています。少し 待ってから もう一度 押してください。");
+          return;
+        }
+        KAISHA_KIKU_CHU = true;
+        try {
+          await addCompanyHontai();
+        } finally {
+          KAISHA_KIKU_CHU = false;
+        }
+      }
+      async function addCompanyHontai() {
         var name = document.getElementById("newCoName").value.trim();
         if (!name) {
           toast("会社名を入力してください");
@@ -12098,6 +12111,24 @@
         }
         if (MASTER[name]) {
           toast("同名の会社があります");
+          return;
+        }
+        // 同じ 名前で 消した 会社の 記録が 残っていれば 混ぜるかを 訊く（読めない 時は 足さない）
+        var nokori = await sakiNiAruGyou(name);
+        if (!nokori) {
+          toast(
+            "会社を 足しませんでした（同じ 名前の 記録の 確かめを 読めませんでした）。もう一度 試してください。"
+          );
+          return;
+        }
+        if (!mazeruKaKiku(name, nokori)) {
+          toast(
+            "会社を 足しませんでした（残っている 記録と 混ぜない）。別の 名前に してください。"
+          );
+          return;
+        }
+        if (MASTER[name]) {
+          toast("同名の会社があります"); // 読んでいる 間に 別の 道で 足された
           return;
         }
         MASTER[name] = {
@@ -12135,34 +12166,102 @@
       }
       // 新しい 名前に 先から 在る 行の 鍵（台帳は 月・明細と 入金は id）。読めない・本数が 確かでない 時は null
       //   並びを 決めて 頁を 繰り、count が 数で 受け取った 本数と 合う 時だけ 確か とする（分からない 時に 通さない・対立役）
+      // ★残っている 記録と 混ぜるかを 客に 訊く★ 2026-10-16 司さん「確かめを 出す」
+      //   消した 会社の 入金・明細・請求番号は 消しても 倉庫に 残る。同じ 名前へ 付け替える・同じ 名前で 足すと、
+      //   その 会社の 請求の 額と 入金済みの 見え方が 変わる＝黙って 混ぜない。消した 会社を 戻したい 客の 道は 残す
+      // 入金の 行が 客に 見えるか（額が 0 より 大きい・メモ・入金日の どれか）。入金の 一覧と 混ぜるかの 数で 同じ 判じを 使う
+      function nyukinGaMieru(paid, memo, hi) {
+        return !!(Number(paid) > 0 || String(memo || "").trim() || hi);
+      }
+      function mazeruKaKiku(na, nokori) {
+        var m = nokori.mieru;
+        var kazu = [
+          ["入金", m.payments],
+          ["明細", m.meisai],
+          ["請求番号", m.invoice_no],
+          ["発行した 請求書の 控え", m.invoices],
+        ].filter(function (x) {
+          return x[1] > 0;
+        });
+        if (!kazu.length) return true;
+        return confirm(
+          "「" +
+            na +
+            "」の 名前で " +
+            kazu
+              .map(function (x) {
+                return x[0] + " " + x[1] + " 件";
+              })
+              .join("・") +
+            " が 残っています（前に 消した 会社の 物など）。\n" +
+            "この 会社に 混ぜますか？ 混ぜると、この 会社の 請求の 額・入金済みの 見え方・前の 月の 額が 変わり、請求番号は 残っている 物を 使います。"
+        );
+      }
       async function sakiNiAruGyou(na) {
-        var out = {};
+        // 4つ目の 表＝発行した 請求書の 控え（付け替えでは 動かさないが、同じ 名前に なると 前の 額が 混ざる・対立役）
+        //   mieru＝客に 見える 行の 数（消していない・入金は 0円で ない）＝訊く 文に 出す 数
+        var out = { mieru: {} };
         var hyou = [
-          ["invoice_no", "month"],
-          ["meisai", "id"],
-          ["payments", "id"],
+          [
+            "invoice_no",
+            "month",
+            "",
+            function () {
+              return true;
+            },
+          ],
+          [
+            "meisai",
+            "id",
+            ",deleted_at",
+            function (x) {
+              return !x.deleted_at;
+            },
+          ],
+          [
+            "payments",
+            "id",
+            ",deleted_at,paid,memo,paid_date",
+            function (x) {
+              return !x.deleted_at && nyukinGaMieru(x.paid, x.memo, x.paid_date);
+            },
+          ],
+          // 控えは 読み込みで deleted_at を 見ずに 前の 月の 額の 材料に 入る＝全部 数える
+          [
+            "invoices",
+            "id",
+            "",
+            function () {
+              return true;
+            },
+          ],
         ];
         for (var h = 0; h < hyou.length; h++) {
           var tbl = hyou[h][0];
           var kagi = hyou[h][1];
           var keys = [];
+          var mieru = 0;
           var total = null;
           for (var from = 0; ; ) {
             var r = await SB.from(tbl)
-              .select(kagi, { count: "exact" })
+              .select(kagi + hyou[h][2], { count: "exact" })
               .eq("company", na)
               .order(kagi)
               .range(from, from + 999);
             if (!r || r.error || !Array.isArray(r.data) || typeof r.count !== "number") return null;
             total = r.count;
             r.data.forEach(function (x) {
-              if (x && x[kagi] != null) keys.push(x[kagi]);
+              if (x && x[kagi] != null) {
+                keys.push(x[kagi]);
+                if (hyou[h][3](x)) mieru++;
+              }
             });
             if (!r.data.length || keys.length >= total) break;
             from += r.data.length;
           }
           if (keys.length !== total) return null;
           out[tbl] = keys;
+          out.mieru[tbl] = mieru;
         }
         return out;
       }
@@ -12186,6 +12285,19 @@
         return await q;
       }
       async function renameCompany(oldName, newName) {
+        if (KAISHA_KIKU_CHU) {
+          toast("会社の 記録を 確かめています。少し 待ってから もう一度 押してください。");
+          renderMaster();
+          return;
+        }
+        KAISHA_KIKU_CHU = true;
+        try {
+          await renameCompanyHontai(oldName, newName);
+        } finally {
+          KAISHA_KIKU_CHU = false;
+        }
+      }
+      async function renameCompanyHontai(oldName, newName) {
         toastUndoKesu(); // 古い 名前の 取り消しを 残さない（押すと 古い 名前で 書いた・対立役）
         newName = (newName || "").trim();
         if (!newName || newName === oldName) {
@@ -12220,9 +12332,27 @@
           renderMaster();
           return;
         }
+        if (!mazeruKaKiku(newName, nokori)) {
+          toast(
+            "会社名を 変えませんでした（残っている 記録と 混ぜない）。別の 名前に してください。"
+          );
+          renderMaster();
+          return;
+        }
+        if (MASTER[newName] || !MASTER[oldName]) {
+          toast("同名の会社があります"); // 訊いている 間に 別の 道で 変わった
+          renderMaster();
+          return;
+        }
         var u0 = await SB.from("invoice_no").update({ company: newName }).eq("company", oldName);
         if (u0 && u0.error) {
-          cloudErr("会社名変更（請求番号の 台帳）", u0.error);
+          if (u0.error.code === "23505")
+            toast(
+              "「" +
+                newName +
+                "」に 同じ 月の 請求番号が 残っているので、混ぜられませんでした（何も 変えていません）。別の 名前に してください。"
+            );
+          else cloudErr("会社名変更（請求番号の 台帳）", u0.error);
           renderMaster();
           return;
         }
@@ -12254,7 +12384,14 @@
             renderMaster();
             return;
           }
-          cloudErr("会社名変更", (u1 && u1.error) || (u2 && u2.error));
+          var ue = (u1 && u1.error) || (u2 && u2.error);
+          if (ue && ue.code === "23505")
+            toast(
+              "「" +
+                newName +
+                "」に 同じ 月の 入金・明細が 残っているので、混ぜられませんでした（元に 戻しました）。別の 名前に してください。"
+            );
+          else cloudErr("会社名変更", ue);
           renderMaster();
           return;
         }
