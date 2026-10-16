@@ -13,7 +13,7 @@ jobs:
   #   一覧は repo に置かない＝secret KINSHI_JI（1行に 1語）。無ければ「未測定」で 赤（飛ばさない）。
   #   当たっても 字は出さない（公開の CI の記録は 誰でも読める）。出すのは 数と commit の頭だけ。
   kinshi-commit-msg:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +41,7 @@ jobs:
           grep -q "^✓ commit の文の 実在の字 0 件" kinshi-msg.out
 
   quality:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       HUSKY: "0" # CI では git フックを動かさない(install時の husky を無効化)
     steps:
@@ -137,7 +137,7 @@ jobs:
 
   # ★見張りだけを node 24 でも回す★（Castally の nomiya-app b3dfea3 の job を逐語で写した）
   kinshi-node24:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
