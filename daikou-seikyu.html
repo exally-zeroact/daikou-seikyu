@@ -8531,7 +8531,7 @@
           if (k.indexOf(mae) !== 0) return;
           var r = PAYMENTS[k] || {};
           if (r.uid != null && r.uid !== CURRENT_ACCOUNT) return;
-          if (!(Number(r.paid) > 0 || String(r.note || "").trim())) return;
+          if (!(Number(r.paid) > 0 || String(r.note || "").trim() || r.paidDate)) return;
           var rest = k.slice(mae.length);
           var i = rest.indexOf("::");
           if (i < 0) return;
@@ -8957,6 +8957,8 @@
         var date = document.getElementById("pay_date").value || "";
         var note = document.getElementById("pay_note").value || "";
         var key = payKeyFor(month, co);
+        var snap = PAYMENTS[key] ? Object.assign({}, PAYMENTS[key]) : null; // 取り消し用（消した 時）
+        var keshita = false;
         if (amt <= 0 && !date && !note) {
           // 全部空＝未入金に戻す＝記録を消す（入金は実削除）
           var del = await SB.from("payments").delete().eq("month", month).eq("company", co);
@@ -8965,6 +8967,7 @@
             return;
           }
           delete PAYMENTS[key];
+          keshita = !!snap;
         } else {
           if (amt >= total && !date) {
             var d = new Date();
@@ -8999,7 +9002,13 @@
         closeModal();
         renderPayments();
         updatePayBadge();
-        toast("入金を記録しました");
+        // ★消した 時は「記録しました」と 言わず、取り消せる 様に する★ 2026-10-14（対立役：明細が 0件の 月の 窓で
+        //   額を 0 に すると 記録が 黙って 消え、知らせは「入金を記録しました」だった）
+        if (keshita)
+          toastUndo(co + " の入金の記録を消しました", function () {
+            undoPayState(month, co, snap);
+          });
+        else toast("入金を記録しました");
       }
       // ★行から直接ワンタップで全額入金済に（確認なし＝取り消しトースト付き）。savePayと同一のupsertを流用。
       async function markPaidFull(month, co, total) {

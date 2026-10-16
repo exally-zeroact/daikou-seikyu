@@ -152,3 +152,49 @@ test("明細なしの 窓＝額を 入れる ボタンを 出さず、記録し�
   await expect(page.locator("#modalBody .pay-quick")).toHaveCount(0);
   await expect(page.locator("#modalBody #pay_amt")).toHaveValue("5000");
 });
+
+// ── 本番前の 対立役（5179b29）の 指摘 ──
+test("明細なしの 窓で 額を 0・日も メモも 空で 保存＝「記録を消しました」と 出し、取り消すと 戻る", async ({
+  page,
+}) => {
+  await hiraku(page);
+  await gyou(page, B, "2026年5月").click();
+  await page.locator("#modalBody #pay_amt").fill("0");
+  await page.locator("#modalBody #pay_date").fill("");
+  await page.locator("#modalBody #pay_note").fill("");
+  await page.locator("#modalBody").getByRole("button", { name: /保存/ }).first().click();
+  const t = page.locator("#toastUndo");
+  await expect(t).toContainText(B + " の入金の記録を消しました");
+  await expect(page.locator("#toast")).not.toContainText("入金を記録しました");
+  await t.getByRole("button", { name: "取り消す" }).click();
+  await expect(gyou(page, B, "2026年5月")).toContainText("記録した入金 ¥5,000");
+  const db = await page.evaluate(
+    () => JSON.parse(localStorage.getItem("__fake_supa_db__")).tables.payments
+  );
+  expect(db.filter((r) => !r.deleted_at).map((r) => r.paid)).toEqual([5000]);
+});
+
+test("明細なしの 窓で 額だけ 0（入金日は 残す）＝行は 消えない", async ({ page }) => {
+  await hiraku(page);
+  await gyou(page, B, "2026年5月").click();
+  await page.locator("#modalBody #pay_amt").fill("0");
+  await page.locator("#modalBody").getByRole("button", { name: /保存/ }).first().click();
+  await expect(gyou(page, B, "2026年5月")).toHaveCount(1);
+  await expect(gyou(page, B, "2026年5月")).toContainText("明細なし");
+});
+
+test("他の アカウントの 入金の 記録・請求番号は 明細なしの 行に しない（自分の 物は する）", async ({
+  page,
+}) => {
+  await hiraku(page);
+  const r = await page.evaluate(() => {
+    PAYMENTS[CURRENT_ACCOUNT + "::2026-03::他人の会社"] = { paid: 100, uid: "u_other" };
+    INVOICE_NO["2026-02|他人の会社2"] = "2026-02-01";
+    INVOICE_NO_UID["2026-02|他人の会社2"] = "u_other";
+    PAYMENTS[CURRENT_ACCOUNT + "::2026-03::自分の会社"] = { paid: 100, uid: CURRENT_ACCOUNT };
+    return kietaTsuki(seikyuList(null)).map((x) => x.company);
+  });
+  expect(r).not.toContain("他人の会社");
+  expect(r).not.toContain("他人の会社2");
+  expect(r).toContain("自分の会社");
+});
