@@ -958,6 +958,10 @@
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      .pay-pill.kieta {
+        background: #eeeeee;
+        color: #555555;
+      }
       /* 出した 請求書と 今の 明細の 額の 差 2026-10-14 */
       .pay-sagaku {
         margin-top: 3px;
@@ -3968,6 +3972,7 @@
               paidDate: r.paid_date || "",
               note: r.memo || "",
               _dbid: r.id,
+              uid: r.user_id, // 明細が 0件に なった 月を 出す 時に 自分の 記録だけを 拾う 2026-10-14
             };
           });
         var i = await SB.from("issuer")
@@ -4033,15 +4038,17 @@
           // ★1000行で 黙って 切れない 様に 全部 読む★（切れると 台帳に 無い 月の 番号を 作り直して 上書きした・対立役 B）
           var no = await fetchAllQ(function (a, b) {
             return SB.from("invoice_no")
-              .select("month, company, invoice_no", { count: "exact" })
+              .select("month, company, invoice_no, user_id", { count: "exact" })
               .order("month")
               .order("company")
               .range(a, b);
           });
           if (no.error) cloudErr("請求番号の読込", no.error);
           else {
+            INVOICE_NO_UID = {};
             (no.data || []).forEach(function (r) {
               INVOICE_NO[invNoKey(r.month, r.company)] = r.invoice_no;
+              INVOICE_NO_UID[invNoKey(r.month, r.company)] = r.user_id;
             });
             YOMENAI.invoice_no = false;
           }
@@ -8344,6 +8351,9 @@
         DB.forEach(function (r) {
           if (r.account_id === CURRENT_ACCOUNT && r.日付) present[r.日付.slice(0, 7)] = true;
         });
+        kietaTsuki(seikyuList(null)).forEach(function (x) {
+          present[x.month] = true; // 明細が 0件に なった 月も 選べる（入金の 画面 だけ）
+        });
         var months = Object.keys(present).sort().reverse();
         sel.innerHTML =
           '<option value="">全期間</option>' +
@@ -8434,7 +8444,9 @@
           "）。先方に渡した請求書と額が違います。"
         );
       }
-      function seikyuList(month) {
+      // opt.kieta＝入金の 画面 だけ：明細が 0件に なった 会社×月も 出す（下の kietaTsuki）。
+      //   合計・残額・バッジ・月次集計・Excel は これを 渡さない＝前と 同じ 数の まま
+      function seikyuList(month, opt) {
         var invs = MeisaiEngine.listInvoices(DB, CURRENT_ACCOUNT, null);
         var rowsBy = {};
         DB.forEach(function (r) {
@@ -8474,11 +8486,64 @@
             pool -= a;
           });
         });
+        if (opt && opt.kieta) {
+          all = all.concat(kietaTsuki(all)).sort(function (a, b) {
+            return b.month.localeCompare(a.month) || a.company.localeCompare(b.company);
+          });
+        }
         return month
           ? all.filter(function (x) {
               return x.month === month;
             })
           : all;
+      }
+      /* ★明細が 0件に なった 会社×月★ 2026-10-14（指示役：明細を 外すと 入金の 一覧から 行ごと 消え、
+           記録した 入金も 出した 請求書も 画面の どこにも 出なかった）
+         ・出す 物＝自分の 入金の 記録（額か メモ）か 請求番号が 在る 月だけ（出した 時の 写しだけでは 出さない＝
+           会社名を 付け替えた 時に 古い 名前の 行が 出る・対立役）
+         ・繰越を 使う 会社は 出さない（当て方を 変えない）
+         ・請求 ¥0。状態は 入金済の 扱い（一括・全入金・バッジに 入れない）で、札の 字は「明細なし」 */
+      function kietaTsuki(all) {
+        var aru = {};
+        all.forEach(function (x) {
+          aru[x.month + " " + x.company] = 1;
+        });
+        var out = [];
+        var tasu = function (month, co) {
+          var k = month + " " + co;
+          if (!month || !co || aru[k]) return;
+          if (MASTER[co] && MASTER[co].carryover) return;
+          aru[k] = 1;
+          var kiroku = Number(payRecord(month, co).paid) || 0;
+          out.push({
+            month: month,
+            company: co,
+            count: 0,
+            total: 0,
+            zeinuki: 0,
+            paid: kiroku,
+            paidKiroku: kiroku,
+            kieta: true,
+          });
+        };
+        var mae = CURRENT_ACCOUNT + "::";
+        Object.keys(PAYMENTS).forEach(function (k) {
+          if (k.indexOf(mae) !== 0) return;
+          var r = PAYMENTS[k] || {};
+          if (r.uid != null && r.uid !== CURRENT_ACCOUNT) return;
+          if (!(Number(r.paid) > 0 || String(r.note || "").trim())) return;
+          var rest = k.slice(mae.length);
+          var i = rest.indexOf("::");
+          if (i < 0) return;
+          tasu(rest.slice(0, i), rest.slice(i + 2));
+        });
+        Object.keys(INVOICE_NO).forEach(function (k) {
+          if (INVOICE_NO_UID[k] != null && INVOICE_NO_UID[k] !== CURRENT_ACCOUNT) return;
+          var i = k.indexOf("|");
+          if (i < 0) return;
+          tasu(k.slice(0, i), k.slice(i + 1));
+        });
+        return out;
       }
       function renderPayments() {
         var _nav = document.querySelector(".bottom-nav"); // 一括バーの位置用（--nav-h）
@@ -8486,15 +8551,18 @@
         refreshPayMonthSelect();
         var month = document.getElementById("payMonth").value;
         var statusF = document.getElementById("payStatus").value;
-        var invs = seikyuList(month || null);
+        var invs = seikyuList(month || null, { kieta: true });
         // 状態を付与しつつ集計
         var totalSum = 0,
           paidSum = 0;
         var rows = invs.map(function (iv) {
           var paid = iv.paid; // ★seikyuList が 決めた 入金（繰越の 会社は 古い 月から 当てた 額）★
           var st = payStatusOf(iv.total, paid);
-          totalSum += iv.total;
-          paidSum += paid;
+          // 明細が 0件の 行は 合計に 入れない（前と 同じ 数・他の 会社の 残りを 打ち消さない）
+          if (!iv.kieta) {
+            totalSum += iv.total;
+            paidSum += paid;
+          }
           return { iv: iv, paid: paid, st: st, rem: iv.total - paid };
         });
         var remSum = totalSum - paidSum;
@@ -8549,7 +8617,11 @@
               "月・" +
               x.iv.count +
               "件" +
-              (x.paid > 0 && x.st !== "paid" ? "・入金 " + yen(x.paid) : "");
+              (x.paid > 0 && x.st !== "paid" ? "・入金 " + yen(x.paid) : "") +
+              (x.iv.kieta
+                ? "（明細が 0件に なりました）" +
+                  (x.iv.paidKiroku > 0 ? "・記録した入金 " + yen(x.iv.paidKiroku) : "")
+                : "");
             var remHtml = x.st === "paid" ? "" : '<div class="pay-rem">残 ' + yen(x.rem) + "</div>";
             var moEsc = esc(x.iv.month);
             var coEsc = esc(x.iv.company).replace(/'/g, "\\'");
@@ -8588,9 +8660,9 @@
               '">' +
               check +
               '<span class="pay-pill ' +
-              x.st +
+              (x.iv.kieta ? "kieta" : x.st) +
               '">' +
-              PAY_LABEL[x.st] +
+              (x.iv.kieta ? "明細なし" : PAY_LABEL[x.st]) +
               "</span>" +
               '<div class="pay-main"><div class="pay-co">' +
               esc(x.iv.company) +
@@ -8727,11 +8799,12 @@
         toast("取り消しました");
       }
       function openPayEdit(month, co) {
-        var iv = seikyuList(month).filter(function (x) {
+        var iv = seikyuList(month, { kieta: true }).filter(function (x) {
           return x.company === co;
         })[0];
         if (!iv) return;
         var rec = payRecord(month, co);
+        var _kieta = !!iv.kieta;
         var p = month.split("-");
         document.getElementById("modalTitle").textContent = "入金を記録";
         document.getElementById("modalBody").innerHTML =
@@ -8811,42 +8884,47 @@
           ' oninput="this.value=this.value.replace(/[^0-9]/g,\'\')" id="pay_amt" value="' +
           (Number(rec.paid) || 0) +
           '"></div>' +
-          (MASTER[co] && MASTER[co].carryover
-            ? '<div class="pay-quick">' +
-              (iv.total - iv.paid > 0
-                ? '<button class="btn btn-ghost btn-sm" id="payNokori" onclick="payFill(' +
-                  (iv.paidKiroku + iv.total - iv.paid) +
-                  ')">残りを足す（' +
-                  yen(iv.total - iv.paid) +
-                  "）</button>"
-                : "") +
-              '<button class="btn btn-ghost btn-sm" onclick="payFill(0)">未入金(0)</button></div>'
-            : '<div class="pay-quick"><button class="btn btn-ghost btn-sm" onclick="payFill(' +
-              iv.total +
-              ')">全額（' +
-              yen(iv.total) +
-              ")</button>" +
-              // ★残額（請求−入金済）・半額のクイック。既存 payFill を再利用。
-              (function () {
-                var rem = iv.total - (Number(rec.paid) || 0);
-                var half = Math.round(iv.total / 2);
-                var h = "";
-                if (rem > 0 && rem !== iv.total)
+          (_kieta
+            ? '<div class="pay-sub" id="payKietaNote" style="margin:-6px 0 10px;color:#555555;">' +
+              "この月の明細は 0件です（請求 ¥0）。記録した入金 " +
+              yen(Number(rec.paid) || 0) +
+              " は そのまま 残っています。</div>"
+            : MASTER[co] && MASTER[co].carryover
+              ? '<div class="pay-quick">' +
+                (iv.total - iv.paid > 0
+                  ? '<button class="btn btn-ghost btn-sm" id="payNokori" onclick="payFill(' +
+                    (iv.paidKiroku + iv.total - iv.paid) +
+                    ')">残りを足す（' +
+                    yen(iv.total - iv.paid) +
+                    "）</button>"
+                  : "") +
+                '<button class="btn btn-ghost btn-sm" onclick="payFill(0)">未入金(0)</button></div>'
+              : '<div class="pay-quick"><button class="btn btn-ghost btn-sm" onclick="payFill(' +
+                iv.total +
+                ')">全額（' +
+                yen(iv.total) +
+                ")</button>" +
+                // ★残額（請求−入金済）・半額のクイック。既存 payFill を再利用。
+                (function () {
+                  var rem = iv.total - (Number(rec.paid) || 0);
+                  var half = Math.round(iv.total / 2);
+                  var h = "";
+                  if (rem > 0 && rem !== iv.total)
+                    h +=
+                      '<button class="btn btn-ghost btn-sm" onclick="payFill(' +
+                      rem +
+                      ')">残額（' +
+                      yen(rem) +
+                      "）</button>";
                   h +=
                     '<button class="btn btn-ghost btn-sm" onclick="payFill(' +
-                    rem +
-                    ')">残額（' +
-                    yen(rem) +
+                    half +
+                    ')">半額（' +
+                    yen(half) +
                     "）</button>";
-                h +=
-                  '<button class="btn btn-ghost btn-sm" onclick="payFill(' +
-                  half +
-                  ')">半額（' +
-                  yen(half) +
-                  "）</button>";
-                return h;
-              })() +
-              '<button class="btn btn-ghost btn-sm" onclick="payFill(0)">未入金(0)</button></div>') +
+                  return h;
+                })() +
+                '<button class="btn btn-ghost btn-sm" onclick="payFill(0)">未入金(0)</button></div>') +
           '<div class="frow"><div class="flabel">入金日</div>' +
           '<input class="finput" type="date" id="pay_date" value="' +
           esc(rec.paidDate || "") +
@@ -9058,6 +9136,7 @@
       var INVOICES = []; // 発行の控え（繰越の材料）
       var DASHITA = {}; // 出した 時の 明細（知らせ 専用・月 会社 → {invoice_no, total, issued_at, rows_json}）
       var DASHITA_YOMENAI = false; // 出した 時の 明細を 読めなかった
+      var INVOICE_NO_UID = {}; // 番号の 持ち主（明細が 0件の 月を 出す 時だけ 使う）
       function invNoKey(month, co) {
         return month + "|" + co;
       }
