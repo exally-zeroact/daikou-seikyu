@@ -958,6 +958,22 @@
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      .pay-modose {
+        margin: 0 0 10px;
+        padding: 10px 12px;
+        border: 2px solid #c0392b;
+        border-radius: 8px;
+        background: #fff5f4;
+        color: #7a1f17;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .pay-modose-hd {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        justify-content: space-between;
+      }
       .pay-pill.kieta {
         background: #eeeeee;
         color: #555555;
@@ -8551,6 +8567,7 @@
         refreshPayMonthSelect();
         var month = document.getElementById("payMonth").value;
         var statusF = document.getElementById("payStatus").value;
+        renderModose(); // 戻せなかった 入金の 一覧（閉じるまで 残す）
         var invs = seikyuList(month || null, { kieta: true });
         // 状態を付与しつつ集計
         var totalSum = 0,
@@ -8793,11 +8810,172 @@
             bulkUndo(snaps);
           });
       }
+      // ★戻せなかった 会社を 黙らない★ 2026-10-16（対立役：何件か 戻せなくても 最後に「取り消しました」と だけ 出た）
       async function bulkUndo(snaps) {
+        var dame = [];
         for (var i = 0; i < snaps.length; i++) {
-          await undoPayState(snaps[i].month, snaps[i].co, snaps[i].snap);
+          var ok = await undoPayState(snaps[i].month, snaps[i].co, snaps[i].snap, true);
+          if (!ok) dame.push(snaps[i]);
         }
-        toast("取り消しました");
+        if (!dame.length) return toast("取り消しました");
+        toast(
+          snaps.length +
+            "件のうち " +
+            dame.length +
+            "件を戻せませんでした（入金の画面に一覧を出しています）"
+        );
+        modoseNakattaMado(snaps.length, dame);
+      }
+      // ★戻せなかった 入金の 一覧★ 2026-10-16（対立役：知らせ 1枚だと 電話で 切れる・直して 保存すると 消える）
+      //   入金の 画面の 一覧の 上に「閉じる」まで 残す（窓に すると 直す 窓を 開いた 時に 消える）。
+      //   年・月・会社・前の 額・前の 入金日（客が 手で 前に 戻せる 様に）
+      // ★覚える★＝ログインした 人ごと・この 端末（開き直しても 消えない・対立役：訳の 通りに 開き直すと 一覧が 消えた）
+      var MODOSE = null;
+      function modoseKagi() {
+        return "payModose:" + String(CURRENT_ACCOUNT || "");
+      }
+      function modoseYomu() {
+        try {
+          var o = JSON.parse(localStorage.getItem(modoseKagi()) || "null");
+          return o && Array.isArray(o.dame) && o.dame.length ? o : null;
+        } catch (e) {
+          return null;
+        }
+      }
+      function modoseKaku() {
+        try {
+          if (MODOSE) localStorage.setItem(modoseKagi(), JSON.stringify(MODOSE));
+          else localStorage.removeItem(modoseKagi());
+        } catch (e) {
+          /* 覚えられない 端末＝この 画面の 間だけ */
+        }
+      }
+      function modoseTojiru() {
+        MODOSE = null;
+        modoseKaku();
+        renderModose();
+      }
+      // ★足す★（2回目に 戻せなかった 時に 1回目の まだ 直していない 行を 消さない・対立役）。
+      //   同じ 月×会社は 最初の 前の 状態を 残す（2回目の 前の 状態は「全入金」の 後の 物）。
+      //   覚えるのは 額・入金日・メモの 有無・起きた 日時 だけ（メモの 本文・倉庫の id は 覚えない・対立役）。
+      //   読めない かどうかは 覚えない＝描く 時に 引き直す（覚えると 開き直して 読めた 後も「読めていません」と 出続けた）
+      function modoseNakattaMado(zen, dame) {
+        var mae = MODOSE || modoseYomu() || { dame: [] };
+        var aru = {};
+        mae.dame.forEach(function (x) {
+          aru[x.month + " " + x.co] = 1;
+        });
+        var ima = new Date().toISOString();
+        dame.forEach(function (x) {
+          if (aru[x.month + " " + x.co]) return;
+          aru[x.month + " " + x.co] = 1;
+          mae.dame.push({
+            month: x.month,
+            co: x.co,
+            at: ima,
+            snap: x.snap
+              ? { paid: x.snap.paid, paidDate: x.snap.paidDate || "", memo: !!x.snap.note }
+              : null,
+          });
+        });
+        MODOSE = { dame: mae.dame };
+        modoseKaku();
+        renderModose();
+      }
+      // 前の 状態に 直った 行は 消す（直し終えても「直して」と 言い続けない・古い 額で 上書きさせない）
+      function modoseNaotta(x) {
+        var r = PAYMENTS[payKeyFor(x.month, x.co)];
+        if (!x.snap) return !r;
+        return (
+          !!r &&
+          String(r.paid) === String(x.snap.paid) &&
+          String(r.paidDate || "") === String(x.snap.paidDate || "")
+        );
+      }
+      function renderModose() {
+        var body = document.getElementById("payBody");
+        if (!body) return;
+        if (!MODOSE) MODOSE = modoseYomu();
+        if (MODOSE && !YOMENAI.payments) {
+          var nokori = MODOSE.dame.filter(function (x) {
+            return !modoseNaotta(x);
+          });
+          if (nokori.length !== MODOSE.dame.length) {
+            MODOSE = nokori.length ? { dame: nokori } : null;
+            modoseKaku();
+          }
+        }
+        var el = document.getElementById("payModose");
+        if (!MODOSE) {
+          if (el) el.remove();
+          return;
+        }
+        if (!el) {
+          el = document.createElement("div");
+          el.id = "payModose";
+          el.className = "pay-modose";
+          body.parentNode.insertBefore(el, body);
+        }
+        var nen = function (m) {
+          var p = String(m).split("-");
+          return Number(p[0]) + "年" + Number(p[1]) + "月";
+        };
+        var gaku = function (v) {
+          // 空・null・数で ない＝「額が 読めない」（¥0 と 言わない）
+          return v == null || v === "" || !isFinite(Number(v)) ? "額が 読めない" : yen(Number(v));
+        };
+        var hi = function (iso) {
+          var t = Date.parse(iso);
+          if (!isFinite(t)) return "";
+          var d = new Date(t);
+          return (
+            d.getMonth() +
+            1 +
+            "/" +
+            d.getDate() +
+            " " +
+            d.getHours() +
+            ":" +
+            ("0" + d.getMinutes()).slice(-2)
+          );
+        };
+        var gyou = MODOSE.dame
+          .map(function (x) {
+            var mae = !x.snap
+              ? "前は 記録なし（未入金に 戻す）"
+              : "前は " +
+                gaku(x.snap.paid) +
+                (x.snap.paidDate ? "・入金日 " + x.snap.paidDate : "") +
+                (x.snap.memo ? "・メモ あり" : "");
+            return (
+              "<li>" +
+              esc(nen(x.month) + " " + x.co) +
+              "：" +
+              esc(mae) +
+              (hi(x.at)
+                ? '<span style="color:#888;">（' + esc(hi(x.at)) + " に取り消せなかった）</span>"
+                : "") +
+              "</li>"
+            );
+          })
+          .join("");
+        var yomenai = yomenaiNo(["payments"]).length > 0;
+        el.innerHTML =
+          '<div class="pay-modose-hd"><b>' +
+          esc(
+            "取り消せなかった入金 " + MODOSE.dame.length + "件（取り消した時は「全入金」のまま）"
+          ) +
+          '</b><button type="button" class="btn btn-ghost btn-sm" onclick="modoseTojiru();">閉じる</button></div>' +
+          '<ul style="max-height:40vh;overflow:auto;margin:6px 0;padding-left:18px;">' +
+          gyou +
+          "</ul><div>" +
+          esc(
+            (yomenai
+              ? "入金を読めていません。画面を開き直して確かめてください（開き直しても この一覧は残ります）。"
+              : "下の一覧で 1件ずつ 前の額に直してください（前の額に直った行は ここから消えます）。") +
+              "月や状態で絞り込んでいる時は「全期間」に戻すと出ます。"
+          ) +
+          "</div>";
       }
       function openPayEdit(month, co) {
         var iv = seikyuList(month, { kieta: true }).filter(function (x) {
@@ -9063,15 +9241,16 @@
         });
       }
       // 全入金の取り消し＝直前の状態へ戻す（元が未入金なら記録削除）。
-      async function undoPayState(month, co, snap) {
+      // 返り値＝戻せたか（一括の 取り消しが 何件 戻せなかったかを 数える）。damaru＝1件ごとの 知らせを 出さない
+      async function undoPayState(month, co, snap, damaru) {
         // ★入金を 読めていない 時は 書かない・消さない★（未入金に 見えた まま 上書き・取り消しで 消した・対立役 A1）
-        if (yomenaiTomeru(["payments"], "入金の 保存")) return;
+        if (yomenaiTomeru(["payments"], "入金の 保存")) return false;
         var key = payKeyFor(month, co);
         if (snap === null) {
           var del = await SB.from("payments").delete().eq("month", month).eq("company", co);
           if (del.error) {
             cloudErr("入金取消", del.error);
-            return;
+            return false;
           }
           delete PAYMENTS[key];
         } else {
@@ -9092,7 +9271,7 @@
             .single();
           if (up.error) {
             cloudErr("入金取消", up.error);
-            return;
+            return false;
           }
           PAYMENTS[key] = {
             paid: snap.paid,
@@ -9103,7 +9282,8 @@
         }
         renderPayments();
         updatePayBadge();
-        toast("取り消しました");
+        if (!damaru) toast("取り消しました");
+        return true;
       }
       // 取り消しボタン付きトースト（通常 toast とは別要素・別タイマー＝監査指摘）。
       // 前の 取り消しを 閉じる 2026-10-16（対立役：取り消しの 知らせが 出ている 間に 別の 保存を し、その後
