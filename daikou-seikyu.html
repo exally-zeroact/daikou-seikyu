@@ -8720,6 +8720,7 @@
       async function bulkMarkPaid() {
         // ★入金を 読めていない 時は 書かない・消さない★（未入金に 見えた まま 上書き・取り消しで 消した・対立役 A1）
         if (yomenaiTomeru(["payments"], "入金の 保存")) return;
+        toastUndoKesu();
         var keys = Object.keys(_paySelected);
         if (!keys.length) return;
         var d = new Date();
@@ -8952,6 +8953,7 @@
       async function savePay(month, co, total) {
         // ★入金を 読めていない 時は 書かない・消さない★（未入金に 見えた まま 上書き・取り消しで 消した・対立役 A1）
         if (yomenaiTomeru(["payments"], "入金の 保存")) return;
+        toastUndoKesu();
         var amt =
           Number(String(document.getElementById("pay_amt").value).replace(/[^0-9]/g, "")) || 0;
         var date = document.getElementById("pay_date").value || "";
@@ -8959,7 +8961,10 @@
         var key = payKeyFor(month, co);
         var snap = PAYMENTS[key] ? Object.assign({}, PAYMENTS[key]) : null; // 取り消し用（消した 時）
         var keshita = false;
-        if (amt <= 0 && !date && !note) {
+        if (amt <= 0 && !date && !note && !snap) {
+          // この 画面に 記録が 無い＝倉庫も 触らない 2026-10-16（対立役：前は 消す 呼び出しを 送り、別の 端末で
+          //   後から 入れた 記録を 消しながら「何も変えていません」と 出し得た）
+        } else if (amt <= 0 && !date && !note) {
           // 全部空＝未入金に戻す＝記録を消す（入金は実削除）
           var del = await SB.from("payments").delete().eq("month", month).eq("company", co);
           if (del.error) {
@@ -9008,12 +9013,15 @@
           toastUndo(co + " の入金の記録を消しました", function () {
             undoPayState(month, co, snap);
           });
+        else if (!snap && amt <= 0 && !date && !note)
+          toast("この画面には入金の記録がありません（何も変えていません）");
         else toast("入金を記録しました");
       }
       // ★行から直接ワンタップで全額入金済に（確認なし＝取り消しトースト付き）。savePayと同一のupsertを流用。
       async function markPaidFull(month, co, total) {
         // ★入金を 読めていない 時は 書かない・消さない★（未入金に 見えた まま 上書き・取り消しで 消した・対立役 A1）
         if (yomenaiTomeru(["payments"], "入金の 保存")) return;
+        toastUndoKesu();
         var key = payKeyFor(month, co);
         var snap = PAYMENTS[key] ? Object.assign({}, PAYMENTS[key]) : null; // 取り消し用に前の状態を保持
         var d = new Date();
@@ -9050,7 +9058,7 @@
         };
         renderPayments();
         updatePayBadge();
-        toastUndo(esc(co) + " を全入金にしました", function () {
+        toastUndo(co + " を全入金にしました", function () {
           undoPayState(month, co, snap);
         });
       }
@@ -9098,6 +9106,15 @@
         toast("取り消しました");
       }
       // 取り消しボタン付きトースト（通常 toast とは別要素・別タイマー＝監査指摘）。
+      // 前の 取り消しを 閉じる 2026-10-16（対立役：取り消しの 知らせが 出ている 間に 別の 保存を し、その後
+      //   取り消しを 押すと、たった今 入れた 記録が 消す 前の 記録で 上書きされた）
+      function toastUndoKesu() {
+        var t = document.getElementById("toastUndo");
+        if (!t) return;
+        clearTimeout(t._tm);
+        t.classList.remove("show");
+        t.innerHTML = "";
+      }
       function toastUndo(msg, onUndo) {
         var t = document.getElementById("toastUndo");
         if (!t) {
@@ -9114,17 +9131,14 @@
         btn.type = "button";
         btn.textContent = "取り消す";
         btn.onclick = function () {
-          clearTimeout(t._tm);
-          t.classList.remove("show");
+          toastUndoKesu();
           onUndo();
         };
         t.appendChild(span);
         t.appendChild(btn);
         t.classList.add("show");
         clearTimeout(t._tm);
-        t._tm = setTimeout(function () {
-          t.classList.remove("show");
-        }, 5000);
+        t._tm = setTimeout(toastUndoKesu, 5000); // 中身ごと 消す（見えない ボタンが Tab で 押せた・対立役）
       }
 
       /* ===================================================================
@@ -11892,6 +11906,7 @@
         toast("削除しました");
       }
       async function renameCompany(oldName, newName) {
+        toastUndoKesu(); // 古い 名前の 取り消しを 残さない（押すと 古い 名前で 書いた・対立役）
         newName = (newName || "").trim();
         if (!newName || newName === oldName) {
           renderMaster();

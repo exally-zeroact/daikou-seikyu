@@ -198,3 +198,109 @@ test("他の アカウントの 入金の 記録・請求番号は 明細なし�
   expect(r).not.toContain("他人の会社2");
   expect(r).toContain("自分の会社");
 });
+
+// ── 本番前の 対立役（01a27a6）の 指摘 ──
+test("取り消しの 知らせが 出ている 間に 別の 保存を すると 前の 取り消しは 閉じる（新しい 記録を 古い 物で 上書きしない）", async ({
+  page,
+}) => {
+  await hiraku(page);
+  await gyou(page, B, "2026年5月").click();
+  await page.locator("#modalBody #pay_amt").fill("0");
+  await page.locator("#modalBody #pay_date").fill("");
+  await page.locator("#modalBody #pay_note").fill("");
+  await page.locator("#modalBody").getByRole("button", { name: /保存/ }).first().click();
+  await expect(page.locator("#toastUndo .toast-undo-btn")).toHaveCount(1);
+  // 5秒 以内に 別の 行で 入金を 保存＝前の 取り消しボタンは 無くなる
+  await gyou(page, A, "2026年5月").click();
+  await expect(page.locator("#toastUndo .toast-undo-btn")).toHaveCount(1); // 窓を 開くだけでは 消さない
+  await page.locator("#modalBody #pay_amt").fill("3000");
+  await page.locator("#modalBody").getByRole("button", { name: /保存/ }).first().click();
+  await expect(page.locator("#toast")).toContainText("入金を記録しました");
+  // その場で 数える（待つと 5秒の 時計で 消えて 守りを 外しても 緑に なった）
+  const nokori = await page.evaluate(
+    () => document.querySelectorAll("#toastUndo .toast-undo-btn").length
+  );
+  expect(nokori, "保存の 後も 古い 取り消しが 押せる").toBe(0);
+});
+
+test("取り消しボタンは 5秒で 画面から 消える（見えない まま Tab で 押せない）", async ({
+  page,
+}) => {
+  await hiraku(page);
+  await page.evaluate(() => markPaidFull("2026-05", "明細ある株式会社", 15400));
+  await expect(page.locator("#toastUndo .toast-undo-btn")).toHaveCount(1);
+  await page.waitForTimeout(5600);
+  await expect(page.locator("#toastUndo .toast-undo-btn")).toHaveCount(0);
+});
+
+test("一括で 全入金 → 取り消す＝元に 戻る", async ({ page }) => {
+  await hiraku(page);
+  await page.evaluate(async () => {
+    payToggleRow("2026-05", "明細ある株式会社", 15400);
+    await bulkMarkPaid();
+  });
+  await expect(page.locator("#toastUndo")).toContainText("全入金にしました");
+  await page.locator("#toastUndo").getByRole("button", { name: "取り消す" }).click();
+  await expect(page.locator("#toast")).toContainText("取り消しました", { timeout: 10000 });
+  const db = await page.evaluate(
+    () => JSON.parse(localStorage.getItem("__fake_supa_db__")).tables.payments
+  );
+  expect(db.filter((r) => r.company === "明細ある株式会社" && !r.deleted_at && r.paid > 0)).toEqual(
+    []
+  );
+});
+
+test("倉庫に 記録が 在るのに この 画面に 無い 月（別の 端末で 入れた）を 空で 保存＝消さない", async ({
+  page,
+}) => {
+  await hiraku(page);
+  await page.evaluate(async () => {
+    // 別の 端末が 後から 入れた 記録（この 画面は 知らない）
+    const db = JSON.parse(localStorage.getItem("__fake_supa_db__"));
+    db.tables.payments.push({
+      id: "p_betsu",
+      user_id: "u_ki",
+      month: "2026-05",
+      company: "明細ある株式会社",
+      paid: 7000,
+      paid_date: "2026-06-20",
+      memo: "",
+      deleted_at: null,
+    });
+    localStorage.setItem("__fake_supa_db__", JSON.stringify(db));
+  });
+  await gyou(page, A, "2026年5月").click();
+  await page.locator("#modalBody #pay_amt").fill("0");
+  await page.locator("#modalBody #pay_date").fill("");
+  await page.locator("#modalBody #pay_note").fill("");
+  await page.locator("#modalBody").getByRole("button", { name: /保存/ }).first().click();
+  await expect(page.locator("#toast")).toContainText("何も変えていません");
+  const nokori = await page.evaluate(
+    () =>
+      JSON.parse(localStorage.getItem("__fake_supa_db__")).tables.payments.filter(
+        (r) => r.id === "p_betsu"
+      ).length
+  );
+  expect(nokori, "別の 端末の 記録が 消えた").toBe(1);
+});
+
+test("全入金の 知らせの 会社名は 二重に 化けない（& や < を そのまま）", async ({ page }) => {
+  await hiraku(page);
+  const ji = await page.evaluate(async () => {
+    const co = "A&B<株>";
+    MASTER[co] = { account_id: CURRENT_ACCOUNT, items: ["日付", "行き先", "金額"] };
+    await markPaidFull("2026-05", co, 1000);
+    return document.getElementById("toastUndo").textContent;
+  });
+  expect(ji).toContain("A&B<株> を全入金にしました");
+});
+
+test("記録の 無い 月で 空の まま 保存＝「記録しました」と 言わない", async ({ page }) => {
+  await hiraku(page);
+  await gyou(page, A, "2026年5月").click();
+  await page.locator("#modalBody #pay_amt").fill("0");
+  await page.locator("#modalBody #pay_date").fill("");
+  await page.locator("#modalBody #pay_note").fill("");
+  await page.locator("#modalBody").getByRole("button", { name: /保存/ }).first().click();
+  await expect(page.locator("#toast")).toContainText("この画面には入金の記録がありません");
+});
