@@ -8871,9 +8871,11 @@
         var m = y !== undefined && MODOSE_KAKETA ? y : MODOSE;
         if (!m || !m.dame) return;
         var kaeta = false;
+        var ima = new Date().toISOString();
         m.dame.forEach(function (x) {
           if (x.co === oldName) {
             x.co = newName;
+            x.kaeta = ima; // 付け替えた 時刻＝これより 前に 入金を 読んだ タブは 判じない（x.at は 取り消せなかった 時刻の まま）
             kaeta = true;
           }
         });
@@ -8920,6 +8922,8 @@
         var key = payKeyFor(x.month, x.co);
         var shinsen = Math.max(PAY_YONDA, PAY_KOSHIN[key] || 0);
         var t = Date.parse(x.at);
+        var tk = x.kaeta ? Date.parse(x.kaeta) : NaN; // 会社名を 付け替えた 時刻（在れば 遅い 方で 判じる）
+        if (isFinite(t) && isFinite(tk) && tk > t) t = tk;
         if (!isFinite(t) || t > shinsen) return false; // 日時が 読めない・この タブの 入金が その 行より 古い＝判じない
         var r = PAYMENTS[key];
         // 前が 記録なし＝記録が 消えたか 額が 0（未入金(0) で 保存した 形）なら 直った
@@ -12129,6 +12133,58 @@
         refreshCompanySelects();
         toast("削除しました");
       }
+      // 新しい 名前に 先から 在る 行の 鍵（台帳は 月・明細と 入金は id）。読めない・本数が 確かでない 時は null
+      //   並びを 決めて 頁を 繰り、count が 数で 受け取った 本数と 合う 時だけ 確か とする（分からない 時に 通さない・対立役）
+      async function sakiNiAruGyou(na) {
+        var out = {};
+        var hyou = [
+          ["invoice_no", "month"],
+          ["meisai", "id"],
+          ["payments", "id"],
+        ];
+        for (var h = 0; h < hyou.length; h++) {
+          var tbl = hyou[h][0];
+          var kagi = hyou[h][1];
+          var keys = [];
+          var total = null;
+          for (var from = 0; ; ) {
+            var r = await SB.from(tbl)
+              .select(kagi, { count: "exact" })
+              .eq("company", na)
+              .order(kagi)
+              .range(from, from + 999);
+            if (!r || r.error || !Array.isArray(r.data) || typeof r.count !== "number") return null;
+            total = r.count;
+            r.data.forEach(function (x) {
+              if (x && x[kagi] != null) keys.push(x[kagi]);
+            });
+            if (!r.data.length || keys.length >= total) break;
+            from += r.data.length;
+          }
+          if (keys.length !== total) return null;
+          out[tbl] = keys;
+        }
+        return out;
+      }
+      // 付け替えの 戻し：新しい 名前の 行から、先から 在った 行（消した 会社の 残り）を 除いて 元の 名前へ
+      //   残りが 多すぎる（URL が 長く なる）時は 戻さず「戻せない」を 返す（一括で 戻して 他社の 行を 動かさない）
+      async function modoshiDake(tbl, nokoriKeys, kagi, oldName, newName) {
+        if (nokoriKeys.length > 100) return { error: { message: "残りの 行が 多すぎて 戻せない" } };
+        var q = SB.from(tbl).update({ company: oldName }).eq("company", newName);
+        if (nokoriKeys.length)
+          q = q.not(
+            kagi,
+            "in",
+            "(" +
+              nokoriKeys
+                .map(function (k) {
+                  return '"' + String(k).replace(/"/g, '\\"') + '"';
+                })
+                .join(",") +
+              ")"
+          );
+        return await q;
+      }
       async function renameCompany(oldName, newName) {
         toastUndoKesu(); // 古い 名前の 取り消しを 残さない（押すと 古い 名前で 書いた・対立役）
         newName = (newName || "").trim();
@@ -12150,6 +12206,20 @@
           renderMaster();
           return;
         }
+        // ★戻しは 動かした 行だけ★ 2026-10-16 対立役（新しい 名前で 一括に 戻すと、消した 会社の 名前に 残っていた
+        //   入金・明細・請求番号まで 元の 会社へ 動かした）。台帳は 鍵が (人, 月, 会社) なので 月で、明細・入金は id で 戻す
+        // ★新しい 名前に 先から 在る 行（消した 会社の 残り）を 付け替える 前に 読む★ 2026-10-16 対立役
+        //   戻しは「新しい 名前の 行から この 残りを 除いた 全部」＝消した 会社の 行は 動かさず、読んだ 後に 足された 行も 戻る
+        //   （動かした 行の 名簿で 戻すと 読んだ 後に 足された 行を 取りこぼし、書き換えの 返りで 戻すと 倉庫の 上限で 切られうる）。
+        //   読めない・本数が 確かでない 時は 何も 書かない
+        var nokori = await sakiNiAruGyou(newName);
+        if (!nokori) {
+          toast(
+            "会社名を 変えませんでした（変える 前の 確かめを 読めませんでした）。通信を 確かめて もう一度 試してください。"
+          );
+          renderMaster();
+          return;
+        }
         var u0 = await SB.from("invoice_no").update({ company: newName }).eq("company", oldName);
         if (u0 && u0.error) {
           cloudErr("会社名変更（請求番号の 台帳）", u0.error);
@@ -12161,15 +12231,21 @@
         var u2 = await SB.from("payments").update({ company: newName }).eq("company", oldName);
         if ((u1 && u1.error) || (u2 && u2.error)) {
           // ★明細・入金の 改名が 落ちたら 台帳の 名前も 戻す★（対立役：台帳だけ 新しい 名前に なると 古い 名前で 出した 時に 番号が 2つ目に なる）
-          var m0 = await SB.from("invoice_no").update({ company: oldName }).eq("company", newName);
+          var m0 = await modoshiDake("invoice_no", nokori.invoice_no, "month", oldName, newName);
           var m1 =
             u1 && !u1.error
-              ? await SB.from("meisai").update({ company: oldName }).eq("company", newName)
+              ? await modoshiDake("meisai", nokori.meisai, "id", oldName, newName)
               : null;
-          if ((m0 && m0.error) || (m1 && m1.error)) {
-            // ★戻しも 落ちた＝台帳・明細の 名前が 割れて いる★（黙らない・対立役）
+          // 入金が 付け替わっていたら 入金も 戻す 2026-10-16（対立役：倉庫の 入金だけ 新しい 名前に 残り、
+          //   開き直すと 古い 名前の 帯の 行が「記録なし＝直った」と 消えた）
+          var m2 =
+            u2 && !u2.error
+              ? await modoshiDake("payments", nokori.payments, "id", oldName, newName)
+              : null;
+          if ((m0 && m0.error) || (m1 && m1.error) || (m2 && m2.error)) {
+            // ★戻しも 落ちた＝台帳・明細・入金の 名前が 割れて いる★（黙らない・対立役）
             toast(
-              "会社名の 変更が 途中で 止まり、元に 戻せませんでした（請求番号の 台帳・明細の 一部が「" +
+              "会社名の 変更が 途中で 止まり、元に 戻せませんでした（請求番号の 台帳・明細・入金の 一部が「" +
                 newName +
                 "」の まま）。請求書を 出す 前に 画面を 開き直し、もう一度「" +
                 newName +
