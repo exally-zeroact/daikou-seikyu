@@ -3923,6 +3923,77 @@
         toast(yomenaiBun(k, what));
         return true;
       }
+      // ★手で入れた明細にも「車」を付けられる★ 2026-10-23
+      //   出どころ … 事務所で付けた札（public の dk_device_labels：label＝車の名前・sort_order＝並び順）
+      //     ＝ダイコメの同期（dk-sync-jobs）が extra.dk_car / dk_car_no に入れる物と同じ札。
+      //   ★欄を出さない時★（黙って空の欄を出さない・札を混ぜない）
+      //     ・読めない（落ちた・権限が無い）／0件
+      //     ・会社が2つ以上 読めた＝どの会社の車か ここでは決められない
+      //   ★失敗しても 読み込みは止めない★（車が付けられないだけ＝今まで通り）
+      var KURUMA_FUDA = []; // [{label, no}]（並び順）。空＝欄を出さない
+      async function yomuKurumaFuda() {
+        KURUMA_FUDA = [];
+        try {
+          var r = await SB.from("dk_device_labels").select(
+            "company_id, device_id, label, sort_order"
+          );
+          if (r.error) {
+            // 並び順の列が無い倉庫でも 札だけは読む
+            r = await SB.from("dk_device_labels").select("company_id, device_id, label");
+          }
+          if (r.error || !Array.isArray(r.data)) return;
+          var kaisha = {};
+          var list = [];
+          r.data.forEach(function (x) {
+            var lb = x && typeof x.label === "string" ? x.label.trim() : "";
+            if (!lb) return;
+            kaisha[String(x.company_id)] = 1;
+            var n = Number(x.sort_order);
+            list.push({ label: lb, no: isFinite(n) && n > 0 ? n : null });
+          });
+          if (Object.keys(kaisha).length !== 1) return; // 0件・会社が2つ以上 ＝出さない
+          list.sort(function (a, b) {
+            return (a.no || 9999) - (b.no || 9999) || a.label.localeCompare(b.label);
+          });
+          var seen = {};
+          KURUMA_FUDA = list.filter(function (x) {
+            if (seen[x.label]) return false;
+            seen[x.label] = 1;
+            return true;
+          });
+        } catch (e) {
+          KURUMA_FUDA = [];
+        }
+      }
+      // 車を付ける／外す（付けるのは dk_car・dk_car_no だけ＝dk_ref・dk_source は入れない
+      //   ＝事務所へ金額を戻す道 MeisaiEngine.utils.shouldPushFare に乗せない）
+      function kurumaWoTsukeru(row, idx) {
+        var f = KURUMA_FUDA[idx];
+        delete row.dk_car;
+        delete row.dk_car_no;
+        if (!f) return;
+        row.dk_car = f.label;
+        if (f.no != null) row.dk_car_no = f.no;
+      }
+      function kurumaOptsHtml(nowLabel) {
+        var hit = -1;
+        var html = KURUMA_FUDA.map(function (f, i) {
+          if (f.label === nowLabel) hit = i;
+          return (
+            '<option value="' +
+            i +
+            '"' +
+            (f.label === nowLabel ? " selected" : "") +
+            ">" +
+            esc(f.label) +
+            "</option>"
+          );
+        }).join("");
+        // 今付いている札が 一覧に無い（名前を変えた等）＝そのまま残せる様に 先頭に置く
+        var keep =
+          nowLabel && hit < 0 ? '<option value="keep" selected>' + esc(nowLabel) + "</option>" : "";
+        return '<option value="">（車なし）</option>' + keep + html;
+      }
       async function loadAllCloud() {
         YOMENAI = { issuer: true, invoices: true, invoice_no: true, payments: true };
         DB = [];
@@ -3973,6 +4044,7 @@
           cloudErr("明細読込", m.error);
           ok = false;
         } else DB = m.data.map(meisaiFromDb);
+        await yomuKurumaFuda();
         var payYomiHajime = Date.now();
         var p = await fetchAllQ(function (a, b) {
           return SB.from("payments")
@@ -10630,6 +10702,15 @@
                 );
               })
               .join("");
+            // ★車（任意）★ 2026-10-23＝札が読めた時だけ出す（既定は空＝今まで通り「手で入れた分」）
+            if (KURUMA_FUDA.length)
+              fields +=
+                '<div class="ef ef-narrow"><span class="ef-lb">車</span>' +
+                '<select class="entry-inp entry-car" onchange="setEntryCar(' +
+                i +
+                ',this)">' +
+                kurumaOptsHtml(row.dk_car || "") +
+                "</select></div>";
             return (
               '<div class="entry-line">' +
               '<div class="entry-line-hd"><span class="entry-line-no">明細 ' +
@@ -10764,6 +10845,10 @@
       function setEntry(i, k, v) {
         if (entryRows[i]) entryRows[i][k] = v;
       }
+      function setEntryCar(i, el) {
+        if (!entryRows[i] || el.value === "keep") return;
+        kurumaWoTsukeru(entryRows[i], el.value === "" ? -1 : Number(el.value));
+      }
       function setEntryNum(i, k, el) {
         // 数字以外を即除去（オートフィルの文章混入を物理的に弾く）
         // ★距離だけ小数点を通す (2026-08-05)★
@@ -10834,6 +10919,9 @@
               return;
             rec[k] = row[k] || "";
           });
+          // 車（選んだ時だけ）＝dk_car・dk_car_no だけ（dk_ref・dk_source は入れない）
+          if (row.dk_car) rec.dk_car = row.dk_car;
+          if (row.dk_car && row.dk_car_no != null) rec.dk_car_no = row.dk_car_no;
           return rec;
         });
         // クラウドに一括insert→返ってきたuuid＋created_atを各明細に載せて in-memory に追加
@@ -11081,6 +11169,14 @@
             return '<div class="frow"><div class="flabel">' + esc(k) + "</div>" + inp + "</div>";
           })
           .join("");
+        // ★車（任意）★ 2026-10-23＝手で入れた行だけ・札が読めた時だけ。
+        //   事務所から来た行（dk_source・dk_ref が在る）の車は 事務所の札が正本＝ここでは変えない。
+        if (KURUMA_FUDA.length && !r.dk_source && !r.dk_ref)
+          fields +=
+            '<div class="frow"><div class="flabel">車</div>' +
+            '<select class="finput ed-car" id="ed__car">' +
+            kurumaOptsHtml(r.dk_car || "") +
+            "</select></div>";
         // ★2026-08-25 直し★：2026-08-21 に「（idで特定）」の見出しを消した時、
         //   ★代入が `= "";` で終わってしまい、後ろの連結が誰にも渡らない ただの式★ になっていた。
         //   ＝ 一覧から1件 押すと ★「明細を編集」と「閉じる」だけの空の画面★ が出る＝直せない。
@@ -11132,6 +11228,10 @@
             r[k] = el.value === "" ? "" : Number(String(el.value).replace(/[^0-9.\-]/g, "")) || 0;
           else r[k] = el.value;
         });
+        // 車：空に戻したら dk_car・dk_car_no とも消す（「keep」＝一覧に無い今の札はそのまま）
+        var carEl = document.getElementById("ed__car");
+        if (carEl && carEl.value !== "keep")
+          kurumaWoTsukeru(r, carEl.value === "" ? -1 : Number(carEl.value));
         var u = await SB.from("meisai").update(meisaiToDb(r)).eq("id", id);
         if (u.error) {
           cloudErr("明細更新", u.error);
