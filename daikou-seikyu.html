@@ -3390,7 +3390,8 @@
       <!-- 請求書 -->
       <div class="seg-panel on" data-seg="invoice">
         <div class="scr-sub">
-          月・会社を選ぶと、会社マスタ＋自社情報＋明細から請求書を自動生成。印刷／PDFで出力します。
+          月・会社を選ぶと、会社マスタ＋自社情報＋明細から請求書を自動生成。「印刷 / 送る」で PDF を
+          開き、共有から 送る・プリントできます。
         </div>
         <div class="filterbar">
           <select class="fselect" id="invMonth" onchange="generateInvoices()">
@@ -3401,11 +3402,10 @@
           </select>
         </div>
         <div class="invoice-actions no-print">
+          <!-- ★印刷と 送るは 1つ★ 2026-10-29 司さん「PDFで保存/送ると印刷のボタンは同じ画面が開かれるんやけん
+               1つのボタンにして印刷/送るにまとめろ」＝PDF を 作って 開く（共有から LINE・プリント） -->
           <button class="btn btn-primary btn-sm" id="btnInvPdf" onclick="exportInvoicePDF(this)">
-            📄 PDFで保存 / 送る
-          </button>
-          <button class="btn btn-ghost btn-sm" id="btnInvPrint" onclick="printInvoicePDF(this)">
-            🖨 印刷
+            📄 印刷 / 送る
           </button>
           <button class="btn btn-ghost btn-sm" id="btnInvExcel" onclick="openExcelPicker()">
             📊 Excelに書き出し
@@ -7520,11 +7520,24 @@
           var r = await _buildInvoiceBytes();
           if (!r) return;
           var miss = InvoicePDF.lastMissing();
-          InvoicePDF.save(r.bytes, r.fname);
+          // ★スマホは 保存（PDF の 画面が 開き 共有から 送る・プリント）／PC は 新しい 窓で 開く（印刷も 保存も そこから）★
+          //   2026-10-29「印刷 / 送る」を 1つに した 時（PC で 保存だけに すると ダウンロード欄に 入るだけで 印刷の 画面が 出ない・対立役 止6）
+          //   窓を 止められたら 保存に 落とす（前の「印刷」と 同じ 形）
+          var pcMado = false;
+          if (!insatsuSumaho()) {
+            var url = URL.createObjectURL(new Blob([r.bytes], { type: "application/pdf" }));
+            pcMado = !!window.open(url, "_blank");
+            setTimeout(function () {
+              URL.revokeObjectURL(url);
+            }, 60000);
+          }
+          if (!pcMado) InvoicePDF.save(r.bytes, r.fname);
           toast(
             miss.length
               ? "PDFを作成（注意：この字は出せず〓表示→ " + miss.join(" ") + "）"
-              : "PDFを作成しました"
+              : pcMado
+                ? "PDFを開きました（印刷・保存は その画面から）"
+                : "PDFを作成しました（開いた画面の共有から 送る・プリント）"
           );
           nokosenaiShiraseru(r);
         } catch (e) {
@@ -7536,6 +7549,20 @@
           }
         }
       }
+      // スマホ・タブレット・ホーム画面の アプリ＝保存の 道（新しい 窓は 戻れなく なる 端末が 在る）
+      function insatsuSumaho() {
+        try {
+          var n = window.navigator || {};
+          if (n.standalone === true) return true;
+          if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches)
+            return true;
+          var ua = String(n.userAgent || "");
+          if (/iPhone|iPad|iPod|Android|Mobile/i.test(ua)) return true;
+          return /Macintosh/.test(ua) && (n.maxTouchPoints || 0) > 1; // iPadOS の Safari
+        } catch (_) {
+          return true;
+        }
+      }
       function nokosenaiShiraseru(r) {
         if (!r || !r.nokosenai || !r.nokosenai.length) return;
         toast(
@@ -7545,44 +7572,8 @@
           8000
         );
       }
-      // ★印刷＝自前PDFを開いてそこから印刷する。window.print()だとブラウザが
-      //   ページ最下部にURL＋日付フッターを足してしまう（自前PDFで消した足跡）ため。
-      async function printInvoicePDF(btn) {
-        if (typeof InvoicePDF === "undefined") {
-          toast("PDFモジュールの読み込み待ちです。少し待って再度押してください");
-          return;
-        }
-        var old = btn ? btn.textContent : "";
-        if (btn) {
-          btn.disabled = true;
-          btn.textContent = "PDF準備中…";
-        }
-        try {
-          var r = await _buildInvoiceBytes();
-          if (!r) return;
-          var blob = new Blob([r.bytes], { type: "application/pdf" });
-          var url = URL.createObjectURL(blob);
-          var w = window.open(url, "_blank");
-          if (!w) {
-            // ポップアップブロック時は保存にフォールバック
-            InvoicePDF.save(r.bytes, r.fname);
-            toast("PDFを保存しました。開いて印刷してください（フッター無し）");
-          } else {
-            toast("PDFを開きました。共有／プリントから印刷を（URLフッター無し）");
-          }
-          nokosenaiShiraseru(r);
-          setTimeout(function () {
-            URL.revokeObjectURL(url);
-          }, 60000);
-        } catch (e) {
-          toast("印刷用PDF作成に失敗：" + (e && e.message ? e.message : e));
-        } finally {
-          if (btn) {
-            btn.disabled = false;
-            btn.textContent = old;
-          }
-        }
-      }
+      // ★「印刷」の 別ボタン（printInvoicePDF＝新しい 窓で 開く）は 2026-10-29 に 無くした★（司さん「同じ画面が開かれるんやけん
+      //   1つのボタンにして印刷/送るにまとめろ」）＝exportInvoicePDF（InvoicePDF.save）1つで 開いて 共有から 送る・プリント
       // 720pxのA4シートをスマホ画面幅に縮小して全体を見せる
       // 編集プレビューの高さ比率＝★固定（閲覧/編集で変えない）★。
       //   以前は閲覧0.66/編集0.48で切替えていたが、チップを押すたびにプレビューが伸び縮みして
@@ -8366,7 +8357,7 @@
 
          ★行の 選び方は 請求画面と 同じ式を 使う★
            （真似て 書き直すと 「一部だけ 真似た」形に なり 字が ずれる）
-         ★開き方は printInvoicePDF と 同じ★（blob を 新しい 窓で。
+         ★開き方は 前の printInvoicePDF（2026-10-29 に 無くした「印刷」）と 同じ★（blob を 新しい 窓で。
            止められたら 保存に 落とす） */
       function invoiceNoPeek(month, co) {
         var k = invNoKey(month, co);
@@ -10236,7 +10227,7 @@
               " の 請求書は しません。画面を 開き直してください。"
             : jishaNg(currentIssuer());
         if (_gkuri.length) yk = ["_"];
-        ["btnInvPdf", "btnInvPrint", "btnInvExcel"].forEach(function (id) {
+        ["btnInvPdf", "btnInvExcel"].forEach(function (id) {
           var b = document.getElementById(id);
           if (b) b.disabled = !!ng;
         });

@@ -15,7 +15,7 @@ import { test, expect } from "@playwright/test";
 //     4. ★まだ 出していない 番号は 見せない・出した 後は 台帳の 番号★（2026-10-08 決め直し）
 //
 //   ★押す物の一覧（先に書く）★
-//     1. 下のナビ「請求」 2. 月 3. 会社 4.「📄 PDFで保存 / 送る」
+//     1. 下のナビ「請求」 2. 月 3. 会社 4.「📄 印刷 / 送る」
 // ============================================================
 
 const CO = "験模工業株式会社";
@@ -92,6 +92,10 @@ function seed(amount) {
 async function open(page, amount) {
   await page.route(/cdn\.jsdelivr\.net/, (r) => r.abort());
   await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
+  // ★「印刷 / 送る」は PC だと 新しい 窓で 開く★ 2026-10-29＝PDF の 中身を 見る 為 窓を 止めた 形（保存に 落ちる）で 回す
+  await page.addInitScript(() => {
+    window.open = () => null;
+  });
   await page.addInitScript(seed, amount);
   await page.goto("/daikou-seikyu.html", { waitUntil: "load" });
   await expect(page.locator("#scr-input")).toBeVisible({ timeout: 20000 });
@@ -139,7 +143,7 @@ test("★出した瞬間に控えが残り、明細を直しても その控え�
 
   // 出す（実物のボタン）
   const dl = page.waitForEvent("download", { timeout: 120000 });
-  await page.getByRole("button", { name: /PDFで保存/ }).click();
+  await page.getByRole("button", { name: /印刷 \/ 送る/ }).click();
   const kami1 = await noOnPaper(page, await dl);
   await page.waitForTimeout(400);
 
@@ -187,7 +191,7 @@ test("★出した瞬間に控えが残り、明細を直しても その控え�
 
   // もう一度 出す
   const dl2 = page.waitForEvent("download", { timeout: 120000 });
-  await page.getByRole("button", { name: /PDFで保存/ }).click();
+  await page.getByRole("button", { name: /印刷 \/ 送る/ }).click();
   const kami2 = await noOnPaper(page, await dl2);
   await page.waitForTimeout(400);
   // ★紙に刷られた番号が 1通目と同じ★（凍結の本丸。台帳を見ない実装ならここで落ちる）

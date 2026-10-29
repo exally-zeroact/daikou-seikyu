@@ -199,6 +199,10 @@ test("★全体の色を3つに変えても 本文・明細・金額の濃さが
   fs.mkdirSync(OUT, { recursive: true });
 
   await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
+  // ★「印刷 / 送る」は PC だと 新しい 窓で 開く★ 2026-10-29＝PDF の 中身を 見る 為 窓を 止めた 形（保存に 落ちる）で 回す
+  await page.addInitScript(() => {
+    window.open = () => null;
+  });
   await page.addInitScript(seed);
   await page.goto("/daikou-seikyu.html", { waitUntil: "load" });
   await expect(page.locator("#scr-input")).toBeVisible({ timeout: 30000 });
@@ -217,7 +221,7 @@ test("★全体の色を3つに変えても 本文・明細・金額の濃さが
       window.PAPER_ACCENT = a;
     }, acc);
     const dl = page.waitForEvent("download", { timeout: 120000 });
-    await page.getByRole("button", { name: /PDFで保存/ }).click();
+    await page.getByRole("button", { name: /印刷 \/ 送る/ }).click();
     const f = path.join(OUT, "acc" + acc.slice(1) + ".pdf");
     await (await dl).saveAs(f);
     const ink = await inkOf(page, f, WANTS);

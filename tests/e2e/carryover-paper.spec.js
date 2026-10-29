@@ -12,7 +12,7 @@ import path from "node:path";
 //     ・★外税の会社の紙を実際に出して「外税」と刷られる事★（UIが無いまま出来ていると数えない）
 //
 //   ★押す物の一覧（先に書く）★
-//     1. 下のナビ「請求」 2. 月 3. 会社 4.「📄 PDFで保存 / 送る」
+//     1. 下のナビ「請求」 2. 月 3. 会社 4.「📄 印刷 / 送る」
 // ============================================================
 
 test.setTimeout(180000);
@@ -149,6 +149,10 @@ function seed(opt) {
 async function kami(page, co, month, opt) {
   fs.mkdirSync(OUT, { recursive: true });
   await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
+  // ★「印刷 / 送る」は PC だと 新しい 窓で 開く★ 2026-10-29＝PDF の 中身を 見る 為 窓を 止めた 形（保存に 落ちる）で 回す
+  await page.addInitScript(() => {
+    window.open = () => null;
+  });
   await page.addInitScript(seed, opt);
   await page.goto("/daikou-seikyu.html", { waitUntil: "load" });
   await expect(page.locator("#scr-input")).toBeVisible({ timeout: 20000 });
@@ -157,7 +161,7 @@ async function kami(page, co, month, opt) {
   await page.selectOption("#invCompany", co);
   await expect(page.locator("#invoiceOut.inv-loading")).toHaveCount(0, { timeout: 120000 });
   const dl = page.waitForEvent("download", { timeout: 120000 });
-  await page.getByRole("button", { name: /PDFで保存/ }).click();
+  await page.getByRole("button", { name: /印刷 \/ 送る/ }).click();
   // ★名前に条件を全部入れる★（並列で走るので、同じ名前だと EBUSY で1本だけ落ちる＝実際に踏んだ）
   const f = path.join(
     OUT,
@@ -217,6 +221,10 @@ test("★外税の会社：紙に「外税」と刷られる★", async ({ page 
 
 test("★紙の中で 見出しと金額が重ならない★", async ({ page }) => {
   await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
+  // ★「印刷 / 送る」は PC だと 新しい 窓で 開く★ 2026-10-29＝PDF の 中身を 見る 為 窓を 止めた 形（保存に 落ちる）で 回す
+  await page.addInitScript(() => {
+    window.open = () => null;
+  });
   await page.addInitScript(seed, { carry: true, copy: true });
   await page.goto("/daikou-seikyu.html", { waitUntil: "load" });
   await expect(page.locator("#scr-input")).toBeVisible({ timeout: 20000 });
@@ -225,7 +233,7 @@ test("★紙の中で 見出しと金額が重ならない★", async ({ page })
   await page.selectOption("#invCompany", "繰越あり社");
   await expect(page.locator("#invoiceOut.inv-loading")).toHaveCount(0, { timeout: 120000 });
   const dl = page.waitForEvent("download", { timeout: 120000 });
-  await page.getByRole("button", { name: /PDFで保存/ }).click();
+  await page.getByRole("button", { name: /印刷 \/ 送る/ }).click();
   const f = path.join(OUT, "kasanari.pdf");
   await (await dl).saveAs(f);
 

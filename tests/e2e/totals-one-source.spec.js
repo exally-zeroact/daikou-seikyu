@@ -16,7 +16,7 @@ import path from "node:path";
 //
 //   ★押す物の一覧（先に書く）★
 //     1. 下のナビ「請求」 2. 月 3. 会社
-//     4.「📄 PDFで保存 / 送る」 5.「📊 Excelに書き出し」→「📥 このExcelを作る」
+//     4.「📄 印刷 / 送る」 5.「📊 Excelに書き出し」→「📥 このExcelを作る」
 //
 //   ※ 画面のプレビューは ★PDFをそのまま canvas に描いた物★なので、PDFを見れば画面も見た事になる。
 // ============================================================
@@ -96,6 +96,10 @@ test("★紙とエンジンの合計が1円も違わない★", async ({ page })
 
   // ★CDNは塞がない★：Excel を作る XLSX は CDN から来る（塞ぐと Excel が測れない）
   await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
+  // ★「印刷 / 送る」は PC だと 新しい 窓で 開く★ 2026-10-29＝PDF の 中身を 見る 為 窓を 止めた 形（保存に 落ちる）で 回す
+  await page.addInitScript(() => {
+    window.open = () => null;
+  });
   await page.addInitScript(seed, KINGAKU);
   await page.goto("/daikou-seikyu.html", { waitUntil: "load" });
   await expect(page.locator("#scr-input")).toBeVisible({ timeout: 20000 });
@@ -113,7 +117,7 @@ test("★紙とエンジンの合計が1円も違わない★", async ({ page })
 
   // ② 紙（PDF）
   const dl = page.waitForEvent("download", { timeout: 120000 });
-  await page.getByRole("button", { name: /PDFで保存/ }).click();
+  await page.getByRole("button", { name: /印刷 \/ 送る/ }).click();
   const pdfPath = path.join(OUT, "t.pdf");
   await (await dl).saveAs(pdfPath);
   const t = await pdfText(page, pdfPath);

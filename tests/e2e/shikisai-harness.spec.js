@@ -16,7 +16,7 @@ import path from "node:path";
 //     4. 下のナビ「請求」          … 請求書の画面へ
 //     5. 「月」を 2026年5月 に      … select#invMonth
 //     6. 「会社」を 験模工業株式会社 … select#invCompany
-//     7. 「📄 PDFで保存 / 送る」    … → <design>.pdf
+//     7. 「📄 印刷 / 送る」    … → <design>.pdf
 //     8. 「📊 Excelに書き出し」     … モーダルを開く
 //     9. 「📥 このExcelを作る」     … → <design>.xlsx
 //
@@ -102,6 +102,10 @@ for (const [design, label] of DESIGNS) {
     page.on("pageerror", (e) => errors.push(String(e)));
 
     await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
+    // ★「印刷 / 送る」は PC だと 新しい 窓で 開く★ 2026-10-29＝PDF の 中身を 見る 為 窓を 止めた 形（保存に 落ちる）で 回す
+    await page.addInitScript(() => {
+      window.open = () => null;
+    });
     await page.addInitScript(seedDb);
     await page.goto("/daikou-seikyu.html", { waitUntil: "load" });
     await expect(page.locator("#scr-input")).toBeVisible({ timeout: 20000 });
@@ -130,10 +134,10 @@ for (const [design, label] of DESIGNS) {
     await expect(page.locator("#invoiceOut.inv-loading")).toHaveCount(0, { timeout: 120000 });
     await expect(page.locator("#invoiceOut canvas").first()).toBeVisible({ timeout: 120000 });
 
-    // 7. 「📄 PDFで保存 / 送る」（pdf-lib＋フォント約3MBを取りに行くので長めに待つ）
+    // 7. 「📄 印刷 / 送る」（pdf-lib＋フォント約3MBを取りに行くので長めに待つ）
     const pdfPath = path.join(OUT, design + ".pdf");
     const pdfDl = page.waitForEvent("download", { timeout: 120000 });
-    await page.getByRole("button", { name: /PDFで保存/ }).click();
+    await page.getByRole("button", { name: /印刷 \/ 送る/ }).click();
     await (await pdfDl).saveAs(pdfPath);
     expect(fs.statSync(pdfPath).size, "空のPDF").toBeGreaterThan(50000);
 
