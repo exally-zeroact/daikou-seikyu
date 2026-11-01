@@ -6751,6 +6751,11 @@
           bank: iss.bank,
           lg: iss.logo ? iss.logo.length + iss.logo.slice(0, 24) : "",
           hk: iss.hanko ? iss.hanko.length + iss.hanko.slice(0, 24) : "",
+          // ★繰越と 内税／外税も 鍵に 入れる★ 2026-11-02（本番前の 対立役 注A）
+          //   前は 入れて いなかった＝入金を 記録した・前の 月を 直した・内税／外税を 切り替えた 後も
+          //   明細が 同じなら 鍵が 同じ＝プレビューは 古い 上の 御請求金額 の まま（PDF を 作り直すと 正しい 額）
+          tx: iss.taxMode,
+          cy: iss.carry ? JSON.stringify(iss.carry) : "",
         });
       }
       function _coFp(m) {
@@ -6882,7 +6887,14 @@
               "|" +
               JSON.stringify(MASTER) +
               "|" +
-              _rowsFp(monthRows);
+              _rowsFp(monthRows) +
+              "|" +
+              // ★会社ごとの 繰越も 鍵に★（全社まとめは 会社ごとの 様式で 描く＝その 繰越が 変われば 描き直す）
+              JSON.stringify(
+                Object.keys(MASTER).map(function (c) {
+                  return _carryFor(c, month);
+                })
+              );
             if (_invCache.sig === sig && _invCache.bytes) {
               bytes = _invCache.bytes;
               blocks = _invCache.blocks;

@@ -353,3 +353,154 @@ test("★紙の中で 見出しと金額が重ならない★", async ({ page })
   }
   expect(kasanari, "★紙の中で文字が重なっている:\n  " + kasanari.join("\n  ")).toEqual([]);
 });
+
+// ★プレビュー（画面の 紙）も 入金を 記録したら 上の 御請求金額 が 変わる★ 2026-11-02（本番前の 対立役 注A）
+//   前は プレビューの 控えの 鍵（_issFp）に 繰越が 無く、明細が 同じなら 前に 描いた 紙を 使い回した
+//   ＝入金の 画面で「全入金」を 押して 請求に 戻っても 上は ¥24,200 の まま（PDF を 作り直すと ¥0）。
+//   ★画面の ボタンを 本当に 押す★（PAYMENTS を 直に 書かない）
+// ★読む 紙は 選んだ 会社・月の 物だけ★（2回目の 対立役 注1 2026-11-02）
+//   会社・月を 選ぶと 220ms 後に 作り直す（inv-loading は 付けない）＝画面に 入った 時の 全社の 紙を 読む 隙が 在った
+//   ⇒ 控えの 鍵（sig）の 頭が「1|会社|月|」（全社は「0|月|」）に なるまで 待ち、鍵と 中身を 同じ 1回で 読む
+async function preRead(page, head) {
+  await expect(page.locator("#invoiceOut.inv-loading")).toHaveCount(0, { timeout: 120000 });
+  let got = null;
+  await expect
+    .poll(
+      async () => {
+        got = await page.evaluate(async (h) => {
+          const c = _invCache;
+          if (!c || !c.bytes || !String(c.sig || "").startsWith(h)) return null;
+          const doc = await window.pdfjsLib.getDocument({ data: c.bytes.slice(0) }).promise;
+          const out = [];
+          for (let i = 1; i <= doc.numPages; i++) {
+            const pg = await doc.getPage(i);
+            out.push((await pg.getTextContent()).items.map((x) => x.str));
+          }
+          return out;
+        }, head);
+        return !!got;
+      },
+      { timeout: 120000, message: "★選んだ 会社・月の 紙が 控えに 来ない（" + head + "）★" }
+    )
+    .toBe(true);
+  return got;
+}
+async function preUe(page, co, month) {
+  const t = (await preRead(page, "1|" + co + "|" + month + "|"))[0];
+  return { ue: ueNoGaku(t), j: t.join(" / ") };
+}
+test("★プレビュー：入金を 記録して 請求に 戻ると 上の 御請求金額 が 描き直される★", async ({
+  page,
+}) => {
+  await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
+  await page.addInitScript(seed, { carry: true, copy: true });
+  await page.goto("/daikou-seikyu.html", { waitUntil: "load" });
+  await expect(page.locator("#scr-input")).toBeVisible({ timeout: 20000 });
+  await page.locator('.nav-item[data-scr="billing"]').click();
+  await page.selectOption("#invMonth", "2026-06");
+  await page.selectOption("#invCompany", "繰越あり社");
+  const mae = await preUe(page, "繰越あり社", "2026-06");
+  expect(mae.ue, "★入金の 前の 上が 24,200 で ない★\n" + mae.j).toBe("¥24,200");
+
+  // 入金の 画面で 6月の 行の「全入金」＝6月の 入金の 記録が 変わる（額は 下で 記録から 読む・手元 実測 17,000 ⇒ ¥12,200）
+  await page.locator('.nav-item[data-scr="payment"]').click();
+  await expect(page.locator("#scr-payment")).toBeVisible();
+  await page
+    .locator(".pay-item")
+    .filter({ hasText: "繰越あり社" })
+    .filter({ hasText: "2026年6月" })
+    .locator(".pay-full-btn")
+    .click();
+  await expect(page.locator(".toast-undo")).toContainText("全入金にしました");
+  const paid = await page.evaluate(
+    () =>
+      JSON.parse(localStorage.getItem("__fake_supa_db__")).tables.payments.find(
+        (p) => p.month === "2026-06" && p.company === "繰越あり社"
+      ).paid
+  );
+  expect(paid, "★全入金で 6月の 記録が 変わって いない★").not.toBe(5000);
+  // 上＝合計請求額 29,200 − 6月の 入金（記録）
+  const mikomi = "¥" + (29200 - paid).toLocaleString("en-US");
+
+  await page.locator('.nav-item[data-scr="billing"]').click();
+  const ato = await preUe(page, "繰越あり社", "2026-06");
+  expect(ato.ue, "★入金を 記録したのに プレビューの 上が 古い 額★\n" + ato.j).toBe(mikomi);
+  expect(ato.j, "★プレビューの 下の 今回お支払額 と 揃って いない★").toContain(
+    "今回お支払額 /   / " + mikomi
+  );
+});
+
+// ★全社まとめの プレビューも 同じ★（対立役 注1 2026-11-02：全社の 鍵の 足しを 外すと 上の 1社の 試験は 緑の まま）
+//   ★わざと壊して 赤★ 全社の 鍵（"0|" の sig）から 会社ごとの _carryFor を 外す ⇒ この 1本だけ 赤
+async function preUeOf(page, co, month) {
+  const pages = await preRead(page, "0|" + month + "|");
+  const t = pages.find((p) => p.includes(co)) || [];
+  return { ue: ueNoGaku(t), j: t.join(" / "), n: pages.length };
+}
+test("★プレビュー（全社まとめ）：入金を 記録して 戻ると 繰越の 会社の 上が 描き直される★", async ({
+  page,
+}) => {
+  await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
+  await page.addInitScript(seed, { carry: true, copy: true });
+  await page.goto("/daikou-seikyu.html", { waitUntil: "load" });
+  await expect(page.locator("#scr-input")).toBeVisible({ timeout: 20000 });
+  await page.locator('.nav-item[data-scr="billing"]').click();
+  await page.selectOption("#invMonth", "2026-06");
+  await page.selectOption("#invCompany", "");
+  const mae = await preUeOf(page, "繰越あり社", "2026-06");
+  expect(mae.n, "★全社まとめに 3社 の 紙が 無い★").toBeGreaterThanOrEqual(3);
+  expect(mae.ue, "★入金の 前の 上が 24,200 で ない★\n" + mae.j).toBe("¥24,200");
+
+  await page.locator('.nav-item[data-scr="payment"]').click();
+  await expect(page.locator("#scr-payment")).toBeVisible();
+  await page
+    .locator(".pay-item")
+    .filter({ hasText: "繰越あり社" })
+    .filter({ hasText: "2026年6月" })
+    .locator(".pay-full-btn")
+    .click();
+  await expect(page.locator(".toast-undo")).toContainText("全入金にしました");
+  const paid = await page.evaluate(
+    () =>
+      JSON.parse(localStorage.getItem("__fake_supa_db__")).tables.payments.find(
+        (p) => p.month === "2026-06" && p.company === "繰越あり社"
+      ).paid
+  );
+  expect(paid).not.toBe(5000);
+  const mikomi = "¥" + (29200 - paid).toLocaleString("en-US");
+
+  await page.locator('.nav-item[data-scr="billing"]').click();
+  await expect(page.locator("#invCompany")).toHaveValue("");
+  const ato = await preUeOf(page, "繰越あり社", "2026-06");
+  expect(ato.ue, "★全社まとめの プレビューの 上が 古い 額★\n" + ato.j).toBe(mikomi);
+});
+
+// ★内税／外税を 切り替えたら プレビューも 描き直す★（対立役 注2 2026-11-02：_coFp は taxMode を 見ない＝鍵の tx だけが 頼り）
+//   ★設定の ボタンを 本当に 押す★（MASTER を 直に 書かない）
+//   ★わざと壊して 赤★ _issFp の tx を 外す ⇒ この 1本だけ 赤（「内税」の まま）
+test("★プレビュー：会社マスタで 内税→外税 を 押して 戻ると 外税の 紙に 描き直される★", async ({
+  page,
+}) => {
+  await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
+  await page.addInitScript(seed, { carry: true, copy: true });
+  await page.goto("/daikou-seikyu.html", { waitUntil: "load" });
+  await expect(page.locator("#scr-input")).toBeVisible({ timeout: 20000 });
+  await page.locator('.nav-item[data-scr="billing"]').click();
+  await page.selectOption("#invMonth", "2026-06");
+  await page.selectOption("#invCompany", "繰越なし社");
+  const mae = await preUe(page, "繰越なし社", "2026-06");
+  expect(mae.j, "★前は 内税 の 紙★").toContain("内税");
+  expect(mae.ue).toBe("¥12,000");
+
+  await page.locator('.nav-item[data-scr="settings"]').click();
+  const card = page.locator(".master-co").filter({ hasText: "繰越なし社" });
+  await card.locator(".master-co-hd").click();
+  await card.getByRole("button", { name: "外税（金額は税抜）" }).click();
+
+  await page.locator('.nav-item[data-scr="billing"]').click();
+  await expect(page.locator("#invCompany")).toHaveValue("繰越なし社");
+  const ato = await preUe(page, "繰越なし社", "2026-06");
+  // 外税＝12,000 ＋ 1,200 ＝ 13,200
+  expect(ato.ue, "★外税に したのに プレビューの 上が 古い 額★\n" + ato.j).toBe("¥13,200");
+  expect(ato.j, "★外税に したのに プレビューが 内税 の まま★").toContain("外税");
+});
