@@ -9317,13 +9317,25 @@
           ("0" + (d.getMonth() + 1)).slice(-2) +
           "-" +
           ("0" + d.getDate()).slice(-2);
+        /* ★★1件の 全入金も「記録に 足りない 額を 足す」★★ 2026-11-01（対立役：一括（bulkMarkPaid）だけ
+             10-02 夜に 直してあり、行の ボタンは ★請求額で 上書き★ の まま だった）
+             繰越を 使う 会社＝入金を 古い 月から 当てる。5月 10,000・6月 10,000・6月に 15,000 記録で
+             6月の 行の「全入金」を 押すと 記録が 10,000 に なり、当て直すと 6月が「未入金」に 戻った。
+             繰越を 使わない 会社は 当てた額＝記録 なので 結果は 前と 同じ（＝請求額）。 */
+        var iv0 = null;
+        seikyuList(null).forEach(function (iv) {
+          if (payKeyFor(iv.month, iv.company) === key) iv0 = iv;
+        });
+        var atarashii = iv0
+          ? iv0.paidKiroku + Math.max(iv0.total - iv0.paid, 0)
+          : Number(total) || 0;
         var up = await SB.from("payments")
           .upsert(
             {
               user_id: CURRENT_ACCOUNT,
               month: month,
               company: co,
-              paid: total,
+              paid: atarashii,
               paid_date: date,
               memo: (snap && snap.note) || "",
               deleted_at: null,
@@ -9337,7 +9349,7 @@
           return;
         }
         PAYMENTS[key] = {
-          paid: total,
+          paid: atarashii,
           paidDate: date,
           note: (snap && snap.note) || "",
           _dbid: up.data.id,
