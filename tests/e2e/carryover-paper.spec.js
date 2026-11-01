@@ -62,7 +62,9 @@ function seed(opt) {
             user_id: uid,
             name: "繰越あり社",
             items: ["日付", "行き先", "金額"],
-            config: conf({ carryover: opt.carry }),
+            config: conf(
+              Object.assign({ carryover: opt.carry }, opt.kuriSoto ? { taxMode: "外税" } : {})
+            ),
             created_at: "2026-05-01T00:00:00.000Z",
             deleted_at: null,
           },
@@ -106,7 +108,7 @@ function seed(opt) {
                 company: "繰越あり社",
                 invoice_no: "2026-05-01",
                 issued_at: "2026-06-01T00:00:00.000Z",
-                total: 37200,
+                total: opt.copyTotal || 37200,
                 tax: 3382,
                 rows_json: [],
                 issuer_json: {},
@@ -165,8 +167,13 @@ async function kami(page, co, month, opt) {
   // ★名前に条件を全部入れる★（並列で走るので、同じ名前だと EBUSY で1本だけ落ちる＝実際に踏んだ）
   const f = path.join(
     OUT,
-    [co, month, opt.carry ? "carry-on" : "carry-off", opt.copy ? "copy" : "nocopy"].join("_") +
-      ".pdf"
+    [
+      co,
+      month,
+      opt.carry ? "carry-on" : "carry-off",
+      opt.copy ? "copy" + (opt.copyTotal || "") : "nocopy",
+      opt.kuriSoto ? "soto" : "uchi",
+    ].join("_") + ".pdf"
   );
   await (await dl).saveAs(f);
   const bytes = Array.from(fs.readFileSync(f));
@@ -202,6 +209,46 @@ test("★前回の請求が無い会社：0円と書かず「前回の請求は�
     t.some((x) => /前回の請求(はありません|額が読めません)/.test(x)),
     "★理由が出ていない★\n" + j
   ).toBe(true);
+  // ★一度も 請求書を 作っていない 月は 今の 明細から 繰越を 出さない★ 2026-11-01（対立役 止1）
+  //   アプリで 請求する 前の 月を 黙って「未払い 17,200」として 次の 紙に 載せない
+  expect(j, "★作っていない 月を 繰越に 入れた★").not.toContain("¥17,200");
+});
+
+// ★前の 月を 直したら 次の 紙の 繰越に そのまま 入る★ 2026-11-01
+//   司さん「修正したら反映されるんが普通やろが」「入力したら反映されるんが当たり前やないか」
+//   前は 最後に PDF を 作った 時の 控えの total を 使った＝直しても 古い 額が 刷られた。
+//   ★わざと壊して 赤に なるのを 見る★：直す 前（e51c762）では 下の 2本が 赤
+//     （控え 30,000 なら 前回繰越 10,000／外税の 会社は 控え 37,200 のまま 17,200）
+test("★控えが古い額（PDF を作った後に前の月の明細を直した）でも、繰越は今の明細で出る★", async ({
+  page,
+}) => {
+  // 2026-05 の 控えは 30,000（作った 時）・今の 明細は 37,200（後で 足した）・入金 20,000
+  //   ⇒ 前回繰越 = 37,200 − 20,000 = 17,200（古い 控えなら 10,000）
+  const t = await kami(page, "繰越あり社", "2026-06", {
+    carry: true,
+    copy: true,
+    copyTotal: 30000,
+  });
+  const j = t.join(" / ");
+  expect(t, "★前回繰越が 今の 明細の 17,200 でない★\n" + j).toContain("¥17,200");
+  expect(t, "★古い 控えの 額（10,000）で 刷られた★\n" + j).not.toContain("¥10,000");
+  expect(t, "★合計請求額が 29,200 でない★\n" + j).toContain("¥29,200");
+  expect(t, "★今回お支払額が 24,200 でない★\n" + j).toContain("¥24,200");
+});
+
+test("★外税の繰越の会社：前回請求額も今の明細を外税で足した額★", async ({ page }) => {
+  // 2026-05 明細 37,200 → 外税 37,200 + 3,720 = 40,920・入金 20,000 ⇒ 前回繰越 20,920
+  // 2026-06 明細 12,000 → 外税 13,200 ⇒ 合計請求額 34,120・今回お支払額 34,120 − 5,000 = 29,120
+  //   （控えの 額 37,200 なら 17,200／外税を 渡し忘れたら 17,200＝どちらも 赤）
+  const t = await kami(page, "繰越あり社", "2026-06", {
+    carry: true,
+    copy: true,
+    kuriSoto: true,
+  });
+  const j = t.join(" / ");
+  expect(t, "★前回繰越が 20,920 でない★\n" + j).toContain("¥20,920");
+  expect(t, "★合計請求額が 34,120 でない★\n" + j).toContain("¥34,120");
+  expect(t, "★今回お支払額が 29,120 でない★\n" + j).toContain("¥29,120");
 });
 
 test("★外税の会社：紙に「外税」と刷られる★", async ({ page }) => {

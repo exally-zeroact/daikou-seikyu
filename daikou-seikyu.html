@@ -4016,7 +4016,7 @@
           .select("config")
           .eq("user_id", CURRENT_ACCOUNT)
           .maybeSingle();
-        // ★発行の控えを読む（繰越の材料）★
+        // ★発行の控えを読む（番号の 空きの 数え・2026-11-01 から 繰越には 使わない＝今の 明細で 出す）★
         INVOICES = [];
         try {
           // ★1000行で 黙って 切れない 様に 全部 読む★（対立役 B）
@@ -9338,7 +9338,7 @@
            台帳に 無い 間は 番号を 出さない（紙を 作る 時に 台帳へ 書いて から 使う・見るだけは「未発行」）
       ============================================================================= */
       var INVOICE_NO = {}; // "YYYY-MM|会社名" -> "2026-05-03"（倉庫の 台帳に 書けた 番号 だけ）
-      var INVOICES = []; // 発行の控え（繰越の材料）
+      var INVOICES = []; // 発行の控え（番号の 空きの 数え。繰越は 2026-11-01 から 今の 明細）
       var DASHITA = {}; // 出した 時の 明細（知らせ 専用・月 会社 → {invoice_no, total, issued_at, rows_json}）
       var DASHITA_YOMENAI = false; // 出した 時の 明細を 読めなかった
       var INVOICE_NO_UID = {}; // 番号の 持ち主（明細が 0件の 月を 出す 時だけ 使う）
@@ -9451,32 +9451,37 @@
         );
       }
       /* ★繰越の材料を集める★（2026-08-12）
-         前回繰越は ★手打ちにしない★：保存した控え(INVOICES) と 入金(PAYMENTS) から出す。
-         ・控えが在る月 … その控えの total を「請求額」にする（★渡した紙の額★）
-         ・控えが無い月 … ★null（読めない）★にする。0円と書かない＝繰越は出さない
-         ・入金        … PAYMENTS に行が無い月は 0（入金なし）。未確認は null で表す */
+         前回繰越は ★手打ちにしない★：今の明細(DB) と 入金(PAYMENTS) から出す。
+         ・請求書を 作った 月（控え INVOICES が 在る 月）… ★その月の 今の 明細の 合計★
+             （入金の 画面と 同じ invoiceTotals・今の 内税／外税）
+             2026-11-01 司さん「修正したら反映されるんが普通やろが」「入力したら反映されるんが当たり前」
+             ＝前は 最後に PDF を 作った 時の 控えの total を 使い、月が 変わってから 前の 月を
+               直しても 次の 紙の 繰越は 古い 額の まま だった（入金の 画面とも 額が 合わなかった）
+         ・一度も 作っていない 月 … ★前と 同じ null（読めない）★＝繰越は 刷らない
+             （アプリで 請求する 前の 月・外で 請求した 月を 黙って「未払い」として 次の 紙に 載せない・対立役 止1）
+         ・入金   … PAYMENTS に行が無い月は 0（入金なし）。未確認は null で表す */
       function carryMaterialFor(month, co) {
         var kako = [];
-        var tsuki = {};
+        var tsukutta = {};
         (INVOICES || []).forEach(function (iv) {
-          if (iv.company !== co || iv.month >= month) return;
-          // 同じ月に何度も出していたら ★最後に出した控え★ が渡した紙
-          if (!tsuki[iv.month] || iv.issued_at > tsuki[iv.month].issued_at) tsuki[iv.month] = iv;
+          if (iv && iv.company === co && iv.month < month) tsukutta[iv.month] = 1;
         });
-        // 明細が在るのに控えが無い月＝「読めない」として混ぜる（黙って飛ばさない）
-        var arumonth = {};
+        var rowsBy = {};
         DB.forEach(function (r) {
           if (r.account_id !== CURRENT_ACCOUNT || r.会社名 !== co || !r.日付) return;
-          var m2 = r.日付.slice(0, 7);
-          if (m2 < month) arumonth[m2] = 1;
+          var m2 = String(r.日付).slice(0, 7);
+          if (m2 < month) (rowsBy[m2] = rowsBy[m2] || []).push(r);
         });
-        Object.keys(arumonth)
+        var m = MASTER[co] || {};
+        Object.keys(rowsBy)
           .sort()
           .forEach(function (m2) {
             var pay = PAYMENTS[CURRENT_ACCOUNT + "::" + m2 + "::" + co];
             kako.push({
               month: m2,
-              seikyu: tsuki[m2] ? Number(tsuki[m2].total) : null, // 控えが無い＝読めない
+              seikyu: tsukutta[m2]
+                ? MeisaiEngine.invoiceTotals(rowsBy[m2], { taxMode: m.taxMode }).goukei
+                : null, // 一度も 作っていない＝読めない（前と 同じ）
               nyukin: pay ? Number(pay.paid) || 0 : 0,
             });
           });
@@ -11769,7 +11774,7 @@
           "','noteSummary',this.checked)\"> 備考で集計ボックスを出す（例：役職別や名前別など）</label>" +
           /* ★繰越（2026-08-12 司さん「繰り越しに関しては選べるようにしろや」）★
              既定は切＝今までどおり。入れると 前回の残りを次の請求に乗せる。
-             前回繰越は ★保存した控えと入金から自動★（手打ちにしない）。 */
+             前回繰越は ★今の明細と入金から自動★（手打ちにしない・2026-11-01 から 控えでなく 今の 明細）。 */
           '<label class="toggle-row"><input type="checkbox" ' +
           (m.carryover ? "checked" : "") +
           " onchange=\"setMasterField('" +
