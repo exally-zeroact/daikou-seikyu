@@ -182,11 +182,9 @@ async function dasu(page, opt) {
       return q;
     };
     const x = await _buildInvoiceBytes();
-    if (x) nokosenaiShiraseru(x);
     return {
       ok: !!(x && x.bytes),
       fname: x && x.fname,
-      nokosenai: x && x.nokosenai,
       toast: document.getElementById("toast").textContent,
       fueta: JSON.parse(localStorage.getItem("__fake_supa_db__")).tables.invoices.length - mae,
       kaita: (window.__FAKE_WRITES__ || {}).invoices || 0,
@@ -220,7 +218,6 @@ test("全社まとめの PDF＝控え（invoices）を 1行も 書かない・�
   const r = await dasu(page);
   expect(r.ok, JSON.stringify(r)).toBe(true);
   expect(r.fname).toContain("全社");
-  expect(r.nokosenai).toEqual([]);
   expect(r.kaita, "全社で invoices に 書いた").toBe(0);
   expect(r.tameshita, "全社で invoices に 書こうとした").toBe(0);
   expect(r.fueta, "全社で invoices の 行が 増えた").toBe(0);
@@ -236,24 +233,22 @@ test("1社の PDF＝控えを 1行 積む（その 月を 作った 証し）・
   await tsukuru(page, CO);
   const r = await dasu(page);
   expect(r.ok, JSON.stringify(r)).toBe(true);
-  expect(r.nokosenai).toEqual([]);
   expect(r.kaita).toBe(1);
   expect(r.fueta).toBe(1);
   expect(r.tameshita, "書けたのに やり直した").toBe(1);
   expect(r.toast).not.toContain("控えを残せませんでした");
 });
 
-test("控えを 書けない（やり直しても）＝害を 知らせる・作り直しを 求めない", async ({ page }) => {
+test("控えを 書けない（やり直しても）＝PDF は 出る・客への 知らせは 出さない（繰越は 控えに 頼らない）", async ({
+  page,
+}) => {
   await hiraku(page, { ima: [12000, 4000] });
   await tsukuru(page, CO);
   const r = await dasu(page, { fail: 99 });
   expect(r.ok, "PDF は 出る").toBe(true);
   expect(r.tameshita, "1回 やり直していない").toBe(2);
-  expect(r.nokosenai).toEqual([CO]);
   expect(r.fueta).toBe(0);
-  expect(r.toast).toContain("PDFは出来ましたが、控えを残せませんでした（通信）：" + CO);
-  expect(r.toast).toContain("次の月の請求書の前回繰越が「読めません」になります");
-  expect(r.toast).not.toMatch(/もう一度|作り直|出し直/);
+  expect(r.toast).not.toMatch(/控えを残せません|読めません|もう一度|作り直|出し直/);
 });
 
 test("控えの 1回目だけ 書けない＝自動で やり直して 残る（知らせは 出さない）", async ({ page }) => {
@@ -262,7 +257,6 @@ test("控えの 1回目だけ 書けない＝自動で やり直して 残る（
   const r = await dasu(page, { fail: 1 });
   expect(r.ok).toBe(true);
   expect(r.tameshita, "やり直していない").toBe(2);
-  expect(r.nokosenai).toEqual([]);
   expect(r.fueta).toBe(1);
   expect(r.toast).not.toContain("控えを残せませんでした");
 });

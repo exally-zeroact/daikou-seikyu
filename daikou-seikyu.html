@@ -7352,7 +7352,7 @@
             issuerForEngine(onlyCo),
             _no
           );
-          var _ng = await writeInvoiceCopies([
+          await writeInvoiceCopies([
             makeInvoiceCopy(month, onlyCo, rows, issuerForEngine(onlyCo), _no),
           ]);
           fname = "請求書_" + month + "_" + onlyCo + ".pdf";
@@ -7394,7 +7394,7 @@
           //   警告が 無くなり 読む 所が 0＝書かない。番号は 上の issueInvoiceNo が 台帳（invoice_no）に 書く
           fname = "請求書_" + month + "_全社.pdf";
         }
-        return { bytes: bytes, fname: fname, nokosenai: _ng || [] };
+        return { bytes: bytes, fname: fname };
       }
       // 請求書をクリーンなPDF（ブラウザのURL足跡なし・日本語埋込・複数ページ）で保存/共有。
       async function exportInvoicePDF(btn) {
@@ -7430,7 +7430,6 @@
                 ? "PDFを開きました（印刷・保存は その画面から）"
                 : "PDFを作成しました（開いた画面の共有から 送る・プリント）"
           );
-          nokosenaiShiraseru(r);
         } catch (e) {
           toast("PDF作成に失敗：" + (e && e.message ? e.message : e));
         } finally {
@@ -7453,18 +7452,6 @@
         } catch (_) {
           return true;
         }
-      }
-      // 控えを 残せなかった（やり直しても 書けなかった）時の 知らせ 2026-11-01
-      //   控えが 無い 月は 次の 月の 請求書の 前回繰越が「読めません」に なる（carryMaterialFor）＝黙らない。
-      //   利用者に 何かを させる 字は 出さない（司さん「作り直して下さいってなんど」）。害 だけ 書く
-      function nokosenaiShiraseru(r) {
-        if (!r || !r.nokosenai || !r.nokosenai.length) return;
-        toast(
-          "PDFは出来ましたが、控えを残せませんでした（通信）：" +
-            r.nokosenai.join("、") +
-            "。次の月の請求書の前回繰越が「読めません」になります。",
-          8000
-        );
       }
       // ★「印刷」の 別ボタン（printInvoicePDF＝新しい 窓で 開く）は 2026-10-29 に 無くした★（司さん「同じ画面が開かれるんやけん
       //   1つのボタンにして印刷/送るにまとめろ」）＝exportInvoicePDF（InvoicePDF.save）1つで 開いて 共有から 送る・プリント
@@ -9192,7 +9179,7 @@
            台帳に 無い 間は 番号を 出さない（紙を 作る 時に 台帳へ 書いて から 使う・見るだけは「未発行」）
       ============================================================================= */
       var INVOICE_NO = {}; // "YYYY-MM|会社名" -> "2026-05-03"（倉庫の 台帳に 書けた 番号 だけ）
-      var INVOICES = []; // 発行の控え（番号の 空きの 数え。繰越は 2026-11-01 から 今の 明細）
+      var INVOICES = []; // 発行の控え（番号の 空きの 数え だけ。繰越は 2026-11-01 から 今の 明細・控えの 有無で 分けない）
       var INVOICE_NO_UID = {}; // 番号の 持ち主（明細が 0件の 月を 出す 時だけ 使う）
       function invNoKey(month, co) {
         return month + "|" + co;
@@ -9304,20 +9291,17 @@
       }
       /* ★繰越の材料を集める★（2026-08-12）
          前回繰越は ★手打ちにしない★：今の明細(DB) と 入金(PAYMENTS) から出す。
-         ・請求書を 作った 月（控え INVOICES が 在る 月）… ★その月の 今の 明細の 合計★
+         ・前の 月（明細が 在る 月 全部）… ★その月の 今の 明細の 合計★
              （入金の 画面と 同じ invoiceTotals・今の 内税／外税）
              2026-11-01 司さん「修正したら反映されるんが普通やろが」「入力したら反映されるんが当たり前」
              ＝前は 最後に PDF を 作った 時の 控えの total を 使い、月が 変わってから 前の 月を
                直しても 次の 紙の 繰越は 古い 額の まま だった（入金の 画面とも 額が 合わなかった）
-         ・一度も 作っていない 月 … ★前と 同じ null（読めない）★＝繰越は 刷らない
-             （アプリで 請求する 前の 月・外で 請求した 月を 黙って「未払い」として 次の 紙に 載せない・対立役 止1）
+         ・控え（INVOICES）が 在るかで 分けない 2026-11-01 夜（司さん「基本PDFだけやろが」「読めませんってふざけすぎとるやろが」）
+             ＝前は 控えの 無い 月（全社まとめで 作った 月・控えを 書けなかった 月）を null にして
+               紙に「前回の請求額が読めません」と 刷り、その 会社は ずっと 繰越が 出なかった
          ・入金   … PAYMENTS に行が無い月は 0（入金なし）。未確認は null で表す */
       function carryMaterialFor(month, co) {
         var kako = [];
-        var tsukutta = {};
-        (INVOICES || []).forEach(function (iv) {
-          if (iv && iv.company === co && iv.month < month) tsukutta[iv.month] = 1;
-        });
         var rowsBy = {};
         DB.forEach(function (r) {
           if (r.account_id !== CURRENT_ACCOUNT || r.会社名 !== co || !r.日付) return;
@@ -9331,9 +9315,7 @@
             var pay = PAYMENTS[CURRENT_ACCOUNT + "::" + m2 + "::" + co];
             kako.push({
               month: m2,
-              seikyu: tsukutta[m2]
-                ? MeisaiEngine.invoiceTotals(rowsBy[m2], { taxMode: m.taxMode }).goukei
-                : null, // 一度も 作っていない＝読めない（前と 同じ）
+              seikyu: MeisaiEngine.invoiceTotals(rowsBy[m2], { taxMode: m.taxMode }).goukei,
               nyukin: pay ? Number(pay.paid) || 0 : 0,
             });
           });
@@ -9385,9 +9367,11 @@
         };
         return rec;
       }
-      // 控えを 倉庫に 積む。返り値＝残せなかった 会社の 名前（呼ぶ 側が nokosenaiShiraseru で 知らせる）
-      //   2026-11-01 書けなかった 時は ★1回 だけ 自動で やり直す★（利用者に「もう一度 作って」と 言わない・対立役 注1）。
-      //   やり直しで 2行 積まれても 害は 無い（控えは 出すたび 1行 積む 物・使うのは「その 月を 作ったか」と 番号だけ）
+      // 控えを 倉庫に 積む。返り値＝残せなかった 会社の 名前
+      //   2026-11-01 夜 控えは 繰越に 使わない（繰越は 今の 明細）＝使うのは 番号の 空き数えの 予備 だけ
+      //   （番号は 先に 台帳 invoice_no に 書く）。書けなくても 紙・繰越・番号は 変わらない ので 客への 知らせは 出さない
+      //   （前は「次の 月の 前回繰越が 読めません」と 出した・司さん「読めませんってふざけすぎとるやろが」）。
+      //   書けなかった 時は 1回 だけ 自動で やり直す。2行 積まれても 害は 無い（控えは 出すたび 1行 積む 物）
       async function writeInvoiceCopies(recs) {
         if (!SB || !CURRENT_ACCOUNT || !recs.length) return [];
         var ok = false;
