@@ -1157,6 +1157,24 @@
         font-size: 16px;
         padding: 8px 10px;
       }
+      /* ★入金の 画面だけ★ 期間・状態・会社の 3つを 横1列に（2026-11-01 司さん）。
+         期間・状態は 中身の 幅（月の 字「2026年10月」が 切れない）・残りを 全部 会社に
+         （会社の 名前が 一番 長い）。矢印の 位置を 右へ 寄せて 余白を 詰める。他の 画面の .filterbar は 変えない。 */
+      #scr-payment .filterbar .fselect {
+        flex: 0 0 auto;
+        width: auto;
+        min-width: 0;
+        padding-left: 8px;
+        padding-right: 24px; /* 矢印（12px）の 分＝字と 重ねない */
+        background-position: right 7px center;
+      }
+      /* 会社の 名前は 長い（株式会社〜）＝枠に 入らない分は「…」で 省く（選ぶ 一覧には 全部 出る） */
+      #scr-payment .filterbar #payCompany {
+        flex: 1 1 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
 
       /* ★入金モーダルの 頭：会社名と「確認」を 1行に（2026-10-01）
          ボタンは ★右寄せ★（親指で 押しやすい側）。*/
@@ -3409,6 +3427,9 @@
           <option value="unpaid">未入金</option>
           <option value="partial">一部入金</option>
           <option value="paid">入金済</option>
+        </select>
+        <select class="fselect" id="payCompany" onchange="renderPayments()">
+          <option value="">全社</option>
         </select>
       </div>
       <div id="paySummary" class="pay-summary"></div>
@@ -8374,6 +8395,57 @@
             .join("");
         if (months.indexOf(keep) >= 0 || keep === "") sel.value = keep;
       }
+      /* ★入金の 画面の 会社の 絞り（2026-11-01 司さん「期間・状態・会社を 横1列に」）★
+           並び＝請求書の 会社（#invCompany）と 同じ InvoicePDF.billableCompanies（マスタ順→孤児）。
+           ★漢字は localeCompare で 読み順に ならない★ので 並べ直さない。
+           明細も マスタも 無く 入金の 記録だけ 残る 会社は 後ろに 足す（同じ sort()）。
+           ★作り直してから value を 読む★（消えた 会社を 選んだ ままに しない＝全社へ 戻す）。 */
+      var PAY_CO_SHURUI =
+        /^(株式会社|株式會社|有限会社|合同会社|合資会社|合名会社|一般社団法人|一般財団法人|[(（]株[)）]|[(（]有[)）]|[(（]同[)）]|㈱|㈲)\s*|\s*(株式会社|株式會社|有限会社|合同会社|合資会社|合名会社|一般社団法人|一般財団法人|[(（]株[)）]|[(（]有[)）]|[(（]同[)）]|㈱|㈲)$/g;
+      function payCoMijika(n) {
+        return String(n || "")
+          .replace(PAY_CO_SHURUI, "")
+          .trim();
+      }
+      function refreshPayCompanySelect(list) {
+        var sel = document.getElementById("payCompany");
+        if (!sel) return;
+        var keep = sel.value;
+        var names = InvoicePDF.billableCompanies(MASTER, DB, CURRENT_ACCOUNT);
+        var seen = {};
+        names.forEach(function (n) {
+          seen[n] = 1;
+        });
+        var extra = [];
+        (list || []).forEach(function (iv) {
+          if (iv.company && !seen[iv.company]) {
+            seen[iv.company] = 1;
+            extra.push(iv.company);
+          }
+        });
+        extra.sort();
+        names = names.concat(extra);
+        // ★見せる 字だけ 会社の 種類（株式会社 等）を 外す★（taiketsu 注1：狭い 画面で「株式会…」と
+        //   しか 出ず どの 会社か 見分けられない）。value と title は 元の 名前の まま。
+        //   外すと 他の 会社と 同じ 字に なる／空に なる 時は 外さない。
+        var mijika = names.map(payCoMijika);
+        var kazu = {};
+        mijika.forEach(function (m) {
+          kazu[m] = (kazu[m] || 0) + 1;
+        });
+        sel.innerHTML =
+          '<option value="">全社</option>' +
+          names
+            .map(function (n, i) {
+              // 「全社」（先頭の 選択肢）と 同じ 字に なる 時も 外さない
+              var ji = mijika[i] && mijika[i] !== "全社" && kazu[mijika[i]] === 1 ? mijika[i] : n;
+              return (
+                '<option value="' + esc(n) + '" title="' + esc(n) + '">' + esc(ji) + "</option>"
+              );
+            })
+            .join("");
+        sel.value = names.indexOf(keep) >= 0 ? keep : "";
+      }
       /* ★★入金で 使う「請求額」は 請求書の 合計と 同じ 関数で 出す★★ 2026-10-02
            ★前★ MeisaiEngine.listInvoices の total ＝ ★明細の 金額を 足した だけ★（税抜）
              請求書の 合計は invoiceTotals ＝ 外税なら ★税抜 ＋ 消費税★
@@ -8559,7 +8631,16 @@
         var month = document.getElementById("payMonth").value;
         var statusF = document.getElementById("payStatus").value;
         renderModose(); // 戻せなかった 入金の 一覧（閉じるまで 残す）
-        var invs = seikyuList(month || null, { kieta: true });
+        // ★会社の 絞りは seikyuList の 返りに 掛ける★（中に 掛けると 繰越の 当て方が 変わる）
+        var invsAll = seikyuList(month || null, { kieta: true });
+        // 全期間の 時は 同じ 物＝使い回す（taiketsu 任2）
+        refreshPayCompanySelect(month ? seikyuList(null, { kieta: true }) : invsAll);
+        var coF = document.getElementById("payCompany").value;
+        var invs = coF
+          ? invsAll.filter(function (iv) {
+              return iv.company === coF;
+            })
+          : invsAll;
         // 状態を付与しつつ集計
         var totalSum = 0,
           paidSum = 0;
@@ -8604,12 +8685,13 @@
             '<span><span class="n">' +
             shown.length +
             "件</span>" +
-            (month || statusF ? "（絞り込み中）" : "") +
+            (month || statusF || coF ? "（絞り込み中）" : "") +
             "</span><span>未入金・一部入金 " +
             '<span class="v">' +
             yetShown +
             "件</span>" +
-            (yetShown !== yetAll ? "（全期間 " + yetAll + "件）" : "") +
+            // ★この 数は 全社・全期間（バッジと 同じ）★＝会社で 絞った 時は「全社」と 書く
+            (yetShown !== yetAll ? (coF ? "（全社・全期間 " : "（全期間 ") + yetAll + "件）" : "") +
             "</span>";
         if (!shown.length) {
           box.innerHTML = '<div class="li-empty">該当する請求がありません</div>';
