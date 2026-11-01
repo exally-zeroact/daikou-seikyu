@@ -235,13 +235,17 @@ test("取り消しボタンは 5秒で 画面から 消える（見えない ま
   await expect(page.locator("#toastUndo .toast-undo-btn")).toHaveCount(0);
 });
 
-test("一括で 全入金 → 取り消す＝元に 戻る", async ({ page }) => {
+// 2026-11-01 一括入金（「選択」）を 消した＝同じ 守りを 行の「全入金」ボタン（画面を 本当に 押す）で 見る
+test("行の「全入金」→ 取り消す＝元に 戻る（前が 記録なし＝記録を 消す）", async ({ page }) => {
   await hiraku(page);
-  await page.evaluate(async () => {
-    payToggleRow("2026-05", "明細ある株式会社", 15400);
-    await bulkMarkPaid();
-  });
+  await gyou(page, A, "2026年5月").locator(".pay-full-btn").click();
   await expect(page.locator("#toastUndo")).toContainText("全入金にしました");
+  const ato = await page.evaluate(
+    () => JSON.parse(localStorage.getItem("__fake_supa_db__")).tables.payments
+  );
+  expect(
+    ato.filter((r) => r.company === "明細ある株式会社" && !r.deleted_at && r.paid > 0)
+  ).toHaveLength(1);
   await page.locator("#toastUndo").getByRole("button", { name: "取り消す" }).click();
   await expect(page.locator("#toast")).toContainText("取り消しました", { timeout: 10000 });
   const db = await page.evaluate(
@@ -307,22 +311,20 @@ test("記録の 無い 月で 空の まま 保存＝「記録しました」と
   await expect(page.locator("#toast")).toContainText("この画面には入金の記録がありません");
 });
 
-test("一括の 取り消しで 戻せなかった 時は「戻せませんでした」と 出す（「取り消しました」と だけ 言わない）", async ({
+test("全入金の 取り消しで 戻せなかった 時は「戻せませんでした」と 出す（「取り消しました」と だけ 言わない）", async ({
   page,
 }) => {
   await hiraku(page);
-  await page.evaluate(async () => {
-    payToggleRow("2026-05", "明細ある株式会社", 15400);
-    await bulkMarkPaid();
-  });
+  await gyou(page, A, "2026年5月").locator(".pay-full-btn").click();
   await expect(page.locator("#toastUndo")).toContainText("全入金にしました");
   await page.evaluate(() => {
     window.__FAKE_OFFLINE__ = true; // 消す 呼び出しも 落ちる（書けない 表の 切り替えは 消す 方に 効かない）
   });
   await page.locator("#toastUndo").getByRole("button", { name: "取り消す" }).click();
-  await expect(page.locator("#toast")).toContainText("1件のうち 1件を戻せませんでした", {
+  await expect(page.locator("#toast")).toContainText("明細ある株式会社 を戻せませんでした", {
     timeout: 10000,
   });
+  await expect(page.locator("#toast")).not.toContainText("取り消しました");
   const obi = page.locator("#payModose");
   await expect(obi).toContainText("2026年5月 明細ある株式会社：前は 記録なし");
   await expect(obi).toContainText("下の一覧で 1件ずつ 前の額に直してください");
@@ -359,12 +361,12 @@ async function upsertWoOtosu(page, co) {
   }, co);
 }
 
-test("一括の 取り消し：2件の うち 前の 記録が 在る 1件だけ 戻せない＝月・会社・前の 額を 出し、もう 1件は 戻る", async ({
+test("全入金の 取り消し：前の 記録が 在る 月を 戻せない＝月・会社・前の 額を 帯に 出し、別の 会社の 取り消しは 戻る", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 375, height: 800 });
   await hiraku(page);
-  await page.evaluate(async () => {
+  await page.evaluate(() => {
     // 2社目（明細あり）と、1社目の 一部入金の 記録 3,000
     const co2 = "二つ目株式会社";
     MASTER[co2] = { account_id: CURRENT_ACCOUNT, items: ["日付", "行き先", "金額"] };
@@ -379,14 +381,17 @@ test("一括の 取り消し：2件の うち 前の 記録が 在る 1件だけ
     const k = payKeyFor("2026-05", "明細ある株式会社");
     PAYMENTS[k] = { paid: 3000, paidDate: "2026-06-01", note: "" };
     renderPayments();
-    payToggleRow("2026-05", "明細ある株式会社", 15400);
-    payToggleRow("2026-05", co2, 2000);
-    await bulkMarkPaid();
   });
-  await expect(page.locator("#toastUndo")).toContainText("2件を全入金にしました");
+  // 2社目＝全入金→取り消す＝戻る
+  await gyou(page, "二つ目株式会社", "2026年5月").locator(".pay-full-btn").click();
+  await page.locator("#toastUndo").getByRole("button", { name: "取り消す" }).click();
+  await expect(page.locator("#toast")).toContainText("取り消しました", { timeout: 10000 });
+  // 1社目＝全入金→戻す 書き込みだけ 落とす
+  await gyou(page, A, "2026年5月").locator(".pay-full-btn").click();
+  await expect(page.locator("#toastUndo")).toContainText("全入金にしました");
   await upsertWoOtosu(page, "明細ある株式会社");
   await page.locator("#toastUndo").getByRole("button", { name: "取り消す" }).click();
-  await expect(page.locator("#toast")).toContainText("2件のうち 1件を戻せませんでした", {
+  await expect(page.locator("#toast")).toContainText("明細ある株式会社 を戻せませんでした", {
     timeout: 10000,
   });
   const obi = page.locator("#payModose");
@@ -413,14 +418,11 @@ test("一括の 取り消し：2件の うち 前の 記録が 在る 1件だけ
   await expect(page.locator("#payModose")).toHaveCount(0);
 });
 
-test("一括の 取り消しの 間に 入金を 読めなく なった＝「画面を開き直して」と 出す（「この画面で 直して」と 言わない）", async ({
+test("全入金の 取り消しの 間に 入金を 読めなく なった＝「画面を開き直して」と 出す（「この画面で 直して」と 言わない）", async ({
   page,
 }) => {
   await hiraku(page);
-  await page.evaluate(async () => {
-    payToggleRow("2026-05", "明細ある株式会社", 15400);
-    await bulkMarkPaid();
-  });
+  await gyou(page, A, "2026年5月").locator(".pay-full-btn").click();
   await expect(page.locator("#toastUndo")).toContainText("全入金にしました");
   await page.evaluate(() => {
     YOMENAI.payments = true;
@@ -429,17 +431,14 @@ test("一括の 取り消しの 間に 入金を 読めなく なった＝「画
   await expect(page.locator("#payModose")).toContainText("画面を開き直して確かめてください", {
     timeout: 10000,
   });
+  // 知らせも「開き直して」の まま（「戻せませんでした」で 上書きしない）
+  await expect(page.locator("#toast")).toContainText("開き直して");
+  await expect(page.locator("#toast")).not.toContainText("戻せませんでした");
 });
 
 // ── 本番前の 対立役（760458d）の 指摘 ──
-async function ikkatsuDeOtosu(page, co, total) {
-  await page.evaluate(
-    async ([co, total]) => {
-      payToggleRow("2026-05", co, total);
-      await bulkMarkPaid();
-    },
-    [co, total]
-  );
+async function zenNyukinDeOtosu(page, co, total) {
+  await page.evaluate(([co, total]) => markPaidFull("2026-05", co, total), [co, total]);
   await expect(page.locator("#toastUndo")).toContainText("全入金にしました");
   await page.evaluate(() => (window.__FAKE_OFFLINE__ = true));
   await page.locator("#toastUndo").getByRole("button", { name: "取り消す" }).click();
@@ -451,7 +450,7 @@ test("戻せなかった 一覧は 画面を 開き直しても 残る（訳の 
   page,
 }) => {
   await hiraku(page);
-  await ikkatsuDeOtosu(page, "明細ある株式会社", 15400);
+  await zenNyukinDeOtosu(page, "明細ある株式会社", 15400);
   await expect(page.locator("#payModose")).toContainText("2026年5月 明細ある株式会社");
   await page.reload({ waitUntil: "load" });
   await expect(page.locator("#scr-input")).toBeVisible({ timeout: 20000 });
@@ -1267,4 +1266,17 @@ test("同じ 月の 入金が 残る 名前へ 混ぜると 一意で 落ち、�
     aMeisai: ["明細ある株式会社"],
     aBangou: ["明細ある株式会社"],
   });
+});
+
+// 2026-11-01 司さん：入金の 画面の「選択」（一括入金）を 消す＝ボタンも 下の バーも 無い・行を 押すと 窓が 開く
+test("入金の 画面に「選択」ボタンと 一括の バーが 無い・行を 押すと 入金の 窓が 開く", async ({
+  page,
+}) => {
+  await hiraku(page);
+  await expect(
+    page.locator("#scr-payment").getByRole("button", { name: "選択", exact: true })
+  ).toHaveCount(0);
+  await expect(page.locator("#paySelToggle, #paySelBar")).toHaveCount(0);
+  await gyou(page, A, "2026年5月").locator(".pay-main").click();
+  await expect(page.locator("#modalBody #pay_amt")).toBeVisible();
 });

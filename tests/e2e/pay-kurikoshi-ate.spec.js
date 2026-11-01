@@ -147,7 +147,7 @@ test("★繰越の 会社は まとめた 入金を 古い 月から 当てる�
 });
 
 // ============================================================
-// ★★10-02 夜（対立役に 叩かれて 足した）：当てた 後の 窓・Excel・一括入金★★
+// ★★10-02 夜（対立役に 叩かれて 足した）：当てた 後の 窓・Excel・一括入金（11-01 に 消した＝③は 行の 全入金で 見る）★★
 //   6月に 15,000 だけ 記録（5月 10,000・6月 10,000 の 請求）
 //   ・5月の「入金を記録」の 窓：前は 記録 0 と「全額」を 出し ★二重に 記録しやすかった★
 //   ・Excel の 入金シート：前は 当てた 額（5月 10,000・日 空／6月 5,000）＝★記録 15,000 が 消えて 見えた★
@@ -164,7 +164,7 @@ function seed15() {
   localStorage.setItem("__fake_supa_db__", JSON.stringify(raw));
 }
 
-test("★当てた 後も 窓・Excel・一括入金で 記録が 消えない★", async ({ page }) => {
+test("★当てた 後も 窓・Excel・行の 全入金で 記録が 消えない★", async ({ page }) => {
   await page.route(/cdn\.jsdelivr\.net/, (r) => r.abort());
   await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
   await page.addInitScript(seed);
@@ -194,19 +194,19 @@ test("★当てた 後も 窓・Excel・一括入金で 記録が 消えない�
   const kuri = aoa.filter((r) => r[1] === "繰越工業株式会社").map((r) => [r[0], r[2]]);
   expect(kuri, "★Excel の 入金シートが 記録と 違う★").toEqual([["2026年6月", 15000]]);
 
-  // ③ 一括入金（ボタンが 呼ぶ 関数を そのまま 呼ぶ）
-  await page.evaluate(async () => {
-    payToggleSelMode();
-    payToggleRow("2026-06", "繰越工業株式会社", 10000);
-    payToggleRow("2026-05", "普通商事株式会社", 10000);
-    await bulkMarkPaid();
-  });
+  // ③ 行の「全入金」（一括入金は 2026-11-01 に 消した）＝画面の ボタンを 本当に 押す
+  const gyou = (co, tsuki) =>
+    page.locator(".pay-item").filter({ hasText: co }).filter({ hasText: tsuki });
+  await gyou("繰越工業株式会社", "2026年6月").locator(".pay-full-btn").click();
+  await expect(page.locator(".toast-undo")).toContainText("全入金にしました");
+  await gyou("普通商事株式会社", "2026年5月").locator(".pay-full-btn").click();
+  await expect(page.locator(".toast-undo")).toContainText("普通商事株式会社 を全入金にしました");
   const kiroku = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("__fake_supa_db__"))
       .tables.payments.map((p) => [p.month, p.company, p.paid])
       .sort()
   );
-  expect(kiroku, "★一括入金で 記録が 上書きされて 消えた★").toEqual([
+  expect(kiroku, "★行の 全入金で 記録が 上書きされて 消えた★").toEqual([
     ["2026-05", "普通商事株式会社", 10000], // 繰越を 使わない 会社＝今まで通り 請求額
     ["2026-06", "普通商事株式会社", 20000],
     ["2026-06", "繰越工業株式会社", 20000], // 15,000 ＋ 残り 5,000

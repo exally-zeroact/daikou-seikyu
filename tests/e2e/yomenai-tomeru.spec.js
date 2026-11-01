@@ -195,7 +195,6 @@ test("★入金を 取って来られない・前回繰越を 載せる 会社 �
 // ★★入金の 門を 1つずつ★★（どれも その 門 1つを 外すと その 1本が 赤）
 for (const [na, yobu, tou] of [
   ["savePay", (co) => savePay("2026-05", co, 12000), "入金の 保存"],
-  ["bulkMarkPaid", () => bulkMarkPaid(), "入金の 保存"],
   ["undoPayState", (co) => undoPayState("2026-05", co, null), "入金の 保存"],
   ["exportReport（集計の Excel）", () => exportReport(), "集計の Excel の 作成"],
 ]) {

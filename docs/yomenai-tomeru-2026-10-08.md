@@ -36,6 +36,6 @@
 - 印は loadAllCloud の 頭で 4つ 全部 立て、読めた 物だけ 下ろす（自社情報は 行が 無い＝新しい 客は 読めた 扱い）
 - 控え・番号の 台帳は fetchAllQ（count:exact）で 全部 読む（1000行で 黙って 切れて 凍結した 番号を 上書きした）
 - 止める 作る 道：\_buildInvoiceBytes（PDF・印刷）・previewInvoiceFromPay（入金の 確認）・buildPickedExcel（請求書・入金の 表）・画面の 請求書（\_doGenerateInvoices）・先作り（\_prebuildPreview）。ボタンは updateRegnoGate で 止めて 文を 出す
-- 止める 書く 道：saveIssuer（自社情報）・issueInvoiceNo（番号）・bulkMarkPaid／savePay／markPaidFull／undoPayState（入金）
+- 止める 書く 道：saveIssuer（自社情報）・issueInvoiceNo（番号）・savePay／markPaidFull／undoPayState（入金）（一括の bulkMarkPaid は 2026-11-01 に 画面ごと 消した）
 - 本番（10-08 読んだ）：使う 人 1人（ZEROact）・自社情報 在り・繰越の 会社 0・控え 最大 3行・台帳 最大 2行＝今は 害 0
 - ★司さんに 訊く★ a. 自社情報の 行が 無い 新しい 客に ZEROact の 振込先・登録番号が 既定で 刷られる ／ b. 入金が 読めない 時 繰越を 使わない 会社の 紙まで 止めるか（今は 止める）／ c. 全社 PDF・Excel・画面が 台帳と 違う 計算の 番号を 刷る 件を 直すか（直すと 刷られる 番号が 変わる）

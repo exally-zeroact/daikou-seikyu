@@ -1296,69 +1296,6 @@
       .pay-full-btn:active {
         background: #eaf1fa;
       }
-      /* 複数選択して一括全入金 */
-      .pay-sel-toggle {
-        flex: 0 0 auto;
-        min-height: 36px;
-        padding: 0 14px;
-        border: 1px solid #cfd9e6;
-        background: #fff;
-        color: #0a5fd0;
-        border-radius: 8px;
-        font-family: inherit;
-        font-weight: 700;
-        font-size: 13px;
-        cursor: pointer;
-      }
-      .pay-sel-toggle.on {
-        background: #0a5fd0;
-        border-color: #0a5fd0;
-        color: #fff;
-      }
-      .pay-check {
-        flex: 0 0 auto;
-        width: 24px;
-        height: 24px;
-        border-radius: 6px;
-        border: 2px solid #0a5fd0;
-        background: #fff;
-        color: #fff;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 15px;
-        font-weight: 800;
-      }
-      .pay-check.on {
-        background: #0a5fd0;
-      }
-      .pay-check.dim {
-        opacity: 0.25;
-        border-color: #b9c4d3;
-      }
-      .pay-item.pay-sel {
-        background: #eaf1fa;
-      }
-      .pay-sel-bar {
-        position: fixed;
-        left: 0;
-        right: 0;
-        bottom: var(--nav-h, 56px);
-        z-index: 70;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 14px;
-        background: #ffffff;
-        border-top: 1px solid #dbe7f7;
-        box-shadow: 0 -2px 10px rgba(20, 36, 61, 0.08);
-      }
-      .pay-sel-info {
-        flex: 1;
-        font-size: 13px;
-        font-weight: 800;
-        color: #333333;
-      }
       /* 取り消しボタン付きトースト（通常トーストと別） */
       /* ★★見張りが 私の 見落としを 捕まえました（2026-09-10）★★
            手で 探した 時 `.toast` しか 見て おらず ★この 取り消しの 知らせを 落として いました★
@@ -3473,23 +3410,10 @@
           <option value="partial">一部入金</option>
           <option value="paid">入金済</option>
         </select>
-        <button type="button" class="pay-sel-toggle" id="paySelToggle" onclick="payToggleSelMode()">
-          選択
-        </button>
       </div>
       <div id="paySummary" class="pay-summary"></div>
       <div class="list-sum" id="payCount"></div>
       <div id="payBody"></div>
-      <!-- 複数選択して一括「全入金」する時だけ出る固定バー（ナビの上） -->
-      <div class="pay-sel-bar" id="paySelBar" style="display: none">
-        <span class="pay-sel-info" id="paySelInfo">0件</span>
-        <button type="button" class="btn btn-ghost btn-sm" onclick="payToggleSelMode()">
-          やめる
-        </button>
-        <button type="button" class="btn btn-primary btn-sm" id="paySelGo" onclick="bulkMarkPaid()">
-          選択を全入金
-        </button>
-      </div>
     </section>
 
     <!-- ===== 編集（請求書の見た目を見ながら微調整） ===== -->
@@ -8585,7 +8509,7 @@
          ・出す 物＝自分の 入金の 記録（額か メモ）か 請求番号が 在る 月だけ（出した 時の 写しだけでは 出さない＝
            会社名を 付け替えた 時に 古い 名前の 行が 出る・対立役）
          ・繰越を 使う 会社は 出さない（当て方を 変えない）
-         ・請求 ¥0。状態は 入金済の 扱い（一括・全入金・バッジに 入れない）で、札の 字は「明細なし」 */
+         ・請求 ¥0。状態は 入金済の 扱い（全入金・バッジに 入れない）で、札の 字は「明細なし」 */
       function kietaTsuki(all) {
         var aru = {};
         all.forEach(function (x) {
@@ -8629,7 +8553,7 @@
         return out;
       }
       function renderPayments() {
-        var _nav = document.querySelector(".bottom-nav"); // 一括バーの位置用（--nav-h）
+        var _nav = document.querySelector(".bottom-nav"); // 取り消しの 知らせの 位置用（--nav-h）
         if (_nav) document.documentElement.style.setProperty("--nav-h", _nav.offsetHeight + "px");
         refreshPayMonthSelect();
         var month = document.getElementById("payMonth").value;
@@ -8709,25 +8633,10 @@
             var remHtml = x.st === "paid" ? "" : '<div class="pay-rem">残 ' + yen(x.rem) + "</div>";
             var moEsc = esc(x.iv.month);
             var coEsc = esc(x.iv.company).replace(/'/g, "\\'");
-            var key = payKeyFor(x.iv.month, x.iv.company);
-            var selectable = x.st !== "paid"; // 入金済は選択対象外
-            var selected = _paySelMode && !!_paySelected[key];
-            // 選択モード＝行タップで選択トグル（選べるのは未完了のみ）。通常モード＝行タップで詳細編集。
-            var rowClick = _paySelMode
-              ? selectable
-                ? "payToggleRow('" + moEsc + "','" + coEsc + "'," + x.iv.total + ")"
-                : ""
-              : "openPayEdit('" + moEsc + "','" + coEsc + "')";
-            var check = _paySelMode
-              ? '<span class="pay-check' +
-                (selected ? " on" : "") +
-                (selectable ? "" : " dim") +
-                '">' +
-                (selected ? "✓" : "") +
-                "</span>"
-              : "";
+            // 行を 押す＝詳細の 窓（2026-11-01 司さん：「選択」＝一括入金を 消した）
+            var rowClick = "openPayEdit('" + moEsc + "','" + coEsc + "')";
             var fullBtn =
-              !_paySelMode && x.st !== "paid"
+              x.st !== "paid"
                 ? '<button type="button" class="pay-full-btn" onclick="event.stopPropagation();markPaidFull(\'' +
                   moEsc +
                   "','" +
@@ -8737,12 +8646,9 @@
                   ')">全入金</button>'
                 : "";
             return (
-              '<div class="pay-item' +
-              (selected ? " pay-sel" : "") +
-              '" onclick="' +
+              '<div class="pay-item" onclick="' +
               rowClick +
               '">' +
-              check +
               '<span class="pay-pill ' +
               (x.iv.kieta ? "kieta" : x.st) +
               '">' +
@@ -8768,131 +8674,22 @@
             );
           })
           .join("");
-        _updatePaySelBar();
         updatePayBadge(); // ★同じ数え方(summarize)で 同時に数え直す★ 2026-08-21
       }
-      // ===== 複数選択して一括「全入金」 =====
-      var _paySelMode = false;
-      var _paySelected = {}; // { payKey: {month, co, total} }
-      function payToggleSelMode() {
-        _paySelMode = !_paySelMode;
-        _paySelected = {};
-        var tg = document.getElementById("paySelToggle");
-        if (tg) tg.classList.toggle("on", _paySelMode);
-        var bar = document.getElementById("paySelBar");
-        if (bar) bar.style.display = _paySelMode ? "flex" : "none";
-        renderPayments();
-      }
-      function payToggleRow(month, co, total) {
-        var key = payKeyFor(month, co);
-        if (_paySelected[key]) delete _paySelected[key];
-        else _paySelected[key] = { month: month, co: co, total: total };
-        renderPayments(); // 行のハイライト＋バー更新
-      }
-      function _updatePaySelBar() {
-        var info = document.getElementById("paySelInfo");
-        var go = document.getElementById("paySelGo");
-        if (!info) return;
-        var keys = Object.keys(_paySelected);
-        var sum = keys.reduce(function (s, k) {
-          return s + (Number(_paySelected[k].total) || 0);
-        }, 0);
-        info.textContent = keys.length + "件・" + yen(sum);
-        if (go) go.disabled = keys.length === 0;
-      }
-      // 選択した請求を1件ずつ全額入金へ。部分失敗は明示。最後に一括取り消しを出す。
-      async function bulkMarkPaid() {
-        // ★入金を 読めていない 時は 書かない・消さない★（未入金に 見えた まま 上書き・取り消しで 消した・対立役 A1）
-        if (yomenaiTomeru(["payments"], "入金の 保存")) return;
-        toastUndoKesu();
-        var keys = Object.keys(_paySelected);
-        if (!keys.length) return;
-        var d = new Date();
-        var date =
-          d.getFullYear() +
-          "-" +
-          ("0" + (d.getMonth() + 1)).slice(-2) +
-          "-" +
-          ("0" + d.getDate()).slice(-2);
-        var snaps = [],
-          ok = 0,
-          fail = 0;
-        /* ★★一括入金は「記録に 残りを 足す」★★ 2026-10-02 夜（対立役に 叩かれて 見つけた）
-             前は その月の 記録を ★請求額で 上書き★ していた。繰越を使う 会社は 入金を 古い月から
-             当てるので、例：5月10,000・6月10,000・6月に 15,000 記録 → 6月は「一部 5,000」と 出る。
-             そこで 6月を 一括入金すると ★記録 15,000 が 10,000 に 上書き★＝5,000 の 記録が 消えた。
-             今は ★押す 前の 当て方で 足りない 額（請求 − 当てた額）を 記録に 足す★。
-             繰越を 使わない 会社は 当てた額＝記録 なので 結果は 前と 同じ（＝請求額）。 */
-        var mae = {};
-        seikyuList(null).forEach(function (iv) {
-          mae[payKeyFor(iv.month, iv.company)] = iv;
-        });
-        for (var i = 0; i < keys.length; i++) {
-          var k = keys[i],
-            sel = _paySelected[k];
-          var prev = PAYMENTS[k] ? Object.assign({}, PAYMENTS[k]) : null;
-          var iv0 = mae[k];
-          var atarashii = iv0
-            ? iv0.paidKiroku + Math.max(iv0.total - iv0.paid, 0)
-            : Number(sel.total) || 0;
-          var up = await SB.from("payments")
-            .upsert(
-              {
-                user_id: CURRENT_ACCOUNT,
-                month: sel.month,
-                company: sel.co,
-                paid: atarashii,
-                paid_date: date,
-                memo: (prev && prev.note) || "",
-                deleted_at: null,
-              },
-              { onConflict: "user_id,month,company" }
-            )
-            .select("id")
-            .single();
-          if (up.error) {
-            fail++;
-            continue;
-          }
-          PAYMENTS[k] = {
-            paid: atarashii,
-            paidDate: date,
-            note: (prev && prev.note) || "",
-            _dbid: up.data.id,
-          };
-          payKaita(k);
-          snaps.push({ month: sel.month, co: sel.co, snap: prev });
-          ok++;
+      // ★1件の 取り消し★ 2026-11-01（司さん：「選択」＝一括入金を 消した。一括の 取り消しが
+      //   「戻せなかった」帯の ただ 1つの 呼び手 だった＝対立役：消すと 帯は 古い 覚えを 出すだけに なる）
+      //   戻せなかった 時は 知らせ 1枚で 終わらせず、帯に 月・会社・前の 額を 足す（知らせは 電話で 切れる）
+      async function undoIchiken(month, co, snap) {
+        var ok = await undoPayState(month, co, snap, true);
+        if (ok) {
+          toast("取り消しました");
+          return true;
         }
-        _paySelected = {};
-        _paySelMode = false;
-        var tg = document.getElementById("paySelToggle");
-        if (tg) tg.classList.remove("on");
-        var bar = document.getElementById("paySelBar");
-        if (bar) bar.style.display = "none";
-        renderPayments();
-        updatePayBadge();
-        if (fail) toast(ok + "件を全入金（" + fail + "件は失敗）");
-        else if (ok)
-          toastUndo(ok + "件を全入金にしました", function () {
-            bulkUndo(snaps);
-          });
-      }
-      // ★戻せなかった 会社を 黙らない★ 2026-10-16（対立役：何件か 戻せなくても 最後に「取り消しました」と だけ 出た）
-      async function bulkUndo(snaps) {
-        var dame = [];
-        for (var i = 0; i < snaps.length; i++) {
-          var ok = await undoPayState(snaps[i].month, snaps[i].co, snaps[i].snap, true);
-          if (!ok) dame.push(snaps[i]);
-        }
-        if (!dame.length) return toast("取り消しました");
-        toast(
-          snaps.length +
-            "件のうち " +
-            dame.length +
-            "件を戻せませんでした（入金の画面に一覧を出しています）"
-        );
-        modoseNakattaMado(snaps.length, dame);
+        // 読めなくて 止まった 時は「開き直して」の 知らせを 残す（上書きすると 訳が 消える・対立役）
+        if (!yomenaiNo(["payments"]).length)
+          toast(co + " を戻せませんでした（入金の画面に一覧を出しています）");
+        modoseNakattaMado(1, [{ month: month, co: co, snap: snap }]);
+        return false;
       }
       // ★戻せなかった 入金の 一覧★ 2026-10-16（対立役：知らせ 1枚だと 電話で 切れる・直して 保存すると 消える）
       //   入金の 画面の 一覧の 上に「閉じる」まで 残す（窓に すると 直す 窓を 開いた 時に 消える）。
@@ -9297,7 +9094,7 @@
         //   額を 0 に すると 記録が 黙って 消え、知らせは「入金を記録しました」だった）
         if (keshita)
           toastUndo(co + " の入金の記録を消しました", function () {
-            undoPayState(month, co, snap);
+            undoIchiken(month, co, snap);
           });
         else if (!snap && amt <= 0 && !date && !note)
           toast("この画面には入金の記録がありません（何も変えていません）");
@@ -9317,7 +9114,7 @@
           ("0" + (d.getMonth() + 1)).slice(-2) +
           "-" +
           ("0" + d.getDate()).slice(-2);
-        /* ★★1件の 全入金も「記録に 足りない 額を 足す」★★ 2026-11-01（対立役：一括（bulkMarkPaid）だけ
+        /* ★★1件の 全入金も「記録に 足りない 額を 足す」★★ 2026-11-01（対立役：一括入金（11-01 に 消した）だけ
              10-02 夜に 直してあり、行の ボタンは ★請求額で 上書き★ の まま だった）
              繰越を 使う 会社＝入金を 古い 月から 当てる。5月 10,000・6月 10,000・6月に 15,000 記録で
              6月の 行の「全入金」を 押すと 記録が 10,000 に なり、当て直すと 6月が「未入金」に 戻った。
@@ -9358,11 +9155,11 @@
         renderPayments();
         updatePayBadge();
         toastUndo(co + " を全入金にしました", function () {
-          undoPayState(month, co, snap);
+          undoIchiken(month, co, snap);
         });
       }
       // 全入金の取り消し＝直前の状態へ戻す（元が未入金なら記録削除）。
-      // 返り値＝戻せたか（一括の 取り消しが 何件 戻せなかったかを 数える）。damaru＝1件ごとの 知らせを 出さない
+      // 返り値＝戻せたか（undoIchiken が 帯に 足すかを 決める）。damaru＝「取り消しました」を 出さない
       async function undoPayState(month, co, snap, damaru) {
         // ★入金を 読めていない 時は 書かない・消さない★（未入金に 見えた まま 上書き・取り消しで 消した・対立役 A1）
         if (yomenaiTomeru(["payments"], "入金の 保存")) return false;
