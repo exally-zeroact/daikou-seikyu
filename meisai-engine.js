@@ -118,6 +118,15 @@
     };
   }
 
+  /* ★紙の 上の 大きい「御請求金額（税込）」の 額★ 2026-11-01（司さん「それでやれ」）
+       繰越を 使う 会社は 今回お支払額（前回繰越＋今回−ご入金）＝相手が 実際に 払う 額。
+       前は その 月の 額だけ ⇒ 下の「今回お支払額」と 2つの 額が 刷られ、上だけ 振り込まれる おそれ。
+       繰越を 使わない 会社（carry が 無い）と、今回お支払額が 出せない 月（前回の 請求が 無い 等）は 今まで 通り その 月の 合計。
+       紙（invoice-pdf.js の 2つの 型）と Excel が この 1本を 呼ぶ */
+  function ueNoGaku(goukei, carry) {
+    return carry && carry.oshiharai != null ? carry.oshiharai : goukei;
+  }
+
   function invoiceTotals(rows, iss) {
     var grand = (rows || []).reduce(function (t, r) {
       return t + (Number(r && r.金額) || 0);
@@ -691,6 +700,7 @@
     invoiceNoFor: invoiceNoFor,
     invoiceTotals: invoiceTotals, // ★合計を足すのはここだけ★
     carryoverOf: carryoverOf, // ★繰越もここだけ★
+    ueNoGaku: ueNoGaku, // ★紙の 上の 大きい 額も ここだけ★
     totalsLabels: totalsLabels, // ★合計欄の言葉もここだけ★
     TAX_RATE: TAX_RATE,
     listInvoices: listInvoices,

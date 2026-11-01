@@ -4760,6 +4760,8 @@
           // 税方式：内税(既定・金額=税込) / 外税(金額=税抜→消費税を別途加算)。会社マスタ taxMode。
           var isSoto = m.taxMode === "外税";
           var billTotal = isSoto ? grand + Math.round(grand * 0.1) : grand; // ご請求金額(税込)
+          // ★上の 大きい「ご請求金額（税込）」★ 繰越の 会社は 今回お支払額（紙と 同じ エンジン 1本・2026-11-01 司さん）
+          var billUe = MeisaiEngine.ueNoGaku(billTotal, m.carryover ? _carryFor(co, month) : null);
           // ★PDFと配置を一致：ヘッダ右上＝お振込先、下＝自社情報（従来のExcelは上下逆だった）。
           var hdrInfo =
             iss.bank && iss.bank.length
@@ -4878,7 +4880,7 @@
                   // ★ご請求金額は単ページ or 最終サマリーページのみ（途中ページには出さない＝PDF同様）。
                   //   同じ行に自社情報がある時は左ゾーンだけ結合＝右の自社情報結合と重ならない（重複→修復/見切れ防止）。
                   var goseiR = issRestA[ka] ? rightStart - 1 : lastCol;
-                  var yenA = "¥" + String(billTotal).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                  var yenA = "¥" + String(billUe).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
                   // ★線は「金額の下まで」★（右端まで引かない）＝司さん 2026-08-15
                   //   Excelは列の切れ目でしか線を止められないので、
                   //   ★ラベルと金額を別のセルにし、金額を右寄せ★にして
@@ -4982,7 +4984,7 @@
                   // ★ご請求金額は単ページ or 最終サマリーページのみ（PDF同様）。
                   // ご請求金額（税込）¥xxx ＝ ラベル＋金額を左ゾーン全幅で1セルに（切れ防止）。
                   // 見本どおり sz13 太字・下線。左ゾーン(0..rightStart-1)に下線を引く。
-                  var yenStr = "¥" + String(billTotal).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                  var yenStr = "¥" + String(billUe).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
                   aoa[rri][0] = "ご請求金額（税込）　　" + yenStr;
                   // 同じ行に自社情報がある時は左ゾーンだけ結合＝右の自社情報結合と重ならない（重複→修復/見切れ防止）。
                   var goseiRB = issRest[k] ? rightStart - 1 : lastCol;

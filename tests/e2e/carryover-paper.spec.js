@@ -63,7 +63,11 @@ function seed(opt) {
             name: "繰越あり社",
             items: ["日付", "行き先", "金額"],
             config: conf(
-              Object.assign({ carryover: opt.carry }, opt.kuriSoto ? { taxMode: "外税" } : {})
+              Object.assign(
+                { carryover: opt.carry },
+                opt.kuriSoto ? { taxMode: "外税" } : {},
+                opt.design ? { pdfDesign: opt.design } : {}
+              )
             ),
             created_at: "2026-05-01T00:00:00.000Z",
             deleted_at: null,
@@ -173,6 +177,7 @@ async function kami(page, co, month, opt) {
       opt.carry ? "carry-on" : "carry-off",
       opt.copy ? "copy" + (opt.copyTotal || "") : "nocopy",
       opt.kuriSoto ? "soto" : "uchi",
+      opt.design || "std",
     ].join("_") + ".pdf"
   );
   await (await dl).saveAs(f);
@@ -249,6 +254,44 @@ test("★外税の繰越の会社：前回請求額も今の明細を外税で�
   expect(t, "★前回繰越が 20,920 でない★\n" + j).toContain("¥20,920");
   expect(t, "★合計請求額が 34,120 でない★\n" + j).toContain("¥34,120");
   expect(t, "★今回お支払額が 29,120 でない★\n" + j).toContain("¥29,120");
+});
+
+// ★紙の 上の 大きい「御請求金額（税込）」★ 2026-11-01（司さん「それでやれ」）
+//   繰越を 使う 会社は 今回お支払額（相手が 実際に 払う 額）。使わない 会社・前回が 無い 月は その 月の 合計（今まで 通り）
+//   前は 上が その 月の 12,000 で、下の「今回お支払額」24,200 と 2つの 額が 刷られた（上だけ 振り込まれる おそれ）
+//   ★わざと壊して 赤（2026-11-01 手元 chromium 実測）★ meisai-engine.js ueNoGaku を return goukei に ⇒ 上の 3本が 赤
+function ueNoGaku(t) {
+  const i = t.findIndex((s) => /御請求金額|ご請求金額/.test(s));
+  if (i < 0) return null;
+  return t.slice(i + 1).find((s) => /[¥￥]/.test(s)) || null;
+}
+for (const design of ["elegant", "classic"]) {
+  test(
+    "★繰越を使う会社：上の 御請求金額 は 今回お支払額 24,200（" + design + "）★",
+    async ({ page }) => {
+      const t = await kami(page, "繰越あり社", "2026-06", { carry: true, copy: true, design });
+      const j = t.join(" / ");
+      expect(ueNoGaku(t), "★上の 御請求金額 が 今回お支払額 で ない★\n" + j).toBe("¥24,200");
+      expect(
+        t.filter((x) => x === "¥24,200").length,
+        "★上と 下の 今回お支払額 が 揃って いない★\n" + j
+      ).toBeGreaterThanOrEqual(2);
+    }
+  );
+}
+test("★外税の繰越の会社：上の 御請求金額 も 今回お支払額 29,120★", async ({ page }) => {
+  const t = await kami(page, "繰越あり社", "2026-06", { carry: true, copy: true, kuriSoto: true });
+  expect(ueNoGaku(t), "★上が 今回お支払額 で ない★\n" + t.join(" / ")).toBe("¥29,120");
+});
+test("★繰越を使う会社でも 前回が無い月は 上は その月の 合計 37,200★", async ({ page }) => {
+  const t = await kami(page, "繰越あり社", "2026-05", { carry: true, copy: true });
+  const j = t.join(" / ");
+  expect(j, "前回が 無いのに 今回お支払額 が 出た").not.toContain("今回お支払額");
+  expect(ueNoGaku(t), "★前回が 無い 月の 上が その 月の 合計 で ない★\n" + j).toBe("¥37,200");
+});
+test("★繰越を使わない会社：上の 御請求金額 は その月の 合計 12,000 のまま★", async ({ page }) => {
+  const t = await kami(page, "繰越なし社", "2026-06", { carry: true, copy: true });
+  expect(ueNoGaku(t), "★繰越を 使わない 会社の 上が 変わった★\n" + t.join(" / ")).toBe("¥12,000");
 });
 
 test("★外税の会社：紙に「外税」と刷られる★", async ({ page }) => {

@@ -116,3 +116,25 @@ describe("★繰越★", () => {
     expect(r.oshiharai, "★過去の入金を2回 引いている★").toBe(5000);
   });
 });
+
+// ★紙の 上の 大きい「御請求金額（税込）」★ 2026-11-01（司さん「それでやれ」）
+//   繰越の 会社＝今回お支払額／使わない 会社・出せない 月＝その 月の 合計
+describe("★上の 御請求金額（ueNoGaku）★", () => {
+  it("繰越の 会社は 今回お支払額（手で 計算：12,000 ＋ 17,200 − 5,000 = 24,200）", () => {
+    const c = E.carryoverOf([{ month: "2026-05", seikyu: 37200, nyukin: 20000 }], 12000, 5000);
+    expect(E.ueNoGaku(12000, c)).toBe(24200);
+  });
+  it("繰越を 使わない 会社（carry が 無い）は その 月の 合計の まま", () => {
+    expect(E.ueNoGaku(12000, null)).toBe(12000);
+    expect(E.ueNoGaku(12000, undefined)).toBe(12000);
+  });
+  it("前回の 請求が 無い 月（今回お支払額が 出せない）は その 月の 合計", () => {
+    const c = E.carryoverOf([], 37200, 0);
+    expect(c.oshiharai).toBe(null);
+    expect(E.ueNoGaku(37200, c)).toBe(37200);
+  });
+  it("払い終えた（0）・払い過ぎ（負）も 今回お支払額 の まま（下の 行と 同じ 額）", () => {
+    expect(E.ueNoGaku(12000, { oshiharai: 0 })).toBe(0);
+    expect(E.ueNoGaku(12000, { oshiharai: -5000 })).toBe(-5000);
+  });
+});

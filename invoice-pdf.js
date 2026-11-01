@@ -169,6 +169,12 @@
   function kingakuMidashi(iss, komi) {
     return iss && iss.taxMode === "外税" ? "金額（税抜）" : "金額（" + (komi || "税込") + "）";
   }
+  // ★紙の 上の 大きい 額★（繰越の 会社は 今回お支払額・エンジン 1本から・2026-11-01）
+  function ueNoGaku(grand, iss) {
+    var E = global.MeisaiEngine;
+    if (E && E.ueNoGaku) return E.ueNoGaku(grand, iss && iss.carry);
+    throw new Error("MeisaiEngine.ueNoGaku が読めていません（上の額を二重に持たない）");
+  }
   function totalsOf(rows, iss) {
     var E = global.MeisaiEngine;
     if (E && E.invoiceTotals) return E.invoiceTotals(rows, iss);
@@ -535,7 +541,7 @@
         return font.widthOfTextAtSize(_sanitize(str), size);
       };
       var lbl = "御請求金額（税込）";
-      var gv = yen(grand);
+      var gv = yen(ueNoGaku(grand, iss)); // ★繰越の 会社は 今回お支払額★
       // ★文字サイズ係数(_scaleOf)を幅計算に反映。反映しないと係数を上げた時に実描画幅が
       //   算出幅より大きくなり、右寄せ/クランプがすり抜けて金額がA4右端を突き抜ける。
       var sc = _scaleOf("grand");
@@ -1034,7 +1040,7 @@
           return font.widthOfTextAtSize(_sanitize(str), gSize);
         };
         var gLabel = "ご請求金額（税込）";
-        var gv = yen(grand);
+        var gv = yen(ueNoGaku(grand, iss)); // ★繰越の 会社は 今回お支払額★
         var glw = font.widthOfTextAtSize(_sanitize(gLabel), gSize);
         var gTextW = glw + 40 + font.widthOfTextAtSize(_sanitize(gv), gSize);
         // 位置揃え（既定 left=従来どおり左端 M）。
