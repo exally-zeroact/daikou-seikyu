@@ -44,9 +44,39 @@ module.exports = async (req, res) => {
       encodeURIComponent(token) +
       "&apikey=" +
       SUPABASE_ANON;
-    const r = await fetch(url);
+    // ★読み切れたかを数える（2026-11-02）★ 倉庫は1回に返す行に上限がある（max_rows）。
+    // 上限を超えると黙って途中までになる＝Excel に欠けた表が出る。count=exact で全件数を貰い、
+    // 行数が足りなければ途中の表は出さずにエラー行にする。エラーの時も「データがありません」に化けさせない。
+    // 判じ方は状態の番号に頼らない（切れた時は 206＝r.ok は true）。0件は Content-Range が "*/0" で来る。
+    const r = await fetch(url, { headers: { Prefer: "count=exact" } });
+    if (!r.ok) {
+      return res
+        .status(200)
+        .send(page("<tr><td>エラー: 倉庫を読めませんでした（" + esc(r.status) + "）</td></tr>"));
+    }
     const data = await r.json();
-    const rows = Array.isArray(data) ? data : [];
+    if (!Array.isArray(data)) {
+      return res.status(200).send(page("<tr><td>エラー: 倉庫の答えの形が違います</td></tr>"));
+    }
+    const m = /\/(\d+)\s*$/.exec(String(r.headers.get("content-range") || ""));
+    if (!m) {
+      return res.status(200).send(page("<tr><td>エラー: 全部の件数が分かりません</td></tr>"));
+    }
+    const total = Number(m[1]);
+    const rows = data;
+    if (rows.length < total) {
+      return res
+        .status(200)
+        .send(
+          page(
+            "<tr><td>エラー: 全部を読めませんでした（全" +
+              total +
+              "行のうち" +
+              rows.length +
+              "行）</td></tr>"
+          )
+        );
+    }
 
     if (!rows.length) return res.status(200).send(page("<tr><td>データがありません</td></tr>"));
 
