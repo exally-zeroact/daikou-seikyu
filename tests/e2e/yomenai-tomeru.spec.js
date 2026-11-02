@@ -271,3 +271,97 @@ test("★台帳 1001行（目当ての 月が 1001行目）⇒ 番号は 台帳�
   expect(r.no, "★1000行で 切れて 台帳の 番号を 見失った★").toBe("202605-099");
   expect(r.w, "★凍結した 番号を 書き直した★").toBe(0);
 });
+
+// ★★途中で 切れた 読み（count より 少ない 行で 空の ページ）⇒ 読めない 時と 同じに 止める★★ 2026-11-02（対立役 注3）
+//   前は fetchAllQ が 空の ページで 黙って 抜けた＝欠けた 入金・番号・明細の まま 本物の 紙が 出得た
+//   ★わざと壊して 赤★ fetchAllQ の「件数と 読めた 数が 合わない」と 空ページの エラーを 両方 外す ⇒ 下の 3本が 赤
+async function kirete(page, hyou) {
+  await page.addInitScript((t) => {
+    window.__FAKE_KIRERU_TABLES__ = t;
+  }, hyou);
+}
+test("★入金が 途中で 切れた・前回繰越を 載せる 会社 ⇒ 請求書は 止める・入金は 書かない★", async ({
+  page,
+}) => {
+  await kirete(page, ["payments"]);
+  await open(
+    page,
+    [],
+    false,
+    (db, co) => {
+      db.tables.companies.forEach(
+        (c) => (c.config = Object.assign({}, c.config, { carryover: true }))
+      );
+      db.tables.payments.push({
+        id: "p2",
+        user_id: "u_yomi",
+        month: "2026-04",
+        company: co,
+        paid: 3000,
+        paid_date: "2026-05-01",
+        memo: "",
+        deleted_at: null,
+      });
+    },
+    CO
+  );
+  await expect(page.locator("#btnInvPdf")).toBeDisabled();
+  await expect(page.locator("#regnoWarn")).toContainText("前回繰越");
+  const r = await page.evaluate(async (co) => {
+    window.__FAKE_WRITES__ = {};
+    const bytes = await _buildInvoiceBytes();
+    await savePay("2026-05", co, 12000);
+    return { bytes: bytes, yomenai: YOMENAI.payments, w: window.__FAKE_WRITES__.payments || 0 };
+  }, CO);
+  console.log("★入金 切れた★ " + JSON.stringify(r));
+  expect(r.yomenai, "★切れた 入金を 読めた 事に した★").toBe(true);
+  expect(r.bytes, "★欠けた 入金で 請求書を 作った★").toBeNull();
+  expect(r.w, "★欠けた 入金の 上に 書いた★").toBe(0);
+});
+
+test("★番号の 台帳が 途中で 切れた ⇒ 請求書を 作らない・番号を 書かない★", async ({ page }) => {
+  await kirete(page, ["invoice_no"]);
+  await open(page, [], true);
+  await expect(page.locator("#btnInvPdf")).toBeDisabled();
+  await expect(page.locator("#regnoWarn")).toContainText(TORENAI);
+  const r = await page.evaluate(async (co) => {
+    window.__FAKE_WRITES__ = {};
+    let no = "投げなかった";
+    try {
+      await issueInvoiceNo("2026-05", co);
+    } catch (e) {
+      no = "投げた";
+    }
+    return { no: no, w: window.__FAKE_WRITES__.invoice_no || 0, bytes: await _buildInvoiceBytes() };
+  }, CO);
+  console.log("★台帳 切れた★ " + JSON.stringify(r));
+  expect(r.no).toBe("投げた");
+  expect(r.w, "★切れた 台帳の 上に 番号を 書いた★").toBe(0);
+  expect(r.bytes).toBeNull();
+});
+
+test("★明細が 途中で 切れた ⇒ 読み込み失敗の 画面で 止める（欠けた 明細で 画面を 出さない）★", async ({
+  page,
+}) => {
+  await kirete(page, ["meisai"]);
+  await page.route(/cdn\.jsdelivr\.net/, (r) => r.abort());
+  await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
+  await page.addInitScript(`var CO_NA = ${JSON.stringify(CO)};(${seed.toString()})();`);
+  await page.addInitScript(() => {
+    const db = JSON.parse(localStorage.getItem("__fake_supa_db__"));
+    const m = Object.assign({}, db.tables.meisai[0], {
+      id: "m2",
+      date: "2026-05-07",
+      amount: 8000,
+    });
+    db.tables.meisai.push(m);
+    localStorage.setItem("__fake_supa_db__", JSON.stringify(db));
+  });
+  await page.goto("/daikou-seikyu.html", { waitUntil: "load" });
+  await expect(page.locator("#loadMsg")).toContainText("読み込みに失敗", { timeout: 20000 });
+  await expect(page.locator("#loadRetry")).toBeVisible();
+  const n = await page.evaluate(() => DB.length);
+  console.log("★明細 切れた★ DB.length=" + n);
+  expect(n, "★欠けた 明細を 画面に 載せた★").toBe(0);
+  await expect(page.locator("#loadOverlay")).toHaveClass(/(^| )on( |$)/);
+});

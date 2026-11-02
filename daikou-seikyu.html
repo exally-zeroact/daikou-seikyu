@@ -3775,20 +3775,66 @@
       // ★成長テーブルを"全件"読む（max_rows=1000で黙って過少になるのを根治）。
       //   build=(from,to)=>完成クエリ。count:"exact"で総数を見て、総数に達するまで.rangeでバッチ取得。
       //   飲み屋(nomiya)のfetchAllと同型（フィルタ付きに対応するためビルダを受ける版）。
-      async function fetchAllQ(build) {
-        var out = [];
-        var from = 0;
+      async function fetchAllQ(build, kagi) {
+        // ★読み切れなかった時は 黙って 通さず エラーで 返す★ 2026-11-02（対立役 注3）
+        //   前は 件数に 届く 前の 空の ページ・count 無しで 黙って 抜けた＝欠けた 入金・明細で 本物の 紙が 出得た。
+        //   エラーに すれば 会社・明細は 読み込み失敗の 画面、入金・控え・番号は YOMENAI の 門で 止まる。
+        //   読む 間に 件数が 変わったら（別の 端末の 保存・消し）境目が ずれる ので 最初から 読み直す。
+        //   ★件数が 同じ まま ずれる（1件 足して 1件 消す）時は 同じ 行が 2回 来る＝鍵の 重なりで 見て 読み直す★（対立役 注1）
+        //   kagi＝行の 鍵（既定 id）。重なりが 無くて 件数が 合えば 抜けも 無い
+        kagi =
+          kagi ||
+          function (x) {
+            return x && x.id;
+          };
         var size = 1000;
-        for (;;) {
-          var r = await build(from, from + size - 1);
-          if (r.error) return { data: null, error: r.error };
-          var got = r.data || [];
-          out = out.concat(got);
-          if (!got.length) break;
-          if (r.count == null || out.length >= r.count) break;
-          from += got.length; // ★size ではなく実受信数で進める(サーバ上限がページ幅より小さくても漏れない)
+        for (var kai = 0; kai < 3; kai++) {
+          var out = [];
+          var from = 0;
+          var kazu = null;
+          var kawatta = false;
+          for (;;) {
+            var r = await build(from, from + size - 1);
+            // ★途中で 件数が 減って 開始が 総数を 越えると PostgREST は 416（PGRST103）＝読み直す★（対立役 注2）
+            if (r.error && kazu != null && (r.error.code === "PGRST103" || r.status === 416)) {
+              kawatta = true;
+              break;
+            }
+            if (r.error) return { data: null, error: r.error };
+            if (r.count == null)
+              return { data: null, error: { message: "件数が返らず 全部 読めたか 分からない" } };
+            if (kazu == null) kazu = r.count;
+            else if (r.count !== kazu) {
+              kawatta = true;
+              break;
+            }
+            var got = r.data || [];
+            out = out.concat(got);
+            if (out.length >= kazu) break;
+            if (!got.length)
+              return { data: null, error: { message: "途中で 切れて 全部 読めなかった" } };
+            from += got.length; // ★size ではなく実受信数で進める(サーバ上限がページ幅より小さくても漏れない)
+          }
+          if (kawatta) continue;
+          if (out.length !== kazu)
+            return { data: null, error: { message: "件数と 読めた 数が 合わない" } };
+          var mita = {};
+          var kasanari = false;
+          for (var j = 0; j < out.length; j++) {
+            var k = kagi(out[j]);
+            if (k == null)
+              return { data: null, error: { message: "行の 鍵が 無く 重なりを 見られない" } };
+            k = String(k);
+            if (mita[k]) {
+              kasanari = true;
+              break;
+            }
+            mita[k] = true;
+          }
+          if (kasanari) continue;
+          return { data: out, error: null, count: out.length };
         }
-        return { data: out, error: null, count: out.length };
+        return { data: null, error: { message: "読む 間に 中身が 変わり続けた" } };
       }
       // ログイン後の一括読み込み（RLSで自分の行だけ返る）
       // ★★読めなかった 物の 印（最初は 全部 立てて 読めた 物だけ 下ろす）★★ 2026-10-08
@@ -3939,10 +3985,16 @@
         ISSUER_SETTINGS = {};
         var ok = true;
         var c = await fetchAllQ(function (a, b) {
-          return SB.from("companies")
-            .select("*", { count: "exact" })
-            .is("deleted_at", null)
-            .range(a, b);
+          return (
+            SB.from("companies")
+              .select("*", { count: "exact" })
+              .is("deleted_at", null)
+              // ★一意に 並べてから 切る（並びが 無いと 境目で 行が 飛ぶ・重なる）★
+              //   会社は 作った 順＝同じ 名前が 2行 在っても 前と 同じく 後から 作った 方が MASTER で 勝つ（対立役 注3・11-02 本番 重なり 0組）
+              .order("created_at")
+              .order("id")
+              .range(a, b)
+          );
         });
         if (c.error) {
           cloudErr("会社読込", c.error);
@@ -3975,6 +4027,7 @@
           return SB.from("meisai")
             .select("*", { count: "exact" })
             .is("deleted_at", null)
+            .order("id")
             .range(a, b);
         });
         if (m.error) {
@@ -3987,6 +4040,7 @@
           return SB.from("payments")
             .select("*", { count: "exact" })
             .is("deleted_at", null)
+            .order("id")
             .range(a, b);
         });
         if (p.error) cloudErr("入金読込", p.error);
@@ -4016,12 +4070,13 @@
           // ★1000行で 黙って 切れない 様に 全部 読む★（対立役 B）
           var ivs = await fetchAllQ(function (a, b) {
             return SB.from("invoices")
-              .select("month, company, invoice_no, total, issued_at, design_json", {
+              .select("id, month, company, invoice_no, total, issued_at, design_json", {
                 count: "exact",
               })
               .order("issued_at")
               .order("company")
               .order("month")
+              .order("id")
               .range(a, b);
           });
           if (ivs.error) cloudErr("請求書の控え読込", ivs.error);
@@ -4041,13 +4096,19 @@
         INVOICE_NO = {};
         try {
           // ★1000行で 黙って 切れない 様に 全部 読む★（切れると 台帳に 無い 月の 番号を 作り直して 上書きした・対立役 B）
-          var no = await fetchAllQ(function (a, b) {
-            return SB.from("invoice_no")
-              .select("month, company, invoice_no, user_id", { count: "exact" })
-              .order("month")
-              .order("company")
-              .range(a, b);
-          });
+          var no = await fetchAllQ(
+            function (a, b) {
+              return SB.from("invoice_no")
+                .select("month, company, invoice_no, user_id", { count: "exact" })
+                .order("month")
+                .order("company")
+                .order("user_id") // ★鍵は (user_id, month, company)＝これで 一意★
+                .range(a, b);
+            },
+            function (x) {
+              return x && x.user_id + "\u0001" + x.month + "\u0001" + x.company;
+            }
+          );
           if (no.error) cloudErr("請求番号の読込", no.error);
           else {
             INVOICE_NO_UID = {};
