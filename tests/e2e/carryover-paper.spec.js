@@ -769,7 +769,8 @@ test("★入金を 読めない 時：繰越の 数は 入金を 0円で 数え�
   expect(c.maeSeikyu, "★前回ご請求額を 入金なしで 出した★ " + j).toBeNull();
 });
 //   ★入金の 窓★（対立役 注1）入金を 読めない 時は 今月分 12,000 を「今回ご請求額」と 書かない
-//   ★わざと壊して 赤★ openPayEdit の「入金は未確認」の 分かれを 外す ⇒ この 1本が 赤
+//   ★分かれは プレビューの 門と 同じ YOMENAI.payments（本番前の 対立役 注1＝エンジンの 理由の 字に 頼らない）★
+//   ★わざと壊して 赤★ openPayEdit の (YOMENAI.payments の 分かれを (false に する ⇒ この 1本と 5月の 1本が 赤
 test("★入金を 読めない 時：入金の 窓に 嘘の 今回ご請求額（¥12,000）を 書かない★", async ({
   page,
 }) => {
@@ -814,4 +815,30 @@ test("★入金を 読めない 時：繰越の 会社の 見本の 紙を 描�
     async () => !!(await tplThumbBytes("elegant", "logo", "繰越なし社"))
   );
   expect(nashi, "★繰越なしの 会社の 見本まで 止めた★").toBe(true);
+});
+//   ★前回の 請求が 無い 月（5月）でも 入金を 読めない 時は 額を 言わない★（対立役 注3）
+//   プレビューは 同じ 時に 帯で 止まる＝窓だけ 額を 言うと 食い違う。前の 形（理由の 字で 分かれる）だと ¥37,200 を 言って 赤
+test("★入金を 読めない 時：前回の 無い 月（5月）も 入金の 窓は 額を 言わない★", async ({
+  page,
+}) => {
+  await nyukinYomenai(page);
+  await page.evaluate(() => openPayEdit("2026-05", "繰越あり社"));
+  const note = page.locator("#payAteNote");
+  await expect(note).toBeVisible();
+  await expect(note).toContainText("入金を 読めないので 出せません");
+  await expect(note).not.toContainText("今回ご請求額 ¥37,200");
+});
+//   ★入金が 読める 普段の 時の 窓の 字は 前と 同じ★（対立役 次の確かめ2）6月＝今回ご請求額 29,200（残り 17,200＋この月 12,000）
+test("★入金が 読める 時：入金の 窓は 今回ご請求額 ¥29,200 と 内訳を 書く★", async ({ page }) => {
+  await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
+  await page.addInitScript(seed, { carry: true, copy: true });
+  await page.goto("/daikou-seikyu.html", { waitUntil: "load" });
+  await expect(page.locator("#scr-input")).toBeVisible({ timeout: 20000 });
+  expect(await page.evaluate(() => YOMENAI.payments)).toBe(false);
+  await page.evaluate(() => openPayEdit("2026-06", "繰越あり社"));
+  const note = page.locator("#payAteNote");
+  await expect(note).toBeVisible();
+  await expect(note).toContainText("この月の請求書は 今回ご請求額 ¥29,200");
+  await expect(note).toContainText("前の月までの残り ¥17,200");
+  await expect(note).not.toContainText("出せません");
 });

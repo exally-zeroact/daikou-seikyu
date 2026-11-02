@@ -8929,7 +8929,9 @@
           (MASTER[co] && MASTER[co].carryover
             ? '<div class="pay-sub" id="payAteNote" style="margin:-6px 0 10px;color:#555555;">' +
               // ★入金を 読めない 時は 額を 書かない★ 2026-11-02（注C・対立役 注1）＝今月分を「今回ご請求額」と 書くと 嘘
-              (_crPay && _crPay.riyu && _crPay.riyu.indexOf("入金は未確認") >= 0
+              // ★分かれは プレビューの 門・発行の 門と 同じ YOMENAI.payments で 見る★（本番前の 対立役 注1）
+              //   エンジンの 理由の 字で 見ると、言い回しを 変えた 日に 黙って 外れる
+              (YOMENAI.payments
                 ? "繰越の会社：この月の請求書の 今回ご請求額は 入金を 読めないので 出せません（画面を 開き直してください）"
                 : "繰越の会社：この月の請求書は 今回ご請求額 " +
                   MeisaiEngine.sankakuYen(_seikyuGakuOf)) +
