@@ -169,11 +169,21 @@
   function kingakuMidashi(iss, komi) {
     return iss && iss.taxMode === "外税" ? "金額（税抜）" : "金額（" + (komi || "税込") + "）";
   }
-  // ★紙の 上の 大きい 額★（繰越の 会社は 今回お支払額・エンジン 1本から・2026-11-01）
+  // ★紙の 上の 大きい 額★（繰越の 会社は 今回ご請求額・エンジン 1本から・2026-11-01／11-02）
   function ueNoGaku(grand, iss) {
     var E = global.MeisaiEngine;
     if (E && E.ueNoGaku) return E.ueNoGaku(grand, iss && iss.carry);
     throw new Error("MeisaiEngine.ueNoGaku が読めていません（上の額を二重に持たない）");
+  }
+  // ★上の 額の 字★ 繰越の 会社は マイナスを ▲（エンジンの sankakuYen 1本）・使わない 会社は 今まで 通り
+  function ueNoJi(grand, iss) {
+    var v = ueNoGaku(grand, iss);
+    return iss && iss.carry ? sankaku(v) : yen(v);
+  }
+  function sankaku(n) {
+    var E = global.MeisaiEngine;
+    if (E && E.sankakuYen) return E.sankakuYen(n);
+    throw new Error("MeisaiEngine.sankakuYen が読めていません（繰越の 字を 二重に 持たない）");
   }
   function totalsOf(rows, iss) {
     var E = global.MeisaiEngine;
@@ -541,7 +551,7 @@
         return font.widthOfTextAtSize(_sanitize(str), size);
       };
       var lbl = "御請求金額（税込）";
-      var gv = yen(ueNoGaku(grand, iss)); // ★繰越の 会社は 今回お支払額★
+      var gv = ueNoJi(grand, iss); // ★繰越の 会社は 今回ご請求額★
       // ★文字サイズ係数(_scaleOf)を幅計算に反映。反映しないと係数を上げた時に実描画幅が
       //   算出幅より大きくなり、右寄せ/クランプがすり抜けて金額がA4右端を突き抜ける。
       var sc = _scaleOf("grand");
@@ -670,10 +680,18 @@
           T(page, font, lbl, bx + 10, sy, big ? 11 : 9.5, { color: big ? TEXT : MUTED });
           T(page, font, val, rx - 10, sy, big ? 12 : 9.5, { color: TEXT, align: "right" });
         };
-        _cr(_L.前回繰越額, _c.kurikoshi == null ? _c.riyu[0] || "—" : yen(_c.kurikoshi));
-        if (_c.goukeiSeikyu != null) _cr(_L.合計請求額, yen(_c.goukeiSeikyu));
-        _cr(_L.ご入金額, _c.nyukin == null ? "入金は未確認" : yen(-_c.nyukin));
-        if (_c.oshiharai != null) _cr(_L.今回お支払額, yen(_c.oshiharai), true);
+        // ★5項目（2026-11-02 司さん）★ その 月への 入金は 載せない＝出し直しても 変わらない
+        sy -= _g(6); // 太い 合計の 下に 間（絵で 見て くっついていた・2026-11-02）
+        _cr(_L.前回ご請求額, _c.maeSeikyu == null ? _c.riyu[0] || "—" : sankaku(_c.maeSeikyu));
+        if (_c.maeSeikyu != null) {
+          _cr(_L.ご入金額, sankaku(-_c.nyukin));
+          _cr(_L.繰越金額, sankaku(_c.kurikoshi));
+          _cr(_L.今回ご請求額, sankaku(_c.seikyuGaku), true);
+          if (_c.seikyuGaku < 0) {
+            sy -= _g(16);
+            T(page, font, global.MeisaiEngine.SASHIHIKI_JI, bx + 10, sy, 8, { color: MUTED });
+          }
+        }
       }
       sy -= _g(20);
       // 役職集計（内訳）
@@ -1040,7 +1058,7 @@
           return font.widthOfTextAtSize(_sanitize(str), gSize);
         };
         var gLabel = "ご請求金額（税込）";
-        var gv = yen(ueNoGaku(grand, iss)); // ★繰越の 会社は 今回お支払額★
+        var gv = ueNoJi(grand, iss); // ★繰越の 会社は 今回ご請求額★
         var glw = font.widthOfTextAtSize(_sanitize(gLabel), gSize);
         var gTextW = glw + 40 + font.widthOfTextAtSize(_sanitize(gv), gSize);
         // 位置揃え（既定 left=従来どおり左端 M）。
@@ -1098,10 +1116,17 @@
       // ★繰越（会社が「使う」を選んだ時だけ）★ 出せない物は 0円と書かず 理由を出す
       if (iss && iss.carry) {
         var c = iss.carry;
-        totRow(_Lc.前回繰越額, c.kurikoshi == null ? c.riyu[0] || "—" : yen(c.kurikoshi));
-        if (c.goukeiSeikyu != null) totRow(_Lc.合計請求額, yen(c.goukeiSeikyu));
-        totRow(_Lc.ご入金額, c.nyukin == null ? "入金は未確認" : yen(-c.nyukin));
-        if (c.oshiharai != null) totRow(_Lc.今回お支払額, yen(c.oshiharai), true);
+        // ★5項目（2026-11-02 司さん）★ その 月への 入金は 載せない＝出し直しても 変わらない
+        totRow(_Lc.前回ご請求額, c.maeSeikyu == null ? c.riyu[0] || "—" : sankaku(c.maeSeikyu));
+        if (c.maeSeikyu != null) {
+          totRow(_Lc.ご入金額, sankaku(-c.nyukin));
+          totRow(_Lc.繰越金額, sankaku(c.kurikoshi));
+          totRow(_Lc.今回ご請求額, sankaku(c.seikyuGaku), true);
+          if (c.seikyuGaku < 0) {
+            T(page, font, global.MeisaiEngine.SASHIHIKI_JI, boxX, sy, 8, { color: DARK });
+            sy -= 13;
+          }
+        }
       }
       if (m.noteSummary && (m.noteGroups || []).length) {
         var sums = {};

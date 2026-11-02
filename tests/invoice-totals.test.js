@@ -81,9 +81,9 @@ describe("★合計の式（内税10%）★", () => {
   });
 
   it("★会社ごとの言い換えが 上に被さる★", () => {
-    const L = Engine.totalsLabels({ labels: { 消費税: "税", 今回お支払額: "お振込み額" } }, {});
+    const L = Engine.totalsLabels({ labels: { 消費税: "税", 今回ご請求額: "お振込み額" } }, {});
     expect(L.消費税).toBe("税");
-    expect(L.今回お支払額).toBe("お振込み額");
+    expect(L.今回ご請求額).toBe("お振込み額");
     expect(L.小計, "言い換えていない物まで変わっている").toBe("小計");
   });
 
