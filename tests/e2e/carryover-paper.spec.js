@@ -607,3 +607,103 @@ test("★プレビュー：会社マスタで 内税→外税 を 押して 戻�
   expect(ato.ue, "★外税に したのに プレビューの 上が 古い 額★\n" + ato.j).toBe("¥13,200");
   expect(ato.j, "★外税に したのに プレビューが 内税 の まま★").toContain("外税");
 });
+
+// ★編集タブの プレビューも 描く 月の 繰越★ 2026-11-02（本番前の 対立役 注B）
+//   編集タブは 自分の 月（_editMonth＝データの 在る 一番 新しい 月）で 描くのに、
+//   繰越だけ 請求タブの #invMonth の 月で 数えていた（issuerForEngine(onlyCo) に 月が 無い）
+//   ＝請求タブで 5月を 選んでから 編集タブを 開くと、6月の 紙に 5月の 繰越（前回なし）が 載った
+//   ★わざと壊して 赤★ daikou-seikyu.html の issuerForEngine(onlyCo, month) から month を 外す ⇒ この 1本が 赤
+test("★編集タブの プレビュー：請求タブで 別の 月を 選んでいても 6月の 紙は 上 29,200★", async ({
+  page,
+}) => {
+  await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
+  await page.addInitScript(seed, { carry: true, copy: true });
+  await page.goto("/daikou-seikyu.html", { waitUntil: "load" });
+  await expect(page.locator("#scr-input")).toBeVisible({ timeout: 20000 });
+  await page.locator('.nav-item[data-scr="billing"]').click();
+  await page.selectOption("#invMonth", "2026-05");
+  await page.selectOption("#invCompany", "繰越あり社");
+  const go = await preUe(page, "繰越あり社", "2026-05");
+  expect(go.ue, "★5月の 紙の 上が 37,200 で ない★\n" + go.j).toBe("¥37,200");
+  await page.locator('.nav-item[data-scr="edit"]').click();
+  await expect(page.locator("#scr-edit")).toBeVisible();
+  await expect(page.locator("#editCompany")).toHaveValue("繰越あり社");
+  const ed = await preUe(page, "繰越あり社", "2026-06");
+  expect(ed.ue, "★編集タブの 6月の 紙が #invMonth（5月）の 繰越で 描かれた★\n" + ed.j).toBe(
+    "¥29,200"
+  );
+  expect(ed.j, "★前回ご請求額 37,200 が 無い★").toContain("¥37,200");
+  expect(ed.j, "★ご入金額 ▲20,000 が 無い★").toContain("▲¥20,000");
+});
+
+// ★本物の 発行も 描く 月の 繰越★ 2026-11-02（設計前の 対立役 注1）
+//   「印刷 / 送る」は 月を 1回 読んだ 後、倉庫に 番号を 取りに 行く 間 待つ。ボタンは 押せなく なるが #invMonth は 触れる。
+//   待つ 間に 月を 変えると、紙は 明細も 番号も 元の 月なのに 繰越だけ 変えた 後の 月で 刷られた
+//   （issuerForEngine(onlyCo) が #invMonth を もう一度 読む）＝客に 渡す 紙の 額が 黙って 変わる
+//   ★直す前に 赤を 見た★ 1社＝上 ¥12,000・「前回の請求はありません」で 刷られた
+//   ★わざと壊して 赤★ 1社＝7347 の issuerForEngine(onlyCo, month)・全社＝7376 の issuerForEngine(co, month) から month を 外す
+for (const k of [
+  { co: "繰越あり社", na: "1社" },
+  { co: "", na: "全社" },
+]) {
+  test(`★発行（${k.na}）：番号を 取りに 行く 間に 月を 変えても 6月の 紙は 上 29,200★`, async ({
+    page,
+  }) => {
+    fs.mkdirSync(OUT, { recursive: true });
+    await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
+    await page.addInitScript(() => {
+      window.open = () => null;
+    });
+    await page.addInitScript(seed, { carry: true, copy: true });
+    await page.goto("/daikou-seikyu.html", { waitUntil: "load" });
+    await expect(page.locator("#scr-input")).toBeVisible({ timeout: 20000 });
+    await page.locator('.nav-item[data-scr="billing"]').click();
+    await page.selectOption("#invMonth", "2026-06");
+    await page.selectOption("#invCompany", k.co);
+    await expect(page.locator("#invoiceOut.inv-loading")).toHaveCount(0, { timeout: 120000 });
+    // 番号の 台帳への ★最初の 1回の★ 書き込みだけ 止める（離すまで 返さない）。2回目から（全社の 残りの 会社）は 素通し
+    //   （輪で 止まる 度に 離す 形は、月を 変えた 描き直しで 待ちが 延びると 抜けて 揺れる＝対立役 注1）
+    await page.evaluate(() => {
+      const orig = window.SB.from.bind(window.SB);
+      let kai = 0;
+      window.SB.from = (t) => {
+        const q = orig(t);
+        if (t === "invoice_no") {
+          const oi = q.insert.bind(q);
+          q.insert = (...a) => {
+            if (kai++ > 0) return oi(...a);
+            return new Promise((res) => {
+              window.__tomete = true;
+              window.__hanasu = () => res(oi(...a));
+            });
+          };
+        }
+        return q;
+      };
+    });
+    const dl = page.waitForEvent("download", { timeout: 120000 });
+    await page.getByRole("button", { name: /印刷 \/ 送る/ }).click();
+    await page.waitForFunction(() => window.__tomete === true, null, { timeout: 30000 });
+    await page.selectOption("#invMonth", "2026-05"); // ★待つ 間に 月を 変える★
+    await page.evaluate(() => window.__hanasu());
+    const f = path.join(OUT, "hakko_tsuki_kae_" + (k.co ? "1sha" : "zensha") + ".pdf");
+    await (await dl).saveAs(f);
+    const bytes = Array.from(fs.readFileSync(f));
+    const t = await page.evaluate(async (arr) => {
+      const doc = await window.pdfjsLib.getDocument({ data: new Uint8Array(arr) }).promise;
+      const out = [];
+      for (let i = 1; i <= doc.numPages; i++) {
+        const pg = await doc.getPage(i);
+        out.push(...(await pg.getTextContent()).items.map((x) => x.str));
+      }
+      return out;
+    }, bytes);
+    const j = t.join(" / ");
+    expect(t, "★前回ご請求額 37,200 が 無い＝5月の 繰越で 刷られた★\n" + j).toContain("¥37,200");
+    expect(t, "★ご入金額 ▲20,000 が 無い★\n" + j).toContain("▲¥20,000");
+    expect(t, "★上の 額 29,200 が 無い★\n" + j).toContain("¥29,200");
+    expect(j, "★6月の 紙に「前回の請求はありません」＝5月の 繰越★").not.toContain(
+      "前回の請求はありません"
+    );
+  });
+}

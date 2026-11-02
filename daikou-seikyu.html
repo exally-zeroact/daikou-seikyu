@@ -6864,7 +6864,7 @@
               );
             });
             if (!rows.length) return _invEmpty(out, "該当する明細がありません", seq);
-            var _coIss = issuerForEngine(onlyCo); // ★この会社のテンプレ（未設定は全体）
+            var _coIss = issuerForEngine(onlyCo, month); // ★この会社のテンプレ（未設定は全体）・★繰越は 描く 月で（編集タブの 月 ≠ #invMonth・注B 2026-11-02）
             sig = _invSig1(onlyCo, month, _coIss, rows);
             if (_invCache.sig === sig && _invCache.bytes) {
               bytes = _invCache.bytes; // ★同内容＝再ビルドを飛ばす（約0.7秒節約）
@@ -6912,7 +6912,7 @@
                 CURRENT_ACCOUNT,
                 iss,
                 function (co) {
-                  return issuerForEngine(co); // ★全社まとめPDFも会社毎テンプレで描き分け
+                  return issuerForEngine(co, month); // ★全社まとめPDFも会社毎テンプレで描き分け・★繰越は 描く 月で（注B）
                 }
               );
               if (!bytes) return _invEmpty(out, "該当する明細がありません", seq);
@@ -7369,11 +7369,11 @@
             onlyCo,
             rows,
             month,
-            issuerForEngine(onlyCo),
+            issuerForEngine(onlyCo, month), // ★繰越は 1回 読んだ 月で（番号を 待つ 間に #invMonth が 変わっても ずれない・注1 2026-11-02）
             _no
           );
           await writeInvoiceCopies([
-            makeInvoiceCopy(month, onlyCo, rows, issuerForEngine(onlyCo), _no),
+            makeInvoiceCopy(month, onlyCo, rows, issuerForEngine(onlyCo, month), _no),
           ]);
           fname = "請求書_" + month + "_" + onlyCo + ".pdf";
         } else {
@@ -7398,7 +7398,7 @@
             CURRENT_ACCOUNT,
             iss,
             function (co) {
-              return issuerForEngine(co);
+              return issuerForEngine(co, month); // ★全社も 1回 読んだ 月の 繰越（注1）
             },
             function (co) {
               if (!_nos[co]) throw new Error("請求番号が 決まっていない 会社: " + co);
@@ -12892,7 +12892,7 @@
             );
           });
           if (!rows.length) return;
-          var iss = issuerForEngine(co); // ★この会社のテンプレ（プレビュー先読みも会社毎）
+          var iss = issuerForEngine(co, month); // ★この会社のテンプレ（プレビュー先読みも会社毎）・★繰越は 先読みの 月で（注B）
           var sig = _invSig1(co, month, iss, rows);
           if (_invCache.sig === sig && _invCache.bytes) return; // 既にキャッシュ済み
           var bytes = await InvoicePDF.buildOne(
