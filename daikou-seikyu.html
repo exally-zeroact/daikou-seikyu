@@ -6847,6 +6847,27 @@
         }
         var seq = ++_invSeq;
         if (!month) return _invEmpty(out, "月を選んでください", seq);
+        // ★入金を 読めない 時、前回繰越を 載せる 会社の 紙は 描かない★ 2026-11-02（注C・対立役 止1）
+        //   発行の ボタンは 止まっても、描いた プレビューは ブラウザの 印刷（Ctrl+P）で そのまま A4 に 刷れる
+        //   ＝入金を 知らずに 数えた 御請求金額の 紙が 外へ 出る。門は 発行の ボタン（updateRegnoGate）と 同じ 条件
+        if (YOMENAI.payments) {
+          var _pkuri = (onlyCo ? [onlyCo] : tsukiNoKaisha(month)).filter(function (c) {
+            return MASTER[c] && MASTER[c].carryover;
+          });
+          if (_pkuri.length) {
+            out.classList.remove("inv-loading");
+            out.innerHTML =
+              '<div class="yomenai-obi" style="padding:16px;color:#b42318;font-weight:700">' +
+              esc(
+                "通信が 途切れて 入金 を 取って来られませんでした。前回繰越を 載せる " +
+                  _pkuri.join("・") +
+                  " の 請求書は 表示 しません。画面を 開き直してください。"
+              ) +
+              "</div>";
+            out.style.height = "";
+            return;
+          }
+        }
         if (typeof InvoicePDF === "undefined")
           return _invEmpty(out, "PDFモジュール読み込み中…少し待って操作してください", seq);
         var iss = issuerForEngine();
@@ -8907,8 +8928,11 @@
                別の 月の 行に 記録すると その 月の 紙が 二重に 請求する ⇒ この 窓で「この 請求書への 入金」と はっきり 書く。 */
           (MASTER[co] && MASTER[co].carryover
             ? '<div class="pay-sub" id="payAteNote" style="margin:-6px 0 10px;color:#555555;">' +
-              "繰越の会社：この月の請求書は 今回ご請求額 " +
-              MeisaiEngine.sankakuYen(_seikyuGakuOf) +
+              // ★入金を 読めない 時は 額を 書かない★ 2026-11-02（注C・対立役 注1）＝今月分を「今回ご請求額」と 書くと 嘘
+              (_crPay && _crPay.riyu && _crPay.riyu.indexOf("入金は未確認") >= 0
+                ? "繰越の会社：この月の請求書の 今回ご請求額は 入金を 読めないので 出せません（画面を 開き直してください）"
+                : "繰越の会社：この月の請求書は 今回ご請求額 " +
+                  MeisaiEngine.sankakuYen(_seikyuGakuOf)) +
               (_crPay && _crPay.seikyuGaku != null
                 ? "（前の月までの残り " +
                   MeisaiEngine.sankakuYen(_crPay.kurikoshi) +
@@ -9536,6 +9560,10 @@
         });
         var m = MASTER[co] || {};
         var nb = nyukinByTsuki(co);
+        // ★入金を 読めない 時は 入金を「不明」（null）で 渡す★ 2026-11-02（注C）
+        //   前は nb[m2] || 0 ＝読めないのに 0円入金で 繰越を 数え、払い済みの 客でも 全額 残りに 見えた
+        //   ⇒ エンジンが「入金は未確認」を 刷り、上は その月の 合計（発行・Excel・確認は kurikoshiTomeru が 止める）
+        var fumei = !!YOMENAI.payments;
         var tsuki = Object.keys(rowsBy);
         Object.keys(nb).forEach(function (t) {
           if (t < month && !rowsBy[t]) tsuki.push(t);
@@ -9546,11 +9574,11 @@
             seikyu: rowsBy[m2]
               ? MeisaiEngine.invoiceTotals(rowsBy[m2], { taxMode: m.taxMode }).goukei
               : 0,
-            nyukin: nb[m2] || 0,
+            nyukin: fumei ? null : nb[m2] || 0,
             nyukinDake: !rowsBy[m2], // 入金だけ 入った 月（前回の 請求には 数えない）
           });
         });
-        return { kako: kako, uketori: nb[month] || 0 };
+        return { kako: kako, uketori: fumei ? null : nb[month] || 0 };
       }
 
       // ★発行の控えを1行 積む★（明細・自社情報・様式の写しつき）
@@ -9886,6 +9914,10 @@
       async function tplThumbBytes(design, vkey, co) {
         var samp = tplSampleRows(co);
         if (!samp) return null; // ★1件も無い時は「まだ紙が無い」と正直に出す（作り物を出さない）★
+        // ★入金を 読めない 時、繰越の 会社の 見本は 描かない★ 2026-11-02（注C・2回目の 対立役 注1）
+        //   描くと 上が 今月分 ¥12,000 の 紙に なる（本当は 繰越を 足した 額）＝プレビューの 門と 揃える
+        if (YOMENAI.payments && MASTER[samp.co] && MASTER[samp.co].carryover)
+          return "NYUKIN_YOMENAI";
         var key =
           design +
           "|" +
@@ -9946,6 +9978,11 @@
               host ? host.dataset.co : null
             );
             if (seq !== _tplThumbSeq) return;
+            if (bytes === "NYUKIN_YOMENAI") {
+              box.innerHTML =
+                '<span class="tpl-thumb-msg">入金を 読めないので<br />繰越の 会社の 見本は 出しません</span>';
+              continue;
+            }
             if (!bytes) {
               box.innerHTML =
                 '<span class="tpl-thumb-msg">明細を1件 入れると<br />ここに実際の紙が出ます</span>';

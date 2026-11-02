@@ -707,3 +707,111 @@ for (const k of [
     );
   });
 }
+
+// ★入金が 読めない 時の プレビュー★ 2026-11-02（注C）
+//   入金の 表を 倉庫から 読めないと、プレビューは 描くのに 入金を 0円と して 繰越を 数えていた
+//   ＝払い済みの 客でも「ご入金額 ¥0・上 ¥49,200（37,200＋12,000）」に 見えた（0円と 不明の 混同）
+//   しかも 発行の ボタンが 止まっても、描いた プレビューは ブラウザの 印刷（Ctrl+P）で A4 に 刷れた（対立役 止1）
+//   ★直した 後★ ①繰越の 会社の プレビューは 描かず 帯を 出す（発行の ボタンと 同じ 門）
+//              ②繰越の 数は 入金を 不明（null）で 渡す ⇒「入金は未確認」（0円で 数えない・深い 所の 守り）
+//   ★わざと壊して 赤★ ①_doGenerateInvoices の if (YOMENAI.payments) の 門を 外す ⇒ 1社・全社の 2本が 赤
+//                      ②carryMaterialFor の fumei を 外す ⇒ 「繰越の 数」の 1本が 赤
+async function nyukinYomenai(page) {
+  await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
+  await page.addInitScript(() => {
+    window.__FAKE_FAIL_TABLES__ = ["payments"];
+  });
+  await page.addInitScript(seed, { carry: true, copy: true });
+  await page.goto("/daikou-seikyu.html", { waitUntil: "load" });
+  await expect(page.locator("#scr-input")).toBeVisible({ timeout: 20000 });
+  expect(
+    await page.evaluate(() => YOMENAI.payments),
+    "★入金が 読めて しまった（仕掛けが 効いていない）★"
+  ).toBe(true);
+  await page.locator('.nav-item[data-scr="billing"]').click();
+  await page.selectOption("#invMonth", "2026-06");
+}
+for (const k of [
+  { na: "1社", sel: "繰越あり社" },
+  { na: "全社", sel: "" },
+]) {
+  test(`★入金を 読めない 時（${k.na}）：繰越の 会社の プレビューを 描かず 帯を 出す（印刷で 出させない）★`, async ({
+    page,
+  }) => {
+    await nyukinYomenai(page);
+    await page.selectOption("#invCompany", k.sel);
+    const obi = page.locator("#invoiceOut .yomenai-obi");
+    await expect(obi).toBeVisible({ timeout: 60000 });
+    await expect(obi).toContainText("繰越あり社");
+    await expect(obi).toContainText("入金");
+    await expect(page.locator("#invoiceOut canvas"), "★紙が 描かれた（印刷で 出る）★").toHaveCount(
+      0
+    );
+    await expect(page.locator("#btnInvPdf")).toBeDisabled();
+  });
+}
+test("★入金を 読めない 時：繰越なしの 会社の プレビューは 今まで 通り 描く（止めすぎない）★", async ({
+  page,
+}) => {
+  await nyukinYomenai(page);
+  await page.selectOption("#invCompany", "繰越なし社");
+  const t = (await preRead(page, "1|繰越なし社|2026-06|"))[0];
+  expect(ueNoGaku(t), "★繰越なしの 会社の 上が 12,000 で ない★\n" + t.join(" / ")).toBe("¥12,000");
+  await expect(page.locator("#invoiceOut .yomenai-obi")).toHaveCount(0);
+});
+test("★入金を 読めない 時：繰越の 数は 入金を 0円で 数えず「入金は未確認」★", async ({ page }) => {
+  await nyukinYomenai(page);
+  const c = await page.evaluate(() => _carryFor("繰越あり社", "2026-06"));
+  const j = JSON.stringify(c);
+  expect(c.riyu, "★「入金は未確認」が 無い★ " + j).toContain("入金は未確認");
+  expect(c.nyukin, "★入金を 0円で 数えた★ " + j).toBeNull();
+  expect(c.seikyuGaku, "★0円入金で 今回ご請求額を 出した（49,200）★ " + j).toBeNull();
+  expect(c.maeSeikyu, "★前回ご請求額を 入金なしで 出した★ " + j).toBeNull();
+});
+//   ★入金の 窓★（対立役 注1）入金を 読めない 時は 今月分 12,000 を「今回ご請求額」と 書かない
+//   ★わざと壊して 赤★ openPayEdit の「入金は未確認」の 分かれを 外す ⇒ この 1本が 赤
+test("★入金を 読めない 時：入金の 窓に 嘘の 今回ご請求額（¥12,000）を 書かない★", async ({
+  page,
+}) => {
+  await nyukinYomenai(page);
+  await page.evaluate(() => openPayEdit("2026-06", "繰越あり社"));
+  const note = page.locator("#payAteNote");
+  await expect(note).toBeVisible();
+  await expect(note).toContainText("入金を 読めないので 出せません");
+  await expect(note).not.toContainText("今回ご請求額 ¥12,000");
+  await expect(note).not.toContainText("¥49,200");
+});
+//   ★編集タブも 同じ 門★（2回目の 対立役 次の確かめ2）編集タブは onlyCo に editCompany を 使う 道
+test("★入金を 読めない 時（編集タブ）：繰越の 会社の 紙を 描かず 帯を 出す★", async ({ page }) => {
+  await nyukinYomenai(page);
+  await page.locator('.nav-item[data-scr="edit"]').click();
+  await expect(page.locator("#scr-edit")).toBeVisible();
+  await expect(page.locator("#editCompany")).toHaveValue("繰越あり社");
+  await expect(page.locator("#editOut .yomenai-obi")).toBeVisible({ timeout: 60000 });
+  await expect(page.locator("#editOut canvas"), "★編集タブに 紙が 描かれた★").toHaveCount(0);
+  await expect(page.locator("#editOut.inv-loading")).toHaveCount(0);
+});
+//   ★遅れて 来た 紙が 帯を 上書きしない★（次の確かめ3）繰越なし社を 描き 始めて すぐ 繰越あり社へ
+test("★入金を 読めない 時：描き途中で 繰越の 会社へ 変えても 遅れた 紙が 帯を 上書きしない★", async ({
+  page,
+}) => {
+  await nyukinYomenai(page);
+  await page.selectOption("#invCompany", "繰越なし社");
+  await page.waitForTimeout(300);
+  await page.selectOption("#invCompany", "繰越あり社");
+  await page.waitForTimeout(15000);
+  await expect(page.locator("#invoiceOut .yomenai-obi")).toBeVisible();
+  await expect(page.locator("#invoiceOut canvas")).toHaveCount(0);
+  await expect(page.locator("#invoiceOut.inv-loading")).toHaveCount(0);
+});
+//   ★設定の 見本の 紙も 描かない★（2回目の 対立役 注1）描くと 上が 今月分 ¥12,000
+//   ★わざと壊して 赤★ tplThumbBytes の NYUKIN_YOMENAI の 行を 外す ⇒ この 1本が 赤
+test("★入金を 読めない 時：繰越の 会社の 見本の 紙を 描かない★", async ({ page }) => {
+  await nyukinYomenai(page);
+  const r = await page.evaluate(() => tplThumbBytes("elegant", "logo", "繰越あり社"));
+  expect(r, "★入金を 読めないのに 繰越の 会社の 見本を 描いた★").toBe("NYUKIN_YOMENAI");
+  const nashi = await page.evaluate(
+    async () => !!(await tplThumbBytes("elegant", "logo", "繰越なし社"))
+  );
+  expect(nashi, "★繰越なしの 会社の 見本まで 止めた★").toBe(true);
+});
