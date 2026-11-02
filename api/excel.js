@@ -6,9 +6,14 @@ const SUPABASE_URL = "https://tnfwipbgfgjaymlszeid.supabase.co";
 const SUPABASE_ANON =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZndpcGJnZmdqYXltbHN6ZWlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1Nzk4MzQsImV4cCI6MjA5NzE1NTgzNH0.zhKPLSlW4zxsdjsXNvqDHvtP3wBqp-EKaxbjqLGW_ek";
 
+// ★名前の取り違えで別の表を出さない（2026-11-02）★ .iqy は "pay"、Webクエリを埋め込んだ xlsx は
+// "payments"（daikou-seikyu.html の sh.fn.replace("export_", "")）を投げる。前は "payments" が無く、
+// 知らない名前は黙って明細に倒れた＝入金シートを更新すると明細の行で上書きされた。
+// 両方の名前を持ち、知らない名前は明細に倒さずエラー行にする。
 const FN = {
   meisai: "export_meisai",
   pay: "export_payments",
+  payments: "export_payments",
   summary: "export_summary",
   companies: "export_companies",
 };
@@ -33,7 +38,12 @@ module.exports = async (req, res) => {
     const q = req.query || {};
     const token = q.token || "";
     const sheet = q.sheet || "meisai";
-    const fn = FN[sheet] || FN.meisai;
+    if (!Object.prototype.hasOwnProperty.call(FN, sheet)) {
+      return res
+        .status(200)
+        .send(page("<tr><td>エラー: 知らない表の名前です（" + esc(sheet) + "）</td></tr>"));
+    }
+    const fn = FN[sheet];
     if (!token) return res.status(200).send(page("<tr><td>token がありません</td></tr>"));
 
     const url =
