@@ -375,3 +375,30 @@ test("★料金の 無い メーター行に 一覧で 0 と 打つ＝0円と �
   await page.locator('.nav-item[data-scr="billing"]').click();
   expect(await dasu(page, "A社")).toBe(true);
 });
+
+test("★前に 0 に された 行（額0・料金も 無い）の 行き先だけ 直しても 0円の 印は 付かず 止まったまま・止めた 訳は 帯にも 出る★", async ({
+  page,
+}) => {
+  const mae0 = gyou("m2", "A社", "2026-11-04", 0, true);
+  mae0.extra.dk_meter_yen = null;
+  await open(page, { meisai: [mae0] });
+  await page.locator('.nav-item[data-scr="list"]').click();
+  await page.evaluate(() => openEdit("m2"));
+  await page.waitForTimeout(400);
+  await page.fill("#ed_行き先", "本社〜南浜");
+  await page.locator("#modalBody button", { hasText: "保存" }).click();
+  await page.waitForTimeout(1200);
+  const kura = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("__fake_supa_db__")).tables.meisai.find((r) => r.id === "m2")
+  );
+  expect(kura.destination).toBe("本社〜南浜");
+  expect(kura.extra.ryokin_0_kimeta, "★額を 変えて いないのに 0円の 印が 付いた★").toBeUndefined();
+  await page.locator('.nav-item[data-scr="billing"]').click();
+  // 倉庫と 画面が 違えば 帯に 訳が 全部 出る
+  await kuraNiTasu(page, gyou("m9", "A社", "2026-11-05", 4500, true));
+  expect(await dasu(page, "A社")).toBe(false);
+  await expect(page.locator("#hakkoObi")).toContainText("もう一度 押してください");
+  expect(await dasu(page, "A社")).toBe(false);
+  await expect(page.locator("#hakkoObi")).toContainText("料金が まだ 入っていない 明細が 1件");
+  expect(await daicho(page)).toBe(0);
+});

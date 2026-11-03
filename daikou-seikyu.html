@@ -12425,6 +12425,22 @@
             "）。画面を 最新に しました。紙を 確かめてから もう一度 押してください",
           8000
         );
+        // ★帯にも 出す★（知らせは 1行で スマホでは 切れる・本番前の 対立役 注4）
+        var obi = document.getElementById("hakkoObi");
+        if (obi) {
+          obi.innerHTML =
+            '<div class="hakko-obi-hd">請求書は まだ 作っていません</div><div class="hakko-obi-sec">倉庫に この 紙の 新しい 明細・入金が ありました（明細 足す ' +
+            zm.tasu +
+            "・直す " +
+            (zm.naoru + zm.kasanaru) +
+            "・消す " +
+            zm.kieru +
+            "／入金 " +
+            (zp.tasu + zp.naoru + zp.kieru) +
+            "）。画面を 最新に しました。紙を 確かめてから もう一度 押してください</div>" +
+            '<button type="button" class="hakko-obi-x" onclick="hakkoObiKesu()">閉じる</button>';
+          obi.hidden = false;
+        }
         return false;
       }
       // ★重なり・料金が 空の 行の 帯★（alert/confirm は 使わない）
@@ -12968,6 +12984,7 @@
             return;
           }
         }
+        var maeKingaku = r.金額; // 0円と 決めた 印は 客が 額を 0 に 変えた 時 だけ 付ける（本番前の 対立役 注1）
         keys.forEach(function (k) {
           var el = document.getElementById("ed_" + k);
           if (!el) return;
@@ -12985,8 +13002,9 @@
           kurumaWoTsukeru(r, carEl.value === "" ? -1 : Number(carEl.value));
         // ★メーターの 行に 客が 0 と 打った＝0円と 決めた 印★（料金未定の 見張りが 通す・本番前の 対立役 注1）
         if ((r.dk_source || r.dk_ref) && document.getElementById("ed_金額")) {
-          if (r.金額 === 0) r.ryokin_0_kimeta = true;
-          else delete r.ryokin_0_kimeta;
+          // 前から 0 の 行（前の 版で 空を 0 に された 行）の 行き先だけ 直しても 印は 付けない
+          if (r.金額 === 0 && maeKingaku !== 0 && maeKingaku !== "0") r.ryokin_0_kimeta = true;
+          else if (r.金額 !== 0) delete r.ryokin_0_kimeta;
         }
         var upd = meisaiToDb(r);
         // ★メーターの 行で 料金が 空なら 空（null）の まま 書く★ 2026-11-04（本番前の 対立役 止1）
