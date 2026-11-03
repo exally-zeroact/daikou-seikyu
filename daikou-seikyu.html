@@ -11984,14 +11984,15 @@
         return (
           '<div class="dest-often">よく行く所：' +
           top
-            .map(function (d) {
+            .map(function (d, j) {
+              // ★字は onclick に 埋めない・番号で 渡す★ 2026-11-03（&#39; は 属性の 中で ' に 戻る＝
+              //   行き先 x');alert(1);(' で 走る。AI の 下書きで 外から 字が 届く 道が できた＝作った後の 対立役 注3）
               return (
                 '<button type="button" class="dest-chip" onclick="pickDestOften(' +
                 i +
-                ",'" +
-                String(d).replace(/'/g, "&#39;").replace(/"/g, "&quot;") +
-                "')" +
-                '" title="' +
+                "," +
+                j +
+                ')" title="' +
                 esc(d) +
                 '">' +
                 esc(destChipLabel(d)) +
@@ -12002,7 +12003,9 @@
           "</div>"
         );
       }
-      function pickDestOften(i, d) {
+      function pickDestOften(i, j) {
+        var d = (DEST_ALL || [])[j];
+        if (typeof d !== "string") return;
         var wrap = document.querySelectorAll("#entryBody .sugg-wrap")[i];
         var el = wrap && wrap.querySelector(".entry-inp");
         if (!el) return;
