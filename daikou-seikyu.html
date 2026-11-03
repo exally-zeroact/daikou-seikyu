@@ -877,6 +877,30 @@
         font-weight: 700;
         margin-left: 6px;
       }
+      /* ★メーターの 行と 同じかも★ 2026-11-04（二重請求の 見張り・lib/nijuu.js） */
+      .nijuu-kamo {
+        font-size: 13px;
+        color: #c0392b;
+        border: 1.5px solid #c0392b;
+        border-radius: 6px;
+        padding: 6px 8px;
+        margin-top: 8px;
+        background: #ffffff;
+      }
+      .nijuu-kamo .nijuu-betsu {
+        margin-top: 6px;
+        font-size: 13px;
+        padding: 4px 10px;
+        border: 1px solid #c0392b;
+        border-radius: 6px;
+        background: #ffffff;
+        color: #c0392b;
+        cursor: pointer;
+      }
+      .nijuu-kamo.nijuu-ok {
+        color: #333333;
+        border-color: #999999;
+      }
       .ai-kakunin {
         display: flex;
         align-items: center;
@@ -3755,6 +3779,7 @@
     <script src="lib/keshikomi.js"></script>
     <script src="lib/nyukin-kai.js"></script>
     <script src="lib/shitagaki.js"></script>
+    <script src="lib/nijuu.js"></script>
     <!-- 請求書のクリーンなベクターPDF出力（日本語フォント埋込・複数ページ／pdf-lib等は初回PDF時のみ遅延ロード） -->
     <!-- ★字体を 軽くする（使う字だけ 形を 残す）★（司さん 2026-09-05「全アプリ共通やろが」）
          ★invoice-pdf.js より 先に 読む★／★正本は Rakunally の lib/font-slim.js★ -->
@@ -11772,6 +11797,14 @@
       function aiSgKakunin(i, el) {
         if (entryRows[i]) entryRows[i]._kakunin = !!el.checked;
       }
+      // ★別の 乗車★ 決めた 時の 日付|額|当たった 行 を 印に する（後で 額や 日付を 直せば 効かない・対立役 注5）
+      function nijuuBetsu(i) {
+        var r = entryRows[i];
+        if (!r || !r._nijuuKagi) return;
+        r._betsu = r._nijuuKagi;
+        renderEntry();
+        toast("別の乗車として扱います。もう一度「保存」を押してください");
+      }
       function pickKouho(i, j) {
         var r = entryRows[i];
         if (!r || !r._kouho || !r._kouho[j]) return;
@@ -11941,6 +11974,35 @@
                 i +
                 ',this)"> 伝票と見比べて 確かめた</label>';
             }
+            // ★メーターの 行と 同じかも★ 2026-11-04（保存の 時に 倉庫から 読み直して 当たった 行だけ）
+            var njHtml = "";
+            if (row._nijuu && row._nijuu.length) {
+              var njOk = row._betsu && row._betsu === row._nijuuKagi;
+              njHtml =
+                '<div class="nijuu-kamo' +
+                (njOk ? " nijuu-ok" : "") +
+                '">' +
+                (njOk
+                  ? "別の乗車として保存します（メーターの明細："
+                  : "メーターから入った明細と同じ乗車かもしれません（") +
+                row._nijuu
+                  .map(function (h) {
+                    return (
+                      esc(String(h.日付 || "")) +
+                      " ¥" +
+                      esc(Number(h.金額 || 0).toLocaleString("ja-JP")) +
+                      (h.行き先 ? " " + esc(String(h.行き先)) : "")
+                    );
+                  })
+                  .join("／") +
+                "）" +
+                (njOk
+                  ? ""
+                  : '<br>同じ乗車なら ✕ で この行を消してください。<br><button type="button" class="nijuu-betsu" onclick="nijuuBetsu(' +
+                    i +
+                    ')">別の乗車（このまま保存する）</button>') +
+                "</div>";
+            }
             return (
               '<div class="entry-line' +
               (row._ai ? " ai-row" : "") +
@@ -11955,6 +12017,7 @@
               fields +
               "</div>" +
               aiKaku +
+              njHtml +
               "</div>"
             );
           })
@@ -12129,6 +12192,57 @@
           _entrySavingP = null;
         }
       }
+      /* ★手で入れた行と メーターの行の 二重請求の 見張り★ 2026-11-04（lib/nijuu.js・設計前の 対立役 止0注7）
+         開いた 後に メーターの 行が 入る ので 手元の DB でなく 倉庫から 読み直す。
+         ★読み切れなければ 保存しない★（黙って 通さない）。当たれば 行に 印を 付けて 止める＝額は 変えない。
+         ★拾えない 物★：［続ける］で 晩を またいだ 勤務（差が 2日 以上）・保存の 後に 入る メーターの 行 */
+      async function nijuuMiru(co, payload, rows) {
+        rows.forEach(function (r) {
+          delete r._nijuu;
+          delete r._nijuuKagi;
+        });
+        var han = Nijuu.yomuHanni(payload);
+        if (!han) return true; // 日付の 無い 行だけ＝突き合わせる 物が 無い
+        var q = await fetchAllQ(function (a, b) {
+          return SB.from("meisai")
+            .select("id, company, date, amount, destination, extra", { count: "exact" })
+            .eq("user_id", CURRENT_ACCOUNT)
+            .eq("company", co)
+            .is("deleted_at", null)
+            .gte("date", han.gte)
+            .lte("date", han.lte)
+            .order("id")
+            .range(a, b);
+        });
+        if (q.error) {
+          toast(
+            "メーターから入った明細を読めなかったので、二重の確かめが出来ず保存していません。もう一度「保存」を押してください",
+            6000
+          );
+          return false;
+        }
+        var kekka = Nijuu.sagasu(payload, (q.data || []).map(meisaiFromDb));
+        Object.keys(kekka.atari).forEach(function (k) {
+          rows[k]._nijuu = kekka.atari[k];
+          rows[k]._nijuuKagi = Nijuu.betsuKagi(payload[k], kekka.atari[k]);
+        });
+        var t = Nijuu.tomeru(
+          kekka.atari,
+          payload,
+          rows.map(function (r) {
+            return r._betsu;
+          })
+        );
+        if (Object.keys(kekka.atari).length) renderEntry();
+        if (t < 0) return true;
+        toast(
+          "メーターから入った明細と同じ日付・金額の行があります（明細 " +
+            (entryRows.indexOf(rows[t]) + 1) +
+            "）。同じ乗車なら ✕ で消し、別の乗車なら「別の乗車」を押してください",
+          6000
+        );
+        return false;
+      }
       async function saveEntriesHontai() {
         var co = document.getElementById("inputCompany").value;
         if (!co) {
@@ -12189,6 +12303,8 @@
         // クラウドに一括insert→返ってきたuuid＋created_atを各明細に載せて in-memory に追加
         // ★500件ずつ分割（1回のinsert返りもmax_rows上限に掛かる＝1000超でid対応が崩れ、以後その行が更新/削除できなくなるのを防ぐ）
         var payload = recs.map(meisaiToDb);
+        // ★二重請求の 見張り★ 2026-11-04（倉庫に 入る 値で・倉庫から 読み直して・読めなければ 止める）
+        if (!(await nijuuMiru(co, payload, contentRows))) return;
         var insData = [];
         for (var bi = 0; bi < payload.length; bi += 500) {
           var chunk = payload.slice(bi, bi + 500);
