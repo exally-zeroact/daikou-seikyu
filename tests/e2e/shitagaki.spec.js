@@ -311,3 +311,24 @@ test("写真は 長い辺 2000px の JPEG に 縮めて 送る", async ({ page }
   );
   expect(wh).toEqual([2000, 800]);
 });
+
+test("保存の 二度押しは 二重に 入れず「保存しています」と 出す（本番前の 対立役 注2）", async ({
+  page,
+}) => {
+  await hiraku(page);
+  await page.locator("#entryBody .sugg-wrap .entry-inp").first().fill("駅");
+  await page.locator("#entryBody input.num").first().fill("1200");
+  await page.locator("#entryBody .date-input").first().fill("2026-11-01");
+  await page.locator("#entryBody .date-input").first().dispatchEvent("change");
+  // 2回 続けて 呼ぶ（1回目の 書きが 返る 前に 2回目）
+  const t = await page.evaluate(() => {
+    saveEntries();
+    saveEntries();
+    return document.getElementById("toast").textContent;
+  });
+  expect(t).toContain("保存しています");
+  await expect.poll(() => kaita(page)).toBe(1);
+  await page.waitForTimeout(500);
+  expect(await kaita(page)).toBe(1);
+  expect((await meisaiDomo(page)).length).toBe(1);
+});

@@ -12115,7 +12115,11 @@
       var _entrySaving = false;
       var _entrySavingP = null;
       async function saveEntries() {
-        if (_entrySaving) return;
+        if (_entrySaving) {
+          // ★黙って 捨てない★（何が 起きているか 客に 見せる・本番前の 対立役 注2）
+          toast("保存しています。終わるまで お待ちください");
+          return;
+        }
         _entrySaving = true;
         _entrySavingP = saveEntriesHontai();
         try {
