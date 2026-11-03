@@ -824,6 +824,91 @@
         margin-bottom: 10px;
         background: #fbfcfe;
       }
+      /* ★AI の 下書き（③）★ 2026-11-03 */
+      .ai-sg {
+        margin-bottom: 10px;
+      }
+      .ai-sg-btns {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+      .ai-sg-bun {
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 14px;
+        padding: 8px;
+        border: 1.5px solid #e2eaf4;
+        border-radius: 8px;
+        margin-bottom: 6px;
+      }
+      .ai-sg-chui {
+        font-size: 11px;
+        color: #555555;
+        margin-bottom: 4px;
+      }
+      .ai-sg-matsu {
+        font-size: 13px;
+        color: #333333;
+        margin: 6px 0;
+      }
+      .ai-sg-obi {
+        font-size: 12px;
+        color: #c0392b;
+        border: 1.5px solid #c0392b;
+        border-radius: 8px;
+        padding: 6px 8px;
+        margin: 6px 0;
+        background: #ffffff;
+      }
+      .entry-line.ai-row {
+        border-color: #0a5fd0;
+      }
+      .ai-row-mei {
+        font-size: 11px;
+        color: #0a5fd0;
+        font-weight: 700;
+        margin-left: 6px;
+      }
+      .ai-row-toshi {
+        font-size: 11px;
+        color: #c0392b;
+        font-weight: 700;
+        margin-left: 6px;
+      }
+      .ai-kakunin {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        color: #333333;
+        margin-top: 8px;
+      }
+      .ef.ef-yomenai .entry-inp,
+      .ef.ef-yomenai .date-wrap {
+        border-color: #c0392b;
+        outline: 1.5px solid #c0392b;
+      }
+      .ef-wake {
+        font-size: 10px;
+        color: #c0392b;
+      }
+      .ai-kouho {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 3px;
+      }
+      .ai-kouho button {
+        font-size: 11px;
+        padding: 3px 6px;
+        border: 1px solid #0a5fd0;
+        border-radius: 6px;
+        background: #ffffff;
+        color: #0a5fd0;
+        cursor: pointer;
+      }
       .entry-line-hd {
         display: flex;
         align-items: center;
@@ -2967,6 +3052,70 @@
 
       <div class="card" id="entryCard" style="display: none">
         <div class="card-label" id="entryCardLabel">明細</div>
+        <!-- ★写真と声 → AI の 下書き（③）★ 2026-11-03＝許した 利用者 かつ 鍵が 在る 時だけ 出る（口 ?tou=1）。保存は 人が 確かめた 後 -->
+        <div id="aiSg" class="ai-sg" style="display: none">
+          <div class="ai-sg-btns">
+            <button
+              type="button"
+              class="btn btn-ghost"
+              id="aiSgShashin"
+              onclick="aiSgShashinHiraku()"
+            >
+              写真から下書き
+            </button>
+            <button type="button" class="btn btn-ghost" id="aiSgKoe" onclick="aiSgKoeHiraku()">
+              声・文から下書き
+            </button>
+          </div>
+          <input
+            type="file"
+            id="aiSgFile"
+            accept="image/*"
+            capture="environment"
+            style="display: none"
+            onchange="aiSgFileErabu(this)"
+          />
+          <div id="aiSgKoePanel" class="ai-sg-koe" style="display: none">
+            <textarea
+              id="aiSgBun"
+              class="ai-sg-bun"
+              rows="3"
+              maxlength="4000"
+              placeholder="例：11月3日 駅まで 3,000円 2人"
+            ></textarea>
+            <div class="ai-sg-btns">
+              <button
+                type="button"
+                class="btn btn-ghost"
+                id="aiSgMic"
+                style="display: none"
+                onclick="aiSgMic()"
+              >
+                マイクで話す
+              </button>
+              <button
+                type="button"
+                class="btn btn-primary"
+                id="aiSgKoeOkuru"
+                onclick="aiSgKoeOkuru()"
+              >
+                下書きを作る
+              </button>
+            </div>
+            <div class="ai-sg-chui" id="aiSgMicNashi" style="display: none">
+              この端末では、キーボードのマイクで話してください。
+            </div>
+          </div>
+          <div class="ai-sg-chui">
+            写真と文は読み取りのために AI（Anthropic）へ送ります。保存はしません。
+          </div>
+          <div id="aiSgMatsu" class="ai-sg-matsu" style="display: none">
+            読んでいます…
+            <button type="button" class="btn btn-ghost" onclick="aiSgYameru()">やめる</button>
+          </div>
+          <div id="aiSgObi" class="ai-sg-obi" style="display: none"></div>
+          <div id="aiSgModel" class="ai-sg-chui" style="display: none"></div>
+        </div>
         <div id="entryBody"></div>
         <button class="add-line" onclick="addEntryRow()">＋ 行を追加</button>
         <div style="margin-top: 12px">
@@ -3605,6 +3754,7 @@
     <script src="meisai-engine.js"></script>
     <script src="lib/keshikomi.js"></script>
     <script src="lib/nyukin-kai.js"></script>
+    <script src="lib/shitagaki.js"></script>
     <!-- 請求書のクリーンなベクターPDF出力（日本語フォント埋込・複数ページ／pdf-lib等は初回PDF時のみ遅延ロード） -->
     <!-- ★字体を 軽くする（使う字だけ 形を 残す）★（司さん 2026-09-05「全アプリ共通やろが」）
          ★invoice-pdf.js より 先に 読む★／★正本は Rakunally の lib/font-slim.js★ -->
@@ -11344,7 +11494,9 @@
         document.getElementById("entryCardLabel").textContent = co + " の明細";
         recordCompanyUse(co); // ★選んだ時点で「最近使った」に記録＝次開いたら上に来る
         entryRows = [blankEntry()];
+        aiSgObi("");
         renderEntry();
+        aiSgTouMiru();
       }
       function blankEntry() {
         var last = entryRows && entryRows.length ? entryRows[entryRows.length - 1] : null;
@@ -11352,8 +11504,279 @@
         FIELD_DEFS.forEach(function (f) {
           e[f.key] = "";
         });
-        if (last && last["日付"]) e["日付"] = last["日付"]; // 日付は引き継ぎ（連続入力の利便）
+        // 日付は引き継ぎ（連続入力の利便）。★確かめていない AI の 行の 日付は 写さない★（読み違いを 広げない・v3）
+        if (last && last["日付"] && !(last._ai && !last._kakunin)) e["日付"] = last["日付"];
         return e;
+      }
+
+      /* ===================================================================
+         ★写真と声 → AI の 下書き（③）★ 2026-11-03（司さん 11-02「AI が 下書き→人が 確かめて 保存した 時だけ 入る」）
+         ・★倉庫へは 何も 書かない★＝返った 行は entryRows（画面だけの 行）に 入る。保存は 今の saveEntries（hozonMon の 門つき）
+         ・釦は 口の ?tou=1 が true の 時だけ 出す（許した 利用者 かつ 鍵が 在る）
+         ・AI 由来の 字は 全部 esc を 通す。候補は 番号で 渡す（値を onclick に 埋めない）
+         ・頼んだ 時の 会社と 項目の 並びを 覚え、届いた 時に 違えば 捨てる（v3 注F）
+         =================================================================== */
+      var AI_SG = { tou: null, touMiru: null, busy: false, ctl: null, mic: null };
+      function aiSgObi(msg) {
+        var el = document.getElementById("aiSgObi");
+        if (!el) return;
+        el.textContent = msg || "";
+        el.style.display = msg ? "block" : "none";
+      }
+      async function aiSgTokun() {
+        var ses = await SB.auth.getSession(); // 鍵は 毎回 取り直す（古い 鍵を 掴まない・v2 注7）
+        return (ses && ses.data && ses.data.session && ses.data.session.access_token) || "";
+      }
+      function aiSgTouMiru() {
+        if (AI_SG.tou === true) return aiSgMiseru();
+        if (AI_SG.touMiru) return AI_SG.touMiru;
+        AI_SG.touMiru = (async function () {
+          try {
+            var tok = await aiSgTokun();
+            if (!tok) return;
+            var r = await fetch("/api/shitagaki?tou=1", {
+              method: "GET",
+              headers: { Authorization: "Bearer " + tok },
+              cache: "no-store",
+            });
+            var j = await r.json().catch(function () {
+              return null;
+            });
+            AI_SG.tou = !!(r.ok && j && j.tsukaeru === true);
+          } catch (e) {
+            AI_SG.tou = false;
+          } finally {
+            AI_SG.touMiru = null;
+          }
+          aiSgMiseru();
+        })();
+        return AI_SG.touMiru;
+      }
+      function aiSgMiseru() {
+        var el = document.getElementById("aiSg");
+        if (el) el.style.display = AI_SG.tou === true ? "block" : "none";
+        var mic = document.getElementById("aiSgMic");
+        var nashi = document.getElementById("aiSgMicNashi");
+        var ari =
+          typeof window.webkitSpeechRecognition === "function" ||
+          typeof window.SpeechRecognition === "function";
+        if (mic) mic.style.display = ari ? "" : "none";
+        if (nashi) nashi.style.display = ari ? "none" : "block";
+      }
+      function aiSgBusy(on) {
+        AI_SG.busy = on;
+        ["aiSgShashin", "aiSgKoe", "aiSgKoeOkuru"].forEach(function (id) {
+          var b = document.getElementById(id);
+          if (b) b.disabled = on;
+        });
+        var m = document.getElementById("aiSgMatsu");
+        if (m) m.style.display = on ? "block" : "none";
+      }
+      function aiSgShashinHiraku() {
+        if (AI_SG.busy || _entrySaving) return;
+        if (!document.getElementById("inputCompany").value) return toast("会社を選んでください");
+        var f = document.getElementById("aiSgFile");
+        f.value = "";
+        f.click();
+      }
+      function aiSgKoeHiraku() {
+        var p = document.getElementById("aiSgKoePanel");
+        p.style.display = p.style.display === "none" ? "block" : "none";
+        aiSgMiseru();
+      }
+      function aiSgMic() {
+        var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) return;
+        if (AI_SG.mic) {
+          try {
+            AI_SG.mic.stop();
+          } catch (e) {}
+          return;
+        }
+        var rec = new SR();
+        rec.lang = "ja-JP";
+        rec.interimResults = false;
+        rec.continuous = false;
+        var btn = document.getElementById("aiSgMic");
+        rec.onresult = function (ev) {
+          var t = "";
+          for (var i = ev.resultIndex; i < ev.results.length; i++) t += ev.results[i][0].transcript;
+          var ta = document.getElementById("aiSgBun");
+          ta.value = (ta.value ? ta.value + "\n" : "") + t;
+        };
+        rec.onend = function () {
+          AI_SG.mic = null;
+          if (btn) btn.textContent = "マイクで話す";
+        };
+        rec.onerror = function (ev) {
+          toast("マイクが使えませんでした（" + (ev && ev.error ? ev.error : "") + "）");
+        };
+        AI_SG.mic = rec;
+        if (btn) btn.textContent = "話し終えたら押す";
+        try {
+          rec.start();
+        } catch (e) {
+          AI_SG.mic = null;
+          if (btn) btn.textContent = "マイクで話す";
+        }
+      }
+      function aiSgKoeOkuru() {
+        var bun = document.getElementById("aiSgBun").value;
+        if (!String(bun).trim()) return toast("文が空です");
+        aiSgOkuru({ shurui: "koe", bun: bun });
+      }
+      /* 写真は 端末で 縮める：長い辺 2000px・JPEG 0.85（受け取り 上限 4.5MB と 代金のため） */
+      function aiSgChijimeru(file) {
+        return new Promise(function (ok, ng) {
+          var url = URL.createObjectURL(file);
+          var img = new Image();
+          img.onload = function () {
+            try {
+              var w = img.naturalWidth,
+                h = img.naturalHeight;
+              var s = Math.min(1, 2000 / Math.max(w, h));
+              var c = document.createElement("canvas");
+              c.width = Math.max(1, Math.round(w * s));
+              c.height = Math.max(1, Math.round(h * s));
+              var g = c.getContext("2d");
+              g.fillStyle = "#ffffff";
+              g.fillRect(0, 0, c.width, c.height);
+              g.drawImage(img, 0, 0, c.width, c.height);
+              var d = c.toDataURL("image/jpeg", 0.85);
+              URL.revokeObjectURL(url);
+              ok({ b64: d.slice(d.indexOf(",") + 1), w: c.width, h: c.height });
+            } catch (e) {
+              URL.revokeObjectURL(url);
+              ng(e);
+            }
+          };
+          img.onerror = function () {
+            URL.revokeObjectURL(url);
+            ng(new Error("写真を開けませんでした"));
+          };
+          img.src = url;
+        });
+      }
+      async function aiSgFileErabu(el) {
+        var file = el.files && el.files[0];
+        if (!file) return;
+        var z;
+        try {
+          z = await aiSgChijimeru(file);
+        } catch (e) {
+          return toast("写真を開けませんでした");
+        }
+        aiSgOkuru({ shurui: "shashin", media_type: "image/jpeg", gazou_base64: z.b64 });
+      }
+      function aiSgYameru() {
+        if (AI_SG.ctl) AI_SG.ctl.abort();
+      }
+      async function aiSgOkuru(naka) {
+        if (AI_SG.busy || _entrySaving) return; // 同時に 1本・保存中は 送らない（v2 注1・v3 注C）
+        var co = document.getElementById("inputCompany").value;
+        if (!co || !MASTER[co]) return toast("会社を選んでください");
+        var items = inputItemsOrder(MASTER[co].items);
+        var hyouji = items.map(function (k) {
+          return MeisaiEngine.utils.labelOf(MASTER[co], k);
+        });
+        var kyou = kyouNoHi();
+        var narabi = JSON.stringify(items);
+        aiSgObi("");
+        aiSgBusy(true);
+        AI_SG.ctl = typeof AbortController === "function" ? new AbortController() : null;
+        var kotae = null;
+        try {
+          var tok = await aiSgTokun();
+          if (!tok) {
+            aiSgObi("ログインし直してください");
+            return;
+          }
+          var r = await fetch("/api/shitagaki", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: "Bearer " + tok },
+            body: JSON.stringify(
+              Object.assign({ kaisha: co, koumoku: items, hyouji: hyouji, kyou: kyou }, naka)
+            ),
+            signal: AI_SG.ctl ? AI_SG.ctl.signal : undefined,
+          });
+          var txt = await r.text();
+          try {
+            kotae = JSON.parse(txt);
+          } catch (e) {
+            kotae = null;
+          }
+          if (!kotae || typeof kotae !== "object") {
+            // JSON で ない（Vercel の 時間切れ 等）＝状態の 番号と 字を そのまま 出す（v2 注6）
+            aiSgObi("状態 " + r.status + "：" + String(txt || "").slice(0, 80));
+            return;
+          }
+          if (r.status === 401) {
+            aiSgObi("ログインし直してください");
+            return;
+          }
+          if (!kotae.ok) {
+            aiSgObi(String(kotae.message || "読み取りに失敗しました（状態 " + r.status + "）"));
+            return;
+          }
+        } catch (e) {
+          aiSgObi(
+            e && e.name === "AbortError"
+              ? "やめました"
+              : "AI に つながりませんでした。電波を確かめてもう一度"
+          );
+          return;
+        } finally {
+          AI_SG.ctl = null;
+          aiSgBusy(false);
+        }
+        // 保存中に 届いたら 保存が 終わってから 足す（v2 注1）
+        if (_entrySaving && _entrySavingP) await _entrySavingP;
+        var coIma = document.getElementById("inputCompany").value;
+        if (
+          coIma !== co ||
+          !MASTER[coIma] ||
+          JSON.stringify(inputItemsOrder(MASTER[coIma].items)) !== narabi
+        ) {
+          aiSgObi("会社が替わったので下書きを捨てました");
+          return;
+        }
+        var rows = Shitagaki.gamenGyou(kotae.kekka || {}, items, kyou, co, naka.shurui);
+        var m = document.getElementById("aiSgModel");
+        if (m) {
+          m.textContent = kotae.model ? "読んだ AI：" + kotae.model : "";
+          m.style.display = kotae.model ? "block" : "none";
+        }
+        if (!rows.length) {
+          if (!entryRows.length) entryRows = [blankEntry()];
+          renderEntry();
+          aiSgObi("1行も読めませんでした");
+          return;
+        }
+        entryRows = Shitagaki.tsuika(entryRows, rows, items);
+        renderEntry();
+        var kj = String((kotae.kekka && kotae.kekka.kaisha_no_ji) || "").trim();
+        if (kj && kj.indexOf(co) < 0 && co.indexOf(kj) < 0)
+          aiSgObi(
+            "伝票の会社名「" +
+              kj +
+              "」が、選んだ会社「" +
+              co +
+              "」と違うかもしれません。確かめてください"
+          );
+        if (naka.shurui === "koe") document.getElementById("aiSgBun").value = "";
+        toast(
+          rows.length + "行の下書きを入れました。伝票と見比べて「確かめた」を押してください",
+          4000
+        );
+      }
+      function aiSgKakunin(i, el) {
+        if (entryRows[i]) entryRows[i]._kakunin = !!el.checked;
+      }
+      function pickKouho(i, j) {
+        var r = entryRows[i];
+        if (!r || !r._kouho || !r._kouho[j]) return;
+        r["金額"] = r._kouho[j].atai; // ★「確かめた」は 付けない★（v3 注A）
+        renderEntry();
       }
       function addEntryRow() {
         entryRows.push(blankEntry());
@@ -11394,7 +11817,8 @@
                 var inp;
                 if (t === "date") {
                   // カレンダーで選択・内部はISO保持・表示は M/D（6/15）
-                  var md = mdShort(row[k]);
+                  // ★AI の 行は 年まで 出す★（年の 読み違いを 見落とさない・v1 止3）
+                  var md = row._ai ? Shitagaki.hyoujiHi(row[k]) : mdShort(row[k]);
                   inp =
                     '<div class="date-wrap">' +
                     '<span class="date-show' +
@@ -11452,13 +11876,40 @@
                     k +
                     "',this.value)\">";
                 }
+                // ★AI が 読めなかった 欄＝赤い 枠＋訳／金額の 候補＝番号で 選ぶ 釦★（AI 由来の 字は 全部 esc）
+                var wake = row._ai && row._yomenai ? row._yomenai[k] : "";
+                var ato = wake ? '<span class="ef-wake">' + esc(wake) + "</span>" : "";
+                if (row._ai && k === "金額" && row._kouho && row._kouho.length) {
+                  ato +=
+                    '<div class="ai-kouho">' +
+                    row._kouho
+                      .map(function (c, j) {
+                        return (
+                          '<button type="button" onclick="pickKouho(' +
+                          i +
+                          "," +
+                          j +
+                          ')">' +
+                          esc(c.ji) +
+                          " " +
+                          esc(Number(c.atai).toLocaleString()) +
+                          "円</button>"
+                        );
+                      })
+                      .join("") +
+                    '<span class="ef-wake" style="color: #555555">（この会社は' +
+                    esc(MASTER[co].taxMode === "外税" ? "外税" : "内税") +
+                    "）</span></div>";
+                }
                 return (
                   '<div class="ef ' +
                   sizeCls +
+                  (wake ? " ef-yomenai" : "") +
                   '"><span class="ef-lb">' +
                   esc(MeisaiEngine.utils.labelOf(MASTER[co], k)) +
                   "</span>" +
                   inp +
+                  ato +
                   "</div>"
                 );
               })
@@ -11472,16 +11923,39 @@
                 ',this)">' +
                 kurumaOptsHtml(row.dk_car || "") +
                 "</select></div>";
+            // ★AI の 行★ 出どころの 印・年の 印・行ごとの「確かめた」（押すまで 保存しない＝hozonMon）
+            var aiMei = "",
+              aiKaku = "";
+            if (row._ai) {
+              aiMei =
+                '<span class="ai-row-mei">AI の下書き（' +
+                esc(row._kaisha || "") +
+                " の" +
+                (row._ai === "koe" ? "声・文" : "伝票") +
+                "から）</span>" +
+                (row._toshi ? '<span class="ai-row-toshi">年を確かめて</span>' : "");
+              aiKaku =
+                '<label class="ai-kakunin"><input type="checkbox" class="ai-kakunin-cb"' +
+                (row._kakunin ? " checked" : "") +
+                ' onchange="aiSgKakunin(' +
+                i +
+                ',this)"> 伝票と見比べて 確かめた</label>';
+            }
             return (
-              '<div class="entry-line">' +
+              '<div class="entry-line' +
+              (row._ai ? " ai-row" : "") +
+              '">' +
               '<div class="entry-line-hd"><span class="entry-line-no">明細 ' +
               (i + 1) +
+              aiMei +
               '</span><button class="entry-del" onclick="delEntry(' +
               i +
               ')" aria-label="削除">✕</button></div>' +
               '<div class="ef-grid">' +
               fields +
-              "</div></div>"
+              "</div>" +
+              aiKaku +
+              "</div>"
             );
           })
           .join("");
@@ -11634,13 +12108,33 @@
         if (!entryRows.length) entryRows = [blankEntry()];
         renderEntry();
       }
+      // ★保存中の 旗★ 2026-11-03（AI の 下書きが 保存の 途中に 届いても 行を 混ぜない・二度押しで 二重に 入れない）
+      var _entrySaving = false;
+      var _entrySavingP = null;
       async function saveEntries() {
+        if (_entrySaving) return;
+        _entrySaving = true;
+        _entrySavingP = saveEntriesHontai();
+        try {
+          await _entrySavingP;
+        } finally {
+          _entrySaving = false;
+          _entrySavingP = null;
+        }
+      }
+      async function saveEntriesHontai() {
         var co = document.getElementById("inputCompany").value;
         if (!co) {
           toast("会社を選んでください");
           return;
         }
         var items = MASTER[co].items;
+        // ★AI の 下書きの 門★（確かめていない・金額が 空・読めなかった 数が 空 の AI の 行が 在れば 保存しない）
+        var aiMon = Shitagaki.hozonMon(entryRows, items);
+        if (aiMon) {
+          toast(aiMon, 4000);
+          return;
+        }
         var needsDate = items.indexOf("日付") >= 0;
         // 内容のある行だけ対象
         var contentRows = entryRows.filter(function (row) {
