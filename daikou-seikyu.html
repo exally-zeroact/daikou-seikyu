@@ -4310,7 +4310,7 @@
       function _exlPayAoa(rows) {
         // ★入金額＝消した 額（入った 額＋こちら持ちの 振込手数料）・その 後ろに 内訳★ 2026-11-03
         //   司さんの決め（弥生の形：入金区分「振込」と「振込手数料」・掛入金計に 手数料を 含める）
-        //   列は 入金額の 後ろに 足す＝前の 列の 場所は 変えない（入金額は r[2] の まま）
+        //   列は 入金額の 後ろに 足す＝月・会社名・入金額は r[0..2] の まま（入金日と メモは 2列 右へ 動く・本番前 taiketsu 任1）
         var aoa = [["月", "会社名", "入金額", "うち振込", "うち振込手数料", "入金日", "メモ"]];
         rows.forEach(function (x) {
           // ★入金の 記録の 帳面＝記録した 額と 日★（10-02 夜：当てた 額を 出すと 記録が 消えて 見えた）
@@ -9692,21 +9692,35 @@
           kaita: {}, // CSV の 行 i → 記録した 月の 字
           undo: {}, // CSV の 行 i → { co, undo }（窓の 中の「取り消す」・知らせは 窓の 下に 隠れる）
           oshiteru: false,
-          oboeru: {},
         };
         ksKaku();
       }
+      // ★見出し・列を 変えると 入金の 行の 並びが 変わる＝行ごとの 覚え（記録した・取り消し）を 捨てる★
+      //   （前の 行 i の 印が 別の 入金に 付かない様に。記録した 入金は 倉庫の 回の 見分けで「記録済み／かも」に 出る）
+      //   押している 間は 変えさせない
+      function ksGyouKesu() {
+        KS.kiroku = {};
+        KS.kaita = {};
+        KS.undo = {};
+        toastUndoKesu();
+      }
       function ksMidashi(v) {
+        if (KS.oshiteru) return ksKaku();
+        ksGyouKesu();
         KS.midashi = Number(v);
         KS.retsu = Keshikomi.retsuSuitei(KS.rows[KS.midashi] || []);
         ksKaku();
       }
       function ksRetsu(k, v) {
+        if (KS.oshiteru) return ksKaku();
+        ksGyouKesu();
         KS.retsu[k] = Number(v);
         if (k === "kubun") KS.retsu.kubunNyukin = null;
         ksKaku();
       }
       function ksKubun(v) {
+        if (KS.oshiteru) return ksKaku();
+        ksGyouKesu();
         KS.retsu.kubunNyukin = v ? [v] : null;
         ksKaku();
       }
@@ -9728,7 +9742,7 @@
           var m = MASTER[co];
           return {
             name: co,
-            meigi: (m.furikomiMeigi || []).concat(KS && KS.oboeru[co] ? [KS.oboeru[co]] : []),
+            meigi: (m.furikomiMeigi || []).slice(),
             kochira: m.tesuryoFutan === "kochira",
             carryover: !!m.carryover,
             mitsuki: by[co].sort(function (a, b) {
@@ -9753,20 +9767,29 @@
         return out;
       }
       // 同じ src の 回が 在る 所（全部の 会社）＝["山田建設 2026年10月の行 ¥20,000", …]
+      /* 同じ src の 回が 在る 所と、その 回で 消した「入った 額」の 合計（額−手数料）
+           ★残りは 窓の 覚えでなく 倉庫の 回から 出す★（まとめ入金が 途中で 止まった 後に 窓を 開き直しても 残りを 押せる・本番前 taiketsu 再叩き 注1） */
       function ksZumiDoko(n) {
-        var src = Keshikomi.srcTsukuru(n);
+        var src = Keshikomi.srcTsukuru(n, n.nanbon);
         var out = [];
+        var gaku = 0;
         var mae = CURRENT_ACCOUNT + "::";
         Object.keys(PAYMENTS).forEach(function (k) {
           if (k.indexOf(mae) !== 0) return;
           var rest = k.slice(mae.length);
           var gyou = rest.slice(0, 7);
           entriesOf(PAYMENTS[k] || {}, gyou).forEach(function (e) {
-            if (e.src === src)
+            if (e.src === src) {
               out.push(rest.slice(9) + " " + ksTsuki(gyou) + "の行 " + yen(e.gaku));
+              gaku += e.gaku - (e.tesuryo || 0);
+            }
           });
         });
-        return out;
+        return { doko: out, gaku: gaku };
+      }
+      // この 明細の 行で もう 記録した 入った 額（窓の 覚えと 倉庫の 回の 多い 方）
+      function ksKirokuZumi(i, n) {
+        return Math.max(KS.kiroku[i] || 0, ksZumiDoko(n).gaku);
       }
       function ksTsuki(m) {
         var p = String(m).split("-");
@@ -9900,6 +9923,13 @@
           return;
         }
         KS.nyukin = r.nyukin;
+        // 同じ 日・額・名義の 何本目か（2本目から src に 付ける・本番前 taiketsu 注1）
+        var _nb = {};
+        r.nyukin.forEach(function (x) {
+          var kk = x.hi + "|" + x.gaku + "|" + Keshikomi.kanaSeiki(x.meigi);
+          _nb[kk] = (_nb[kk] || 0) + 1;
+          x.nanbon = _nb[kk];
+        });
         // ★落とした 行は 訳ごとに 数を 出す（黙って 捨てない）★
         var ot = r.otosu;
         var otoshi = [];
@@ -9928,7 +9958,7 @@
           "</div>";
         var kaisha = ksKaisha();
         r.nyukin.forEach(function (n, i) {
-          var zumiGaku = KS.kiroku[i] || 0;
+          var zumiGaku = ksKirokuZumi(i, n);
           var nokori = n.gaku - zumiGaku;
           var p = n.hi.split("-");
           h +=
@@ -9960,22 +9990,19 @@
             return;
           }
           // ★同じ 明細の 行が もう どこかの 行に 記録されている＝候補より 先に 見る（請求が 残っていなくても 出す）★
-          if (!zumiGaku) {
-            var zumiAll = ksZumiDoko(n);
-            if (zumiAll.length) {
-              h +=
-                '<div class="ks-zumi" style="color:#1565c0;">この明細の入金は記録済みです（' +
-                esc(zumiAll.join("・")) +
-                "）</div></div>";
-              return;
-            }
+          if (nokori <= 0) {
+            h +=
+              '<div class="ks-zumi" style="color:#1565c0;">この明細の入金は記録済みです（' +
+              esc(ksZumiDoko(n).doko.join("・")) +
+              "）</div></div>";
+            return;
           }
           var nyu = { hi: n.hi, gaku: nokori, meigi: n.meigi };
           var koho = Keshikomi.kohoTsukuru(nyu, kaisha);
           if (zumiGaku > 0)
             h +=
               '<div style="color:#b00020;">途中まで記録しました（' +
-              esc(KS.kaita[i] || "") +
+              esc(KS.kaita[i] || ksZumiDoko(n).doko.join("・")) +
               "）。残り " +
               yen(nokori) +
               " の候補です。</div>";
@@ -9985,14 +10012,38 @@
             return;
           }
           koho.forEach(function (k, j) {
-            var nj = zumiGaku > 0 ? { zumi: [], kamo: [] } : Keshikomi.nijuu(n, ksKaiZenbu(k.co));
+            // 途中まで 記録した 行も 残りの 額で「かも」を 見る（同じ src の 回は 記録した 分＝zumi は 使わない・再叩き 注1）
+            var nj = Keshikomi.nijuu(n, ksKaiZenbu(k.co), n.nanbon, zumiGaku > 0 ? nokori : 0);
+            if (zumiGaku > 0) nj.zumi = [];
             h += '<div class="ks-koho" style="margin-top:6px;">' + (j + 1) + ". ";
             if (k.kind === "oosugi") {
               h +=
                 esc(k.co) +
                 "：請求より " +
                 yen(k.oosugi) +
-                " 多い入金です。ここでは記録しません（入金の一覧から手で記録してください）</div>";
+                " 多い入金です。ここでは記録しません（入金の一覧から手で記録してください）";
+              // 多い＝もう 記録した 入金を 読み直した 時に よく 出る＝「かも」も 出す（本番前 taiketsu 止1）
+              if (nj.kamo.length)
+                h +=
+                  '<div class="ks-kamo" style="color:#b00020;">記録済みかも：' +
+                  esc(
+                    nj.kamo
+                      .map(function (e) {
+                        var q = String(e.hi || "").split("-");
+                        return (
+                          ksTsuki(e.month) +
+                          "の行に " +
+                          Number(q[1]) +
+                          "/" +
+                          Number(q[2]) +
+                          " " +
+                          yen(e.gaku)
+                        );
+                      })
+                      .join("・")
+                  ) +
+                  "</div>";
+              h += "</div>";
               return;
             }
             h += ksKohoJi(k);
@@ -10283,7 +10334,11 @@
         if (yomenaiTomeru(["payments"], "入金の 保存")) return;
         var n = KS.nyukin[i];
         if (!n) return;
-        var zumiGaku = KS.kiroku[i] || 0;
+        var zumiGaku = ksKirokuZumi(i, n);
+        if (zumiGaku >= n.gaku) {
+          ksKaku();
+          return;
+        }
         var nyu = { hi: n.hi, gaku: n.gaku - zumiGaku, meigi: n.meigi };
         var koho = Keshikomi.kohoTsukuru(nyu, ksKaisha());
         var k = koho[j];
@@ -10298,7 +10353,7 @@
         KS.oshiteru = true;
         ksKaku();
         toastUndoKesu();
-        var src = Keshikomi.srcTsukuru(n);
+        var src = Keshikomi.srcTsukuru(n, n.nanbon);
         var r;
         try {
           r = await ksKiroku(k.co, k.ate, src, n.hi);

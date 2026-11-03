@@ -258,3 +258,61 @@ describe("二重の見分け", () => {
     expect(K.nijuu(n, [{ gaku: 20440, tesuryo: 440, hi: "2026-11-02" }]).kamo.length).toBe(1);
   });
 });
+
+describe("二重の見分け（本番前 taiketsu 止1・注1・注2）", () => {
+  const n = { hi: "2026-11-02", gaku: 20000, meigi: "ﾔﾏﾀﾞｹﾝｾﾂ" };
+  it("止1：名義の列が違う形で読んだ同じ入金（src が違う）も「記録済みかも」", () => {
+    const e = {
+      month: "2026-10",
+      gaku: 20000,
+      hi: "2026-11-02",
+      src: K.srcTsukuru({ ...n, meigi: "ﾔﾏﾀﾞｹﾝｾﾂ ｼﾃﾝ" }),
+    };
+    expect(K.nijuu(n, [e]).kamo.length).toBe(1);
+  });
+  it("止1：日付の列が違う形（2日ずれ）も「記録済みかも」", () => {
+    const e = {
+      month: "2026-10",
+      gaku: 20000,
+      hi: "2026-11-04",
+      src: K.srcTsukuru({ ...n, hi: "2026-11-04" }),
+    };
+    expect(K.nijuu(n, [e]).kamo.length).toBe(1);
+  });
+  it("注1：同じ日・同じ額・同じ名義の2本目は src が別（何本目かを付ける）", () => {
+    expect(K.srcTsukuru(n, 1)).not.toBe(K.srcTsukuru(n, 2));
+    // 1本目は前の形のまま（もう記録した回と合う）
+    expect(K.srcTsukuru(n, 1)).toBe(K.srcTsukuru(n));
+    const e1 = { gaku: 20000, hi: "2026-11-02", src: K.srcTsukuru(n, 1) };
+    const r2 = K.nijuu(n, [e1], 2);
+    expect(r2.zumi.length).toBe(0);
+    expect(r2.kamo.length).toBe(1); // 同じ額・同じ日＝「かも」は出す（押せる）
+  });
+  it("注2：まとめ入金で割った回（同じ日の合計）と、手数料の消えた回も「記録済みかも」", () => {
+    const wari = [
+      { month: "2026-09", gaku: 10000, hi: "2026-11-02" },
+      { month: "2026-10", gaku: 20000, hi: "2026-11-02" },
+    ];
+    expect(K.nijuu({ ...n, gaku: 30000 }, wari).kamo.length).toBe(2);
+    // 手数料の 鍵が 古い 画面で 落ちた 回（20,660）＝入金 20,000 と 差 660 が 1〜1,100円
+    expect(K.nijuu(n, [{ month: "2026-10", gaku: 20660, hi: "2026-11-02" }]).kamo.length).toBe(1);
+  });
+  it("別の入金（額が違う・8日以上離れた）は出さない", () => {
+    expect(K.nijuu(n, [{ gaku: 25000, hi: "2026-11-02" }]).kamo.length).toBe(0);
+    expect(K.nijuu(n, [{ gaku: 20000, hi: "2026-11-10" }]).kamo.length).toBe(0);
+  });
+});
+
+describe("途中まで記録した行の二重の見分け（再叩き 注1）", () => {
+  it("比べる額を残りにして見る（src が同じ回は「かも」に入れない）", () => {
+    const n = { hi: "2026-11-02", gaku: 30000, meigi: "ﾔﾏﾀﾞｹﾝｾﾂ" };
+    const src = K.srcTsukuru(n);
+    const kiroku = [
+      { month: "2026-09", gaku: 10000, hi: "2026-11-02", src },
+      { month: "2026-10", gaku: 20000, hi: "2026-11-03" }, // 人が 全入金で 閉じた（src 無し）
+    ];
+    const r = K.nijuu(n, kiroku, 1, 20000);
+    expect(r.kamo.map((e) => e.month)).toEqual(["2026-10"]);
+    expect(r.zumi.length).toBe(1);
+  });
+});

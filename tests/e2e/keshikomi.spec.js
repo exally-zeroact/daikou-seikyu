@@ -310,3 +310,71 @@ test("★入金を読めない時は窓を開かない★", async ({ page }) => 
   await page.locator("#ksOpenBtn").click();
   await expect(page.locator("#ksFile")).toHaveCount(0);
 });
+
+test("★同じ日・同じ額・同じ名義の振込が2本＝2本目を「記録済み」と言わない（本番前 taiketsu 注1）★", async ({
+  page,
+}) => {
+  await hiraku(page);
+  await csvYomu(
+    page,
+    "日付,摘要,お預り金額\n2026/11/02,ﾔﾏﾀﾞｹﾝｾﾂ,10000\n2026/11/02,ﾔﾏﾀﾞｹﾝｾﾂ,10000\n"
+  );
+  await gyou(page, 0).locator(".ks-oshi").first().click();
+  await expect(gyou(page, 0).locator(".ks-kaita")).toBeVisible();
+  // 2本目：記録済み と 言わない（「かも」の 警告は 出して 押せる）
+  await expect(gyou(page, 1).locator(".ks-zumi")).toHaveCount(0);
+  await expect(gyou(page, 1).locator(".ks-kamo").first()).toContainText("記録済みかも");
+  await gyou(page, 1).locator(".ks-oshi").first().click();
+  await expect(gyou(page, 1).locator(".ks-kaita")).toBeVisible();
+  const p = await pays(page);
+  const wa = p.reduce((t, x) => t + x.paid, 0);
+  expect(wa).toBe(20000);
+});
+
+test("★名義の列を選び替えて同じ入金を読み直す＝「記録済みかも」が出る（本番前 taiketsu 止1）★", async ({
+  page,
+}) => {
+  await hiraku(page);
+  const csv = "日付,摘要,依頼人名,お預り金額\n2026/11/02,ﾌﾘｺﾐ ﾔﾏﾀﾞｹﾝｾﾂ ｼﾃﾝ,ﾔﾏﾀﾞｹﾝｾﾂ,20000\n";
+  await csvYomu(page, csv);
+  await gyou(page, 0).locator(".ks-oshi").first().click();
+  await expect(gyou(page, 0).locator(".ks-kaita")).toBeVisible();
+  // 名義の 列を「摘要」に 選び替える（src が 変わる）
+  await page.locator("#ksBody select").nth(5).selectOption({ label: "摘要" });
+  await expect(gyou(page, 0).locator(".ks-zumi")).toHaveCount(0);
+  await expect(gyou(page, 0)).toContainText("記録済みかも");
+});
+
+test("★まとめ入金が途中で止まった＝窓を開き直しても残りを押せる（本番前 taiketsu 再叩き 注1）★", async ({
+  page,
+}) => {
+  await hiraku(page);
+  // 2回目の 書き（10月の 行）だけ 落とす
+  await page.evaluate(() => {
+    window.__FAKE_WRITES__ = {};
+    Object.defineProperty(window, "__FAKE_FAIL_WRITES__", {
+      configurable: true,
+      get: () => ((window.__FAKE_WRITES__ || {}).payments >= 1 ? ["payments"] : []),
+    });
+  });
+  const csv = "日付,摘要,お預り金額\n2026/11/02,ﾔﾏﾀﾞｹﾝｾﾂ,30000\n";
+  await csvYomu(page, csv);
+  await gyou(page, 0).locator(".ks-oshi").first().click();
+  await expect(page.locator(".toast").last()).toContainText("その先は記録できていません");
+  expect((await pays(page)).map((x) => [x.month, x.paid])).toEqual([["2026-09", 10000]]);
+  // 書けるように 戻して、窓を 開き直す（窓の 覚えは 消える）
+  await page.evaluate(() => {
+    Object.defineProperty(window, "__FAKE_FAIL_WRITES__", { configurable: true, value: [] });
+  });
+  await page.locator("#modalOv").evaluate((e) => e.classList.remove("open"));
+  await csvYomu(page, csv);
+  await expect(gyou(page, 0).locator(".ks-zumi")).toHaveCount(0);
+  await expect(gyou(page, 0)).toContainText("残り ¥20,000");
+  await gyou(page, 0).locator(".ks-oshi").first().click();
+  await expect(gyou(page, 0).locator(".ks-kaita")).toBeVisible();
+  const p = (await pays(page)).sort((a, b) => a.month.localeCompare(b.month));
+  expect(p.map((x) => [x.month, x.paid])).toEqual([
+    ["2026-09", 10000],
+    ["2026-10", 20000],
+  ]);
+});
