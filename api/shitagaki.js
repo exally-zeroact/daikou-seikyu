@@ -14,9 +14,9 @@ const path = require("node:path");
 const Anthropic = require("@anthropic-ai/sdk");
 const S = require("../lib/shitagaki.js");
 
-const SUPABASE_URL = "https://khawdrnvssdenumbiwfg.supabase.co";
+const SUPABASE_URL = "https://tnfwipbgfgjaymlszeid.supabase.co";
 const SUPABASE_ANON =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtoYXdkcm52c3NkZW51bWJpd2ZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwMTQ2NzEsImV4cCI6MjEwMDU5MDY3MX0.VoI2cLXCiZp48qOJEDXL1thxKnIHJ5t1Cl6iVsfYHFY";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZndpcGJnZmdqYXltbHN6ZWlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1Nzk4MzQsImV4cCI6MjA5NzE1NTgzNH0.zhKPLSlW4zxsdjsXNvqDHvtP3wBqp-EKaxbjqLGW_ek";
 
 const MODEL = "claude-opus-5-5"; // 精度 優先・公式の 既定。安い モデルへ 落とすのは 司さんの 決め
 const MEDIA = ["image/jpeg", "image/png", "image/webp"];

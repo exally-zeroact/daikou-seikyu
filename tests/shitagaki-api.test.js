@@ -7,6 +7,8 @@
 // ============================================================
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createRequire } from "node:module";
+import fs from "node:fs";
+import path from "node:path";
 const require = createRequire(import.meta.url);
 const Anthropic = require("@anthropic-ai/sdk");
 const api = require("../api/shitagaki.js");
@@ -154,7 +156,10 @@ describe("成功（声・文）", () => {
     expect(r.headers["Cache-Control"]).toBe("no-store");
     // 倉庫は 利用者の 確かめ だけ（書かない）
     expect(soukoCalls.length).toBe(1);
-    expect(soukoCalls[0].url).toBe("https://khawdrnvssdenumbiwfg.supabase.co/auth/v1/user");
+    // 倉庫の 名は 線ごとに 違う（テスト khaw・本番 tnfw）＝画面と 同じ 倉庫かで 見る（向き先 そのものは warehouse-pointer）
+    const html = fs.readFileSync(path.join(__dirname, "..", "daikou-seikyu.html"), "utf8");
+    const ref = /https:\/\/([a-z]+)\.supabase\.co/.exec(html)[1];
+    expect(soukoCalls[0].url).toBe("https://" + ref + ".supabase.co/auth/v1/user");
     expect(soukoCalls[0].init.method).toBe("GET");
   });
   it("話した 言葉の 中の </kotoba> を 消す（囲いを 抜けさせない）", async () => {
