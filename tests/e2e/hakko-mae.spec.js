@@ -358,3 +358,20 @@ test("★料金が 空の メーター行の 行き先を 一覧で 直しても
   await expect(page.locator("#hakkoObi")).toContainText("料金が まだ 入っていない 明細が 2件");
   expect(await daicho(page)).toBe(0);
 });
+
+test("★料金の 無い メーター行に 一覧で 0 と 打つ＝0円と 決めた 印 → 出せる★", async ({ page }) => {
+  await open(page, { meisai: [gyou("m1", "A社", "2026-11-02", null, true)] });
+  await page.locator('.nav-item[data-scr="list"]').click();
+  await page.evaluate(() => openEdit("m1"));
+  await page.waitForTimeout(400);
+  await page.fill("#ed_金額", "0");
+  await page.locator("#modalBody button", { hasText: "保存" }).click();
+  await page.waitForTimeout(1200);
+  const kura = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("__fake_supa_db__")).tables.meisai.find((r) => r.id === "m1")
+  );
+  expect(kura.amount).toBe(0);
+  expect(kura.extra.ryokin_0_kimeta).toBe(true);
+  await page.locator('.nav-item[data-scr="billing"]').click();
+  expect(await dasu(page, "A社")).toBe(true);
+});

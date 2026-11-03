@@ -12476,7 +12476,7 @@
           h +=
             '<div class="hakko-obi-sec"><b>メーターの 料金が まだ 入っていない 明細が ' +
             r.mitei.length +
-            "件 あります</b>（このままでは 金額を 計算 できません。一覧で 金額を 入れてから 出してください）<ul>" +
+            "件 あります</b>（このままでは 金額を 計算 できません。一覧で 金額を 入れてから 出してください。0円で 良い 乗車なら 一覧で 0 と 入れて 保存してください）<ul>" +
             r.mitei
               .map(function (x) {
                 return (
@@ -12983,6 +12983,11 @@
         var carEl = document.getElementById("ed__car");
         if (carEl && carEl.value !== "keep")
           kurumaWoTsukeru(r, carEl.value === "" ? -1 : Number(carEl.value));
+        // ★メーターの 行に 客が 0 と 打った＝0円と 決めた 印★（料金未定の 見張りが 通す・本番前の 対立役 注1）
+        if ((r.dk_source || r.dk_ref) && document.getElementById("ed_金額")) {
+          if (r.金額 === 0) r.ryokin_0_kimeta = true;
+          else delete r.ryokin_0_kimeta;
+        }
         var upd = meisaiToDb(r);
         // ★メーターの 行で 料金が 空なら 空（null）の まま 書く★ 2026-11-04（本番前の 対立役 止1）
         //   meisaiToDb は 空の 額を 0 に する＝備考だけ 直すと 料金未定の 乗車が 0円で 請求された
