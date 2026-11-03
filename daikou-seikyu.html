@@ -6759,6 +6759,7 @@
    画面切替
    =================================================================== */
       function showScreen(name) {
+        hakkoObiKesu(); // 出す 前の 見張りの 帯は 画面を 移ったら 消す（対立役 注4）
         var titles = {
           input: "明細入力",
           list: "明細一覧",
@@ -12402,6 +12403,7 @@
         }
         if (p.error) {
           YOMENAI.payments = true; // ★繰越の 会社 だけ 止まる（kurikoshiTomeru）★
+          toast("入金を 読み直せませんでした（入金の 記録は 画面を 開き直してから）", 5000);
         } else {
           if (zp.zenbu || YOMENAI.payments) kaeta = true;
           PAYMENTS = p.map;
@@ -12693,6 +12695,13 @@
         insData.forEach(function (r, i) {
           recs[i].id = r.id;
           recs[i]._created = r.created_at || ""; // 一覧で「今入れた明細」を最上部に出すため
+          // ★もう 在る id は 足さない★（保存の 途中に 出す 前の 見張りが DB を 丸ごと 替えると 2重に 入る・対立役 注1）
+          if (
+            DB.some(function (x) {
+              return x.id === r.id;
+            })
+          )
+            return;
           DB.push(recs[i]);
         });
         try {
@@ -12974,7 +12983,11 @@
         var carEl = document.getElementById("ed__car");
         if (carEl && carEl.value !== "keep")
           kurumaWoTsukeru(r, carEl.value === "" ? -1 : Number(carEl.value));
-        var u = await SB.from("meisai").update(meisaiToDb(r)).eq("id", id);
+        var upd = meisaiToDb(r);
+        // ★メーターの 行で 料金が 空なら 空（null）の まま 書く★ 2026-11-04（本番前の 対立役 止1）
+        //   meisaiToDb は 空の 額を 0 に する＝備考だけ 直すと 料金未定の 乗車が 0円で 請求された
+        if ((r.dk_source || r.dk_ref) && (r.金額 === "" || r.金額 == null)) upd.amount = null;
+        var u = await SB.from("meisai").update(upd).eq("id", id);
         if (u.error) {
           cloudErr("明細更新", u.error);
           return;

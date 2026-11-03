@@ -186,19 +186,20 @@ describe("hakkoMae（重なり）", () => {
 });
 
 describe("hakkoMae（料金が まだ 無い メーターの 行）", () => {
-  it("空・null は 出す／0円・手の 行の 空・月の 外は 出さない", () => {
+  it("空・null・0 で 料金も 無い は 出す／本当の 0円・手の 行の 空・月の 外は 出さない", () => {
     const r = N.hakkoMae(
       [
         meter("m1", "2026-11-02", ""),
         meter("m2", "2026-11-03", null),
-        meter("m3", "2026-11-04", 0),
+        meter("m3", "2026-11-04", 0, { dk_meter_yen: 0 }), // 本当の 0円
+        meter("m5", "2026-11-05", 0), // 0 で 料金（dk_meter_yen）も 無い＝前の 版の 一覧の 直しが 空を 0 に した 行
         te("t1", "2026-11-02", ""),
         meter("m4", "2026-10-31", ""),
       ],
       "2026-11",
       ["A社"]
     );
-    expect(r.mitei.map((x) => x.id)).toEqual(["m1", "m2"]);
+    expect(r.mitei.map((x) => x.id)).toEqual(["m1", "m2", "m5"]);
   });
 });
 
@@ -217,5 +218,29 @@ describe("kasanariKagi（このまま 出す 印）", () => {
       N.kasanariKagi("2026-11", "A社", [{ te: { id: "t1" }, meter: [{ id: "m3" }] }])
     );
     expect(N.kasanariKagi("2026-11", "A社", k1)).not.toBe(N.kasanariKagi("2026-12", "A社", k1));
+  });
+});
+
+describe("倉庫の 形と 画面の 形（対立役 注6）", () => {
+  it("extra の 鍵の 順だけ 違う 行は 違い 0（jsonb は 鍵を 並べ替える）", () => {
+    const gamen = {
+      id: "1",
+      company: "A社",
+      date: "2026-11-02",
+      amount: 3000,
+      extra: { 車種: "x", dk_car: "1号", dk_car_no: 1 },
+    };
+    const kura = {
+      amount: 3000,
+      extra: { dk_car: "1号", 車種: "x", dk_car_no: 1 },
+      date: "2026-11-02",
+      company: "A社",
+      id: "1",
+    };
+    const z = N.zureKazoeru(
+      [{ id: "1", row: gamen, sig: N.shirushi(gamen) }],
+      [{ id: "1", row: kura, sig: N.shirushi(kura) }]
+    );
+    expect(z.zenbu).toBe(0);
   });
 });

@@ -334,3 +334,27 @@ test("★繰越の 会社：この 画面で 入金を 記録した 直後に �
   expect(await dasu(page, "A社")).toBe(false);
   await expect(toastNo(page)).toContainText("入金 1");
 });
+
+test("★料金が 空の メーター行の 行き先を 一覧で 直しても 0円に ならない・前に 0 で 書かれた 行も 止める★", async ({
+  page,
+}) => {
+  const mae0 = gyou("m2", "A社", "2026-11-04", 0, true);
+  mae0.extra.dk_meter_yen = null; // 前の 版の 一覧の 直しが 空を 0 に した 行
+  await open(page, { meisai: [gyou("m1", "A社", "2026-11-02", null, true), mae0] });
+  await page.locator('.nav-item[data-scr="list"]').click();
+  await page.evaluate(() => openEdit("m1"));
+  await page.waitForTimeout(400);
+  await page.fill("#ed_行き先", "本社〜南浜");
+  await page.locator("#modalBody button", { hasText: "保存" }).click();
+  await page.waitForTimeout(1200);
+  const kura = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("__fake_supa_db__")).tables.meisai.find((r) => r.id === "m1")
+  );
+  expect(kura.destination).toBe("本社〜南浜");
+  expect(kura.amount, "★料金未定の 乗車が 0円で 倉庫に 入った★").toBe(null);
+  await page.locator('.nav-item[data-scr="billing"]').click();
+  expect(await dasu(page, "A社")).toBe(false);
+  expect(await dasu(page, "A社")).toBe(false);
+  await expect(page.locator("#hakkoObi")).toContainText("料金が まだ 入っていない 明細が 2件");
+  expect(await daicho(page)).toBe(0);
+});
