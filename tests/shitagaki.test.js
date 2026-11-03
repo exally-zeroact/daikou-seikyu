@@ -354,7 +354,6 @@ describe("gamenGyou（口の 返事 → 入力の 行・保存は しない）",
           { ji: "基本", atai: "3,000" },
           { ji: "高速", atai: "800" },
           { ji: "合計", atai: "3,800" },
-          { ji: "値引", atai: "△200" },
         ],
       }),
       ITEMS,
@@ -368,7 +367,7 @@ describe("gamenGyou（口の 返事 → 入力の 行・保存は しない）",
       { ji: "高速", atai: "800" },
       { ji: "合計", atai: "3800" },
     ]);
-    expect(r._yomenai.金額).toContain("元の字：値引 △200");
+    expect(r._yomenai.金額).toMatch(/選ぶ/);
   });
   it("★AI が 金額の 欄に 1つ 入れても 候補と 食い違えば 人が 選ぶ★", () => {
     const r = S.gamenGyou(
@@ -489,7 +488,7 @@ describe("gamenGyou（口の 返事 → 入力の 行・保存は しない）",
       )[0];
       expect(r.金額).toBe("");
       expect(r._yomenai.金額).toContain(moto);
-      expect(r._kouho.length).toBe(1); // 読めた 物は 釦で 選べる
+      expect(r._kouho.length).toBe(0); // ★釦は 出さない★（読める 1つを 1押しで 選ぶと 値引の 前の 額＝再叩き 注1）
       expect(S.hozonMon([Object.assign(r, { _kakunin: true })], ITEMS)).toMatch(/金額が 空/);
     });
   }
