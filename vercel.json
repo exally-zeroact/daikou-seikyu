@@ -3,5 +3,6 @@
   "redirects": [
     { "source": "/", "destination": "/daikou-seikyu.html", "permanent": false },
     { "source": "/index.html", "destination": "/daikou-seikyu.html", "permanent": false }
-  ]
+  ],
+  "functions": { "api/shitagaki.js": { "includeFiles": "prompt/**" } }
 }
