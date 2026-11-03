@@ -9758,13 +9758,25 @@
         Object.keys(PAYMENTS).forEach(function (k) {
           if (k.indexOf(mae) !== 0) return;
           var rest = k.slice(mae.length);
-          if (rest.slice(9) !== co) return;
+          // co が null＝全部の 会社（「かも」は 全社の 回で 見る・本番前 taiketsu 2回目 注2）
+          if (co != null && rest.slice(9) !== co) return;
           var gyou = rest.slice(0, 7);
           entriesOf(PAYMENTS[k] || {}, gyou).forEach(function (e) {
-            out.push({ month: gyou, gaku: e.gaku, hi: e.hi, src: e.src, tesuryo: e.tesuryo });
+            out.push({
+              co: rest.slice(9),
+              month: gyou,
+              gaku: e.gaku,
+              hi: e.hi,
+              src: e.src,
+              tesuryo: e.tesuryo,
+            });
           });
         });
         return out;
+      }
+      // src が 同じ 明細の 行（日と 額が 同じ）から 来たか＝"csv:日:額:…"
+      function ksOnajiMeisai(src, n) {
+        return typeof src === "string" && src.indexOf("csv:" + n.hi + ":" + n.gaku + ":") === 0;
       }
       // 同じ src の 回が 在る 所（全部の 会社）＝["山田建設 2026年10月の行 ¥20,000", …]
       /* 同じ src の 回が 在る 所と、その 回で 消した「入った 額」の 合計（額−手数料）
@@ -9957,6 +9969,11 @@
           (otoshi.length ? "・候補にしなかった行：" + esc(otoshi.join("／")) : "") +
           "</div>";
         var kaisha = ksKaisha();
+        // 今 読んでいる CSV の 行ごとの src（その 行 自身は 除いて 使う）
+        var ksSrcGyou = {};
+        r.nyukin.forEach(function (x, xi) {
+          ksSrcGyou[Keshikomi.srcTsukuru(x, x.nanbon)] = xi;
+        });
         r.nyukin.forEach(function (n, i) {
           var zumiGaku = ksKirokuZumi(i, n);
           var nokori = n.gaku - zumiGaku;
@@ -9998,6 +10015,10 @@
             return;
           }
           var nyu = { hi: n.hi, gaku: nokori, meigi: n.meigi };
+          var ksBetsuGyouSrc = {};
+          Object.keys(ksSrcGyou).forEach(function (sk) {
+            if (ksSrcGyou[sk] !== i) ksBetsuGyouSrc[sk] = 1;
+          });
           var koho = Keshikomi.kohoTsukuru(nyu, kaisha);
           if (zumiGaku > 0)
             h +=
@@ -10013,7 +10034,17 @@
           }
           koho.forEach(function (k, j) {
             // 途中まで 記録した 行も 残りの 額で「かも」を 見る（同じ src の 回は 記録した 分＝zumi は 使わない・再叩き 注1）
-            var nj = Keshikomi.nijuu(n, ksKaiZenbu(k.co), n.nanbon, zumiGaku > 0 ? nokori : 0);
+            // 「かも」の 元＝候補の 会社の 全部の 回＋他の 会社は 同じ 明細の 行（日と 額が 同じ CSV の src）を 読み直した 回だけ
+            //   （全社の 回を 全部 見ると 定額の 別の 会社の 普通の 入金にも 毎回 出て 読まれなくなる・再叩き 注2）
+            var nj = Keshikomi.nijuu(
+              n,
+              ksKaiZenbu(null).filter(function (e) {
+                // 今 読んでいる CSV の 別の 行の 記録（同じ日・同じ額の 別の 名義）は 外す（3回目の 叩き 注1）
+                return e.co === k.co || (ksOnajiMeisai(e.src, n) && !ksBetsuGyouSrc[e.src]);
+              }),
+              n.nanbon,
+              zumiGaku > 0 ? nokori : 0
+            );
             if (zumiGaku > 0) nj.zumi = [];
             h += '<div class="ks-koho" style="margin-top:6px;">' + (j + 1) + ". ";
             if (k.kind === "oosugi") {
@@ -10031,6 +10062,7 @@
                       .map(function (e) {
                         var q = String(e.hi || "").split("-");
                         return (
+                          (e.co ? e.co + " " : "") +
                           ksTsuki(e.month) +
                           "の行に " +
                           Number(q[1]) +
@@ -10068,6 +10100,7 @@
                     .map(function (e) {
                       var q = String(e.hi || "").split("-");
                       return (
+                        (e.co ? e.co + " " : "") +
                         ksTsuki(e.month) +
                         "の行に " +
                         Number(q[1]) +
@@ -10199,6 +10232,19 @@
         });
         var kaita = [];
         var undo = [];
+        // ★0円・マイナスは 書かない★＝1件目を 書く 前に 全部の 当てを 見る（候補の 作りが 割れても 半分だけ 書かない・本番前 taiketsu 2回目 止1・再叩き 注1）
+        var okashii = ate.filter(function (a) {
+          return !(a.gaku > 0) || Math.round(a.gaku) !== a.gaku || (a.tesuryo || 0) > a.gaku;
+        });
+        if (!ate.length || okashii.length) {
+          toast(
+            "当てる額がおかしいので記録しませんでした" +
+              (okashii[0]
+                ? "（" + ksTsuki(okashii[0].month) + " " + yen(okashii[0].gaku) + "）"
+                : "")
+          );
+          return { ok: false, kaita: kaita, undo: undo, err: "gaku" };
+        }
         for (var i = 0; i < ate.length; i++) {
           var a = ate[i];
           var kai = { gaku: a.gaku, hi: hi, src: src };

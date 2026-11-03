@@ -54,12 +54,12 @@ function seed(arg) {
           mk("m3", "鈴木商事", "2026-10-06", 55000),
           mk("m4", "繰越社", "2026-09-07", 10000),
           mk("m5", "繰越社", "2026-10-07", 20000),
-        ],
+        ].concat((arg.extraMeisai || []).map((x) => mk(x[0], x[1], x[2], x[3]))),
         companies: [
           co("c1", "山田建設", { furikomiMeigi: ["ﾔﾏﾀﾞｹﾝｾﾂ"] }),
           co("c2", "鈴木商事", { furikomiMeigi: ["ｽｽﾞｷｼｮｳｼﾞ"], tesuryoFutan: "kochira" }),
           co("c3", "繰越社", { furikomiMeigi: ["ｸﾘｺｼｼﾔ"], carryover: true }),
-        ],
+        ].concat((arg.extraCo || []).map((x) => co(x[0], x[1], x[2]))),
         issuer: [
           {
             user_id: uid,
@@ -75,9 +75,9 @@ function seed(arg) {
   );
 }
 
-async function hiraku(page, pays) {
+async function hiraku(page, pays, extra) {
   await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
-  await page.addInitScript(seed, { pays: pays || [] });
+  await page.addInitScript(seed, Object.assign({ pays: pays || [] }, extra || {}));
   await page.goto("/daikou-seikyu.html", { waitUntil: "load" });
   await expect(page.locator("#scr-input")).toBeVisible({ timeout: 20000 });
   await page.locator('.nav-item[data-scr="payment"]').click();
@@ -377,4 +377,37 @@ test("★まとめ入金が途中で止まった＝窓を開き直しても残�
     ["2026-09", 10000],
     ["2026-10", 20000],
   ]);
+});
+
+test("★別の会社に記録した同じ入金も「記録済みかも」（本番前 taiketsu 2回目 注2）★", async ({
+  page,
+}) => {
+  await hiraku(page, [], {
+    extraMeisai: [["m9", "田中運輸", "2026-10-08", 20000]],
+    extraCo: [["c9", "田中運輸", { furikomiMeigi: ["ﾀﾅｶｳﾝﾕ"] }]],
+  });
+  const csv = "日付,摘要,依頼人名,お預り金額\n2026/11/02,ﾌﾘｺﾐ 1234,ﾔﾏﾀﾞｹﾝｾﾂ,20000\n";
+  await csvYomu(page, csv);
+  await gyou(page, 0).locator(".ks-oshi").first().click();
+  await expect(gyou(page, 0).locator(".ks-kaita")).toContainText("山田建設");
+  // 名義の 列を「摘要」に 選び替える＝名義が どこにも 当たらない・田中運輸の 20,000 が ぴったりで 出る
+  await page.locator("#ksBody select").nth(5).selectOption({ label: "摘要" });
+  await expect(gyou(page, 0)).toContainText("田中運輸");
+  await expect(gyou(page, 0).locator(".ks-kamo").first()).toContainText("山田建設");
+});
+
+test("★同じ日・同じ額の別の会社の振込＝もう1行の記録を「かも」にしない（3回目の叩き 注1）★", async ({
+  page,
+}) => {
+  await hiraku(page, [], {
+    extraMeisai: [["m9", "田中運輸", "2026-10-08", 20000]],
+    extraCo: [["c9", "田中運輸", { furikomiMeigi: ["ﾀﾅｶｳﾝﾕ"] }]],
+  });
+  const csv = "日付,摘要,お預り金額\n2026/11/02,ﾔﾏﾀﾞｹﾝｾﾂ,20000\n2026/11/02,ﾀﾅｶｳﾝﾕ,20000\n";
+  await csvYomu(page, csv);
+  await gyou(page, 0).locator(".ks-oshi").first().click();
+  await expect(gyou(page, 0).locator(".ks-kaita")).toContainText("山田建設");
+  await expect(gyou(page, 1)).toContainText("田中運輸");
+  await expect(gyou(page, 1).locator(".ks-kamo")).toHaveCount(0);
+  await expect(gyou(page, 1).locator(".ks-oshi").first()).toHaveText("記録する");
 });

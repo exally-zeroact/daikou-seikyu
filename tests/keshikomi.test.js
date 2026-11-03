@@ -316,3 +316,35 @@ describe("途中まで記録した行の二重の見分け（再叩き 注1）",
     expect(r.zumi.length).toBe(1);
   });
 });
+
+describe("まとめ入金の最後の月がマイナスにならない（本番前 taiketsu 2回目 止1）", () => {
+  const c = (o = {}) => ({
+    name: "山田建設",
+    meigi: ["ﾔﾏﾀﾞｹﾝｾﾂ"],
+    mitsuki: [
+      { month: "2026-09", zan: 10000 },
+      { month: "2026-10", zan: 500 },
+    ],
+    ...o,
+  });
+  const ny = (gaku) => ({ gaku, meigi: "ﾔﾏﾀﾞｹﾝｾﾂ", hi: "2026-11-02" });
+  it("差が最後の月の残以上なら、まとめを出さない（先方持ち・こちら持ち）", () => {
+    for (const kochira of [false, true]) {
+      const k = K.kohoTsukuru(ny(9700), [c({ kochira })]);
+      expect(k.some((x) => x.kind === "matome")).toBe(false);
+      for (const x of k) for (const a of x.ate) expect(a.gaku).toBeGreaterThan(0);
+    }
+  });
+  it("どの候補も、当てる額は全部 1円以上・手数料は当てる額以下", () => {
+    for (let g = 9000; g <= 10600; g += 50) {
+      for (const kochira of [false, true]) {
+        for (const x of K.kohoTsukuru(ny(g), [c({ kochira })])) {
+          for (const a of x.ate) {
+            expect(a.gaku).toBeGreaterThan(0);
+            expect(a.tesuryo).toBeLessThanOrEqual(a.gaku);
+          }
+        }
+      }
+    }
+  });
+});
