@@ -901,6 +901,50 @@
         color: #333333;
         border-color: #999999;
       }
+      /* 請求書を 出す 前の 見張りの 帯（下の ナビの 上に 出す） */
+      .hakko-obi {
+        position: fixed;
+        left: 8px;
+        right: 8px;
+        bottom: calc(var(--nav-h, 64px) + 8px);
+        z-index: 900;
+        max-height: 50vh;
+        overflow-y: auto;
+        font-size: 13px;
+        color: #c0392b;
+        border: 1.5px solid #c0392b;
+        border-radius: 8px;
+        padding: 10px 12px;
+        background: #ffffff;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+      }
+      .hakko-obi[hidden] {
+        display: none;
+      }
+      .hakko-obi-hd {
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+      .hakko-obi-sec ul {
+        margin: 4px 0 6px;
+        padding-left: 18px;
+        color: #333333;
+      }
+      .hakko-obi-betsu,
+      .hakko-obi-x {
+        margin: 4px 6px 0 0;
+        font-size: 13px;
+        padding: 4px 10px;
+        border: 1px solid #c0392b;
+        border-radius: 6px;
+        background: #ffffff;
+        color: #c0392b;
+        cursor: pointer;
+      }
+      .hakko-obi-x {
+        border-color: #999999;
+        color: #333333;
+      }
       .ai-kakunin {
         display: flex;
         align-items: center;
@@ -3759,6 +3803,8 @@
     </nav>
 
     <!-- ===== MODAL (edit / add company) ===== -->
+    <!-- ★請求書を 出す 前の 見張りの 帯★ 2026-11-04（重なり・料金が 空の メーター行） -->
+    <div id="hakkoObi" class="hakko-obi" role="alert" hidden></div>
     <div class="modal-ov" id="modalOv" onclick="if (event.target === this) closeModal();">
       <div class="modal">
         <div class="modal-hd">
@@ -4072,6 +4118,35 @@
         }
         return { data: null, error: { message: "読む 間に 中身が 変わり続けた" } };
       }
+      /* ★明細と 入金を 倉庫から 全部 読む★ 2026-11-04（ログインの 時と 請求書を 出す 前の 見張りが 同じ 物を 使う・対立役 v2 注4）
+         明細＝{db, error}（meisaiFromDb の 形）／入金＝{map, hajime, error}（hajime＝読み始めた 時刻・v2 注3） */
+      async function kuraMeisaiYomu() {
+        var m = await fetchAllQ(function (a, b) {
+          return SB.from("meisai")
+            .select("*", { count: "exact" })
+            .is("deleted_at", null)
+            .order("id")
+            .range(a, b);
+        });
+        if (m.error) return { db: null, error: m.error };
+        return { db: m.data.map(meisaiFromDb), error: null };
+      }
+      async function kuraPaymentsYomu() {
+        var hajime = Date.now();
+        var p = await fetchAllQ(function (a, b) {
+          return SB.from("payments")
+            .select("*", { count: "exact" })
+            .is("deleted_at", null)
+            .order("id")
+            .range(a, b);
+        });
+        if (p.error) return { map: null, hajime: hajime, error: p.error };
+        var map = {};
+        p.data.forEach(function (r) {
+          map[CURRENT_ACCOUNT + "::" + r.month + "::" + r.company] = payRecFromDb(r);
+        });
+        return { map: map, hajime: hajime, error: null };
+      }
       // ログイン後の一括読み込み（RLSで自分の行だけ返る）
       // ★★読めなかった 物の 印（最初は 全部 立てて 読めた 物だけ 下ろす）★★ 2026-10-08
       //   司さん「お金の出力は 1人でも 計算できなければ 止めて 警告」・対立役：
@@ -4262,35 +4337,19 @@
             };
           });
         }
-        var m = await fetchAllQ(function (a, b) {
-          return SB.from("meisai")
-            .select("*", { count: "exact" })
-            .is("deleted_at", null)
-            .order("id")
-            .range(a, b);
-        });
+        var m = await kuraMeisaiYomu();
         if (m.error) {
           cloudErr("明細読込", m.error);
           ok = false;
-        } else DB = m.data.map(meisaiFromDb);
+        } else DB = m.db;
         await yomuKurumaFuda();
-        var payYomiHajime = Date.now();
-        var p = await fetchAllQ(function (a, b) {
-          return SB.from("payments")
-            .select("*", { count: "exact" })
-            .is("deleted_at", null)
-            .order("id")
-            .range(a, b);
-        });
+        var p = await kuraPaymentsYomu();
         if (p.error) cloudErr("入金読込", p.error);
         else {
           YOMENAI.payments = false;
-          PAY_YONDA = payYomiHajime; // 入金を 読み始めた 時刻（帯の「直った」判じに 使う・読み終えた 時刻に しない）
+          PAY_YONDA = p.hajime; // 入金を 読み始めた 時刻（帯の「直った」判じに 使う・読み終えた 時刻に しない）
+          PAYMENTS = p.map;
         }
-        if (!p.error)
-          p.data.forEach(function (r) {
-            PAYMENTS[CURRENT_ACCOUNT + "::" + r.month + "::" + r.company] = payRecFromDb(r);
-          });
         var i = await SB.from("issuer")
           .select("config")
           .eq("user_id", CURRENT_ACCOUNT)
@@ -7553,6 +7612,10 @@
           return null;
         }
         var onlyCo = document.getElementById("invCompany").value;
+        // ★出す 前の 見張り★ 2026-11-04（番号を 台帳に 書く 前・「該当なし」の 前＝倉庫に だけ 在る 会社も 拾う）
+        if (!(await yomiNaoshiMon(month, onlyCo, "請求書の 作成"))) return null;
+        if (kurikoshiTomeru(onlyCo ? [onlyCo] : tsukiNoKaisha(month), "請求書の 作成")) return null;
+        if (!hakkoMon(month, onlyCo ? [onlyCo] : tsukiNoKaisha(month))) return null;
         var iss = issuerForEngine();
         var bytes, fname;
         if (onlyCo) {
@@ -8497,6 +8560,10 @@
         }
         var url = null;
         try {
+          // ★出す 前の 見張り★（確認の 紙も 本物の 番号が 刷られ 送れる＝同じ 見張りを 通す・対立役 v1 止5）
+          if (!(await yomiNaoshiMon(month, co, "請求書の 確認"))) return;
+          if (kurikoshiTomeru([co], "請求書の 確認")) return;
+          if (!hakkoMon(month, [co])) return;
           var rows = DB.filter(function (r) {
             return r.account_id === CURRENT_ACCOUNT && r.会社名 === co && inMonth(r.日付, month);
           }).sort(function (a, b) {
@@ -12143,8 +12210,20 @@
           if (b) b.classList.remove("on");
         }, 160);
       }
+      // ★日付・金額を 直したら「メーターと 同じかも」の 枠を 消す★（直した 後も 次の 保存まで 残った・前の 押しの 対立役 注4）
+      function nijuuWakuKesu(i, k) {
+        var r = entryRows[i];
+        if (!r || (k !== "日付" && k !== "金額") || !r._nijuu) return;
+        delete r._nijuu;
+        delete r._nijuuKagi;
+        delete r._betsu;
+        var box = document.querySelectorAll("#entryBody .entry-line")[i];
+        var w = box && box.querySelector(".nijuu-kamo");
+        if (w) w.remove();
+      }
       function setEntry(i, k, v) {
         if (entryRows[i]) entryRows[i][k] = v;
+        nijuuWakuKesu(i, k);
       }
       function setEntryCar(i, el) {
         if (!entryRows[i] || el.value === "keep") return;
@@ -12158,10 +12237,12 @@
         var clean = String(el.value).replace(k === "距離" ? /[^0-9.]/g : /[^0-9]/g, "");
         if (el.value !== clean) el.value = clean;
         if (entryRows[i]) entryRows[i][k] = clean;
+        nijuuWakuKesu(i, k);
       }
       function setEntryDate(i, k, el) {
         // 内部はISO（2026-06-15）で保持・画面表示だけ M/D（6/15）に更新
         if (entryRows[i]) entryRows[i][k] = el.value;
+        nijuuWakuKesu(i, k);
         var s = el.parentNode.querySelector(".date-show");
         if (s) {
           var md = mdShort(el.value);
@@ -12192,15 +12273,285 @@
           _entrySavingP = null;
         }
       }
+      /* ===================================================================
+         ★請求書を 出す 前の 見張り★ 2026-11-04（lib/nijuu.js zureKazoeru・hakkoMae・設計前の 対立役 v1 止5・v2 止3注8）
+         訳：DB と PAYMENTS は ログインの 時に 1回 読むだけ＝開いた 後に メーターから 入った 行・別の 端末で
+             直した 行・記録した 入金が 紙に 出ない（少なく 請求・古い 繰越）。保存の 時の 二重の 見張りも
+             保存の 後に 入る メーターの 行・一覧で 直した 行・料金が 空の 行 は 拾えない。
+         決まり：
+           ・出す 前に 倉庫を 丸ごと 読み直す（loadAllCloud と 同じ 読み）。違えば DB・PAYMENTS を 丸ごと 替える
+             （id で 入れ替えない＝月を 動いた 行が 消えたり 2重に なったり しない・v1 止3）
+           ・★この 紙の 材料に 触れる 違いが 在れば 1回 止める★（見た 紙と 出る 紙を 同じに する）。
+             材料＝紙の 会社の その 月の 前後1日（重なりの 窓）＋繰越の 会社は それより 前の 全部の 月と 入金（v1 止1・v2 注2）
+           ・明細が 読めなければ 出さない。入金が 読めなければ 繰越の 会社 だけ 止める（司さん 10-08・v2 止B）
+           ・保存の 途中なら 終わるまで 待つ（v2 止A）
+           ・重なり（手の 行×メーターの 行）は 止めて 会社ごとに「別の 乗車（このまま 出す）」を 選ばせる（組が 変われば また 止める）
+           ・料金が 空の メーターの 行は ★止めて 警告・通す 釦は 無い★（計算 できない 物は 出さない）
+         ★拾えない 物★：［続ける］で 晩を またいだ 勤務（差が 2日 以上・Daikou-app の 別の 押し）／会社の 設定（MASTER）の 違い
+         =================================================================== */
+      function meisaiSig(r) {
+        var o = meisaiToDb(r);
+        var ex = {};
+        Object.keys(o.extra || {}).forEach(function (k) {
+          if (k.charAt(0) !== "_") ex[k] = o.extra[k]; // 画面だけの 印（_ で 始まる）は 比べない
+        });
+        o.extra = ex;
+        o.account_id = r.account_id;
+        return Nijuu.shirushi(o);
+      }
+      function meisaiZureList(rows) {
+        return (rows || []).map(function (r) {
+          return { id: r.id, row: r, sig: meisaiSig(r) };
+        });
+      }
+      // 入金の 鍵＝消し込みと 同じ 揃え方（ksHikakuKagi）＋入金日が 空の 時の 月（createdAt）＋倉庫の id（v2 止C）
+      function paymentsZureList(map) {
+        return Object.keys(map || {}).map(function (k) {
+          var p = k.split("::");
+          var rec = map[k];
+          return {
+            id: k,
+            row: { 会社名: p.slice(2).join("::"), month: p[1] },
+            sig: JSON.stringify([
+              ksHikakuKagi(rec, p[1]),
+              // 作った 日の 月は 入金日が 空の 時 だけ 使う（nyukinNoTsuki）＝その 時 だけ 比べる
+              hiDake(rec.paidDate) ? "" : String(rec.createdAt || "").slice(0, 7),
+              rec._dbid == null ? "" : String(rec._dbid),
+            ]),
+          };
+        });
+      }
+      function tsukiNoKaishaOf(rows, month) {
+        var seen = {};
+        var out = [];
+        (rows || []).forEach(function (r) {
+          if (r.account_id !== CURRENT_ACCOUNT || !r.会社名 || !inMonth(r.日付, month)) return;
+          if (!seen[r.会社名]) {
+            seen[r.会社名] = 1;
+            out.push(r.会社名);
+          }
+        });
+        return out;
+      }
+      function hakkoGamenNaosu() {
+        [refreshMonthSelect, renderList, renderPayments, updatePayBadge, renderModose].forEach(
+          function (f) {
+            try {
+              f();
+            } catch (e) {
+              console.warn("hakko-mae redraw", e);
+            }
+          }
+        );
+        try {
+          generateInvoices(true);
+        } catch (e) {
+          console.warn("hakko-mae redraw", e);
+        }
+      }
+      /* month＝紙の 月・onlyCo＝1社（空＝全社）・what＝止めた 時の 字。通して よければ true */
+      async function yomiNaoshiMon(month, onlyCo, what) {
+        if (_entrySavingP) {
+          try {
+            await _entrySavingP;
+          } catch (_) {}
+        }
+        var m = await kuraMeisaiYomu();
+        if (m.error) {
+          toast(
+            "通信が 途切れて 明細を 読み直せませんでした。" +
+              what +
+              " は しません。もう一度 押してください",
+            6000
+          );
+          return false;
+        }
+        var p = await kuraPaymentsYomu();
+        var maeDB = DB;
+        var cos = onlyCo
+          ? [onlyCo]
+          : tsukiNoKaishaOf(maeDB, month).concat(
+              tsukiNoKaishaOf(m.db, month).filter(function (c) {
+                return tsukiNoKaishaOf(maeDB, month).indexOf(c) < 0;
+              })
+            );
+        var coAri = {};
+        cos.forEach(function (c) {
+          coAri[c] = true;
+        });
+        var hajime = month + "-01";
+        var mae1 = Nijuu.hiTasu(hajime, -1);
+        var owari = Nijuu.hiTasu(Nijuu.hiTasu(month + "-28", 4).slice(0, 7) + "-01", 0); // 次の 月の 1日＝月末＋1日
+        var fureruM = function (r) {
+          if (!r || !coAri[r.会社名] || !r.日付) return false;
+          if (r.日付 > owari) return false;
+          if (MASTER[r.会社名] && MASTER[r.会社名].carryover) return true;
+          return r.日付 >= mae1;
+        };
+        var zm = Nijuu.zureKazoeru(meisaiZureList(maeDB), meisaiZureList(m.db), fureruM);
+        var zp = { tasu: 0, naoru: 0, kieru: 0, kasanaru: 0, zenbu: 0 };
+        if (!p.error) {
+          zp = Nijuu.zureKazoeru(paymentsZureList(PAYMENTS), paymentsZureList(p.map), function (r) {
+            return !!(r && coAri[r.会社名] && MASTER[r.会社名] && MASTER[r.会社名].carryover);
+          });
+        }
+        var kaeta = false;
+        if (zm.zenbu) {
+          DB = m.db;
+          kaeta = true;
+        }
+        if (p.error) {
+          YOMENAI.payments = true; // ★繰越の 会社 だけ 止まる（kurikoshiTomeru）★
+        } else {
+          if (zp.zenbu || YOMENAI.payments) kaeta = true;
+          PAYMENTS = p.map;
+          PAY_YONDA = p.hajime;
+          YOMENAI.payments = false;
+        }
+        if (kaeta) hakkoGamenNaosu();
+        var fure = zm.tasu + zm.naoru + zm.kieru + zm.kasanaru + zp.tasu + zp.naoru + zp.kieru;
+        if (!fure) return true;
+        toast(
+          "倉庫に この 紙の 新しい 明細・入金が ありました（明細 足す " +
+            zm.tasu +
+            "・直す " +
+            (zm.naoru + zm.kasanaru) +
+            "・消す " +
+            zm.kieru +
+            "／入金 " +
+            (zp.tasu + zp.naoru + zp.kieru) +
+            "）。画面を 最新に しました。紙を 確かめてから もう一度 押してください",
+          8000
+        );
+        return false;
+      }
+      // ★重なり・料金が 空の 行の 帯★（alert/confirm は 使わない）
+      var _hakkoTooshi = {}; // 「別の 乗車（このまま 出す）」を 押した 組の 印（画面の 中だけ・会社ごと・v1 注5）
+      var _hakkoObiKagi = [];
+      function hakkoObiKesu() {
+        var el = document.getElementById("hakkoObi");
+        if (el) {
+          el.hidden = true;
+          el.innerHTML = "";
+        }
+      }
+      function hakkoTooshiOsu() {
+        _hakkoObiKagi.forEach(function (k) {
+          _hakkoTooshi[k] = true;
+        });
+        hakkoObiKesu();
+        toast("別の乗車として 扱います。もう一度 押してください");
+      }
+      /* 通して よければ true */
+      function hakkoMon(month, cos) {
+        var r = Nijuu.hakkoMae(
+          DB.filter(function (x) {
+            return x.account_id === CURRENT_ACCOUNT;
+          }),
+          month,
+          cos
+        );
+        var kagi = [];
+        var kasa = [];
+        Object.keys(r.kasanari).forEach(function (co) {
+          var k = Nijuu.kasanariKagi(month, co, r.kasanari[co]);
+          if (_hakkoTooshi[k]) return;
+          kagi.push(k);
+          r.kasanari[co].forEach(function (x) {
+            kasa.push({ co: co, x: x });
+          });
+        });
+        if (!kasa.length && !r.mitei.length) {
+          hakkoObiKesu();
+          return true;
+        }
+        var el = document.getElementById("hakkoObi");
+        var en = function (v) {
+          return "¥" + Number(v || 0).toLocaleString("ja-JP");
+        };
+        var h = '<div class="hakko-obi-hd">請求書は まだ 作っていません</div>';
+        if (r.mitei.length) {
+          h +=
+            '<div class="hakko-obi-sec"><b>メーターの 料金が まだ 入っていない 明細が ' +
+            r.mitei.length +
+            "件 あります</b>（このままでは 金額を 計算 できません。一覧で 金額を 入れてから 出してください）<ul>" +
+            r.mitei
+              .map(function (x) {
+                return (
+                  "<li>" +
+                  esc(x.会社名) +
+                  " " +
+                  esc(mdShort(x.日付)) +
+                  (x.行き先 ? " " + esc(x.行き先) : "") +
+                  "</li>"
+                );
+              })
+              .join("") +
+            "</ul></div>";
+        }
+        if (kasa.length) {
+          h +=
+            '<div class="hakko-obi-sec"><b>手で 入れた 明細と メーターから 入った 明細が 同じ 乗車かも しれません（' +
+            kasa.length +
+            "件）</b>（同じ 乗車なら 一覧で 手の 明細を 消してください）<ul>" +
+            kasa
+              .map(function (k) {
+                return (
+                  "<li>" +
+                  esc(k.co) +
+                  "：手 " +
+                  esc(mdShort(k.x.te.日付)) +
+                  " " +
+                  en(k.x.te.金額) +
+                  (k.x.te.行き先 ? " " + esc(k.x.te.行き先) : "") +
+                  " ／ メーター " +
+                  k.x.meter
+                    .map(function (mm) {
+                      return (
+                        esc(mdShort(mm.日付)) +
+                        " " +
+                        en(mm.金額) +
+                        (mm.行き先 ? " " + esc(mm.行き先) : "")
+                      );
+                    })
+                    .join("・") +
+                  "</li>"
+                );
+              })
+              .join("") +
+            "</ul>" +
+            (r.mitei.length
+              ? ""
+              : '<button type="button" class="hakko-obi-betsu" onclick="hakkoTooshiOsu()">別の乗車（このまま出す）</button>') +
+            "</div>";
+        }
+        h += '<button type="button" class="hakko-obi-x" onclick="hakkoObiKesu()">閉じる</button>';
+        _hakkoObiKagi = kagi;
+        if (el) {
+          el.innerHTML = h;
+          el.hidden = false;
+        }
+        toast(
+          r.mitei.length
+            ? "料金が まだ 入っていない メーターの 明細が あります（請求書は 作っていません）"
+            : "メーターの 明細と 同じ 乗車かも しれない 明細が あります（請求書は 作っていません）",
+          6000
+        );
+        return false;
+      }
       /* ★手で入れた行と メーターの行の 二重請求の 見張り★ 2026-11-04（lib/nijuu.js・設計前の 対立役 止0注7）
          開いた 後に メーターの 行が 入る ので 手元の DB でなく 倉庫から 読み直す。
          ★読み切れなければ 保存しない★（黙って 通さない）。当たれば 行に 印を 付けて 止める＝額は 変えない。
          ★拾えない 物★：［続ける］で 晩を またいだ 勤務（差が 2日 以上）・保存の 後に 入る メーターの 行 */
       async function nijuuMiru(co, payload, rows) {
+        // ★読む 前に 前の 枠を 消す★（読めなかった 時に 前の 枠を 残さない・前の 押しの 本番前 対立役 注4）
+        var atta = false;
         rows.forEach(function (r) {
+          if (r._nijuu) atta = true;
           delete r._nijuu;
           delete r._nijuuKagi;
         });
+        if (atta) renderEntry();
         var han = Nijuu.yomuHanni(payload);
         if (!han) return true; // 日付の 無い 行だけ＝突き合わせる 物が 無い
         var q = await fetchAllQ(function (a, b) {
@@ -12305,6 +12656,19 @@
         var payload = recs.map(meisaiToDb);
         // ★二重請求の 見張り★ 2026-11-04（倉庫に 入る 値で・倉庫から 読み直して・読めなければ 止める）
         if (!(await nijuuMiru(co, payload, contentRows))) return;
+        // ★「別の 乗車」を 倉庫に 残す★ 2026-11-04（出す 前の 見張りが 同じ 組で また 止めない・値が 変われば 効かない）
+        contentRows.forEach(function (row, k) {
+          if (!row._nijuu || !row._betsu || row._betsu !== row._nijuuKagi) return;
+          var b = {
+            ids: row._nijuu.map(function (h) {
+              return h.id;
+            }),
+            date: payload[k].date,
+            amount: payload[k].amount,
+          };
+          payload[k].extra = Object.assign({}, payload[k].extra, { nijuu_betsu: b });
+          recs[k].nijuu_betsu = b;
+        });
         var insData = [];
         for (var bi = 0; bi < payload.length; bi += 500) {
           var chunk = payload.slice(bi, bi + 500);

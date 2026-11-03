@@ -167,6 +167,11 @@ test("★出した瞬間に控えが残り、明細を直しても その控え�
   const wouldBe = await page.evaluate(() => {
     const r = window.DB.find((x) => x.会社名 === "験模工業株式会社");
     r.金額 = 9000;
+    // ★倉庫も 同じに 直す★ 2026-11-04（一覧の 直しは 倉庫に 書く。画面だけ 直すと 出す 前の 見張りが
+    //   倉庫の 値に 戻して 1回 止める＝本物の 直しと 同じ 形に 揃える）
+    const kura = JSON.parse(localStorage.getItem("__fake_supa_db__"));
+    kura.tables.meisai.find((x) => x.id === r.id).amount = 9000;
+    localStorage.setItem("__fake_supa_db__", JSON.stringify(kura));
     // 先頭に来る会社を足す＝計算し直すと 験模工業の番号は必ず後ろへずれる
     window.MASTER = Object.assign(
       {
