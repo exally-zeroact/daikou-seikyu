@@ -175,7 +175,8 @@ describe("fetchAllQ（成長テーブルの全件読み込み）", () => {
     for (const m of HTML.matchAll(/await fetchAllQ\(\s*function/g)) {
       calls.push(HTML.slice(m.index, HTML.indexOf(".range(a, b)", m.index)));
     }
-    expect(calls.length).toBe(5);
+    // 6本＝立ち上げの 5本＋消し込みの 書く 直前の 読み直し（その 会社の 入金・2026-11-03）
+    expect(calls.length).toBe(6);
     for (const c of calls) {
       const table = (c.match(/SB\.from\("([a-z_]+)"\)/) || [])[1];
       const orders = [...c.matchAll(/\.order\("([a-z_]+)"\)/g)].map((m) => m[1]);

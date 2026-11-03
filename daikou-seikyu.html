@@ -3424,6 +3424,15 @@
           <option value="">全社</option>
         </select>
       </div>
+      <!-- ★入金の 消し込み★ 2026-11-03（司さん「CSV→候補→人が押す」） -->
+      <button
+        class="btn btn-ghost btn-sm"
+        id="ksOpenBtn"
+        style="width: auto; margin: 0 0 8px"
+        onclick="ksOpen()"
+      >
+        🏦 銀行の明細（CSV）から入金を記録
+      </button>
       <div id="paySummary" class="pay-summary"></div>
       <div class="list-sum" id="payCount"></div>
       <div id="payBody"></div>
@@ -3548,6 +3557,7 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
     <!-- 定義駆動 帳票エンジン（移植可能な共通モジュール／DOM非依存） -->
     <script src="meisai-engine.js"></script>
+    <script src="lib/keshikomi.js"></script>
     <!-- 請求書のクリーンなベクターPDF出力（日本語フォント埋込・複数ページ／pdf-lib等は初回PDF時のみ遅延ロード） -->
     <!-- ★字体を 軽くする（使う字だけ 形を 残す）★（司さん 2026-09-05「全アプリ共通やろが」）
          ★invoice-pdf.js より 先に 読む★／★正本は Rakunally の lib/font-slim.js★ -->
@@ -3760,6 +3770,10 @@
         // ★繰越・税の扱いも「選ばれた時だけ」足す＝選んでいない会社の中身は今までと完全に同じ★
         if (m.carryover) config.carryover = true;
         if (m.taxMode === "外税") config.taxMode = "外税";
+        // ★入金の 消し込み★ 2026-11-03：振込名義（カナ・複数）と 振込手数料の 持ち方（こちら持ちの 時だけ）
+        if (m.furikomiMeigi && m.furikomiMeigi.length)
+          config.furikomiMeigi = m.furikomiMeigi.slice();
+        if (m.tesuryoFutan === "kochira") config.tesuryoFutan = "kochira";
         // ★会社毎テンプレは「指定された時だけ」configに足す＝未設定会社のpayloadは従来と完全一致（バイト不変）。
         if (m.pdfDesign) {
           config.pdfDesign = m.pdfDesign;
@@ -4016,6 +4030,9 @@
               // ★繰越（既定は使わない）／消費税の扱い（既定は内税）★
               carryover: !!cf.carryover,
               taxMode: cf.taxMode === "外税" ? "外税" : "内税",
+              // ★入金の 消し込み★（読まないと 次の saveMaster で 消える・対立役 v1 注2）
+              furikomiMeigi: Array.isArray(cf.furikomiMeigi) ? cf.furikomiMeigi.slice() : [],
+              tesuryoFutan: cf.tesuryoFutan === "kochira" ? "kochira" : "",
               // ★会社毎テンプレ（未設定=null=全体設定を使う＝既定）。
               pdfDesign: cf.pdfDesign || null,
               elegantVariant: cf.elegantVariant || null,
@@ -4050,15 +4067,7 @@
         }
         if (!p.error)
           p.data.forEach(function (r) {
-            PAYMENTS[CURRENT_ACCOUNT + "::" + r.month + "::" + r.company] = {
-              paid: r.paid,
-              paidDate: r.paid_date || "",
-              createdAt: r.created_at || "", // 入金日が 空の 時の 月（繰越の ご入金額）
-              entries: Array.isArray(r.entries) ? r.entries : null, // 入金の 回（null＝前からの 記録）
-              note: r.memo || "",
-              _dbid: r.id,
-              uid: r.user_id, // 明細が 0件に なった 月を 出す 時に 自分の 記録だけを 拾う 2026-10-14
-            };
+            PAYMENTS[CURRENT_ACCOUNT + "::" + r.month + "::" + r.company] = payRecFromDb(r);
           });
         var i = await SB.from("issuer")
           .select("config")
@@ -4299,13 +4308,30 @@
         return aoa;
       }
       function _exlPayAoa(rows) {
-        var aoa = [["月", "会社名", "入金額", "入金日", "メモ"]];
+        // ★入金額＝消した 額（入った 額＋こちら持ちの 振込手数料）・その 後ろに 内訳★ 2026-11-03
+        //   司さんの決め（弥生の形：入金区分「振込」と「振込手数料」・掛入金計に 手数料を 含める）
+        //   列は 入金額の 後ろに 足す＝前の 列の 場所は 変えない（入金額は r[2] の まま）
+        var aoa = [["月", "会社名", "入金額", "うち振込", "うち振込手数料", "入金日", "メモ"]];
         rows.forEach(function (x) {
           // ★入金の 記録の 帳面＝記録した 額と 日★（10-02 夜：当てた 額を 出すと 記録が 消えて 見えた）
           var kiroku = x.kiroku != null ? x.kiroku : x.paid;
           if (!kiroku && !x.date && !x.note) return; // 入金実績のある行だけ
           var p = x.month.split("-");
-          aoa.push([Number(p[0]) + "年" + Number(p[1]) + "月", x.company, kiroku, x.date, x.note]);
+          var tes = 0;
+          var rec = PAYMENTS[payKeyFor(x.month, x.company)];
+          if (rec)
+            entriesOf(rec, x.month).forEach(function (e) {
+              tes += e.tesuryo || 0;
+            });
+          aoa.push([
+            Number(p[0]) + "年" + Number(p[1]) + "月",
+            x.company,
+            kiroku,
+            (Number(kiroku) || 0) - tes,
+            tes,
+            x.date,
+            x.note,
+          ]);
         });
         return aoa;
       }
@@ -8324,6 +8350,18 @@
       function payKeyFor(month, co) {
         return CURRENT_ACCOUNT + "::" + month + "::" + co;
       }
+      // ★倉庫の payments の 1行 → PAYMENTS の 1つ（立ち上げと 消し込みの 読み直しが 同じ 物を 使う・対立役 v3 止1）★
+      function payRecFromDb(r) {
+        return {
+          paid: r.paid,
+          paidDate: r.paid_date || "",
+          createdAt: r.created_at || "", // 入金日が 空の 時の 月（繰越の ご入金額）
+          entries: Array.isArray(r.entries) ? r.entries : null, // 入金の 回（null＝前からの 記録）
+          note: r.memo || "",
+          _dbid: r.id,
+          uid: r.user_id, // 明細が 0件に なった 月を 出す 時に 自分の 記録だけを 拾う 2026-10-14
+        };
+      }
       function payRecord(month, co) {
         return PAYMENTS[payKeyFor(month, co)] || { paid: 0, paidDate: "", note: "" };
       }
@@ -9102,7 +9140,13 @@
           .map(function (e) {
             var p = String(e.hi || "").split("-");
             var hi = p.length === 3 ? Number(p[1]) + "/" + Number(p[2]) : "日付なし";
-            return hi + " " + yen(e.gaku);
+            // こちら持ちで 消した 回＝うち 振込手数料 を 分けて 出す（銀行の 明細と 見比べる・司さん 11-03 弥生の 形）
+            return (
+              hi +
+              " " +
+              yen(e.gaku) +
+              (e.tesuryo ? "（うち振込手数料 " + yen(e.tesuryo) + "）" : "")
+            );
           })
           .join("・");
       }
@@ -9537,10 +9581,20 @@
         if (/^\d{4}-\d{2}$/.test(d)) return d + "-01";
         return "";
       }
+      /* ★回の 1つを 作る＝鍵の 順を 決めて 作る（gaku, hi, src, tesuryo）★ 2026-11-03（消し込み）
+           src＝銀行の明細 CSV の 出どころ（二重に 記録しない 見分け）・tesuryo＝うち 振込手数料（こちら持ちで 消した 額）
+           ★{gaku,hi} だけに 作り直すと 消える★（対立役 v1 止3）・倉庫の jsonb は 鍵を 並べ替えて 返す＝順を 固定して 比べる（v3 注1） */
+      function kaiTsukuru(e, gaku, hi) {
+        var o = { gaku: gaku, hi: hi };
+        if (e && typeof e.src === "string" && e.src) o.src = e.src;
+        var t = Math.round(Number(e && e.tesuryo) || 0);
+        if (t > 0) o.tesuryo = Math.min(t, gaku);
+        return o;
+      }
       function entriesKezuru(out, n) {
         for (var i = out.length - 1; i >= 0 && n > 0; i--) {
           var g = Math.min(out[i].gaku, n);
-          out[i].gaku -= g;
+          out[i] = kaiTsukuru(out[i], out[i].gaku - g, out[i].hi);
           n -= g;
         }
         return out.filter(function (e) {
@@ -9556,7 +9610,7 @@
           rec.entries.forEach(function (e) {
             var g = Math.round(Number(e && e.gaku));
             if (!isFinite(g) || g <= 0) return;
-            out.push({ gaku: g, hi: hiDake(e.hi) || ichi });
+            out.push(kaiTsukuru(e, g, hiDake(e.hi) || ichi));
           });
         } else if (paid > 0) out.push({ gaku: paid, hi: ichi });
         var sum = out.reduce(function (t, e) {
@@ -9565,14 +9619,15 @@
         if (sum < paid) out.push({ gaku: paid - sum, hi: ichi });
         else if (sum > paid) out = entriesKezuru(out, sum - paid);
         // 最後の 回の 日 ≠ paid_date＝古い 版が 日だけ 変えた（新しい 画面は 必ず 揃えて 書く）
-        if (out.length && out[out.length - 1].hi !== ichi) out[out.length - 1].hi = ichi;
+        if (out.length && out[out.length - 1].hi !== ichi)
+          out[out.length - 1] = kaiTsukuru(out[out.length - 1], out[out.length - 1].gaku, ichi);
         return out;
       }
       /* 書く 時の 回：前の 回と 新しい 額の 差で 決める
            増えた＝{差, hi} を 足す／減った＝新しい 回から 削る／hiKaeta＝最後の 回の 日を hi に する */
       function entriesAtarashii(mae, newPaid, hi, hiKaeta) {
         var out = (mae || []).map(function (e) {
-          return { gaku: e.gaku, hi: e.hi };
+          return kaiTsukuru(e, e.gaku, e.hi);
         });
         var sum = out.reduce(function (t, e) {
           return t + e.gaku;
@@ -9581,9 +9636,735 @@
         if (newPaid > sum) out.push({ gaku: newPaid - sum, hi: hi || null });
         else {
           if (newPaid < sum) out = entriesKezuru(out, sum - newPaid);
-          if (hiKaeta && out.length) out[out.length - 1].hi = hi || null;
+          if (hiKaeta && out.length)
+            out[out.length - 1] = kaiTsukuru(
+              out[out.length - 1],
+              out[out.length - 1].gaku,
+              hi || null
+            );
         }
         return out;
+      }
+      /* =====================================================================
+         ★★入金の 消し込み（銀行の 入出金明細 CSV → 候補 → 人が 押す）★★ 2026-11-03
+         司さんの決め（11-03）：★人が「記録する」を 押した 行だけ 記録★（自動では 記録しない・全部記録の ボタンは 作らない）
+           ・手数料は 決め打ちしない（1〜1,100円の 不足だけ「差 ¥実額（振込手数料かも）」）
+           ・会社ごとに 先方持ち（既定・民法485条）／こちら持ち（差を 手数料として 消す）
+           ・紙の ご入金額＝消した 額（入った 額＋こちら持ちの 手数料）・Excel と 回の 字は 内訳を 分ける（弥生の 形）
+         ★書く 直前に その 会社の 入金の 行を 全部 読み直し、この 画面の 控えと 違えば 書かずに 止める★
+           （別の 端末が 別の 月へ 同じ 入金を 記録した 時の 二重・対立役 v2 止1／v3 止1・注1〜3／v4 注1・2）
+           ★競り合いを 止めるのは この 道（と その 取り消し）だけ★＝窓の 保存・全入金・前からの 取り消しは 今まで 通り
+         純粋な 所（CSV・候補・二重の 見分け）は lib/keshikomi.js（vitest＝tests/keshikomi.test.js）
+         ===================================================================== */
+      var KS = null;
+      var KS_RETSU = "id,user_id,month,company,paid,paid_date,memo,entries,created_at,deleted_at";
+      function ksOpen() {
+        if (yomenaiTomeru(["payments"], "銀行の明細の読み込み")) return;
+        KS = null;
+        document.getElementById("modalTitle").textContent = "銀行の明細（CSV）から入金を記録";
+        document.getElementById("modalBody").innerHTML =
+          '<div class="pay-sub" style="margin:0 0 10px;color:#555555;">' +
+          "ネットバンキングの「入出金明細」を CSV で保存して選んでください。合いそうな請求を候補に出します。" +
+          "★記録するのは「記録する」を押した行だけです★。</div>" +
+          '<input type="file" id="ksFile" accept=".csv,text/csv,text/plain" onchange="ksYomu(this.files[0])">' +
+          '<div id="ksBody"></div>';
+        openModal();
+      }
+      async function ksYomu(file) {
+        if (!file) return;
+        var buf;
+        try {
+          buf = await file.arrayBuffer();
+        } catch (e) {
+          toast("ファイルを読めませんでした");
+          return;
+        }
+        var m = Keshikomi.mojiYomu(buf);
+        var rows = Keshikomi.csvYomu(m.text);
+        var mi = Keshikomi.midashiSagasu(rows);
+        KS = {
+          name: file.name,
+          code: m.code,
+          rows: rows,
+          midashi: mi.gyou,
+          retsu: mi.retsu,
+          kiroku: {}, // CSV の 行 i → この 窓で 記録した 額（途中で 止まった 時に 残りだけ 押せる）
+          kaita: {}, // CSV の 行 i → 記録した 月の 字
+          undo: {}, // CSV の 行 i → { co, undo }（窓の 中の「取り消す」・知らせは 窓の 下に 隠れる）
+          oshiteru: false,
+          oboeru: {},
+        };
+        ksKaku();
+      }
+      function ksMidashi(v) {
+        KS.midashi = Number(v);
+        KS.retsu = Keshikomi.retsuSuitei(KS.rows[KS.midashi] || []);
+        ksKaku();
+      }
+      function ksRetsu(k, v) {
+        KS.retsu[k] = Number(v);
+        if (k === "kubun") KS.retsu.kubunNyukin = null;
+        ksKaku();
+      }
+      function ksKubun(v) {
+        KS.retsu.kubunNyukin = v ? [v] : null;
+        ksKaku();
+      }
+      // 会社ごとの 未入金の 月（古い 順）＝候補の 元
+      function ksKaisha() {
+        var by = {};
+        seikyuList(null).forEach(function (iv) {
+          var m = MASTER[iv.company];
+          if (!m) return;
+          if (m.account_id && m.account_id !== CURRENT_ACCOUNT) return;
+          // 繰越の 会社＝その 月の 請求書の 未入金（前の 月の 分込み）／他＝一覧の 行の 残
+          var zan = m.carryover
+            ? zenNyukinGaku(iv) - iv.paidKiroku
+            : Math.max(iv.total, 0) - iv.paid;
+          if (!(zan > 0)) return;
+          (by[iv.company] = by[iv.company] || []).push({ month: iv.month, zan: zan });
+        });
+        return Object.keys(by).map(function (co) {
+          var m = MASTER[co];
+          return {
+            name: co,
+            meigi: (m.furikomiMeigi || []).concat(KS && KS.oboeru[co] ? [KS.oboeru[co]] : []),
+            kochira: m.tesuryoFutan === "kochira",
+            carryover: !!m.carryover,
+            mitsuki: by[co].sort(function (a, b) {
+              return a.month.localeCompare(b.month);
+            }),
+          };
+        });
+      }
+      // その 会社の 全部の 回（二重の 見分け）
+      function ksKaiZenbu(co) {
+        var out = [];
+        var mae = CURRENT_ACCOUNT + "::";
+        Object.keys(PAYMENTS).forEach(function (k) {
+          if (k.indexOf(mae) !== 0) return;
+          var rest = k.slice(mae.length);
+          if (rest.slice(9) !== co) return;
+          var gyou = rest.slice(0, 7);
+          entriesOf(PAYMENTS[k] || {}, gyou).forEach(function (e) {
+            out.push({ month: gyou, gaku: e.gaku, hi: e.hi, src: e.src, tesuryo: e.tesuryo });
+          });
+        });
+        return out;
+      }
+      // 同じ src の 回が 在る 所（全部の 会社）＝["山田建設 2026年10月の行 ¥20,000", …]
+      function ksZumiDoko(n) {
+        var src = Keshikomi.srcTsukuru(n);
+        var out = [];
+        var mae = CURRENT_ACCOUNT + "::";
+        Object.keys(PAYMENTS).forEach(function (k) {
+          if (k.indexOf(mae) !== 0) return;
+          var rest = k.slice(mae.length);
+          var gyou = rest.slice(0, 7);
+          entriesOf(PAYMENTS[k] || {}, gyou).forEach(function (e) {
+            if (e.src === src)
+              out.push(rest.slice(9) + " " + ksTsuki(gyou) + "の行 " + yen(e.gaku));
+          });
+        });
+        return out;
+      }
+      function ksTsuki(m) {
+        var p = String(m).split("-");
+        return Number(p[0]) + "年" + Number(p[1]) + "月";
+      }
+      function ksKohoJi(k) {
+        var ate = k.ate
+          .map(function (a) {
+            return ksTsuki(a.month) + " " + yen(a.gaku);
+          })
+          .join("・");
+        var s = "";
+        if (k.kind === "pittari") s = "ぴったり";
+        else if (k.kind === "matome") s = "まとめ入金（古い月から）";
+        else if (k.kind === "ichibu") s = "一部入金";
+        if (k.kind === "sa" || (k.kind === "matome" && k.sa > 0)) {
+          s +=
+            (s ? "・" : "") +
+            "差 " +
+            yen(k.sa) +
+            "（振込手数料かも）" +
+            (k.kochira
+              ? "→ 振込手数料（当方負担）として消して請求を閉じます"
+              : "→ 入った額だけ記録します。差 " +
+                yen(k.sa) +
+                " は未入金で残ります" +
+                (k.carryover ? "（次の請求書の繰越に載ります）" : ""));
+        }
+        var naka = k.carryover ? "（その月の請求書の未入金・前の月の分込み）" : "";
+        return (
+          esc(k.co) +
+          (k.meigiAtari ? "" : "（振込名義は一致していません）") +
+          "：" +
+          esc(ate) +
+          esc(naka) +
+          "　" +
+          esc(s)
+        );
+      }
+      function ksKaku() {
+        var body = document.getElementById("ksBody");
+        if (!body || !KS) return;
+        var rows = KS.rows;
+        var h = "";
+        if (!rows.length) {
+          body.innerHTML = '<div class="pay-sub">中身の行がありません。</div>';
+          return;
+        }
+        // 見出しの 行と 列は 人が 直せる（推しは 外れる・対立役 注5）
+        var midashi = rows[KS.midashi] || [];
+        var opt = function (k, label) {
+          var s =
+            '<label style="display:inline-block;margin:0 10px 6px 0;font-size:12px;">' +
+            label +
+            ' <select class="fselect" style="width:auto;" onchange="ksRetsu(\'' +
+            k +
+            '\',this.value)"><option value="-1">（無し）</option>';
+          midashi.forEach(function (x, i) {
+            s +=
+              '<option value="' +
+              i +
+              '"' +
+              (KS.retsu[k] === i ? " selected" : "") +
+              ">" +
+              esc(String(x || "列" + (i + 1))) +
+              "</option>";
+          });
+          return s + "</select></label>";
+        };
+        h +=
+          '<div style="margin:10px 0 6px;font-size:12px;color:#555555;">' +
+          esc(KS.name) +
+          "（" +
+          esc(KS.code) +
+          "・" +
+          rows.length +
+          "行）</div>";
+        h +=
+          '<label style="display:inline-block;margin:0 10px 6px 0;font-size:12px;">見出しの行 <select class="fselect" style="width:auto;" onchange="ksMidashi(this.value)">';
+        for (var g = 0; g < Math.min(rows.length, 15); g++)
+          h +=
+            '<option value="' +
+            g +
+            '"' +
+            (KS.midashi === g ? " selected" : "") +
+            ">" +
+            (rows[g].gyou || g + 1) +
+            "行目：" +
+            esc(rows[g].slice(0, 4).join(" / ").slice(0, 40)) +
+            "</option>";
+        h += "</select></label><br>";
+        if (KS.midashi < 0) {
+          body.innerHTML =
+            h +
+            '<div class="pay-sub" style="color:#b00020;">見出しの行が見つかりません。上で見出しの行を選んでください。</div>';
+          return;
+        }
+        h +=
+          opt("hi", "日付") +
+          opt("nyukin", "入金") +
+          opt("kingaku", "金額（1列の時）") +
+          opt("kubun", "入払区分") +
+          opt("meigi", "振込名義");
+        if (KS.retsu.kubun >= 0) {
+          var vals = {};
+          rows.slice(KS.midashi + 1).forEach(function (r) {
+            var v = String(r[KS.retsu.kubun] || "")
+              .normalize("NFKC")
+              .trim();
+            if (v) vals[v] = 1;
+          });
+          var cur = KS.retsu.kubunNyukin ? KS.retsu.kubunNyukin[0] : "";
+          h +=
+            '<label style="display:inline-block;margin:0 10px 6px 0;font-size:12px;">入金の区分 <select class="fselect" style="width:auto;" onchange="ksKubun(this.value)"><option value="">（既定：入金・預入）</option>';
+          Object.keys(vals).forEach(function (v) {
+            h +=
+              '<option value="' +
+              esc(v) +
+              '"' +
+              (cur === v ? " selected" : "") +
+              ">" +
+              esc(v) +
+              "</option>";
+          });
+          h += "</select></label>";
+        }
+        var r = Keshikomi.nyukinNukidasu(rows, KS.midashi + 1, KS.retsu);
+        if (r.err) {
+          body.innerHTML =
+            h + '<div class="pay-sub" style="color:#b00020;">' + esc(r.err) + "</div>";
+          return;
+        }
+        KS.nyukin = r.nyukin;
+        // ★落とした 行は 訳ごとに 数を 出す（黙って 捨てない）★
+        var ot = r.otosu;
+        var otoshi = [];
+        if (ot.shukkin) otoshi.push("出金・入金の欄が空 " + ot.shukkin + "行");
+        if (ot.hizuke.length)
+          otoshi.push(
+            "日付が読めない " +
+              ot.hizuke.length +
+              "行（" +
+              ot.hizuke.slice(0, 5).join("・") +
+              "行目）"
+          );
+        if (ot.gaku.length)
+          otoshi.push(
+            "額が読めない " + ot.gaku.length + "行（" + ot.gaku.slice(0, 5).join("・") + "行目）"
+          );
+        if (ot.retsu.length)
+          otoshi.push(
+            "欄が足りない " + ot.retsu.length + "行（" + ot.retsu.slice(0, 5).join("・") + "行目）"
+          );
+        h +=
+          '<div class="pay-sub" id="ksKazu" style="margin:6px 0;color:#555555;">入金 ' +
+          r.nyukin.length +
+          "件" +
+          (otoshi.length ? "・候補にしなかった行：" + esc(otoshi.join("／")) : "") +
+          "</div>";
+        var kaisha = ksKaisha();
+        r.nyukin.forEach(function (n, i) {
+          var zumiGaku = KS.kiroku[i] || 0;
+          var nokori = n.gaku - zumiGaku;
+          var p = n.hi.split("-");
+          h +=
+            '<div class="ks-gyou" data-i="' +
+            i +
+            '" style="border:1px solid #dddddd;border-radius:8px;padding:8px;margin:6px 0;">' +
+            '<div style="font-weight:600;">' +
+            Number(p[1]) +
+            "/" +
+            Number(p[2]) +
+            "　" +
+            yen(n.gaku) +
+            "　" +
+            esc(n.meigi) +
+            "</div>";
+          if (KS.kaita[i] && nokori <= 0) {
+            h +=
+              '<div class="ks-kaita" style="color:#1565c0;">記録しました（' +
+              esc(KS.kaita[i]) +
+              "）" +
+              (KS.undo[i]
+                ? ' <button class="btn btn-ghost btn-sm ks-torikeshi" style="width:auto;" ' +
+                  (KS.oshiteru ? "disabled " : "") +
+                  'onclick="ksTorikeshiGyou(' +
+                  i +
+                  ')">取り消す</button>'
+                : "") +
+              "</div></div>";
+            return;
+          }
+          // ★同じ 明細の 行が もう どこかの 行に 記録されている＝候補より 先に 見る（請求が 残っていなくても 出す）★
+          if (!zumiGaku) {
+            var zumiAll = ksZumiDoko(n);
+            if (zumiAll.length) {
+              h +=
+                '<div class="ks-zumi" style="color:#1565c0;">この明細の入金は記録済みです（' +
+                esc(zumiAll.join("・")) +
+                "）</div></div>";
+              return;
+            }
+          }
+          var nyu = { hi: n.hi, gaku: nokori, meigi: n.meigi };
+          var koho = Keshikomi.kohoTsukuru(nyu, kaisha);
+          if (zumiGaku > 0)
+            h +=
+              '<div style="color:#b00020;">途中まで記録しました（' +
+              esc(KS.kaita[i] || "") +
+              "）。残り " +
+              yen(nokori) +
+              " の候補です。</div>";
+          if (!koho.length) {
+            h +=
+              '<div class="ks-nashi" style="color:#555555;">合う請求がありません（入金の一覧から手で記録してください）</div></div>';
+            return;
+          }
+          koho.forEach(function (k, j) {
+            var nj = zumiGaku > 0 ? { zumi: [], kamo: [] } : Keshikomi.nijuu(n, ksKaiZenbu(k.co));
+            h += '<div class="ks-koho" style="margin-top:6px;">' + (j + 1) + ". ";
+            if (k.kind === "oosugi") {
+              h +=
+                esc(k.co) +
+                "：請求より " +
+                yen(k.oosugi) +
+                " 多い入金です。ここでは記録しません（入金の一覧から手で記録してください）</div>";
+              return;
+            }
+            h += ksKohoJi(k);
+            if (nj.zumi.length) {
+              h +=
+                '<div class="ks-zumi" style="color:#1565c0;">この明細の入金は記録済みです（' +
+                esc(
+                  nj.zumi
+                    .map(function (e) {
+                      return ksTsuki(e.month) + "の行 " + yen(e.gaku);
+                    })
+                    .join("・")
+                ) +
+                "）</div></div>";
+              return;
+            }
+            if (nj.kamo.length)
+              h +=
+                '<div class="ks-kamo" style="color:#b00020;">記録済みかも：' +
+                esc(
+                  nj.kamo
+                    .map(function (e) {
+                      var q = String(e.hi || "").split("-");
+                      return (
+                        ksTsuki(e.month) +
+                        "の行に " +
+                        Number(q[1]) +
+                        "/" +
+                        Number(q[2]) +
+                        " " +
+                        yen(e.gaku)
+                      );
+                    })
+                    .join("・")
+                ) +
+                "</div>";
+            if (!k.meigiAtari && Keshikomi.kanaSeiki(n.meigi).length >= Keshikomi.MEIGI_MIN)
+              h +=
+                '<label style="display:block;font-size:11px;margin-top:2px;"><input type="checkbox" class="ksOboe" data-i="' +
+                i +
+                '" data-j="' +
+                j +
+                '"> この名義を ' +
+                esc(k.co) +
+                " の振込名義として覚える</label>";
+            h +=
+              '<button class="btn btn-primary btn-sm ks-oshi" style="width:auto;margin-top:4px;" ' +
+              (KS.oshiteru ? "disabled " : "") +
+              'onclick="ksOshita(' +
+              i +
+              "," +
+              j +
+              ')">' +
+              (nj.kamo.length ? "それでも記録する" : "記録する") +
+              "</button></div>";
+          });
+          h += "</div>";
+        });
+        body.innerHTML = h;
+      }
+      // その 会社の 入金の 行を 倉庫から 全部 読む（消した 印の 行も・自分の 行だけ）
+      async function ksYominaosu(co) {
+        var r = await fetchAllQ(function (a, b) {
+          return SB.from("payments")
+            .select(KS_RETSU, { count: "exact" })
+            .eq("user_id", CURRENT_ACCOUNT)
+            .eq("company", co)
+            .order("id")
+            .range(a, b);
+        });
+        return r;
+      }
+      // 比べる 鍵（paid・入金日・メモ・回 を 揃えて JSON。回は 鍵の 順を 固定＝jsonb の 並べ替えに 負けない）
+      function ksHikakuKagi(rec, month) {
+        return JSON.stringify([
+          Math.round(Number(rec.paid) || 0),
+          hiDake(rec.paidDate),
+          String(rec.note || ""),
+          entriesOf(rec, month),
+        ]);
+      }
+      // この 画面の 控え（その 会社・自分の 行）と 倉庫の 行（消した 印の 無い 行）が 同じか
+      function ksOnaji(co, kuraRows) {
+        var mae = CURRENT_ACCOUNT + "::";
+        var mine = {};
+        Object.keys(PAYMENTS).forEach(function (k) {
+          if (k.indexOf(mae) !== 0) return;
+          var rest = k.slice(mae.length);
+          if (rest.slice(9) !== co) return;
+          var rec = PAYMENTS[k];
+          if (rec && rec.uid && rec.uid !== CURRENT_ACCOUNT) return; // 書いた 行は uid 無し＝自分（対立役 v4 注2）
+          mine[rest.slice(0, 7)] = ksHikakuKagi(rec || {}, rest.slice(0, 7));
+        });
+        var kura = {};
+        kuraRows.forEach(function (r) {
+          if (r.deleted_at) return;
+          kura[r.month] = ksHikakuKagi(payRecFromDb(r), r.month);
+        });
+        var a = Object.keys(mine).sort();
+        var b = Object.keys(kura).sort();
+        if (a.join("|") !== b.join("|")) return false;
+        return a.every(function (m) {
+          return mine[m] === kura[m];
+        });
+      }
+      // 倉庫の 値で その 会社の 控えを 置き換える（倉庫に 無い 鍵は 消す）
+      function ksOkikae(co, kuraRows, hajime) {
+        var mae = CURRENT_ACCOUNT + "::";
+        Object.keys(PAYMENTS).forEach(function (k) {
+          if (k.indexOf(mae) !== 0) return;
+          var rest = k.slice(mae.length);
+          if (rest.slice(9) !== co) return;
+          var rec = PAYMENTS[k];
+          if (rec && rec.uid && rec.uid !== CURRENT_ACCOUNT) return;
+          delete PAYMENTS[k];
+          PAY_KOSHIN[k] = hajime;
+        });
+        kuraRows.forEach(function (r) {
+          if (r.deleted_at) return;
+          var k = mae + r.month + "::" + co;
+          PAYMENTS[k] = payRecFromDb(r);
+          PAY_KOSHIN[k] = hajime;
+        });
+      }
+      // 書いた 行の 返り（本物は 配列・1行なら 物の 形で 返る 道も 受ける）＝何行 当たったかを 数える
+      function ksGyou(res) {
+        if (!res || res.error || res.data == null) return [];
+        return Array.isArray(res.data) ? res.data : [res.data];
+      }
+      // 回を 日の 順の 場所へ 入れる（最後の 回＝一番 新しい 日＝入金日・対立役 v1 任5）
+      function ksKaiIreru(mae, kai) {
+        var out = mae.slice();
+        var at = out.length;
+        while (at > 0 && String(out[at - 1].hi || "") > kai.hi) at--;
+        out.splice(at, 0, kai);
+        return out;
+      }
+      /* 記録する（月ごとに 古い 月から）。戻り＝{ ok, kawatta, kaita:[{month, gaku}], undo:[…], err } */
+      async function ksKiroku(co, ate, src, hi) {
+        var hajime = Date.now();
+        var y = await ksYominaosu(co);
+        if (y.error) {
+          cloudErr("入金の読み直し", y.error);
+          return { ok: false, kaita: [], undo: [], err: "yomenai" };
+        }
+        if (!ksOnaji(co, y.data)) {
+          ksOkikae(co, y.data, hajime);
+          return { ok: false, kawatta: true, kaita: [], undo: [] };
+        }
+        var byMonth = {};
+        y.data.forEach(function (r) {
+          byMonth[r.month] = r;
+        });
+        var kaita = [];
+        var undo = [];
+        for (var i = 0; i < ate.length; i++) {
+          var a = ate[i];
+          var kai = { gaku: a.gaku, hi: hi, src: src };
+          if (a.tesuryo > 0) kai.tesuryo = a.tesuryo;
+          kai = kaiTsukuru(kai, a.gaku, hi);
+          var r = byMonth[a.month];
+          var q;
+          var maeRec = null;
+          if (r && !r.deleted_at) {
+            maeRec = payRecFromDb(r);
+            var ent = ksKaiIreru(entriesOf(maeRec, a.month), kai);
+            q = SB.from("payments")
+              .update({
+                paid: Math.round(Number(r.paid) || 0) + a.gaku,
+                paid_date: ent[ent.length - 1].hi,
+                memo: r.memo || "",
+                entries: ent,
+                deleted_at: null,
+              })
+              .eq("id", r.id)
+              .eq("paid", r.paid);
+            q = r.paid_date == null ? q.is("paid_date", null) : q.eq("paid_date", r.paid_date);
+          } else if (r) {
+            // ★消した 印の 行を 蘇らせる＝今回の 回だけ（消した 回と メモを 戻さない・対立役 v4 注1）★
+            q = SB.from("payments")
+              .update({ paid: a.gaku, paid_date: hi, memo: "", entries: [kai], deleted_at: null })
+              .eq("id", r.id)
+              .eq("paid", r.paid);
+          } else {
+            q = SB.from("payments").insert({
+              user_id: CURRENT_ACCOUNT,
+              month: a.month,
+              company: co,
+              paid: a.gaku,
+              paid_date: hi,
+              memo: "",
+              entries: [kai],
+            });
+          }
+          var res = await q.select(KS_RETSU);
+          var d = ksGyou(res);
+          if (res.error || d.length !== 1) {
+            if (res.error) cloudErr("入金保存", res.error);
+            return { ok: false, kaita: kaita, undo: undo, err: res.error ? "kakenai" : "kawatta" };
+          }
+          res = { data: d };
+          var key = payKeyFor(a.month, co);
+          PAYMENTS[key] = payRecFromDb(res.data[0]);
+          payKaita(key);
+          kaita.push({ month: a.month, gaku: a.gaku, tesuryo: a.tesuryo || 0 });
+          undo.push({ month: a.month, id: res.data[0].id, mae: maeRec, ato: res.data[0] });
+        }
+        return { ok: true, kaita: kaita, undo: undo };
+      }
+      // 取り消し＝同じ 門（倉庫の 行が 書いた 直後の 値と 同じ 時だけ 戻す・対立役 v2 注2）
+      async function ksTorikeshi(co, undo) {
+        var y = await ksYominaosu(co);
+        if (y.error) {
+          cloudErr("入金の読み直し", y.error);
+          return false;
+        }
+        var byId = {};
+        y.data.forEach(function (r) {
+          byId[r.id] = r;
+        });
+        var dame = undo.some(function (u) {
+          var r = byId[u.id];
+          return (
+            !r ||
+            ksHikakuKagi(payRecFromDb(r), u.month) !== ksHikakuKagi(payRecFromDb(u.ato), u.month)
+          );
+        });
+        if (dame) {
+          ksOkikae(co, y.data, Date.now());
+          renderPayments();
+          updatePayBadge();
+          toast("別の端末で入金が変わったので取り消せません（一覧を読み直しました）");
+          return false;
+        }
+        for (var i = undo.length - 1; i >= 0; i--) {
+          var u = undo[i];
+          var res;
+          if (!u.mae)
+            res = await SB.from("payments")
+              .delete()
+              .eq("id", u.id)
+              .eq("paid", u.ato.paid)
+              .select("id");
+          else
+            res = await SB.from("payments")
+              .update({
+                paid: u.mae.paid,
+                paid_date: u.mae.paidDate || null,
+                memo: u.mae.note || "",
+                entries: u.mae.entries,
+              })
+              .eq("id", u.id)
+              .eq("paid", u.ato.paid)
+              .select(KS_RETSU);
+          var key = payKeyFor(u.month, co);
+          var d = ksGyou(res);
+          if (res.error || d.length !== 1) {
+            if (res.error) cloudErr("入金の取り消し", res.error);
+            toast(
+              "取り消しが途中で止まりました（" + ksTsuki(u.month) + "）。一覧を確かめてください"
+            );
+            renderPayments();
+            updatePayBadge();
+            return false;
+          }
+          if (!u.mae) delete PAYMENTS[key];
+          else PAYMENTS[key] = payRecFromDb(d[0]);
+          payKaita(key);
+        }
+        renderPayments();
+        updatePayBadge();
+        toast("取り消しました");
+        return true;
+      }
+      // 名義を 覚える＝その 1社だけ 書く（全社を 書く saveMaster を 使わない・対立役 v1 任4）
+      async function ksMeigiOboeru(co, meigi) {
+        var m = MASTER[co];
+        if (!m || !m._dbid) return;
+        var nm = Keshikomi.kanaSeiki(meigi);
+        var ima = (m.furikomiMeigi || []).map(Keshikomi.kanaSeiki);
+        if (!nm || ima.indexOf(nm) >= 0) return;
+        m.furikomiMeigi = (m.furikomiMeigi || []).concat([meigi]);
+        var u = await SB.from("companies").update(companyToDb(co)).eq("id", m._dbid);
+        if (u.error) cloudErr("振込名義の保存", u.error);
+      }
+      async function ksOshita(i, j) {
+        if (!KS || KS.oshiteru) return;
+        if (yomenaiTomeru(["payments"], "入金の 保存")) return;
+        var n = KS.nyukin[i];
+        if (!n) return;
+        var zumiGaku = KS.kiroku[i] || 0;
+        var nyu = { hi: n.hi, gaku: n.gaku - zumiGaku, meigi: n.meigi };
+        var koho = Keshikomi.kohoTsukuru(nyu, ksKaisha());
+        var k = koho[j];
+        if (!k || !k.ate.length) {
+          ksKaku();
+          return;
+        }
+        var oboe = document.querySelector(
+          '#ksBody .ksOboe[data-i="' + i + '"][data-j="' + j + '"]'
+        );
+        var oboeru = !!(oboe && oboe.checked);
+        KS.oshiteru = true;
+        ksKaku();
+        toastUndoKesu();
+        var src = Keshikomi.srcTsukuru(n);
+        var r;
+        try {
+          r = await ksKiroku(k.co, k.ate, src, n.hi);
+        } finally {
+          KS.oshiteru = false;
+        }
+        if (r.kaita.length) {
+          // 銀行に 入った 額の うち 書けた 分（こちら持ちの 手数料は 入った 額に 入らない）
+          var g = r.kaita.reduce(function (t, x) {
+            return t + x.gaku - (x.tesuryo || 0);
+          }, 0);
+          KS.kiroku[i] = r.ok ? n.gaku : zumiGaku + g; // 全部 書けた＝この 明細の 行は 済み
+          KS.kaita[i] =
+            k.co +
+            " " +
+            r.kaita
+              .map(function (x) {
+                return ksTsuki(x.month) + "の行 " + yen(x.gaku);
+              })
+              .join("・");
+        }
+        if (r.ok && oboeru) await ksMeigiOboeru(k.co, n.meigi);
+        renderPayments();
+        updatePayBadge();
+        ksKaku();
+        if (r.kawatta) {
+          toast(
+            "別の端末で入金が変わっていました。読み直したので、候補を見直してからもう一度押してください"
+          );
+          return;
+        }
+        if (!r.ok) {
+          if (r.kaita.length)
+            toast(
+              ksTsuki(r.kaita[r.kaita.length - 1].month) +
+                "まで記録しました。その先は記録できていません（残りの候補を見て押し直してください）"
+            );
+          else if (r.err === "kawatta")
+            toast("別の端末で入金が変わっていました。もう一度読み直してから押してください");
+          return;
+        }
+        KS.undo[i] = { co: k.co, undo: r.undo };
+        ksKaku();
+        var ks0 = KS;
+        toastUndo(k.co + " に入金を記録しました（" + yen(n.gaku) + "）", function () {
+          if (KS === ks0) ksTorikeshiGyou(i);
+        });
+      }
+      async function ksTorikeshiGyou(i) {
+        if (!KS || KS.oshiteru || !KS.undo[i]) return;
+        var u = KS.undo[i];
+        toastUndoKesu();
+        KS.oshiteru = true;
+        ksKaku();
+        var ok;
+        try {
+          ok = await ksTorikeshi(u.co, u.undo);
+        } finally {
+          KS.oshiteru = false;
+        }
+        if (ok) {
+          delete KS.kiroku[i];
+          delete KS.kaita[i];
+          delete KS.undo[i];
+        }
+        ksKaku();
       }
       function kyouNoHi() {
         var d = new Date();
@@ -11913,6 +12694,30 @@
           '<div style="font-size:10px;color:#555555;margin:2px 0 8px 26px;line-height:1.6;">' +
           "前回ご請求額・ご入金額・繰越金額・今回ご請求額 が紙とExcelに出ます。入金は、払ってもらった請求書の月の行に記録してください。" +
           "前回の請求が無い会社は「前回の請求はありません」と出ます（0円とは書きません）。</div>" +
+          /* ★入金の 消し込み★ 2026-11-03（司さん「CSV→候補→人が押す」・手数料は 会社ごとに 先方持ち／こちら持ち） */
+          '<div class="frow"><div class="flabel">振込名義（銀行の明細に出るカナ・読点区切りで複数）</div>' +
+          '<input class="finput" id="mFurikomiMeigi" ' +
+          NOFILL +
+          ' placeholder="ﾔﾏﾀﾞｹﾝｾﾂ" value="' +
+          esc((m.furikomiMeigi || []).join("、")) +
+          '" onchange="setFurikomiMeigi(\'' +
+          esc(co) +
+          "',this.value)\"></div>" +
+          '<div class="frow"><div class="flabel">振込手数料（先方が差し引いて払った時）</div>' +
+          '<div class="align-row">' +
+          '<button type="button" class="align-btn' +
+          (m.tesuryoFutan === "kochira" ? "" : " on") +
+          '" onclick="setMasterField(\'' +
+          esc(co) +
+          "','tesuryoFutan','')\">先方持ち（差は未入金で残る）</button>" +
+          '<button type="button" class="align-btn' +
+          (m.tesuryoFutan === "kochira" ? " on" : "") +
+          '" onclick="setMasterField(\'' +
+          esc(co) +
+          "','tesuryoFutan','kochira')\">こちら持ち（差を手数料として消す）</button>" +
+          "</div></div>" +
+          '<div style="font-size:10px;color:#555555;margin:-4px 0 8px;line-height:1.6;">' +
+          "取り決めが無ければ振込手数料は払う側（先方）の負担です（民法485条）。こちら持ちにすると、銀行の明細を読んだ時に 1〜1,100円の差を振込手数料（当方負担）として消します。</div>" +
           /* ★内税/外税（値は前から在ったが 切り替える所が無かった＝到達しない分岐だった）★ */
           '<div class="frow"><div class="flabel">消費税の扱い</div>' +
           '<div class="align-row">' +
@@ -12157,6 +12962,19 @@
         MASTER[co][field] = v;
         saveMaster();
         toastDebounced("保存しました（請求書に反映）");
+      }
+      function meigiWakeru(v) {
+        return String(v || "")
+          .split(/[、,，\n]/)
+          .map(function (s) {
+            return s.trim();
+          })
+          .filter(Boolean);
+      }
+      function setFurikomiMeigi(co, v) {
+        MASTER[co].furikomiMeigi = meigiWakeru(v);
+        saveMaster();
+        toastDebounced("振込名義を保存しました");
       }
       function setNoteGroups(co, v) {
         MASTER[co].noteGroups = v
