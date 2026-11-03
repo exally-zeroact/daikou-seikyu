@@ -12352,6 +12352,7 @@
       }
       /* month＝紙の 月・onlyCo＝1社（空＝全社）・what＝止めた 時の 字。通して よければ true */
       async function yomiNaoshiMon(month, onlyCo, what) {
+        hakkoObiKesu(); // 前の 押しの 帯を 残さない（本番前の 対立役 注2）
         if (_entrySavingP) {
           try {
             await _entrySavingP;
@@ -12492,7 +12493,7 @@
           h +=
             '<div class="hakko-obi-sec"><b>メーターの 料金が まだ 入っていない 明細が ' +
             r.mitei.length +
-            "件 あります</b>（このままでは 金額を 計算 できません。一覧で 金額を 入れてから 出してください。0円で 良い 乗車なら 一覧で 0 と 入れて 保存してください）<ul>" +
+            "件 あります</b>（このままでは 金額を 計算 できません。一覧で 金額を 入れてから 出してください。0円で 良い 乗車なら 一覧で 0 と 入れて 保存、すでに 0 の 行は「0円（料金なし）で 決める」に 印を 付けて 保存してください）<ul>" +
             r.mitei
               .map(function (x) {
                 return (
@@ -12949,9 +12950,23 @@
         //   ＝ 一覧から1件 押すと ★「明細を編集」と「閉じる」だけの空の画面★ が出る＝直せない。
         //   構文は正しいので lint も試験も緑のまま通っていた。
         //   見張り: tests/dead-expression.test.js（誰にも渡らない式が1件でも在れば赤）
+        // ★0円と 決める 印の 欄★ 2026-11-04（前の 版で 空を 0 に された メーター行は 0 と 打っても 印が 付かない・本番前の 対立役 注1）
+        //   出すのは メーターの 行で 額が 0 で メーターの 料金（dk_meter_yen）も 無い 時 だけ
+        var zeroKimeHtml = "";
+        if (
+          (r.dk_source || r.dk_ref) &&
+          Number(r.金額) === 0 &&
+          r.金額 !== "" &&
+          (r.dk_meter_yen === "" || r.dk_meter_yen == null)
+        )
+          zeroKimeHtml =
+            '<label class="ai-kakunin"><input type="checkbox" id="ed__zero0"' +
+            (r.ryokin_0_kimeta === true ? " checked" : "") +
+            "> この乗車は 0円（料金なし）で 決める</label>";
         document.getElementById("modalBody").innerHTML =
           /* ★中の言葉(id)は客に見せない★ 2026-08-21 */
           fields +
+          zeroKimeHtml +
           '<div style="display:flex;gap:8px;margin-top:14px;">' +
           '<button class="btn btn-danger btn-sm" style="flex:1;" onclick="deleteRow(\'' +
           r.id +
@@ -13003,7 +13018,13 @@
         // ★メーターの 行に 客が 0 と 打った＝0円と 決めた 印★（料金未定の 見張りが 通す・本番前の 対立役 注1）
         if ((r.dk_source || r.dk_ref) && document.getElementById("ed_金額")) {
           // 前から 0 の 行（前の 版で 空を 0 に された 行）の 行き先だけ 直しても 印は 付けない
-          if (r.金額 === 0 && maeKingaku !== 0 && maeKingaku !== "0") r.ryokin_0_kimeta = true;
+          var zeroEl = document.getElementById("ed__zero0");
+          if (zeroEl) {
+            // 前から 0 の 行＝客が 欄に 印を 付けた 時 だけ（行き先 だけ 直しても 付かない）
+            if (r.金額 === 0 && zeroEl.checked) r.ryokin_0_kimeta = true;
+            else delete r.ryokin_0_kimeta;
+          } else if (r.金額 === 0 && maeKingaku !== 0 && maeKingaku !== "0")
+            r.ryokin_0_kimeta = true;
           else if (r.金額 !== 0) delete r.ryokin_0_kimeta;
         }
         var upd = meisaiToDb(r);

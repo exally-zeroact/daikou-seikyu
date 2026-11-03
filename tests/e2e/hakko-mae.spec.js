@@ -402,3 +402,34 @@ test("★前に 0 に された 行（額0・料金も 無い）の 行き先だ
   await expect(page.locator("#hakkoObi")).toContainText("料金が まだ 入っていない 明細が 1件");
   expect(await daicho(page)).toBe(0);
 });
+
+test("★すでに 0 の メーター行は「0円で 決める」に 印を 付けて 保存すれば 出せる・入金が 読めない 押しで 前の 帯は 消える★", async ({
+  page,
+}) => {
+  const mae0 = gyou("m2", "A社", "2026-11-04", 0, true);
+  mae0.extra.dk_meter_yen = null;
+  await open(page, { carry: ["B社"], meisai: [mae0, gyou("t2", "B社", "2026-11-03", 3000)] });
+  expect(await dasu(page, "A社")).toBe(false);
+  await expect(page.locator("#hakkoObi")).toContainText("0円（料金なし）で 決める");
+  await page.locator('.nav-item[data-scr="list"]').click();
+  await page.evaluate(() => openEdit("m2"));
+  await page.waitForTimeout(400);
+  await page.locator("#ed__zero0").check();
+  await page.locator("#modalBody button", { hasText: "保存" }).click();
+  await page.waitForTimeout(1200);
+  const kura = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("__fake_supa_db__")).tables.meisai.find((r) => r.id === "m2")
+  );
+  expect(kura.extra.ryokin_0_kimeta).toBe(true);
+  await page.locator('.nav-item[data-scr="billing"]').click();
+  expect(await dasu(page, "A社")).toBe(true);
+  // 読み直しの 帯 → 次の 押しで 入金が 読めない → 前の 帯は 消える
+  await kuraNiTasu(page, gyou("m9", "B社", "2026-11-05", 4500, true));
+  expect(await dasu(page, "B社")).toBe(false);
+  await expect(page.locator("#hakkoObi")).toContainText("もう一度 押してください");
+  await page.evaluate(() => {
+    window.__FAKE_FAIL_TABLES__ = ["payments"];
+  });
+  expect(await dasu(page, "B社")).toBe(false);
+  await expect(page.locator("#hakkoObi")).toBeHidden();
+});
