@@ -21,11 +21,25 @@ const handler = require("../api/excel.js");
 const realFetch = globalThis.fetch;
 let calls;
 
-function fakeFetch({ status = 200, body = [], contentRange = null, throws = null }) {
+function fakeFetch({
+  status = 200,
+  body = [],
+  contentRange = null,
+  throws = null,
+  kagiAru = true,
+}) {
   calls = [];
   globalThis.fetch = async (url, opts) => {
     calls.push({ url: String(url), opts });
     if (throws) throw new Error(throws);
+    // 0件の 時だけ 引く「鍵が 在るか」（2026-11-03）
+    if (String(url).includes("/rest/v1/rpc/kagi_aru"))
+      return {
+        ok: kagiAru !== "error",
+        status: kagiAru === "error" ? 400 : 200,
+        headers: { get: () => null },
+        json: async () => kagiAru,
+      };
     return {
       ok: status >= 200 && status < 300,
       status,
@@ -55,11 +69,11 @@ function fakeRes() {
   };
 }
 
-async function call(query) {
+async function call(query, kaisu = 1) {
   const res = fakeRes();
   await handler({ query }, res);
-  // 偽物が1回だけ呼ばれ、倉庫の RPC の口へ行っている（本物の fetch に抜けていない）
-  expect(calls.length).toBe(1);
+  // 偽物が決めた回数だけ呼ばれ、倉庫の RPC の口へ行っている（本物の fetch に抜けていない）
+  expect(calls.length).toBe(kaisu);
   expect(new URL(calls[0].url).hostname.endsWith(".supabase.co")).toBe(true);
   expect(calls[0].url).toContain("/rest/v1/rpc/");
   return res.out;
@@ -94,9 +108,26 @@ describe("api/excel.js 読み切り", () => {
 
   it("0件（*/0）は「データがありません」でエラーにしない", async () => {
     fakeFetch({ body: [], contentRange: "*/0" });
-    const o = await call({ token: "t", sheet: "meisai" });
+    const o = await call({ token: "t", sheet: "meisai" }, 2);
     expect(o.body).toContain("データがありません");
     expect(o.body).not.toContain("エラー");
+  });
+
+  it("0件で 鍵が 止まっている（kagi_aru＝false）時は「止まっています」・鍵は URL でなく body", async () => {
+    fakeFetch({ body: [], contentRange: "*/0", kagiAru: false });
+    const o = await call({ token: "t", sheet: "meisai" }, 2);
+    expect(o.body).toContain("この鍵は止まっています");
+    expect(o.body).not.toContain("データがありません");
+    expect(calls[1].url).toMatch(/\/rest\/v1\/rpc\/kagi_aru$/);
+    expect(calls[1].opts.method).toBe("POST");
+    expect(JSON.parse(calls[1].opts.body)).toEqual({ token: "t" });
+  });
+
+  it("鍵が 在るかを 訊けない 時は 今まで 通り「データがありません」（止まったと 言い切らない）", async () => {
+    fakeFetch({ body: [], contentRange: "*/0", kagiAru: "error" });
+    const o = await call({ token: "t", sheet: "meisai" }, 2);
+    expect(o.body).toContain("データがありません");
+    expect(o.body).not.toContain("止まって");
   });
 
   it("上限で切れた（206・0-999/1477）時は途中の表を出さずエラー", async () => {
@@ -185,14 +216,15 @@ describe("api/excel.js 表の名前", () => {
     }
   );
 
-  it("画面の xlsx が投げる名前は全部、その名前の RPC を引く", async () => {
+  // ★2026-11-03★ Webクエリ入りの xlsx を作る関数（downloadExcelWorkbook）は 呼び元 0 で 消した＝
+  //   今の 画面は この口を 指す xlsx を 作らない。06-16〜21 に 配った 古い xlsx が 投げる 名前
+  //   （meisai/payments/summary/companies＝sh.fn.replace("export_", "")）は 上の it.each で 守る。
+  it("画面は もう Webクエリ入りの xlsx を 作らない（古い 名前は 上で 守る）", async () => {
     const here = dirname(fileURLToPath(import.meta.url));
     const html = readFileSync(join(here, "..", "daikou-seikyu.html"), "utf8");
-    // 画面は sh.fn.replace("export_", "") を sheet に入れる（_wqInject）
-    expect(html).toContain('sh.fn.replace("export_", "")');
     const fns = [...html.matchAll(/fn:\s*"(export_[a-z]+)"/g)].map((m) => m[1]);
-    expect(fns.length).toBeGreaterThanOrEqual(4);
-    for (const fn of new Set(fns)) {
+    expect(fns).toEqual([]);
+    for (const fn of ["export_meisai", "export_payments", "export_summary", "export_companies"]) {
       fakeFetch({ body: [row(1)], contentRange: "0-0/1" });
       await call({ token: "t", sheet: fn.replace("export_", "") });
       expect(rpcOf(calls[0].url)).toBe(fn);

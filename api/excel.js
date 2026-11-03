@@ -88,7 +88,35 @@ module.exports = async (req, res) => {
         );
     }
 
-    if (!rows.length) return res.status(200).send(page("<tr><td>データがありません</td></tr>"));
+    if (!rows.length) {
+      // ★止めた 鍵を「データがありません」で 黙らせない★ 2026-11-03（外から読む口で 鍵を 作り直す・止める が できた）
+      //   古い export_* は 無い 鍵にも 200 [] を 返す＝0件の 時だけ 鍵が 在るかを 訊く。答えの 列は 変えない。
+      //   訊けなかった 時は 今まで 通り（止まったと 言い切れない 物を 止まったと 言わない）。鍵は body で 渡す。
+      let aru = null;
+      try {
+        const k = await fetch(SUPABASE_URL + "/rest/v1/rpc/kagi_aru", {
+          method: "POST",
+          headers: {
+            apikey: SUPABASE_ANON,
+            Authorization: "Bearer " + SUPABASE_ANON,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ token: token }),
+        });
+        if (k.ok) aru = await k.json();
+      } catch (_) {
+        aru = null;
+      }
+      if (aru === false)
+        return res
+          .status(200)
+          .send(
+            page(
+              "<tr><td>エラー: この鍵は止まっています（アプリの設定で鍵を作り直し、新しい鍵で取り直してください）</td></tr>"
+            )
+          );
+      return res.status(200).send(page("<tr><td>データがありません</td></tr>"));
+    }
 
     const cols = Object.keys(rows[0]);
     let html =

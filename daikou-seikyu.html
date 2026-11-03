@@ -3008,6 +3008,9 @@
         <button class="seg-btn" data-seg="template" onclick="showSettingsSeg('template')">
           テンプレート
         </button>
+        <button class="seg-btn" data-seg="yomu" onclick="showSettingsSeg('yomu')">
+          外から読む
+        </button>
       </div>
 
       <!-- 会社マスタ -->
@@ -3318,6 +3321,49 @@
       </div>
       <!-- /テンプレート -->
 
+      <!-- 外から読むだけの口（2026-11-03） -->
+      <div class="seg-panel" data-seg="yomu">
+        <div class="scr-sub">
+          会計ソフトや AI
+          が、鍵を使って<b>明細・請求・入金・会社を読むだけ</b>できます（書き換えはできません）。鍵を知っている人は誰でも読めるので、渡す相手を選んでください。URL
+          に鍵を入れると記録に残ることがあります＝心配な時は作り直してください。
+        </div>
+        <div class="card">
+          <div class="card-label">鍵</div>
+          <div class="scr-sub" id="yomuKagiJotai">鍵を確かめています…</div>
+          <div id="yomuKagiMieru" style="display: none">
+            <div class="scr-sub">新しい鍵（この画面を離れると、もう全部は見えません）</div>
+            <input class="finput" id="yomuKagi" readonly />
+            <button class="btn btn-ghost btn-sm" onclick="yomuCopy('yomuKagi')">鍵をコピー</button>
+          </div>
+          <div class="iqy-row">
+            <button class="btn btn-sm" id="yomuDasuBtn" onclick="yomuKagiDasu(this)">
+              鍵を出す
+            </button>
+            <button
+              class="btn btn-ghost btn-sm"
+              id="yomuTomeruBtn"
+              style="display: none"
+              onclick="yomuKagiTomeru(this)"
+            >
+              鍵を止める
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-label">読み方（会計ソフト・AI に渡す説明）</div>
+          <textarea
+            class="finput"
+            id="yomuRei"
+            rows="7"
+            readonly
+            style="resize: vertical"
+          ></textarea>
+          <button class="btn btn-ghost btn-sm" onclick="yomuCopy('yomuRei')">説明をコピー</button>
+        </div>
+      </div>
+      <!-- /外から読む -->
+
       <div style="margin-top: 22px; border-top: 1px solid #eaeff5; padding-top: 14px">
         <div class="scr-sub" id="acctLine" style="margin-bottom: 8px"></div>
         <button class="btn btn-ghost btn-sm" onclick="doLogout()">ログアウト</button>
@@ -3558,6 +3604,7 @@
     <!-- 定義駆動 帳票エンジン（移植可能な共通モジュール／DOM非依存） -->
     <script src="meisai-engine.js"></script>
     <script src="lib/keshikomi.js"></script>
+    <script src="lib/nyukin-kai.js"></script>
     <!-- 請求書のクリーンなベクターPDF出力（日本語フォント埋込・複数ページ／pdf-lib等は初回PDF時のみ遅延ロード） -->
     <!-- ★字体を 軽くする（使う字だけ 形を 残す）★（司さん 2026-09-05「全アプリ共通やろが」）
          ★invoice-pdf.js より 先に 読む★／★正本は Rakunally の lib/font-slim.js★ -->
@@ -4139,122 +4186,128 @@
         return ok;
       }
       /* ===================================================================
-   Excel自動連携：ユーザー個人トークン→専用URL（あなたのデータだけ・鍵もヘッダーも不要）
+   ★★外から読むだけの口（設定）★★ 2026-11-03（司さん 11-02「外へ数を出す口＝読むだけ」）
+   会計ソフト・客の AI が 鍵で /api/yomu を 読む（明細・請求・入金・会社・書く道は 無い）。
+   ★鍵は 押した 時だけ 作る★（開く だけでは 作らない＝止めても 次に 開いた 時に 生まれない・対立役 v2 注8）
+   ★作り直す・止めるは 倉庫の 関数だけ★（kagi_tsukurinaosu／kagi_tomeru・表へ 直に 書く 権限は 取り上げた）
+   ★止めたのに「止めました」と 嘘を 言わない★ 止めた 件数が 1 で なければ 失敗を 出す（対立役 v2 注3）
+   前の Excel自動連携（開くだけで 鍵を 作る 関数・.iqy・URL の 欄・5シートの xlsx）は 呼び元 0 で 消した（古い xlsx/iqy は api/excel.js が 読む）
    =================================================================== */
-      var EXPORT_TOKEN = null;
-      async function ensureExportToken() {
-        if (EXPORT_TOKEN) return EXPORT_TOKEN;
+      function yomuMieru(id, on) {
+        var el = document.getElementById(id);
+        if (el) el.style.display = on ? "" : "none";
+      }
+      function yomuRei(kagi) {
+        var k = kagi || "（鍵）";
+        var u = location.origin + "/api/yomu";
+        return (
+          "読むだけの口（ダイコメ請求）\n" +
+          "GET " +
+          u +
+          "?hyo=seikyu&kata=json\n" +
+          "見出し Authorization: Bearer " +
+          k +
+          "\n" +
+          "hyo＝meisai（明細）／seikyu（月×会社の請求・今月分は税込）／nyukin（入金を1回1行）／kaisha（会社）\n" +
+          "kara=YYYY-MM・made=YYYY-MM で月を絞れる。kata=csv で CSV（UTF-8）。\n" +
+          "答えの setsumei に各表の意味。鍵が違う・止めた時は 401。"
+        );
+      }
+      async function renderYomuKuchi() {
+        var el = document.getElementById("yomuKagiJotai");
+        if (!el) return;
+        yomuMieru("yomuKagiMieru", false);
+        el.textContent = "鍵を確かめています…";
         var q = await SB.from("export_tokens")
-          .select("token")
+          .select("token, created_at")
           .eq("user_id", CURRENT_ACCOUNT)
           .maybeSingle();
-        if (!q.error && q.data && q.data.token) {
-          EXPORT_TOKEN = q.data.token;
-          return EXPORT_TOKEN;
-        }
-        var ins = await SB.from("export_tokens").insert({}).select("token").single();
-        if (ins.error) {
-          cloudErr("Excel連携キー", ins.error);
-          return null;
-        }
-        EXPORT_TOKEN = ins.data.token;
-        return EXPORT_TOKEN;
-      }
-      async function renderExcelLink() {
-        var mEl = document.getElementById("exlMeisai");
-        var pEl = document.getElementById("exlPay");
-        var sEl = document.getElementById("exlSummary");
-        var cEl = document.getElementById("exlCompanies");
-        if (!mEl) return;
-        var t = await ensureExportToken();
-        if (!t) {
-          mEl.value = "（取得に失敗・通信を確認）";
-          if (pEl) pEl.value = "";
-          if (sEl) sEl.value = "";
-          if (cEl) cEl.value = "";
+        if (q.error) {
+          el.textContent = "鍵が在るかを読めませんでした（通信を確認して、もう一度開いてください）";
+          yomuMieru("yomuDasuBtn", false);
+          yomuMieru("yomuTomeruBtn", false);
           return;
         }
-        // 鍵(token)は1個。ページごとにエンドポイントを変える＝Excelの別シートになる
-        var base = SUPABASE_URL + "/rest/v1/rpc/";
-        var key = "?token=" + t + "&apikey=" + SUPABASE_ANON;
-        mEl.value = base + "export_meisai" + key;
-        if (pEl) pEl.value = base + "export_payments" + key;
-        if (sEl) sEl.value = base + "export_summary" + key;
-        if (cEl) cEl.value = base + "export_companies" + key;
+        var aru = !!(q.data && q.data.token);
+        el.textContent = aru
+          ? "鍵：あり（" +
+            String(q.data.token).slice(0, 4) +
+            "…・" +
+            String(q.data.created_at || "").slice(0, 10) +
+            " に作成）。外から読めます。"
+          : "鍵：ありません（外からは読めません）";
+        var b = document.getElementById("yomuDasuBtn");
+        if (b) b.textContent = aru ? "鍵を作り直す" : "鍵を出す";
+        yomuMieru("yomuDasuBtn", true);
+        yomuMieru("yomuTomeruBtn", aru);
+        var r = document.getElementById("yomuRei");
+        if (r) r.value = yomuRei(null);
       }
-      function copyExl(id) {
+      async function yomuKagiDasu(btn) {
+        var tsukurinaoshi = btn && btn.textContent.indexOf("作り直す") >= 0;
+        if (
+          tsukurinaoshi &&
+          !confirm(
+            "鍵を作り直すと、今の鍵はすぐ使えなくなります（今の鍵を入れた会計ソフト・AI・Excel は読めなくなります）。作り直しますか？"
+          )
+        )
+          return;
+        if (btn) btn.disabled = true;
+        try {
+          var r = await SB.rpc("kagi_tsukurinaosu");
+          if (r.error || !r.data) {
+            toast("鍵を出せませんでした（" + ((r.error && r.error.message) || "答えが空") + "）");
+            return;
+          }
+          await renderYomuKuchi();
+          var k = document.getElementById("yomuKagi");
+          if (k) k.value = String(r.data);
+          var rei = document.getElementById("yomuRei");
+          if (rei) rei.value = yomuRei(String(r.data));
+          yomuMieru("yomuKagiMieru", true);
+          toast(tsukurinaoshi ? "鍵を作り直しました（古い鍵は止まりました）" : "鍵を出しました");
+        } finally {
+          if (btn) btn.disabled = false;
+        }
+      }
+      async function yomuKagiTomeru(btn) {
+        if (
+          !confirm("鍵を止めると、外からは読めなくなります（会計ソフト・AI・Excel）。止めますか？")
+        )
+          return;
+        if (btn) btn.disabled = true;
+        try {
+          var r = await SB.rpc("kagi_tomeru");
+          if (r.error || r.data !== 1) {
+            toast(
+              "鍵を止められませんでした（" +
+                ((r.error && r.error.message) || "止めた数 " + r.data) +
+                "）。もう一度開いて確かめてください"
+            );
+            await renderYomuKuchi();
+            return;
+          }
+          await renderYomuKuchi();
+          toast("鍵を止めました");
+        } finally {
+          if (btn) btn.disabled = false;
+        }
+      }
+      function yomuCopy(id) {
         var el = document.getElementById(id);
-        if (!el) return;
-        el.focus();
-        el.select();
-        el.setSelectionRange(0, 99999);
+        if (!el || !el.value) return;
         function done() {
           toast("コピーしました");
         }
-        if (navigator.clipboard && navigator.clipboard.writeText) {
+        if (navigator.clipboard && navigator.clipboard.writeText)
           navigator.clipboard.writeText(el.value).then(done, function () {
-            try {
-              document.execCommand("copy");
-              done();
-            } catch (e) {
-              toast("URLを長押しでコピーしてください");
-            }
+            el.select();
+            toast("選んだ字を長押しでコピーしてください");
           });
-        } else {
-          try {
-            document.execCommand("copy");
-            done();
-          } catch (e) {
-            toast("URLを長押しでコピーしてください");
-          }
+        else {
+          el.select();
+          toast("選んだ字を長押しでコピーしてください");
         }
-      }
-      // 自動更新ファイル(.iqy)生成 ─ ダブルクリックでExcelに自動更新テーブルを作る。
-      // /api/excel(JSON→HTML表)を指す3行テキスト。SharePointと同型・壊れようがない。
-      async function downloadIqy(sheet, label, btn) {
-        var old = btn ? btn.textContent : "";
-        if (btn) {
-          btn.disabled = true;
-          btn.textContent = "作成中…";
-        }
-        try {
-          var token = await ensureExportToken();
-          if (!token) {
-            toast("鍵の取得に失敗（通信を確認）");
-            return;
-          }
-          var url = location.origin + "/api/excel?token=" + token + "&sheet=" + sheet;
-          var iqy =
-            "WEB\r\n1\r\n" +
-            url +
-            "\r\n\r\nSelection=AllTables\r\nFormatting=None\r\nPreFormattedTextToColumns=True\r\n" +
-            "ConsecutiveDelimitersAsOne=True\r\nSingleBlockTextImport=False\r\n" +
-            "DisableDateRecognition=False\r\nDisableRedirections=False\r\n";
-          var blob = new Blob([iqy], { type: "text/plain" });
-          var a = document.createElement("a");
-          a.href = URL.createObjectURL(blob);
-          a.download = "ダイコメ_" + label + "_自動更新.iqy";
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(function () {
-            URL.revokeObjectURL(a.href);
-            a.remove();
-          }, 1500);
-          toast(label + "の自動更新ファイルを保存しました");
-        } catch (e) {
-          toast("作成に失敗：" + (e && e.message ? e.message : e));
-        } finally {
-          if (btn) {
-            btn.disabled = false;
-            btn.textContent = old;
-          }
-        }
-      }
-      function toggleExlHelp(btn) {
-        var h = document.getElementById("exlHelp");
-        var open = h.style.display !== "none";
-        h.style.display = open ? "none" : "block";
-        btn.textContent = (open ? "▼" : "▲") + " 貼り方（図つき・初回だけ）";
       }
 
       /* ===================================================================
@@ -6283,128 +6336,6 @@
           im.src = dataURL;
         });
       }
-      async function downloadExcelWorkbook(btn) {
-        if (typeof XLSX === "undefined") {
-          toast("Excelライブラリの読み込み待ちです。少し待って再度押してください");
-          return;
-        }
-        var old = btn ? btn.textContent : "";
-        if (btn) {
-          btn.disabled = true;
-          btn.textContent = "作成中…";
-        }
-        try {
-          var sumRows = _exlSummaryRows();
-          var sheets = [
-            { name: "明細", fn: "export_meisai", aoa: _exlMeisaiAoa() },
-            { name: "入金", fn: "export_payments", aoa: _exlPayAoa(sumRows) },
-            { name: "集計", fn: "export_summary", aoa: _exlSummaryAoa(sumRows) },
-            { name: "会社", fn: "export_companies", aoa: _exlCompaniesAoa() },
-          ];
-          var invData = _exlInvoiceData();
-          // ロゴをアプリ表示と一致させる：自然なアスペクト比で「箱(幅max×高max26mm)」に収めた実寸を算出。
-          // これで Excel の force-square(正方形化)バグを解消し、アプリと同じ大きさ・形にする。
-          if (invData.hanko && invData.hanko.logo && invData.hanko.logo.dataURL) {
-            try {
-              var _lg = invData.hanko.logo;
-              var _dim = await _containLogoMm(
-                _lg.dataURL,
-                _lg.boxMaxWmm || 40,
-                _lg.boxMaxHmm || 26
-              );
-              _lg.wMm = _dim.wMm;
-              _lg.hMm = _dim.hMm;
-            } catch (e) {
-              // _containLogoMmは必ずresolveするのでここは通常来ないが、念のため非正方形の箱で埋める
-              _lg.hMm = Math.min(_lg.boxMaxWmm || 40, _lg.boxMaxHmm || 26);
-            }
-          }
-          var hasInvoice = invData.aoa.length > 0;
-          var wb = XLSX.utils.book_new();
-          // データ4シート（自動更新の対象）
-          sheets.forEach(function (sh) {
-            var ws = XLSX.utils.aoa_to_sheet(sh.aoa);
-            ws["!cols"] = autoColWidths(sh.aoa);
-            XLSX.utils.book_append_sheet(wb, ws, sh.name);
-          });
-          // 目次シート（別シート）＝会社×月を選んでタップで請求書へ飛ぶ。請求書シートは請求書だけ。
-          if (hasInvoice && invData.index && invData.index.length) {
-            var idxAoa = [["📑 請求書（会社・年月をタップで開く）"]];
-            invData.index.forEach(function (e) {
-              idxAoa.push([e.label]);
-            });
-            var tws = XLSX.utils.aoa_to_sheet(idxAoa);
-            tws["!cols"] = [{ wch: 44 }];
-            if (tws["A1"]) tws["A1"].s = { font: { bold: true, sz: 13 } };
-            invData.index.forEach(function (e, i) {
-              var c = "A" + (i + 2); // 1行目=見出し、2行目以降=各請求書
-              if (!tws[c]) tws[c] = { t: "s", v: e.label };
-              tws[c].l = { Target: "#'請求書'!A" + e.targetRow, Tooltip: "この請求書を開く" };
-              tws[c].s = { font: { color: { rgb: "0563C1" }, underline: true } };
-            });
-            XLSX.utils.book_append_sheet(wb, tws, "目次");
-          }
-          // 請求書（静的・自動更新の対象外・請求書のみ＝印刷がきれい）
-          if (hasInvoice) {
-            var iws = XLSX.utils.aoa_to_sheet(invData.aoa);
-            // 列幅は項目数に応じて動的算出（本文帯＝水平センタリングで紙の中央）。
-            iws["!cols"] = invData.cols || [
-              { wch: 9 },
-              { wch: 13 },
-              { wch: 13 },
-              { wch: 13 },
-              { wch: 15 },
-            ];
-            iws["!merges"] = invData.merges;
-            var rws = [];
-            Object.keys(invData.heights).forEach(function (r) {
-              rws[Number(r)] = { hpt: invData.heights[r] };
-            });
-            iws["!rows"] = rws;
-            // 罫線・太字・整列などのスタイルを適用（_exlInvoiceDataが算出）
-            Object.keys(invData.styles).forEach(function (ref) {
-              if (!iws[ref]) iws[ref] = { t: "s", v: "" };
-              iws[ref].s = invData.styles[ref];
-            });
-            XLSX.utils.book_append_sheet(wb, iws, "請求書");
-          }
-          var buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-          // レガシーWebクエリ(.iqyと同じエンジン)を注入＝開くだけ自動更新の4シート。
-          // 取得に失敗/注入で壊れたら自動で静的Excel(確実に開ける)にフォールバック。
-          var token = null;
-          try {
-            token = await ensureExportToken();
-          } catch (e) {}
-          var blob = await _exlEnhance(
-            buf,
-            sheets,
-            token,
-            hasInvoice ? invData.breaks : null,
-            hasInvoice ? invData.hanko : null,
-            hasInvoice ? invData.margin : null
-          );
-          var d = new Date();
-          var ymd =
-            d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2);
-          var a = document.createElement("a");
-          a.href = URL.createObjectURL(blob);
-          a.download = "ダイコメ_Excel_" + ymd + ".xlsx";
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(function () {
-            URL.revokeObjectURL(a.href);
-            a.remove();
-          }, 1500);
-          toast("Excel（5シート＝明細/入金/集計/会社/請求書）を書き出しました");
-        } catch (e) {
-          toast("作成に失敗しました：" + (e && e.message ? e.message : e));
-        } finally {
-          if (btn) {
-            btn.disabled = false;
-            btn.textContent = old;
-          }
-        }
-      }
 
       // ワンタップで この会社の項目順を標準（日付/行き先/金額/…）に戻す。
       function resetItemOrder(co) {
@@ -6623,7 +6554,6 @@
         if (name === "payment") renderPayments();
         if (name === "settings") {
           showSettingsSeg("master"); // 既定＝会社マスタ
-          renderExcelLink(); // Excel自動連携URLを用意
         }
         updatePayBadge();
         window.scrollTo(0, 0);
@@ -6654,6 +6584,7 @@
         });
         if (seg === "master") renderMaster();
         else if (seg === "template") renderTemplates();
+        else if (seg === "yomu") renderYomuKuchi();
         else renderIssuer();
       }
       // ===== デザイン×種類ギャラリー（サムネ＝デザイン別SVG・サンプル固定でテナント安全） =====
@@ -8350,17 +8281,9 @@
       function payKeyFor(month, co) {
         return CURRENT_ACCOUNT + "::" + month + "::" + co;
       }
-      // ★倉庫の payments の 1行 → PAYMENTS の 1つ（立ち上げと 消し込みの 読み直しが 同じ 物を 使う・対立役 v3 止1）★
+      // ★倉庫の payments の 1行 → PAYMENTS の 1つ★ 本体は lib/nyukin-kai.js（外から読む口と 同じ 物・2026-11-03）
       function payRecFromDb(r) {
-        return {
-          paid: r.paid,
-          paidDate: r.paid_date || "",
-          createdAt: r.created_at || "", // 入金日が 空の 時の 月（繰越の ご入金額）
-          entries: Array.isArray(r.entries) ? r.entries : null, // 入金の 回（null＝前からの 記録）
-          note: r.memo || "",
-          _dbid: r.id,
-          uid: r.user_id, // 明細が 0件に なった 月を 出す 時に 自分の 記録だけを 拾う 2026-10-14
-        };
+        return NyukinKai.payRecFromDb(r);
       }
       function payRecord(month, co) {
         return PAYMENTS[payKeyFor(month, co)] || { paid: 0, paidDate: "", note: "" };
@@ -9567,83 +9490,22 @@
         if (/^\d{4}-\d{2}/.test(c)) return c.slice(0, 7);
         return gyouNoTsuki;
       }
-      /* ★★入金の 回（entries）★★ 2026-11-02（司さん「列を足してよい」）
-           payments.entries＝[{gaku, hi}]＝1行に 入った 入金の 1回ずつ。紙は 1回ずつ 入金日の 月で 数える
-           （前は 行の 入金日 1つ＝「6/10 一部・7/20 残り」が 全部 7月に 数わり、出し直した 6月の 紙が 多く 請求した）。
-           ★正は paid★（古い 版の 画面は paid と paid_date だけ 書く）：
-             ・entries が 無い＝前からの 記録＝今の 額と 入金日を 1回分
-             ・合計 ≠ paid＝古い 版が 額を 変えた＝足りない 分は paid_date の 回・多い 分は 新しい 回から 削る
-             ・最後の 回の 日 ≠ paid_date＝古い 版が 日を 変えた＝最後の 回を paid_date に 寄せる（対立役 止2）
-           新しい 画面は いつも paid_date＝最後の 回の 日 を 書く。 */
+      /* ★★入金の 回（entries）★★ 本体は lib/nyukin-kai.js へ 移した 2026-11-03（外から読む口と 同じ 物を 使う）。
+           決まり（正は paid・足りない 分は paid_date の 回・多い 分は 新しい 回から 削る 等）は lib の 注に ある。 */
       function hiDake(s) {
-        var d = String(s || "");
-        if (/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10);
-        if (/^\d{4}-\d{2}$/.test(d)) return d + "-01";
-        return "";
+        return NyukinKai.hiDake(s);
       }
-      /* ★回の 1つを 作る＝鍵の 順を 決めて 作る（gaku, hi, src, tesuryo）★ 2026-11-03（消し込み）
-           src＝銀行の明細 CSV の 出どころ（二重に 記録しない 見分け）・tesuryo＝うち 振込手数料（こちら持ちで 消した 額）
-           ★{gaku,hi} だけに 作り直すと 消える★（対立役 v1 止3）・倉庫の jsonb は 鍵を 並べ替えて 返す＝順を 固定して 比べる（v3 注1） */
       function kaiTsukuru(e, gaku, hi) {
-        var o = { gaku: gaku, hi: hi };
-        if (e && typeof e.src === "string" && e.src) o.src = e.src;
-        var t = Math.round(Number(e && e.tesuryo) || 0);
-        if (t > 0) o.tesuryo = Math.min(t, gaku);
-        return o;
+        return NyukinKai.kaiTsukuru(e, gaku, hi);
       }
       function entriesKezuru(out, n) {
-        for (var i = out.length - 1; i >= 0 && n > 0; i--) {
-          var g = Math.min(out[i].gaku, n);
-          out[i] = kaiTsukuru(out[i], out[i].gaku - g, out[i].hi);
-          n -= g;
-        }
-        return out.filter(function (e) {
-          return e.gaku > 0;
-        });
+        return NyukinKai.entriesKezuru(out, n);
       }
       function entriesOf(rec, gyouNoTsuki) {
-        var paid = Math.max(0, Math.round(Number(rec && rec.paid) || 0));
-        var pd = hiDake(rec && rec.paidDate);
-        var ichi = pd || hiDake(rec && rec.createdAt) || hiDake(gyouNoTsuki);
-        var out = [];
-        if (rec && Array.isArray(rec.entries)) {
-          rec.entries.forEach(function (e) {
-            var g = Math.round(Number(e && e.gaku));
-            if (!isFinite(g) || g <= 0) return;
-            out.push(kaiTsukuru(e, g, hiDake(e.hi) || ichi));
-          });
-        } else if (paid > 0) out.push({ gaku: paid, hi: ichi });
-        var sum = out.reduce(function (t, e) {
-          return t + e.gaku;
-        }, 0);
-        if (sum < paid) out.push({ gaku: paid - sum, hi: ichi });
-        else if (sum > paid) out = entriesKezuru(out, sum - paid);
-        // 最後の 回の 日 ≠ paid_date＝古い 版が 日だけ 変えた（新しい 画面は 必ず 揃えて 書く）
-        if (out.length && out[out.length - 1].hi !== ichi)
-          out[out.length - 1] = kaiTsukuru(out[out.length - 1], out[out.length - 1].gaku, ichi);
-        return out;
+        return NyukinKai.entriesOf(rec, gyouNoTsuki);
       }
-      /* 書く 時の 回：前の 回と 新しい 額の 差で 決める
-           増えた＝{差, hi} を 足す／減った＝新しい 回から 削る／hiKaeta＝最後の 回の 日を hi に する */
       function entriesAtarashii(mae, newPaid, hi, hiKaeta) {
-        var out = (mae || []).map(function (e) {
-          return kaiTsukuru(e, e.gaku, e.hi);
-        });
-        var sum = out.reduce(function (t, e) {
-          return t + e.gaku;
-        }, 0);
-        newPaid = Math.max(0, Math.round(Number(newPaid) || 0));
-        if (newPaid > sum) out.push({ gaku: newPaid - sum, hi: hi || null });
-        else {
-          if (newPaid < sum) out = entriesKezuru(out, sum - newPaid);
-          if (hiKaeta && out.length)
-            out[out.length - 1] = kaiTsukuru(
-              out[out.length - 1],
-              out[out.length - 1].gaku,
-              hi || null
-            );
-        }
-        return out;
+        return NyukinKai.entriesAtarashii(mae, newPaid, hi, hiKaeta);
       }
       /* =====================================================================
          ★★入金の 消し込み（銀行の 入出金明細 CSV → 候補 → 人が 押す）★★ 2026-11-03

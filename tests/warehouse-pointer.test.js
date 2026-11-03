@@ -35,7 +35,12 @@ const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8");
 const PROD_REF = "tnfwipbgfgjaymlszeid";
 
 // 倉庫を見に行くファイル（画面もサーバ側も両方）
-const FILES = ["daikou-seikyu.html", "api/excel.js"];
+//   ★api/ は 名指し しない★（2026-11-03 api/yomu.js を 足した 時、名指しの ままでは 本番へ 向けても 緑だった＝測った）
+const API_FILES = fs
+  .readdirSync(path.join(ROOT, "api"))
+  .filter((f) => f.endsWith(".js"))
+  .map((f) => "api/" + f);
+const FILES = ["daikou-seikyu.html"].concat(API_FILES);
 
 function refsIn(text) {
   const out = [];

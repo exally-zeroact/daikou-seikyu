@@ -8,4 +8,6 @@ tests/
 #   アプリの頁は読まない。scripts/ を丸ごと外さない＝名指しの物だけ。
 scripts/kinshi-commit-msg.mjs
 scripts/ci-yuka.sh
+# 2026-11-03 倉庫の 守りの 試験（khaw に 当てる・手で 回す）＝配信しない
+scripts/sql-shiken.mjs
 .husky/
