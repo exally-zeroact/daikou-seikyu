@@ -236,7 +236,11 @@ describe("kensa（口で 見る 形だけ）", () => {
     expect(g.k1).toBe("駅");
     expect(g.k2).toBe("");
     expect(g.k99).toBeUndefined();
-    expect(g.kingaku_kouho).toEqual([{ ji: "合計", atai: "3,000" }]);
+    // 字で ない 候補も 捨てない（捨てると 残りの 1つが 金額に 入る＝対立役 止1）
+    expect(g.kingaku_kouho).toEqual([
+      { ji: "合計", atai: "3,000" },
+      { ji: "", atai: "(字でない値)" },
+    ]);
     expect(r.kekka.kaisha_no_ji).toBe("作り物商事");
   });
   it("形 違い・行が 多すぎる", () => {
@@ -364,7 +368,7 @@ describe("gamenGyou（口の 返事 → 入力の 行・保存は しない）",
       { ji: "高速", atai: "800" },
       { ji: "合計", atai: "3800" },
     ]);
-    expect(r._yomenai.金額).toMatch(/選ぶ/);
+    expect(r._yomenai.金額).toContain("元の字：値引 △200");
   });
   it("★AI が 金額の 欄に 1つ 入れても 候補と 食い違えば 人が 選ぶ★", () => {
     const r = S.gamenGyou(
@@ -446,6 +450,107 @@ describe("gamenGyou（口の 返事 → 入力の 行・保存は しない）",
     )[0];
     expect(r._kouho).toEqual([]);
     expect(r.金額).toBe("");
+  });
+  // ★対立役（作った後）止1★ 読めない 候補を 黙って 捨てると 残りの 1つが 金額に 入る（小計 5000＋値引 -500 → 5000 で 500円 多い）
+  const yomeruHitotsu = [
+    [
+      "小計＋値引",
+      [
+        { ji: "小計", atai: "5000" },
+        { ji: "値引", atai: "-500" },
+      ],
+      "-500",
+    ],
+    [
+      "単価＋合計（漢字）",
+      [
+        { ji: "単価", atai: "3,000" },
+        { ji: "合計", atai: "1万2千円" },
+      ],
+      "1万2千円",
+    ],
+    [
+      "▲の 値引",
+      [
+        { ji: "料金", atai: "4,000" },
+        { ji: "割引", atai: "▲400" },
+      ],
+      "▲400",
+    ],
+  ];
+  for (const [name, kouho, moto] of yomeruHitotsu) {
+    it("★読める 候補 1つ＋読めない 候補 → 金額は 空・元の字を 出す（" + name + "）★", () => {
+      const r = S.gamenGyou(
+        kekka1({ hi_tsuki: "11", hi_hi: "1", k2: "", kingaku_kouho: kouho }),
+        ITEMS,
+        KYOU,
+        "c",
+        "shashin"
+      )[0];
+      expect(r.金額).toBe("");
+      expect(r._yomenai.金額).toContain(moto);
+      expect(r._kouho.length).toBe(1); // 読めた 物は 釦で 選べる
+      expect(S.hozonMon([Object.assign(r, { _kakunin: true })], ITEMS)).toMatch(/金額が 空/);
+    });
+  }
+  it("★字で ない 候補（kensa を 通った 物）も 読めない 候補と 数える★", () => {
+    const k = S.kensa(
+      {
+        gyou: [
+          {
+            hi_tsuki: "11",
+            hi_hi: "1",
+            k2: "",
+            kingaku_kouho: [
+              { ji: "合計", atai: "3,000" },
+              { ji: "x", atai: 5 },
+            ],
+          },
+        ],
+        yomenai: [],
+        kaisha_no_ji: "",
+      },
+      ITEMS
+    ).kekka;
+    const r = S.gamenGyou(k, ITEMS, KYOU, "c", "shashin")[0];
+    expect(r.金額).toBe("");
+  });
+  it("金額の 欄の 数＋読めない 候補 → 空", () => {
+    const r = S.gamenGyou(
+      kekka1({
+        hi_tsuki: "11",
+        hi_hi: "1",
+        k2: "5000",
+        kingaku_kouho: [{ ji: "値引", atai: "△500" }],
+      }),
+      ITEMS,
+      KYOU,
+      "c",
+      "shashin"
+    )[0];
+    expect(r.金額).toBe("");
+  });
+  // ★対立役（作った後）注1★ 年が 書いてあっても 今日より 先の 日付は 印（11 を 12 と 読み違えた）
+  it("年が 在って 今日より 先の 日付 → 年を 確かめて の 印", () => {
+    const r = S.gamenGyou(
+      kekka1({ hi_nen: "2026", hi_tsuki: "12", hi_hi: "25", k2: "1" }),
+      ITEMS,
+      KYOU,
+      "c",
+      "shashin"
+    )[0];
+    expect(r.日付).toBe("2026-12-25");
+    expect(r._toshi).toBe(true);
+  });
+  it("年が 在って 今日より 前・60日 以内 → 印 なし", () => {
+    const r = S.gamenGyou(
+      kekka1({ hi_nen: "2026", hi_tsuki: "10", hi_hi: "25", k2: "1" }),
+      ITEMS,
+      KYOU,
+      "c",
+      "shashin"
+    )[0];
+    expect(r._toshi).toBe(false);
   });
   it("0 行 → 0 行", () => {
     expect(S.gamenGyou({ gyou: [], yomenai: [] }, ITEMS, KYOU, "c", "shashin")).toEqual([]);
