@@ -8,7 +8,8 @@ import { test, expect } from "@playwright/test";
 //      紙と Excel に渡す issuerForEngine は fontScale 1・blkFs null を返す
 //      （消した後は 戻す所が無い＝残った係数で 行数の計算と紙が食い違わない・本番前の対立役 注2）
 //      ★わざと壊して 赤★ issuerForEngine の fontScale: 1 を s.fontScale に戻す ⇒ ② が赤
-//   ③ 請求タブの紙のプレビューが、消した関数（_overlayHitBlocks 等）を呼ばずに描ける
+//   ③ 請求タブの紙のプレビューが、消した関数（当たり判定の重ね 等）を呼ばずに描ける
+//   ④ 設定▸自社情報の案内の字が「前に編集タブで変えた揃えは残る」と本当の事を言う（本番前の対立役 注1）
 // ============================================================
 
 function seedDb() {
@@ -108,5 +109,16 @@ test("③ 請求タブの紙のプレビューが描ける（消した関数を�
   await expect(page.locator("#invoiceOut .hit-box")).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 820 }); // 回転・幅変え＝_onViewportChange が走る
   await page.waitForTimeout(300);
+  expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
+});
+
+test("④ 自社情報の案内の字が 前の揃えは残ると言う（編集タブへ案内しない）", async ({ page }) => {
+  const errors = [];
+  await hiraku(page, errors);
+  const t = await page.locator("#scr-settings").textContent();
+  expect(t, "★案内の字が 本当の事を言っていない★").toContain(
+    "文字揃えはテンプレで決まります（前に「編集」タブで変えた揃えは、そのまま残ります）。"
+  );
+  expect(t, "★無くなった 編集タブへ 案内している★").not.toContain("タブ → 揃え");
   expect(errors, `pageerror: ${errors.join(" | ")}`).toEqual([]);
 });
