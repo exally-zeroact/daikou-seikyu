@@ -11301,8 +11301,11 @@
           logoMode: dv.variant.logoMode, // show=ロゴ枠あり / hide=ロゴ出さない
           templateId: dv.design + "_" + dv.variant.key,
           pdfFont: s.pdfFont || "BIZ UDPゴシック", // PDFの書体
-          fontScale: Number(s.fontScale) || 1, // ★文字サイズ係数（全体＝base）
-          blkFs: s.blkFs || null, // ★範囲別 文字サイズ係数 {塊名:係数}（override・base優先）
+          // ★字の大きさの係数は 使わない（1 に固定）★ 2026-11-04 司さん「編集タブはいらない」＋紙の字を小さくして行を増やした。
+          //   前に編集タブで 保存した 係数（全体 fontScale・範囲別 blkFs）が 残っていると、行数の計算と 合わず
+          //   合計が 明細の 表に 重なる（対立役が 測った：係数1.4 で 72pt 食い込む）。保存の値は 消さずに 無視する。
+          fontScale: 1,
+          blkFs: null,
         };
       }
       /* ★登録番号が無い／形が違う時は 紙を出させない★

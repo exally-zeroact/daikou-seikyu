@@ -22,7 +22,6 @@
   var A4 = { w: 595.28, h: 841.89 };
   var M = 64; // 余白(pt)＝約22.6mm（エレガント版より左右を少し詰めて幅を抑える）
   var CW = A4.w - M * 2; // 本文幅
-  var ROWS_PER_PAGE = 22; // 1ページの明細スロット数（HTML/Excelと同じ）
   // Exallyブランドのミント配色（参考の上品レイアウト×アプリの色で統一）
   var MINT, MINTD, MINTBG, BORDER, RULE, TEXT, MUTED, BLACK;
   var ACCENT; // ★タイトルと見出しの線だけに使う全体の色★
@@ -429,19 +428,35 @@
     var CX = M + CW / 2; // 中央x
     var RXp = M + CW; // 右端x
     var _tableFs = _scaleOf("table"); // 明細の表の文字サイズ係数（行送り/上限はこれに連動）
-    var headH = 22 * _tableFs,
-      rowH = 22 * _tableFs; // ★行送りは明細の文字サイズに連動（大きくしても重ならない）
+    var headH = 16 * _tableFs,
+      rowH = 16 * _tableFs; // ★行送りは明細の文字サイズに連動（大きくしても重ならない）
     var FOOT_Y = 116; // 明細テーブルの下限（これより下はフッター領域）
     var noteN = m.noteSummary && (m.noteGroups || []).length ? m.noteGroups.length : 0;
 
     // ---- ページ分割：単ページに収まるか／収まらなければ明細ページ＋サマリーページ ----
     // 自社情報が多行/大きいロゴのときはフッターが高くなるぶん、単ページの明細上限を減らして合計と被らせない。
-    var issTall = Math.max(0, (iLines.length || 1) - 4);
-    var logoTall = showLogo ? 3 : 0; // 大きいロゴぶんフッターが高い→3行ぶん減らす
-    var capSingle = Math.max(8, Math.round((17 - noteN - issTall - logoTall) / _tableFs)); // 単ページの明細上限（大きい字ほど少なく）
-    // ★明細ページも自社情報/ロゴ分(issTall/logoTall)を引く＝ページ小計「このページの小計／次ページへ続く」が
+    // ★2026-11-04 決め打ち（17−…・22）をやめ、使える縦÷行送り を毎回 計算する（自社情報の高さ・ロゴの高さ・期限の位置・繰越・内訳）★
+    var _nL0 = iLines.length || 1,
+      _issH0 = 11 + (_nL0 - 1) * 9.5,
+      _logoH0 = 0;
+    if (showLogo) {
+      _logoH0 =
+        Math.min((Number(iss && iss.logoSizeMm) || 40) * MM * 1.2, 210) /
+        (logo.width / logo.height);
+      if (_logoH0 > 130) _logoH0 = 130;
+    }
+    var _footTop0 = 78 + Math.max(_issH0, _logoH0, 20);
+    var _dueLeft = pDue && blkAlignOf(iss, "posDue", "right") !== "right" ? 16 : 0;
+    var _leadEnd = A4.h - 52 - 24 - 20 - 30 - 13 - 18 - _dueLeft;
+    var _carryH = iss && iss.carry ? 90 : 0;
+    var _totH = 64 + _carryH + (noteN ? 13 + noteN * 12 : 0);
+    var capSingle = Math.max(
+      1,
+      Math.floor((_leadEnd - 34 - 12 - headH - (_footTop0 + _totH + 18)) / rowH)
+    ); // 単ページの明細上限（大きい字ほど少なく）
+    // ★明細ページも自社情報/ロゴの高さを引く＝ページ小計「このページの小計／次ページへ続く」が
     //   自社情報フッターに食い込むのを防ぐ（司さん指摘の重なり根因）。大きい字ほど少なく。
-    var capDetail = Math.max(8, Math.round((20 - issTall - logoTall) / _tableFs)); // 明細ページ（総額なし）の明細上限
+    var capDetail = Math.max(1, Math.floor((_leadEnd - 12 - headH - (_footTop0 + 56)) / rowH)); // 明細ページ（総額なし）の明細上限
     var multi = rows.length > capSingle;
     var detailPages = [];
     if (multi) {
@@ -460,38 +475,38 @@
 
     // ---- 細い装飾区切り（中央にひし形＋左右の細線） ----
     function flourish(page, y) {
-      var d = 4;
-      line(page, M, y, CX - 16, y, MINT, 0.8);
-      line(page, CX + 16, y, RXp, y, MINT, 0.8);
+      var d = 2.5;
+      line(page, M, y, CX - 12, y, MINT, 0.5);
+      line(page, CX + 12, y, RXp, y, MINT, 0.5);
       // ひし形（線4本）
-      line(page, CX - d, y, CX, y + d, MINT, 1);
-      line(page, CX, y + d, CX + d, y, MINT, 1);
-      line(page, CX + d, y, CX, y - d, MINT, 1);
-      line(page, CX, y - d, CX - d, y, MINT, 1);
+      line(page, CX - d, y, CX, y + d, MINT, 0.6);
+      line(page, CX, y + d, CX + d, y, MINT, 0.6);
+      line(page, CX + d, y, CX, y - d, MINT, 0.6);
+      line(page, CX, y - d, CX - d, y, MINT, 0.6);
     }
 
     // ---- ヘッダー上部（タイトル・装飾・請求日No・宛名・あいさつ）。戻り=本文開始y ----
     function drawTop(page) {
-      var cy = A4.h - 50;
+      var cy = A4.h - 52;
       _curBlk = "title";
-      T(page, font, "請　求　書", CX, cy, 26, { align: "center", color: TEXT }); // ★司さん「請求書って文字も同じ黒に」2026-08-15★
+      T(page, font, "請　求　書", CX, cy, 16, { align: "center", color: TEXT }); // ★司さん「請求書って文字も同じ黒に」2026-08-15★
       // 請求日 / No.（右上・控えめ）。No.なしのときは請求日を緑の線のすぐ上まで下げて空白を作らない。
       _curBlk = "meta";
       var showNo = iss && iss.showInvoiceNo && invoiceNo;
-      var dateY = showNo ? A4.h - 52 : A4.h - 70;
-      T(page, font, "請求日　" + issueDateStr(month, iss && iss.dateEra), RXp, dateY, 9, {
+      var dateY = showNo ? A4.h - 54 : A4.h - 65;
+      T(page, font, "請求日　" + issueDateStr(month, iss && iss.dateEra), RXp, dateY, 8, {
         align: "right",
         color: MUTED,
       });
       if (showNo)
-        T(page, font, "No.　" + invoiceNo, RXp, A4.h - 64, 9, { align: "right", color: MUTED });
+        T(page, font, "No.　" + invoiceNo, RXp, A4.h - 65, 8, { align: "right", color: MUTED });
       _curBlk = null; // 装飾区切り（ひし形）は塊に含めない
-      cy -= _g(30);
-      flourish(page, cy - 4);
-      cy -= _g(26);
+      cy -= _g(24);
+      flourish(page, cy - 3);
+      cy -= _g(20);
       // 宛名（右の期限＋振込先ブロックと被らないよう幅を抑える）
       _curBlk = "aite";
-      T(page, font, co + "　御中", M, cy, 17, { color: TEXT, maxW: CW * 0.5 });
+      T(page, font, co + "　御中", M, cy, 13, { color: TEXT, maxW: CW * 0.55 });
       // ★宛名の下線はデフォルト除去（司さん要望）。
       // ★右ブロック：お支払期限(due)＋振込先(bank) を別々の選択範囲に区分け★
       //   有効期限の位置 posDue（既定=右）。右＝従来どおり右上（振込先と同じ右ブロック）。
@@ -499,25 +514,25 @@
       var ry = cy + 2;
       if (pDue && dpos === "right") {
         _curBlk = "due";
-        T(page, font, "お支払期限　" + pDue, RXp, ry, 10, { align: "right", color: MUTED });
-        ry -= _g(16);
+        T(page, font, "お支払期限　" + pDue, RXp, ry, 8, { align: "right", color: MUTED });
+        ry -= _g(12);
       }
       if (bank.length) {
         _curBlk = "bank";
         bank.forEach(function (ln, i) {
-          T(page, font, ln, RXp, ry, i === 0 ? 9.5 : 9, {
+          T(page, font, ln, RXp, ry, i === 0 ? 7.5 : 8, {
             align: "right",
             color: TEXT, // ★塊の中は同じ濃さ（強弱は大きさで・フェードさせない）
           });
-          ry -= _g(i === 0 ? 13 : 11);
+          ry -= _g(10.5);
         });
       }
       _curBlk = null;
-      cy -= _g(34);
+      cy -= _g(30);
       // ★有効期限を左/中にした時は、宛名と被らないよう独立した1行で（あいさつの上）。★
       if (pDue && dpos !== "right") {
         _curBlk = "due";
-        T(page, font, "お支払期限　" + pDue, dpos === "center" ? CX : M, cy, 10, {
+        T(page, font, "お支払期限　" + pDue, dpos === "center" ? CX : M, cy, 8, {
           align: dpos,
           color: MUTED,
         });
@@ -529,10 +544,10 @@
       var lead = ((m.lead || "{月}月のご利用分です。") + "").replace("{月}", monthNum);
       var lpos = blkAlignOf(iss, "posLead", "left");
       var lx = lpos === "center" ? CX : lpos === "right" ? RXp : M;
-      T(page, font, lead, lx, cy, 9.5, { color: MUTED, align: lpos });
-      cy -= _g(14);
-      T(page, font, "下記の通り御請求申し上げます。", lx, cy, 9.5, { color: MUTED, align: lpos });
-      cy -= _g(20);
+      T(page, font, lead, lx, cy, 8.5, { color: MUTED, align: lpos });
+      cy -= _g(13);
+      T(page, font, "下記の通り御請求申し上げます。", lx, cy, 8.5, { color: MUTED, align: lpos });
+      cy -= _g(18);
       _curBlk = null;
       return cy;
     }
@@ -544,7 +559,7 @@
       var by = topY;
       var gBold = function (str, x, size, color, top) {
         var ty = top == null ? by : top;
-        var o = size * 0.025;
+        var o = size * 0.02;
         T(page, font, str, x, ty, size, { color: color });
         T(page, font, str, x + o, ty, size, { color: color });
         T(page, font, str, x + o * 2, ty, size, { color: color });
@@ -555,9 +570,9 @@
       // ★文字サイズ係数(_scaleOf)を幅計算に反映。反映しないと係数を上げた時に実描画幅が
       //   算出幅より大きくなり、右寄せ/クランプがすり抜けて金額がA4右端を突き抜ける。
       var sc = _scaleOf("grand");
-      var lblSize = 12,
-        gvSize = 20,
-        gap = 50;
+      var lblSize = 9,
+        gvSize = 16,
+        gap = 28;
       var measure = function () {
         return {
           lw: font.widthOfTextAtSize(_sanitize(lbl), lblSize * sc),
@@ -584,11 +599,11 @@
       if (gL < M) gL = M;
       // ラベルは金額とベースラインを揃える（T()は top-size*0.82 でベースライン化＝同じtopだと
       // 小さい文字ほど浮く）。差 (gvSize-lblSize)*0.82 ぶん下げて下線の直上に置く。_g で係数に連動。
-      gBold(lbl, gL, lblSize, TEXT, by - _g((gvSize - lblSize) * 0.82));
+      T(page, font, lbl, gL, by - _g((gvSize - lblSize) * 0.82), lblSize, { color: TEXT });
       gBold(gv, gL + mm.lw + mm.gp, gvSize, TEXT);
-      line(page, gL, by - _g(25), gL + Math.min(gw + 10, 330), by - _g(25), MINT, 1.2); // 下線
+      line(page, gL, by - _g(21), gL + Math.min(gw + 10, 330), by - _g(21), MINT, 0.6); // 下線
       _curBlk = null;
-      return by - _g(25) - _g(16);
+      return by - _g(21) - _g(13);
     }
 
     // ---- 明細テーブル（縦罫なし・薄ミントヘッダー・件数ぶんだけ）。戻り=tableBottom ----
@@ -605,10 +620,10 @@
         var label = k === "金額" ? kingakuMidashi(iss) : (m.labels && m.labels[k]) || k;
         var al = colAlign(m, k);
         var tx = colCellX(al, cx0, cx1, 8);
-        T(page, font, label, tx, tableTop - 5, 9, { align: al, color: MUTED });
+        T(page, font, label, tx, tableTop - 4.5, 7.5, { align: al, color: MUTED });
       });
-      line(page, M, tableTop, RXp, tableTop, BORDER, 0.5); // 帯の上
-      line(page, M, tableTop - headH, RXp, tableTop - headH, MINT, 0.8); // 帯の下（ミント）
+      line(page, M, tableTop, RXp, tableTop, BORDER, 0.4); // 帯の上
+      line(page, M, tableTop - headH, RXp, tableTop - headH, MINT, 0.6); // 帯の下（ミント）
       // データ行（件数ぶんだけ）
       var prevDate = null;
       var bodyTop = tableTop - headH;
@@ -633,13 +648,13 @@
           } else {
             val = row[k];
           }
-          T(page, font, val, tx, yTop - 4, 9.5, { align: al, maxW: cx1 - cx0 - pad * 2 });
+          T(page, font, val, tx, yTop - 4, 8.5, { align: al, maxW: cx1 - cx0 - pad * 2 });
         });
         if (row.日付) prevDate = row.日付;
-        if (r < n - 1) line(page, M, yTop - rowH, RXp, yTop - rowH, RULE, 0.5); // 行間（薄グレー）
+        if (r < n - 1) line(page, M, yTop - rowH, RXp, yTop - rowH, RULE, 0.3); // 行間（薄グレー）
       }
       var tableBottom = bodyTop - n * rowH;
-      line(page, M, tableBottom, RXp, tableBottom, MINT, 0.75); // 表を締めるミント線
+      line(page, M, tableBottom, RXp, tableBottom, MINT, 0.6); // 表を締めるミント線
       _curBlk = null;
       return tableBottom;
     }
@@ -653,21 +668,21 @@
         sy = topY;
       var _t = totalsOf(rows, iss); // ★合計はエンジン1本から★
       var _L = labelsOf(m, iss); // ★言葉もエンジン1本から★
-      T(page, font, _L.小計, bx + 10, sy, 9.5, { color: MUTED });
-      T(page, font, yen(_t.shoukei), rx - 10, sy, 9.5, { color: TEXT, align: "right" });
-      sy -= _g(16);
-      T(page, font, _L.消費税, bx + 10, sy, 9.5, { color: MUTED });
-      T(page, font, yen(_t.zei), rx - 10, sy, 9.5, { color: TEXT, align: "right" });
-      sy -= _g(14); // ★線を消費税の文字／数字と重ねない（下げる）★
-      line(page, bx + 8, sy, rx, sy, MINT, 0.8); // 合計の上に1本（アプリと同じ）
-      sy -= _g(15);
+      T(page, font, _L.小計, bx + 10, sy, 8.5, { color: MUTED });
+      T(page, font, yen(_t.shoukei), rx - 10, sy, 8.5, { color: TEXT, align: "right" });
+      sy -= _g(14);
+      T(page, font, _L.消費税, bx + 10, sy, 8.5, { color: MUTED });
+      T(page, font, yen(_t.zei), rx - 10, sy, 8.5, { color: TEXT, align: "right" });
+      sy -= _g(13); // ★線を消費税の文字／数字と重ねない（下げる）★
+      line(page, bx + 8, sy, rx, sy, MINT, 0.5); // 合計の上に1本（アプリと同じ）
+      sy -= _g(12);
       // ★合計＝「支払う金額」＝疑似ボールド（御請求金額と同じ太字規律で頂点を2つに）
       //   会議結論=合計の中サイズ帯は重ね幅0.02（0.025だと縮小/FAXで桁が滲んでくっつく）
-      var _olT = 12 * 0.02,
-        _ovT = 14 * 0.02;
+      var _olT = 10 * 0.02,
+        _ovT = 12.5 * 0.02;
       for (var _b = 0; _b < 3; _b++) {
-        T(page, font, _L.合計, bx + 10 + _olT * _b, sy, 12, { color: TEXT });
-        T(page, font, yen(_t.goukei), rx - 10 + _ovT * _b, sy - 1, 14, {
+        T(page, font, _L.合計, bx + 10 + _olT * _b, sy + 1, 10, { color: TEXT });
+        T(page, font, yen(_t.goukei), rx - 10 + _ovT * _b, sy, 12.5, {
           color: TEXT,
           align: "right",
         });
@@ -677,8 +692,8 @@
         var _c = iss.carry;
         var _cr = function (lbl, val, big) {
           sy -= _g(big ? 18 : 15);
-          T(page, font, lbl, bx + 10, sy, big ? 11 : 9.5, { color: big ? TEXT : MUTED });
-          T(page, font, val, rx - 10, sy, big ? 12 : 9.5, { color: TEXT, align: "right" });
+          T(page, font, lbl, bx + 10, sy, big ? 9.5 : 8.5, { color: big ? TEXT : MUTED });
+          T(page, font, val, rx - 10, sy, big ? 10.5 : 8.5, { color: TEXT, align: "right" });
         };
         // ★5項目（2026-11-02 司さん）★ その 月への 入金は 載せない＝出し直しても 変わらない
         sy -= _g(6); // 太い 合計の 下に 間（絵で 見て くっついていた・2026-11-02）
@@ -724,7 +739,7 @@
     function drawFooter(page) {
       var nL = iLines.length || 1;
       var _infoFs = _scaleOf("info"); // 自社情報の文字サイズ係数（高さ/行送りはこれに連動）
-      var issH = nL > 0 ? _infoFs * 13 + (nL - 1) * _infoFs * 10 : 0; // 自社情報ブロック高さ（行送りも文字サイズ連動）
+      var issH = nL > 0 ? _infoFs * 11 + (nL - 1) * _infoFs * 9.5 : 0; // 自社情報ブロック高さ（行送りも文字サイズ連動）
       // ロゴ寸法（エレガント基準＝大きめ＋スライダーで効く。高さ上限を大きくして
       //   正方形ロゴでも logoSizeMm を上げたら大きくなるように）。
       var logoW = 0,
@@ -741,8 +756,8 @@
       var blockH = Math.max(issH, logoH, 20);
       var FOOT = 78 + blockH; // 線のy（ブロック＋下マージンの上）。ロゴ/多行ほど上がる＝あふれない
       _curBlk = null; // 下の長い緑線は装飾＝塊に含めない
-      line(page, M, FOOT, RXp, FOOT, MINT, 0.9); // 下の長い緑の線
-      var topY = FOOT - 16; // 線のすぐ下
+      line(page, M, FOOT, RXp, FOOT, MINT, 0.5); // 下の長い緑の線
+      var topY = FOOT - 14; // 線のすぐ下
       // ロゴ＝右端固定・上端を線のすぐ下から（大きく）
       if (showLogo) {
         _curBlk = "logo";
@@ -756,7 +771,7 @@
       var infoLine = blkAlignOf(iss, "lineIssuer", infoPos);
       var infoMaxW = 0;
       iLines.forEach(function (ln, idx) {
-        var wln = font.widthOfTextAtSize(_sanitize(ln), idx === 0 ? 11 : 8);
+        var wln = font.widthOfTextAtSize(_sanitize(ln), idx === 0 ? 9 : 7.5);
         if (wln > infoMaxW) infoMaxW = wln;
       });
       // 自社情報の右限＝ロゴがあればロゴの左（重なり防止）、無ければ右端 RXp。
@@ -778,19 +793,19 @@
       var fy = textTop;
       _curBlk = "info";
       iLines.forEach(function (ln, idx) {
-        T(page, font, ln, lineX, fy, idx === 0 ? 11 : 8, {
+        T(page, font, ln, lineX, fy, idx === 0 ? 9 : 7.5, {
           align: infoLine,
           color: TEXT, // ★塊の中は同じ濃さ（会社名は大きさで立たせる・住所をフェードさせない）
           maxW: infoRB - boxLeft, // ロゴへ食い込まない（長文は…詰め）
         });
-        fy -= idx === 0 ? _g(13) : _g(10);
+        fy -= idx === 0 ? _g(11) : _g(9.5);
       });
       _curBlk = null;
       // 判子（社名＝1行目の右端に“重ねて”押す＝角印標準）。2軸の並びで末尾位置が変わる。
       if (hanko) {
         _curBlk = "hanko";
         var hs = (Number(iss && iss.hankoSizeMm) || 20) * MM * 0.8;
-        var nameW = font.widthOfTextAtSize(_sanitize(iLines[0] || ""), 11);
+        var nameW = font.widthOfTextAtSize(_sanitize(iLines[0] || ""), 9);
         var nameRight =
           infoLine === "left" ? lineX + nameW : infoLine === "center" ? lineX + nameW / 2 : lineX; // 社名の右端
         var hankoX = nameRight - hs * 0.45; // 社名末尾に重なる
@@ -811,7 +826,7 @@
       }
       pageNum += 1;
       if (totalPages > 1)
-        T(page, font, pageNum + " / " + totalPages, RXp, 24, 8, { align: "right", color: MUTED });
+        T(page, font, pageNum + " / " + totalPages, RXp, 24, 7.5, { align: "right", color: MUTED });
     }
 
     // ===== 明細ページ =====
@@ -820,15 +835,15 @@
       var cy = drawTop(page);
       if (!multi) cy = drawGrandBox(page, cy); // 単ページのみ上部に御請求金額
       // 表の上に小さなキャプション（運転業務委託料 等）
-      T(page, font, "【" + (m.tableTitle || "運転業務委託料") + "】", M, cy, 9, { color: MUTED });
-      cy -= 14;
+      T(page, font, "【" + (m.tableTitle || "運転業務委託料") + "】", M, cy, 8, { color: MUTED });
+      cy -= 12;
       var tableBottom = drawTable(page, cy, pageRows);
       if (!multi) {
         // ★小計/合計がフッター(自社情報/ロゴ/判子)と重ならないよう、開始yをフッター上端より上にクランプ。
         //   通常(明細少)は tableBottom-18 のまま＝従来どおり。明細マックス＋自社情報多行のときだけ効く。
         var _nL = iLines.length || 1;
         var _ifsS = _scaleOf("info");
-        var _issH = _nL > 0 ? _ifsS * 13 + (_nL - 1) * _ifsS * 10 : 0;
+        var _issH = _nL > 0 ? _ifsS * 11 + (_nL - 1) * _ifsS * 9.5 : 0;
         var _logoH = 0;
         if (showLogo) {
           var _asp = logo.width / logo.height;
@@ -838,13 +853,15 @@
         }
         var _footTop = 78 + Math.max(_issH, _logoH, 20); // フッター(自社情報/ロゴ)の上端
         var _tfsS = _scaleOf("totals");
-        var _totalsH = _tfsS * 83 + (noteN ? _tfsS * 13 + noteN * _tfsS * 12 : 0); // 小計〜合計(＋内訳)の概算高さ
+        var _totalsH =
+          _tfsS * (64 + (iss && iss.carry ? 90 : 0)) +
+          (noteN ? _tfsS * 13 + noteN * _tfsS * 12 : 0); // 小計〜合計(＋内訳)の概算高さ
         drawTotals(page, Math.max(tableBottom - 18, _footTop + _totalsH));
       } else {
         // ★ページ小計＋「次ページへ続く」が自社情報フッターに食い込まないよう、yをフッター上端より上にクランプ。
         var _nLd = iLines.length || 1;
         var _ifsD = _scaleOf("info");
-        var _issHd = _nLd > 0 ? _ifsD * 13 + (_nLd - 1) * _ifsD * 10 : 0;
+        var _issHd = _nLd > 0 ? _ifsD * 11 + (_nLd - 1) * _ifsD * 9.5 : 0;
         var _logoHd = 0;
         if (showLogo) {
           var _aspd = logo.width / logo.height;
@@ -854,12 +871,12 @@
         }
         var _footTopD = 78 + Math.max(_issHd, _logoHd, 20);
         var _subY = Math.max(tableBottom - 16, _footTopD + _g(40)); // 小計行（続く含む）の下端がフッターを侵さない
-        T(page, font, "このページの小計", RXp - 230, _subY, 9, { color: MUTED });
-        T(page, font, yen(pageSubtotals[pi]), RXp, _subY, 10.5, {
+        T(page, font, "このページの小計", RXp - 230, _subY, 8, { color: MUTED });
+        T(page, font, yen(pageSubtotals[pi]), RXp, _subY, 9.5, {
           align: "right",
           color: TEXT,
         });
-        T(page, font, "次ページへ続く →", RXp, _subY - _g(16), 9, {
+        T(page, font, "次ページへ続く →", RXp, _subY - _g(14), 8, {
           align: "right",
           color: MUTED,
         });
@@ -872,20 +889,23 @@
       var spage = doc.addPage([A4.w, A4.h]);
       var cy2 = drawTop(spage);
       cy2 = drawGrandBox(spage, cy2);
-      T(spage, font, "【ページ別 内訳】", M, cy2, 9, { color: MUTED });
-      cy2 -= 14;
+      T(spage, font, "【ページ別 内訳】", M, cy2, 8, { color: MUTED });
+      cy2 -= 12;
       // コンパクトなサマリー表（件数ぶんだけ）
       var sAmtX = RXp;
       rect(spage, M, cy2, CW, headH, MINTBG);
-      T(spage, font, "ページ", M + 10, cy2 - 5, 9, { color: MUTED });
-      T(spage, font, kingakuMidashi(iss), RXp - 8, cy2 - 5, 9, { align: "right", color: MUTED });
+      T(spage, font, "ページ", M + 10, cy2 - 4.5, 7.5, { color: MUTED });
+      T(spage, font, kingakuMidashi(iss), RXp - 8, cy2 - 4.5, 7.5, {
+        align: "right",
+        color: MUTED,
+      });
       line(spage, M, cy2, RXp, cy2, BORDER, 0.5);
       line(spage, M, cy2 - headH, RXp, cy2 - headH, MINT, 0.8);
       var sbTop = cy2 - headH;
       pageSubtotals.forEach(function (sub, r) {
         var yT = sbTop - r * rowH;
-        T(spage, font, r + 1 + "ページ目", M + 10, yT - 4, 9.5, { color: TEXT });
-        T(spage, font, comma(sub), sAmtX - 8, yT - 4, 9.5, { align: "right", color: TEXT });
+        T(spage, font, r + 1 + "ページ目", M + 10, yT - 4, 8.5, { color: TEXT });
+        T(spage, font, comma(sub), sAmtX - 8, yT - 4, 8.5, { align: "right", color: TEXT });
         if (r < pageSubtotals.length - 1) line(spage, M, yT - rowH, RXp, yT - rowH, RULE, 0.5);
       });
       var sBottom = sbTop - pageSubtotals.length * rowH;
@@ -918,20 +938,15 @@
     var monthNum = Number(month.split("-")[1]);
     var bank = (iss && iss.bank) || [];
     var iLines = (iss && iss.lines) || [];
-    var rowH = 17,
-      headH = 19;
-    var footExtra = m.noteSummary && (m.noteGroups || []).length ? m.noteGroups.length + 2 : 0;
-    var rpp = Math.max(12, ROWS_PER_PAGE - footExtra);
+    var rowH = 15,
+      headH = 16;
+    // ★ページの割り方（1枚の上限 capS・明細ページの上限 capD）は 下の「明細ページ」の前で 決める★
+    //   2026-11-04 字を 小さくして 行を 増やした時に、前の 決め打ち（22）を やめた。
+    //   ヘッダーと 合計の 塊を 見えない紙に 1回 描いて 高さを 測る＝ロゴ・期限・番号・振込先・繰越・内訳が 全部 入る。
     var detailPages = [];
-    for (var i = 0; i < rows.length; i += rpp) detailPages.push(rows.slice(i, i + rpp));
-    if (!detailPages.length) detailPages.push([]);
-    var pageSubtotals = detailPages.map(function (pr) {
-      return pr.reduce(function (s, x) {
-        return s + (Number(x.金額) || 0);
-      }, 0);
-    });
-    var multi = detailPages.length > 1;
-    var totalPages = multi ? detailPages.length + 1 : 1;
+    var pageSubtotals = [];
+    var multi = false;
+    var totalPages = 1;
     var pageNum = 0;
 
     // ---- 共通ヘッダー。bodyTop で「請求書」より下を塊ごと下げられる（最終ページ用）。----
@@ -955,7 +970,7 @@
         var titleTop = cy + 1; // 「請求書」タイトルの視覚的な上端
         // ★ロゴは真下の「会社名（自社情報1行目）」の横中心に合わせる＝ロゴと社名が縦に中央そろえ。
         var nameW = iLines.length
-          ? font.widthOfTextAtSize(String(iLines[0] == null ? "" : iLines[0]), 11)
+          ? font.widthOfTextAtSize(String(iLines[0] == null ? "" : iLines[0]), 9)
           : 0;
         var nameCenter = M + CW - nameW / 2; // 右寄せした会社名の横中心
         var logoX = nameW > 0 ? nameCenter - lw0 / 2 : M + CW - lw0;
@@ -969,57 +984,57 @@
       }
       if (style === "A") {
         _curBlk = "title";
-        T(page, font, "請　求　書", M, cy, 22);
-        cy -= 30;
+        T(page, font, "請　求　書", M, cy, 16);
+        cy -= 24;
         _curBlk = "meta";
-        T(page, font, dateStr + (noStr ? "　　" + noStr : ""), M, cy, 10, { color: DARK });
-        cy -= 14;
+        T(page, font, dateStr + (noStr ? "　　" + noStr : ""), M, cy, 8, { color: DARK });
+        cy -= 12;
         if (pDue) {
           _curBlk = "due"; // 有効期限は別の選択範囲に区分け（位置 posDue・既定=左）
           var dposA = blkAlignOf(iss, "posDue", "left");
           var dxA = dposA === "center" ? M + CW / 2 : dposA === "right" ? M + CW : M;
-          T(page, font, "お支払期限　" + pDue, dxA, cy, 10, { align: dposA, color: DARK });
-          cy -= 14;
+          T(page, font, "お支払期限　" + pDue, dxA, cy, 8, { align: dposA, color: DARK });
+          cy -= 12;
         }
         _curBlk = null;
-        cy -= 18; // ★黄色＝請求日/No→御中の隙間を少し広げる★
+        cy -= 16; // ★黄色＝請求日/No→御中の隙間を少し広げる★
       } else {
         _curBlk = "meta";
-        T(page, font, dateStr, M + CW, cy, 9.5, { align: "right", color: DARK });
-        cy -= 13;
+        T(page, font, dateStr, M + CW, cy, 8, { align: "right", color: DARK });
+        cy -= 11;
         if (noStr) {
-          T(page, font, noStr, M + CW, cy, 9.5, { align: "right", color: DARK });
-          cy -= 13;
+          T(page, font, noStr, M + CW, cy, 8, { align: "right", color: DARK });
+          cy -= 11;
         }
         if (pDue) {
           _curBlk = "due"; // 有効期限は別の選択範囲に区分け（位置 posDue・既定=右）
           var dposB = blkAlignOf(iss, "posDue", "right");
           var dxB = dposB === "center" ? M + CW / 2 : dposB === "left" ? M : M + CW;
-          T(page, font, "お支払期限　" + pDue, dxB, cy, 9.5, { align: dposB, color: DARK });
-          cy -= 13;
+          T(page, font, "お支払期限　" + pDue, dxB, cy, 8, { align: dposB, color: DARK });
+          cy -= 11;
         }
         _curBlk = null;
         cy -= 6;
         _curBlk = "title";
-        T(page, font, "請　求　書", M + CW / 2, cy, 22, { align: "center" });
+        T(page, font, "請　求　書", M + CW / 2, cy, 16, { align: "center" });
         _curBlk = null;
-        cy -= 42; // ★黄色相当＝タイトル→御中の隙間（2枚目もバランス統一）★
+        cy -= 34; // ★黄色相当＝タイトル→御中の隙間（2枚目もバランス統一）★
       }
       var topRow = bodyTop != null ? bodyTop : cy;
       // ★ロゴが大きく自社情報（右・1行目=topRow-6）に掛かる場合は、本文の塊ごと下げて被りを防ぐ。
       //   ロゴ下端から18ptの余白を空けて自社情報1行目を置く（topRow-6 = logoBottom-18）。
-      if (logoBottom != null && topRow - 6 > logoBottom - 18) topRow = logoBottom - 12;
+      if (logoBottom != null && topRow - 4 > logoBottom - 14) topRow = logoBottom - 10;
       _curBlk = "aite";
-      T(page, font, co + "　御中", M, topRow, 15, { maxW: CW * 0.6 });
+      T(page, font, co + "　御中", M, topRow, 12.5, { maxW: CW * 0.55 });
       _curBlk = "info";
-      var iy = style === "A" ? topRow - 6 : topRow;
+      var iy = style === "A" ? topRow - 4 : topRow;
       iLines.forEach(function (ln, idx) {
-        T(page, font, ln, M + CW, iy, idx === 0 ? 11 : 9.5, {
+        T(page, font, ln, M + CW, iy, idx === 0 ? 9 : 7.5, {
           align: "right",
           color: INKC, // ★塊の中は同じ濃さ（会社名は大きさで立たせる・住所をフェードさせない）
           maxW: CW * 0.4, // ★長文が左＝宛名側へ突き抜けて重なる/紙外に出るのを防ぐ（…詰め）
         });
-        iy -= idx === 0 ? 15 : 13;
+        iy -= idx === 0 ? 12 : 10.5;
       });
       _curBlk = null;
       if (hanko) {
@@ -1035,23 +1050,23 @@
         _accBox(page, M + CW - hs + 2, M + CW + 2, topRow + 4, topRow - hs + 4);
         _curBlk = null;
       }
-      cy = topRow - 40;
+      cy = topRow - 34;
       _curBlk = "lead";
       var lead = ((m.lead || "{月}月のご利用分です。") + "").replace("{月}", monthNum);
       var lpos = blkAlignOf(iss, "posLead", "left");
       var lx = lpos === "center" ? M + CW / 2 : lpos === "right" ? M + CW : M;
-      T(page, font, lead, lx, cy, 9.5, { color: DARK, align: lpos });
-      cy -= 16;
-      T(page, font, "下記の通り御請求申し上げます。", lx, cy, 9.5, { color: DARK, align: lpos });
-      cy -= 22;
+      T(page, font, lead, lx, cy, 8.5, { color: DARK, align: lpos });
+      cy -= 13;
+      T(page, font, "下記の通り御請求申し上げます。", lx, cy, 8.5, { color: DARK, align: lpos });
+      cy -= 18;
       _curBlk = null;
       if (showGrand) {
         _curBlk = "grand";
         // ★ご請求金額：ラベルと数字を同じ大きさに統一＋太字（微小ずらし重ね描き＝疑似ボールド）★
         //   緑＝下線→表の隙間は黄色の約2倍。
-        var gSize = 16;
+        var gSize = 15;
         var gBold = function (str, x) {
-          var o = gSize * 0.025; // ずらし幅（疑似ボールド）
+          var o = gSize * 0.02; // ずらし幅（疑似ボールド）
           T(page, font, str, x, cy, gSize, { color: INKSC });
           T(page, font, str, x + o, cy, gSize, { color: INKSC });
           T(page, font, str, x + o * 2, cy, gSize, { color: INKSC });
@@ -1059,24 +1074,24 @@
         };
         var gLabel = "ご請求金額（税込）";
         var gv = ueNoJi(grand, iss); // ★繰越の 会社は 今回ご請求額★
-        var glw = font.widthOfTextAtSize(_sanitize(gLabel), gSize);
-        var gTextW = glw + 40 + font.widthOfTextAtSize(_sanitize(gv), gSize);
+        var glw = font.widthOfTextAtSize(_sanitize(gLabel), 9);
+        var gTextW = glw + 28 + font.widthOfTextAtSize(_sanitize(gv), gSize);
         // 位置揃え（既定 left=従来どおり左端 M）。
         var gpos = blkAlignOf(iss, "posGrand", "left");
         var gL =
           gpos === "center" ? M + CW / 2 - gTextW / 2 : gpos === "right" ? M + CW - gTextW : M;
         if (gL + gTextW > M + CW) gL = M + CW - gTextW;
         if (gL < M) gL = M;
-        gBold(gLabel, gL);
-        gBold(gv, gL + glw + 40);
-        line(page, gL, cy - 22, gL + gTextW + 8, cy - 22, GREY, 1.4);
+        T(page, font, gLabel, gL, cy - (gSize - 9) * 0.82, 9, { color: INKSC });
+        gBold(gv, gL + glw + 28);
+        line(page, gL, cy - 20, gL + gTextW + 8, cy - 20, GREY, 0.6);
         _curBlk = null;
         // 下線→明細表の隙間。旧56は「黄色(説明文→ご請求金額)の2倍」のつもりだったが、
         // 黄色をベースライン間隔(28)・緑を余白(56)で測った比較ミスで実際は余白比4.2倍だった。
         // 同じ物差し(余白)で2倍に揃える＝黄色の余白13.5pt×2 ≒ 28pt。
-        return cy - 22 - 28;
+        return cy - 20 - 24;
       }
-      return cy - 30;
+      return cy - 24;
     }
 
     // ---- 合計フッター（左=振込先／右=小計・消費税・合計＋役職集計）。本文幅フルなので左右並びでOK。----
@@ -1084,8 +1099,8 @@
       var by = footTop;
       _curBlk = "bank"; // 振込先（有効期限 due と区分け）
       bank.forEach(function (ln, i) {
-        T(page, font, ln, M, by, 9, { color: INKC }); // ★振込先も塊の中は同じ濃さ
-        by -= 14;
+        T(page, font, ln, M, by, i === 0 ? 7.5 : 8, { color: INKC }); // ★振込先も塊の中は同じ濃さ
+        by -= 12;
       });
       _curBlk = "totals";
       var boxX = M + CW - 200,
@@ -1094,23 +1109,23 @@
       function totRow(lbl, val, big) {
         if (big) {
           // ★合計＝「支払う金額」＝疑似ボールド＋主役墨（会議結論=中サイズ帯は重ね幅0.02で桁の滲み防止）
-          var ol = 11 * 0.02,
-            ov = 12 * 0.02;
+          var ol = 10 * 0.02,
+            ov = 11.5 * 0.02;
           for (var b = 0; b < 3; b++) {
-            T(page, font, lbl, boxX + ol * b, sy, 11, { color: INKSC });
-            T(page, font, val, RX + ov * b, sy, 12, { align: "right", color: INKSC });
+            T(page, font, lbl, boxX + ol * b, sy + 1, 10, { color: INKSC });
+            T(page, font, val, RX + ov * b, sy, 11.5, { align: "right", color: INKSC });
           }
         } else {
-          T(page, font, lbl, boxX, sy, 9.5, { color: DARK }); // ラベル=muted
-          T(page, font, val, RX, sy, 9.5, { align: "right", color: INKSC }); // 値=主役墨
+          T(page, font, lbl, boxX, sy, 8.5, { color: DARK }); // ラベル=muted
+          T(page, font, val, RX, sy, 8.5, { align: "right", color: INKSC }); // 値=主役墨
         }
-        sy -= big ? 18 : 15;
+        sy -= big ? 16 : 13;
       }
       var _tc = totalsOf(rows, iss); // ★合計はエンジン1本から★
       var _Lc = labelsOf(m, iss); // ★言葉もエンジン1本から★
       totRow(_Lc.小計, yen(_tc.shoukei));
       totRow(_Lc.消費税, yen(_tc.zei));
-      line(page, boxX, sy + 3, RX, sy + 3, GREY, 0.8);
+      line(page, boxX, sy + 3, RX, sy + 3, GREY, 0.5);
       sy -= 2;
       totRow(_Lc.合計, yen(_tc.goukei), true);
       // ★繰越（会社が「使う」を選んだ時だけ）★ 出せない物は 0円と書かず 理由を出す
@@ -1164,8 +1179,8 @@
           font,
           m.tableTitle || "運転業務委託料",
           M + (colX[leadCount] - M) / 2,
-          tableTop - 3,
-          9.5,
+          tableTop - 4,
+          8,
           {
             align: "center",
             color: DARK,
@@ -1178,8 +1193,8 @@
           font,
           kingakuMidashi(iss, "税込み"),
           (colX[amtIdx] + colX[amtIdx + 1]) / 2,
-          tableTop - 3,
-          9.5,
+          tableTop - 4,
+          8,
           {
             align: "center",
             color: DARK,
@@ -1192,8 +1207,8 @@
             font,
             (m.labels && m.labels[k]) || k,
             (colX[ci] + colX[ci + 1]) / 2,
-            tableTop - 3,
-            9.5,
+            tableTop - 4,
+            8,
             {
               align: "center",
               color: DARK,
@@ -1201,8 +1216,8 @@
           );
         });
       }
-      line(page, M, tableTop, tableRight, tableTop, GREY, 0.8);
-      line(page, M, tableTop - headH, tableRight, tableTop - headH, GREY, 0.8);
+      line(page, M, tableTop, tableRight, tableTop, GREY, 0.6);
+      line(page, M, tableTop - headH, tableRight, tableTop - headH, GREY, 0.6);
       var prevDate = null;
       var bodyTop = tableTop - headH;
       var n = pageRows.length; // 件数ぶんだけ（空行で埋めない）
@@ -1226,14 +1241,14 @@
           } else {
             val = row[k];
           }
-          T(page, font, val, tx, yTop - 2.5, 9, { align: al, maxW: cx1 - cx0 - 14 });
+          T(page, font, val, tx, yTop - 3.5, 8, { align: al, maxW: cx1 - cx0 - 14 });
         });
         if (row.日付) prevDate = row.日付;
-        if (r < n - 1) line(page, M, yTop - rowH, tableRight, yTop - rowH, HAIRC, 0.5); // 行間（最終行の下は引かない）
+        if (r < n - 1) line(page, M, yTop - rowH, tableRight, yTop - rowH, HAIRC, 0.3); // 行間（最終行の下は引かない）
       }
       var tableBottom = bodyTop - n * rowH;
       // ★縦罫は引かない（エレガントと同じ横罫だけ＝見やすく）。表を締める下線のみ。★
-      line(page, M, tableBottom, tableRight, tableBottom, GREY, 0.8);
+      line(page, M, tableBottom, tableRight, tableBottom, GREY, 0.6);
       _curBlk = null;
       return tableBottom;
     }
@@ -1245,39 +1260,79 @@
         splitX = M + CW - amtW,
         tableRight = M + CW;
       rect(page, M, tableTop, CW, headH, GREEN);
-      T(page, font, "内容（ページ別）", (M + splitX) / 2, tableTop - 3, 9.5, {
+      T(page, font, "内容（ページ別）", (M + splitX) / 2, tableTop - 4, 8, {
         align: "center",
         color: DARK,
       });
-      T(page, font, kingakuMidashi(iss, "税込み"), (splitX + tableRight) / 2, tableTop - 3, 9.5, {
+      T(page, font, kingakuMidashi(iss, "税込み"), (splitX + tableRight) / 2, tableTop - 4, 8, {
         align: "center",
         color: DARK,
       });
-      line(page, M, tableTop, tableRight, tableTop, GREY, 0.8);
-      line(page, M, tableTop - headH, tableRight, tableTop - headH, GREY, 0.8);
+      line(page, M, tableTop, tableRight, tableTop, GREY, 0.6);
+      line(page, M, tableTop - headH, tableRight, tableTop - headH, GREY, 0.6);
       var bodyTop = tableTop - headH;
       var n = subs.length;
       for (var r = 0; r < n; r++) {
         var yTop = bodyTop - r * rowH;
-        T(page, font, r + 1 + "ページ目", M + 12, yTop - 2.5, 9.5, { align: "left" });
-        T(page, font, comma(subs[r]), tableRight - 8, yTop - 2.5, 9.5, { align: "right" });
-        if (r < n - 1) line(page, M, yTop - rowH, tableRight, yTop - rowH, HAIRC, 0.5);
+        T(page, font, r + 1 + "ページ目", M + 12, yTop - 3.5, 8, { align: "left" });
+        T(page, font, comma(subs[r]), tableRight - 8, yTop - 3.5, 8, { align: "right" });
+        if (r < n - 1) line(page, M, yTop - rowH, tableRight, yTop - rowH, HAIRC, 0.3);
       }
       var tableBottom = bodyTop - n * rowH;
       // ★縦罫は引かない（横罫だけ）。表を締める下線のみ。★
-      line(page, M, tableBottom, tableRight, tableBottom, GREY, 0.8);
+      line(page, M, tableBottom, tableRight, tableBottom, GREY, 0.6);
       return tableBottom;
     }
 
     function drawPageNo(page) {
       pageNum += 1;
       if (totalPages > 1) {
-        T(page, font, pageNum + " / " + totalPages, M + CW, M - 4, 8, {
+        T(page, font, pageNum + " / " + totalPages, M + CW, M - 4, 7.5, {
           align: "right",
           color: DARK,
         });
       }
     }
+
+    // ===== ページの割り方（見えない紙で 測る）=====
+    var CLASSIC_BOTTOM = 80; // 紙の下の余白（ページ番号 M−4 より上に 塊を 置く）
+    var _noop = function () {};
+    function _dryDraw(fn) {
+      // fn(紙) を 見えない紙に 描き、塊の 一番下の y を 返す（塊の記録は 消して 戻す）
+      var fake = { drawText: _noop, drawLine: _noop, drawRectangle: _noop, drawImage: _noop };
+      var keepBlk = _curBlk;
+      var ret = fn(fake);
+      var low = Infinity;
+      _blkRecs = _blkRecs.filter(function (r) {
+        if (r.pageObj !== fake) return true;
+        if (r.yBot < low) low = r.yBot;
+        return false;
+      });
+      _curBlk = keepBlk;
+      return { ret: ret, low: low };
+    }
+    var _topG = _dryDraw(function (p) {
+      return drawHeader(p, true);
+    }).ret; // 金額ありの ヘッダーの 下＝表の 上端
+    var _topD = _dryDraw(function (p) {
+      return drawHeader(p, false);
+    }).ret; // 金額なしの ヘッダーの 下
+    var _totLow = _dryDraw(function (p) {
+      drawTotalsFooter(p, 0);
+    }).low; // 合計の 塊（振込先・繰越・内訳 込み）の 一番下（0 から 下へ 負の数）
+    if (!isFinite(_totLow)) _totLow = 0;
+    var _subDepth = 14 + 4; // 「このページの小計」→「次ページへ続く」の 送り 14 ＋ 字の 下
+    var capS = Math.max(1, Math.floor((_topG - headH - 16 + _totLow - CLASSIC_BOTTOM) / rowH));
+    var capD = Math.max(1, Math.floor((_topD - headH - 16 - _subDepth - CLASSIC_BOTTOM) / rowH));
+    if (rows.length <= capS) detailPages.push(rows.slice());
+    else for (var i = 0; i < rows.length; i += capD) detailPages.push(rows.slice(i, i + capD));
+    pageSubtotals = detailPages.map(function (pr) {
+      return pr.reduce(function (s, x) {
+        return s + (Number(x.金額) || 0);
+      }, 0);
+    });
+    multi = rows.length > capS;
+    totalPages = multi ? detailPages.length + 1 : 1;
 
     // ===== 明細ページ =====
     detailPages.forEach(function (pageRows, pi) {
@@ -1288,9 +1343,9 @@
       if (!multi) {
         drawTotalsFooter(page, footTop);
       } else {
-        T(page, font, "このページの小計", M + CW - 200, footTop, 9.5, { color: DARK });
-        T(page, font, yen(pageSubtotals[pi]), M + CW, footTop, 9.5, { align: "right" });
-        T(page, font, "次ページへ続く →", M + CW, footTop - 16, 10, {
+        T(page, font, "このページの小計", M + CW - 200, footTop, 8.5, { color: DARK });
+        T(page, font, yen(pageSubtotals[pi]), M + CW, footTop, 8.5, { align: "right" });
+        T(page, font, "次ページへ続く →", M + CW, footTop - 14, 8.5, {
           align: "right",
           color: INKC,
         });
