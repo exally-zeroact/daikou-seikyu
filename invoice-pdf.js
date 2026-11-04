@@ -32,7 +32,7 @@
   var _cov = null; // { fk: fontkitフォント, missing: Set }
   var _lastMissing = [];
 
-  // ★編集タブ用「塊(ブロック)の位置」公開（描画は一切変えない＝バイト不変）。
+  // ★「塊(ブロック)の位置」公開（描画は一切変えない＝バイト不変）。紙の重なりの試験（kami-kasanari）が読む。
   //   描画プリミティブ T()/line()/rect()/drawImage が呼ばれるたび、現在の塊名 _curBlk の
   //   外接矩形(min/max)を _blkRecs に積む。塊の開始でセクション名をセットするだけ。
   //   座標は PDF空間(y-up・原点左下)。公開時に y=塊の上端(yTop)・正のw/hに整形。
@@ -1516,9 +1516,8 @@
     lastMissing: function () {
       return _lastMissing.slice();
     },
-    // ★直近に描いた請求書の「塊(ブロック)」位置を返す（編集タブの直接タップ用）。
+    // ★直近に描いた請求書の「塊(ブロック)」位置を返す（紙の重なりの試験 kami-kasanari・pdf-overflow-harness 用）。
     //   各要素 {key, page(0始まり), x, y, w, h} は PDF空間(y-up・原点左下)・y=塊の上端。
-    //   HTML側で pdf.js viewport.convertToViewportPoint() で canvas座標へ変換して使う。
     lastBlocks: function () {
       if (!_lastDoc) return [];
       var pages = _lastDoc.getPages();

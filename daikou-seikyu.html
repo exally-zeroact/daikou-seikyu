@@ -6435,8 +6435,7 @@
         }
       }
       // ★ビルド結果キャッシュ：同じ内容なら約0.7秒の再ビルド(フォント埋込)を飛ばす（解像度は不変）。
-      //   塊座標(blocks)もキャッシュビルドを飛ばすと古くなるので一緒に保持して描画へ渡す。
-      var _invCache = { sig: null, bytes: null, blocks: null };
+      var _invCache = { sig: null, bytes: null };
       function _issFp(iss) {
         return JSON.stringify({
           d: iss.pdfDesign,
@@ -6567,7 +6566,7 @@
         var iss = issuerForEngine();
         out.classList.add("inv-loading"); // 既存プレビューの上に「作成中」を重ねる（チラつき防止）
         try {
-          var bytes, blocks, sig;
+          var bytes, sig;
           if (onlyCo) {
             var rows = DB.filter(function (r) {
               return (
@@ -6583,7 +6582,6 @@
             sig = _invSig1(onlyCo, month, _coIss, rows);
             if (_invCache.sig === sig && _invCache.bytes) {
               bytes = _invCache.bytes; // ★同内容＝再ビルドを飛ばす（約0.7秒節約）
-              blocks = _invCache.blocks;
             } else {
               bytes = await InvoicePDF.buildOne(
                 MASTER,
@@ -6593,8 +6591,7 @@
                 _coIss,
                 invoiceNoMiru(month, onlyCo)
               );
-              blocks = window.InvoicePDF && InvoicePDF.lastBlocks ? InvoicePDF.lastBlocks() : [];
-              _invCache = { sig: sig, bytes: bytes, blocks: blocks };
+              _invCache = { sig: sig, bytes: bytes };
             }
           } else {
             var monthRows = DB.filter(function (r) {
@@ -6618,7 +6615,6 @@
               );
             if (_invCache.sig === sig && _invCache.bytes) {
               bytes = _invCache.bytes;
-              blocks = _invCache.blocks;
             } else {
               bytes = await InvoicePDF.buildMonth(
                 MASTER,
@@ -6631,8 +6627,7 @@
                 }
               );
               if (!bytes) return _invEmpty(out, "該当する明細がありません", seq);
-              blocks = window.InvoicePDF && InvoicePDF.lastBlocks ? InvoicePDF.lastBlocks() : [];
-              _invCache = { sig: sig, bytes: bytes, blocks: blocks };
+              _invCache = { sig: sig, bytes: bytes };
             }
           }
           if (seq !== _invSeq) return; // 新しい要求が来ていたら破棄
@@ -9334,7 +9329,7 @@
           bank: "",
           issuerAlign: "left",
           bankAlign: "left",
-          alignIssuer: "auto", // 自社情報ブロックの位置（編集タブ・auto=テンプレ既定）
+          alignIssuer: "auto", // 自社情報ブロックの位置（auto=テンプレ既定・前に編集タブで変えた値は残る）
           lineIssuer: "auto", // 自社情報の行の並び（auto=位置と同じ）
           posGrand: "auto", // ご請求金額の位置（auto=左）
           posLead: "auto", // 説明文の位置（auto=左）
@@ -9796,11 +9791,11 @@
           bank: bankLines.length ? ["お振込先"].concat(bankLines) : [],
           lineAlign: s.issuerAlign || "left",
           bankAlign: s.bankAlign || "left",
-          alignIssuer: s.alignIssuer || "auto", // 自社情報ブロックの位置（編集タブ）
-          lineIssuer: s.lineIssuer || "auto", // 自社情報の行の並び（編集タブ）
-          posGrand: s.posGrand || "auto", // ご請求金額の位置（編集タブ）
-          posLead: s.posLead || "auto", // 説明文の位置（編集タブ）
-          posDue: s.posDue || "auto", // お支払期限（有効期限）の位置（編集タブ）
+          alignIssuer: s.alignIssuer || "auto", // 自社情報ブロックの位置（前に編集タブで保存した値・無ければ auto）
+          lineIssuer: s.lineIssuer || "auto", // 自社情報の行の並び（同上）
+          posGrand: s.posGrand || "auto", // ご請求金額の位置（同上）
+          posLead: s.posLead || "auto", // 説明文の位置（同上）
+          posDue: s.posDue || "auto", // お支払期限（有効期限）の位置（同上）
           dateEra: s.dateEra || "seireki",
           showInvoiceNo: !!s.showInvoiceNo,
           paymentDue:
@@ -13255,8 +13250,7 @@
             iss,
             invoiceNoMiru(month, co)
           );
-          var blocks = InvoicePDF.lastBlocks ? InvoicePDF.lastBlocks() : [];
-          _invCache = { sig: sig, bytes: bytes, blocks: blocks };
+          _invCache = { sig: sig, bytes: bytes };
         } catch (e) {}
       }
       async function boot() {
