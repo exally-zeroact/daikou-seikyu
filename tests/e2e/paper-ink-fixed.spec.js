@@ -274,7 +274,8 @@ test("★紙に 薄い灰青が1つも残っていない★", async () => {
   const src = fs.readFileSync("invoice-pdf.js", "utf8");
   // 「文字の色」を決めている所だけ見る（線の色は別）
   const bad = [];
-  src.split("\n").forEach((L, i) => {
+  // ★CRLF の作業木でも注を落とす★（\r が残ると .*$ が行末に届かず 注を拾う・11-04 本番の木で踏んだ）
+  src.split(/\r?\n/).forEach((L, i) => {
     const code = L.replace(/\/\/.*$/, "");
     if (!/color\s*:/.test(code)) return;
     for (const ng of NG) if (code.toUpperCase().includes(ng)) bad.push(`${i + 1}: ${L.trim()}`);

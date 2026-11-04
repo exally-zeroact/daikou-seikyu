@@ -157,7 +157,8 @@ test("★紙とExcelを作る所に 率の直書きが1つも無い★", async (
     const src = fsx
       .readFileSync(f, "utf8")
       .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "));
-    src.split("\n").forEach((L, i) => {
+    // ★CRLF の作業木でも注を落とす★（\r が残ると .*$ が行末に届かず 注を拾う・11-04 本番の木で踏んだ）
+    src.split(/\r?\n/).forEach((L, i) => {
       const code = L.replace(/\/\/.*$/, "");
       if (/["'][^"']*\d+\s*%[^"']*["']/.test(code) && /消費税|税率|tax/i.test(code)) {
         bad.push(`${f}:${i + 1} ${L.trim().slice(0, 70)}`);
