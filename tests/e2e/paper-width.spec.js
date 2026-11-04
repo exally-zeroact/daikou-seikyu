@@ -74,8 +74,8 @@ function seedDb() {
   );
 }
 
-// 押す物の一覧（先に書く）：設定 / 入金 / 入力 / 一覧 / 編集 / 請求
-const SCREENS = ["settings", "payment", "input", "list", "edit", "billing"];
+// 押す物の一覧（先に書く）：設定 / 入金 / 入力 / 一覧 / 請求
+const SCREENS = ["settings", "payment", "input", "list", "billing"];
 
 for (const w of WIDTHS) {
   test(`幅${w}: 全画面で 潰れ0・はみ出し0`, async ({ page }) => {

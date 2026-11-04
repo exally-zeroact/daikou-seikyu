@@ -608,34 +608,6 @@ test("★プレビュー：会社マスタで 内税→外税 を 押して 戻�
   expect(ato.j, "★外税に したのに プレビューが 内税 の まま★").toContain("外税");
 });
 
-// ★編集タブの プレビューも 描く 月の 繰越★ 2026-11-02（本番前の 対立役 注B）
-//   編集タブは 自分の 月（_editMonth＝データの 在る 一番 新しい 月）で 描くのに、
-//   繰越だけ 請求タブの #invMonth の 月で 数えていた（issuerForEngine(onlyCo) に 月が 無い）
-//   ＝請求タブで 5月を 選んでから 編集タブを 開くと、6月の 紙に 5月の 繰越（前回なし）が 載った
-//   ★わざと壊して 赤★ daikou-seikyu.html の issuerForEngine(onlyCo, month) から month を 外す ⇒ この 1本が 赤
-test("★編集タブの プレビュー：請求タブで 別の 月を 選んでいても 6月の 紙は 上 29,200★", async ({
-  page,
-}) => {
-  await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
-  await page.addInitScript(seed, { carry: true, copy: true });
-  await page.goto("/daikou-seikyu.html", { waitUntil: "load" });
-  await expect(page.locator("#scr-input")).toBeVisible({ timeout: 20000 });
-  await page.locator('.nav-item[data-scr="billing"]').click();
-  await page.selectOption("#invMonth", "2026-05");
-  await page.selectOption("#invCompany", "繰越あり社");
-  const go = await preUe(page, "繰越あり社", "2026-05");
-  expect(go.ue, "★5月の 紙の 上が 37,200 で ない★\n" + go.j).toBe("¥37,200");
-  await page.locator('.nav-item[data-scr="edit"]').click();
-  await expect(page.locator("#scr-edit")).toBeVisible();
-  await expect(page.locator("#editCompany")).toHaveValue("繰越あり社");
-  const ed = await preUe(page, "繰越あり社", "2026-06");
-  expect(ed.ue, "★編集タブの 6月の 紙が #invMonth（5月）の 繰越で 描かれた★\n" + ed.j).toBe(
-    "¥29,200"
-  );
-  expect(ed.j, "★前回ご請求額 37,200 が 無い★").toContain("¥37,200");
-  expect(ed.j, "★ご入金額 ▲20,000 が 無い★").toContain("▲¥20,000");
-});
-
 // ★本物の 発行も 描く 月の 繰越★ 2026-11-02（設計前の 対立役 注1）
 //   「印刷 / 送る」は 月を 1回 読んだ 後、倉庫に 番号を 取りに 行く 間 待つ。ボタンは 押せなく なるが #invMonth は 触れる。
 //   待つ 間に 月を 変えると、紙は 明細も 番号も 元の 月なのに 繰越だけ 変えた 後の 月で 刷られた
@@ -782,16 +754,6 @@ test("★入金を 読めない 時：入金の 窓に 嘘の 今回ご請求額
   await expect(note).toContainText("入金を 読めないので 出せません");
   await expect(note).not.toContainText("今回ご請求額 ¥12,000");
   await expect(note).not.toContainText("¥49,200");
-});
-//   ★編集タブも 同じ 門★（2回目の 対立役 次の確かめ2）編集タブは onlyCo に editCompany を 使う 道
-test("★入金を 読めない 時（編集タブ）：繰越の 会社の 紙を 描かず 帯を 出す★", async ({ page }) => {
-  await nyukinYomenai(page);
-  await page.locator('.nav-item[data-scr="edit"]').click();
-  await expect(page.locator("#scr-edit")).toBeVisible();
-  await expect(page.locator("#editCompany")).toHaveValue("繰越あり社");
-  await expect(page.locator("#editOut .yomenai-obi")).toBeVisible({ timeout: 60000 });
-  await expect(page.locator("#editOut canvas"), "★編集タブに 紙が 描かれた★").toHaveCount(0);
-  await expect(page.locator("#editOut.inv-loading")).toHaveCount(0);
 });
 //   ★遅れて 来た 紙が 帯を 上書きしない★（次の確かめ3）繰越なし社を 描き 始めて すぐ 繰越あり社へ
 test("★入金を 読めない 時：描き途中で 繰越の 会社へ 変えても 遅れた 紙が 帯を 上書きしない★", async ({

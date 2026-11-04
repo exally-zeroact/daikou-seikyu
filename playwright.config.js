@@ -26,6 +26,7 @@ const HEAVY = [
   "**/excel-no-invoice-sheet.spec.js",
   "**/excel-label-fits.spec.js",
   "**/kami-kasanari.spec.js",
+  "**/henshu-nashi.spec.js",
 ];
 
 export default defineConfig({
