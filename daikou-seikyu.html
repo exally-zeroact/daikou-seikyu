@@ -877,30 +877,6 @@
         font-weight: 700;
         margin-left: 6px;
       }
-      /* ★メーターの 行と 同じかも★ 2026-11-04（二重請求の 見張り・lib/nijuu.js） */
-      .nijuu-kamo {
-        font-size: 13px;
-        color: #c0392b;
-        border: 1.5px solid #c0392b;
-        border-radius: 6px;
-        padding: 6px 8px;
-        margin-top: 8px;
-        background: #ffffff;
-      }
-      .nijuu-kamo .nijuu-betsu {
-        margin-top: 6px;
-        font-size: 13px;
-        padding: 4px 10px;
-        border: 1px solid #c0392b;
-        border-radius: 6px;
-        background: #ffffff;
-        color: #c0392b;
-        cursor: pointer;
-      }
-      .nijuu-kamo.nijuu-ok {
-        color: #333333;
-        border-color: #999999;
-      }
       /* 請求書を 出す 前の 見張りの 帯（下の ナビの 上に 出す） */
       .hakko-obi {
         position: fixed;
@@ -930,7 +906,6 @@
         padding-left: 18px;
         color: #333333;
       }
-      .hakko-obi-betsu,
       .hakko-obi-x {
         margin: 4px 6px 0 0;
         font-size: 13px;
@@ -11976,14 +11951,6 @@
       function aiSgKakunin(i, el) {
         if (entryRows[i]) entryRows[i]._kakunin = !!el.checked;
       }
-      // ★別の 乗車★ 決めた 時の 日付|額|当たった 行 を 印に する（後で 額や 日付を 直せば 効かない・対立役 注5）
-      function nijuuBetsu(i) {
-        var r = entryRows[i];
-        if (!r || !r._nijuuKagi) return;
-        r._betsu = r._nijuuKagi;
-        renderEntry();
-        toast("別の乗車として扱います。もう一度「保存」を押してください");
-      }
       function pickKouho(i, j) {
         var r = entryRows[i];
         if (!r || !r._kouho || !r._kouho[j]) return;
@@ -12153,35 +12120,6 @@
                 i +
                 ',this)"> 伝票と見比べて 確かめた</label>';
             }
-            // ★メーターの 行と 同じかも★ 2026-11-04（保存の 時に 倉庫から 読み直して 当たった 行だけ）
-            var njHtml = "";
-            if (row._nijuu && row._nijuu.length) {
-              var njOk = row._betsu && row._betsu === row._nijuuKagi;
-              njHtml =
-                '<div class="nijuu-kamo' +
-                (njOk ? " nijuu-ok" : "") +
-                '">' +
-                (njOk
-                  ? "別の乗車として保存します（メーターの明細："
-                  : "メーターから入った明細と同じ乗車かもしれません（") +
-                row._nijuu
-                  .map(function (h) {
-                    return (
-                      esc(String(h.日付 || "")) +
-                      " ¥" +
-                      esc(Number(h.金額 || 0).toLocaleString("ja-JP")) +
-                      (h.行き先 ? " " + esc(String(h.行き先)) : "")
-                    );
-                  })
-                  .join("／") +
-                "）" +
-                (njOk
-                  ? ""
-                  : '<br>同じ乗車なら ✕ で この行を消してください。<br><button type="button" class="nijuu-betsu" onclick="nijuuBetsu(' +
-                    i +
-                    ')">別の乗車（このまま保存する）</button>') +
-                "</div>";
-            }
             return (
               '<div class="entry-line' +
               (row._ai ? " ai-row" : "") +
@@ -12196,7 +12134,6 @@
               fields +
               "</div>" +
               aiKaku +
-              njHtml +
               "</div>"
             );
           })
@@ -12322,20 +12259,8 @@
           if (b) b.classList.remove("on");
         }, 160);
       }
-      // ★日付・金額を 直したら「メーターと 同じかも」の 枠を 消す★（直した 後も 次の 保存まで 残った・前の 押しの 対立役 注4）
-      function nijuuWakuKesu(i, k) {
-        var r = entryRows[i];
-        if (!r || (k !== "日付" && k !== "金額") || !r._nijuu) return;
-        delete r._nijuu;
-        delete r._nijuuKagi;
-        delete r._betsu;
-        var box = document.querySelectorAll("#entryBody .entry-line")[i];
-        var w = box && box.querySelector(".nijuu-kamo");
-        if (w) w.remove();
-      }
       function setEntry(i, k, v) {
         if (entryRows[i]) entryRows[i][k] = v;
-        nijuuWakuKesu(i, k);
       }
       function setEntryCar(i, el) {
         if (!entryRows[i] || el.value === "keep") return;
@@ -12349,12 +12274,10 @@
         var clean = String(el.value).replace(k === "距離" ? /[^0-9.]/g : /[^0-9]/g, "");
         if (el.value !== clean) el.value = clean;
         if (entryRows[i]) entryRows[i][k] = clean;
-        nijuuWakuKesu(i, k);
       }
       function setEntryDate(i, k, el) {
         // 内部はISO（2026-06-15）で保持・画面表示だけ M/D（6/15）に更新
         if (entryRows[i]) entryRows[i][k] = el.value;
-        nijuuWakuKesu(i, k);
         var s = el.parentNode.querySelector(".date-show");
         if (s) {
           var md = mdShort(el.value);
@@ -12388,16 +12311,15 @@
       /* ===================================================================
             ★請求書を 出す 前の 見張り★ 2026-11-04（lib/nijuu.js zureKazoeru・hakkoMae・設計前の 対立役 v1 止5・v2 止3注8）
             訳：DB と PAYMENTS は ログインの 時に 1回 読むだけ＝開いた 後に メーターから 入った 行・別の 端末で
-                直した 行・記録した 入金が 紙に 出ない（少なく 請求・古い 繰越）。保存の 時の 二重の 見張りも
-                保存の 後に 入る メーターの 行・一覧で 直した 行・料金が 空の 行 は 拾えない。
+                直した 行・記録した 入金が 紙に 出ない（少なく 請求・古い 繰越）。料金が 空の メーターの 行も 出す 時に 見る。
             決まり：
               ・出す 前に 倉庫を 丸ごと 読み直す（loadAllCloud と 同じ 読み）。違えば DB・PAYMENTS を 丸ごと 替える
                 （id で 入れ替えない＝月を 動いた 行が 消えたり 2重に なったり しない・v1 止3）
               ・★この 紙の 材料に 触れる 違いが 在れば 1回 止める★（見た 紙と 出る 紙を 同じに する）。
-                材料＝紙の 会社の その 月の 前後1日（重なりの 窓）＋繰越の 会社は それより 前の 全部の 月と 入金（v1 止1・v2 注2）
+                材料＝紙の 会社の その 月（紙と 同じ 日付の 頭7字）＋繰越の 会社は それより 前の 全部の 月と 入金（v1 止1・v2 注2）
               ・明細が 読めなければ 出さない。入金が 読めなければ 繰越の 会社 だけ 止める（司さん 10-08・v2 止B）
               ・保存の 途中なら 終わるまで 待つ（v2 止A）
-              ・重なり（手の 行×メーターの 行）は 止めて 会社ごとに「別の 乗車（このまま 出す）」を 選ばせる（組が 変われば また 止める）
+              ・★手の 行と メーターの 行の「同じ 乗車かも」は 見ない★（司さん 2026-11-04「おれが 入力しよんやけん いちいち 出すなや」＝頼まれていない 見張り・保存の 時も 外した）
               ・料金が 空の メーターの 行は ★止めて 警告・通す 釦は 無い★（計算 できない 物は 出さない）
             ★拾えない 物★：［続ける］で 晩を またいだ 勤務（差が 2日 以上・Daikou-app の 別の 押し）／会社の 設定（MASTER）の 違い
             =================================================================== */
@@ -12507,14 +12429,13 @@
         cos.forEach(function (c) {
           coAri[c] = true;
         });
-        var hajime = month + "-01";
-        var mae1 = Nijuu.hiTasu(hajime, -1);
-        var owari = Nijuu.hiTasu(Nijuu.hiTasu(month + "-28", 4).slice(0, 7) + "-01", 0); // 次の 月の 1日＝月末＋1日
+        // 材料の 窓＝紙と 同じ 数え方（日付の 頭7字＝月）。2026-11-04 まで 重なりの ために 前後1日 広げていた＝重なりを 外したので その 月に 戻した
+        //   （大小 比べで 書くと 0の 欠けた 日付 "2026-11-5" が 外れる＝紙に 載るのに 見ない・設計前の 対立役 注2）
         var fureruM = function (r) {
           if (!r || !coAri[r.会社名] || !r.日付) return false;
-          if (r.日付 > owari) return false;
-          if (MASTER[r.会社名] && MASTER[r.会社名].carryover) return true;
-          return r.日付 >= mae1;
+          var tsuki = String(r.日付).slice(0, 7);
+          if (MASTER[r.会社名] && MASTER[r.会社名].carryover) return tsuki <= month; // 繰越＝前の 月も 全部
+          return tsuki === month;
         };
         var zm = Nijuu.zureKazoeru(meisaiZureList(maeDB), meisaiZureList(m.db), fureruM);
         var zp = { tasu: 0, naoru: 0, kieru: 0, kasanaru: 0, zenbu: 0 };
@@ -12571,22 +12492,13 @@
         }
         return false;
       }
-      // ★重なり・料金が 空の 行の 帯★（alert/confirm は 使わない）
-      var _hakkoTooshi = {}; // 「別の 乗車（このまま 出す）」を 押した 組の 印（画面の 中だけ・会社ごと・v1 注5）
-      var _hakkoObiKagi = [];
+      // ★料金が 空の 行の 帯★（alert/confirm は 使わない）
       function hakkoObiKesu() {
         var el = document.getElementById("hakkoObi");
         if (el) {
           el.hidden = true;
           el.innerHTML = "";
         }
-      }
-      function hakkoTooshiOsu() {
-        _hakkoObiKagi.forEach(function (k) {
-          _hakkoTooshi[k] = true;
-        });
-        hakkoObiKesu();
-        toast("別の乗車として 扱います。もう一度 押してください");
       }
       /* 通して よければ true */
       function hakkoMon(month, cos) {
@@ -12597,24 +12509,11 @@
           month,
           cos
         );
-        var kagi = [];
-        var kasa = [];
-        Object.keys(r.kasanari).forEach(function (co) {
-          var k = Nijuu.kasanariKagi(month, co, r.kasanari[co]);
-          if (_hakkoTooshi[k]) return;
-          kagi.push(k);
-          r.kasanari[co].forEach(function (x) {
-            kasa.push({ co: co, x: x });
-          });
-        });
-        if (!kasa.length && !r.mitei.length) {
+        if (!r.mitei.length) {
           hakkoObiKesu();
           return true;
         }
         var el = document.getElementById("hakkoObi");
-        var en = function (v) {
-          return "¥" + Number(v || 0).toLocaleString("ja-JP");
-        };
         var h = '<div class="hakko-obi-hd">請求書は まだ 作っていません</div>';
         if (r.mitei.length) {
           h +=
@@ -12635,107 +12534,13 @@
               .join("") +
             "</ul></div>";
         }
-        if (kasa.length) {
-          h +=
-            '<div class="hakko-obi-sec"><b>手で 入れた 明細と メーターから 入った 明細が 同じ 乗車かも しれません（' +
-            kasa.length +
-            "件）</b>（同じ 乗車なら 一覧で 手の 明細を 消してください）<ul>" +
-            kasa
-              .map(function (k) {
-                return (
-                  "<li>" +
-                  esc(k.co) +
-                  "：手 " +
-                  esc(mdShort(k.x.te.日付)) +
-                  " " +
-                  en(k.x.te.金額) +
-                  (k.x.te.行き先 ? " " + esc(k.x.te.行き先) : "") +
-                  " ／ メーター " +
-                  k.x.meter
-                    .map(function (mm) {
-                      return (
-                        esc(mdShort(mm.日付)) +
-                        " " +
-                        en(mm.金額) +
-                        (mm.行き先 ? " " + esc(mm.行き先) : "")
-                      );
-                    })
-                    .join("・") +
-                  "</li>"
-                );
-              })
-              .join("") +
-            "</ul>" +
-            (r.mitei.length
-              ? ""
-              : '<button type="button" class="hakko-obi-betsu" onclick="hakkoTooshiOsu()">別の乗車（このまま出す）</button>') +
-            "</div>";
-        }
         h += '<button type="button" class="hakko-obi-x" onclick="hakkoObiKesu()">閉じる</button>';
-        _hakkoObiKagi = kagi;
         if (el) {
           el.innerHTML = h;
           el.hidden = false;
         }
         toast(
-          r.mitei.length
-            ? "料金が まだ 入っていない メーターの 明細が あります（請求書は 作っていません）"
-            : "メーターの 明細と 同じ 乗車かも しれない 明細が あります（請求書は 作っていません）",
-          6000
-        );
-        return false;
-      }
-      /* ★手で入れた行と メーターの行の 二重請求の 見張り★ 2026-11-04（lib/nijuu.js・設計前の 対立役 止0注7）
-            開いた 後に メーターの 行が 入る ので 手元の DB でなく 倉庫から 読み直す。
-            ★読み切れなければ 保存しない★（黙って 通さない）。当たれば 行に 印を 付けて 止める＝額は 変えない。
-            ★拾えない 物★：［続ける］で 晩を またいだ 勤務（差が 2日 以上）・保存の 後に 入る メーターの 行 */
-      async function nijuuMiru(co, payload, rows) {
-        // ★読む 前に 前の 枠を 消す★（読めなかった 時に 前の 枠を 残さない・前の 押しの 本番前 対立役 注4）
-        var atta = false;
-        rows.forEach(function (r) {
-          if (r._nijuu) atta = true;
-          delete r._nijuu;
-          delete r._nijuuKagi;
-        });
-        if (atta) renderEntry();
-        var han = Nijuu.yomuHanni(payload);
-        if (!han) return true; // 日付の 無い 行だけ＝突き合わせる 物が 無い
-        var q = await fetchAllQ(function (a, b) {
-          return SB.from("meisai")
-            .select("id, company, date, amount, destination, extra", { count: "exact" })
-            .eq("user_id", CURRENT_ACCOUNT)
-            .eq("company", co)
-            .is("deleted_at", null)
-            .gte("date", han.gte)
-            .lte("date", han.lte)
-            .order("id")
-            .range(a, b);
-        });
-        if (q.error) {
-          toast(
-            "メーターから入った明細を読めなかったので、二重の確かめが出来ず保存していません。もう一度「保存」を押してください",
-            6000
-          );
-          return false;
-        }
-        var kekka = Nijuu.sagasu(payload, (q.data || []).map(meisaiFromDb));
-        Object.keys(kekka.atari).forEach(function (k) {
-          rows[k]._nijuu = kekka.atari[k];
-          rows[k]._nijuuKagi = Nijuu.betsuKagi(payload[k], kekka.atari[k]);
-        });
-        var t = Nijuu.tomeru(
-          kekka.atari,
-          payload,
-          rows.map(function (r) {
-            return r._betsu;
-          })
-        );
-        if (Object.keys(kekka.atari).length) renderEntry();
-        if (t < 0) return true;
-        toast(
-          "メーターから入った明細と同じ日付・金額の行があります（明細 " +
-            (entryRows.indexOf(rows[t]) + 1) +
-            "）。同じ乗車なら ✕ で消し、別の乗車なら「別の乗車」を押してください",
+          "料金が まだ 入っていない メーターの 明細が あります（請求書は 作っていません）",
           6000
         );
         return false;
@@ -12800,21 +12605,6 @@
         // クラウドに一括insert→返ってきたuuid＋created_atを各明細に載せて in-memory に追加
         // ★500件ずつ分割（1回のinsert返りもmax_rows上限に掛かる＝1000超でid対応が崩れ、以後その行が更新/削除できなくなるのを防ぐ）
         var payload = recs.map(meisaiToDb);
-        // ★二重請求の 見張り★ 2026-11-04（倉庫に 入る 値で・倉庫から 読み直して・読めなければ 止める）
-        if (!(await nijuuMiru(co, payload, contentRows))) return;
-        // ★「別の 乗車」を 倉庫に 残す★ 2026-11-04（出す 前の 見張りが 同じ 組で また 止めない・値が 変われば 効かない）
-        contentRows.forEach(function (row, k) {
-          if (!row._nijuu || !row._betsu || row._betsu !== row._nijuuKagi) return;
-          var b = {
-            ids: row._nijuu.map(function (h) {
-              return h.id;
-            }),
-            date: payload[k].date,
-            amount: payload[k].amount,
-          };
-          payload[k].extra = Object.assign({}, payload[k].extra, { nijuu_betsu: b });
-          recs[k].nijuu_betsu = b;
-        });
         var insData = [];
         for (var bi = 0; bi < payload.length; bi += 500) {
           var chunk = payload.slice(bi, bi + 500);

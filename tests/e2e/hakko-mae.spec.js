@@ -4,8 +4,9 @@ import { test, expect } from "@playwright/test";
 //   押す 事：開いた 後に 倉庫へ 入った 行（その 月・繰越の 前の 月・DB に 0件の 会社）→ 1回 止めて 画面を 最新に →
 //   もう一度で 紙に 出る（番号は 止めた 時に 台帳へ 書かない）／紙に 触れない 違いでは 止めない／
 //   明細が 読めなければ 出さない／入金が 読めなければ 繰越の 会社 だけ 止める／
-//   手の 行×メーターの 行の 重なり → 帯 → 別の 乗車 で 出る／料金が 空の メーター行 → 止める（通す 釦 無し）／
-//   保存の「別の 乗車」は 倉庫に 残り 出す 時に 止めない／自分で 保存・記録した 直後に 嘘で 止めない／
+//   ★手の 行×メーターの 行の「同じ 乗車かも」は 出さない★（2026-11-04 夜 外した・司さん「いちいち 出すなや」）／
+//   料金が 空の メーター行 → 止める（通す 釦 無し）／読み直しの 窓は その 月（繰越の 会社は 前の 月も）／
+//   自分で 保存・記録した 直後に 嘘で 止めない／
 //   入金画面の「確認」も 同じ 見張りを 通る
 //   値は 全部 作り物
 // ============================================================
@@ -233,28 +234,6 @@ test("★入金が 読めなければ 繰越の 会社 だけ 止める（繰越
   await expect(toastNo(page)).toContainText("入金 を 取って来られませんでした");
 });
 
-test("★手の 行と メーターの 行が 重なる → 帯 → 別の 乗車 で 出る・組が 変われば また 止まる★", async ({
-  page,
-}) => {
-  await open(page, {
-    meisai: [gyou("t1", "A社", "2026-11-03", 4500), gyou("m1", "A社", "2026-11-02", 4500, true)],
-  });
-  expect(await dasu(page, "A社")).toBe(false);
-  const obi = page.locator("#hakkoObi");
-  await expect(obi).toBeVisible();
-  await expect(obi).toContainText("同じ 乗車かも しれません（1件）");
-  await expect(obi).toContainText("¥4,500");
-  expect(await daicho(page)).toBe(0);
-  await obi.locator(".hakko-obi-betsu").click();
-  await expect(obi).toBeHidden();
-  expect(await dasu(page, "A社")).toBe(true);
-  // 開いた 後に もう1本 同じ 額の メーター行 → 組が 変わる → また 止まる
-  await kuraNiTasu(page, gyou("m2", "A社", "2026-11-03", 4500, true));
-  expect(await dasu(page, "A社")).toBe(false); // 倉庫の 違いで 1回
-  expect(await dasu(page, "A社")).toBe(false); // 重なりで もう1回
-  await expect(obi).toContainText("¥4,500");
-});
-
 test("★料金が 空の メーター行 → 止める・通す 釦は 無い・0円は 止めない★", async ({ page }) => {
   await open(page, {
     meisai: [gyou("m1", "A社", "2026-11-02", null, true), gyou("m2", "B社", "2026-11-02", 0, true)],
@@ -265,30 +244,6 @@ test("★料金が 空の メーター行 → 止める・通す 釦は 無い�
   await expect(obi.locator(".hakko-obi-betsu")).toHaveCount(0);
   expect(await daicho(page)).toBe(0);
   expect(await dasu(page, "B社")).toBe(true);
-});
-
-test("★保存で「別の 乗車」→ 倉庫に 印 → 出す 時に 止めない（自分で 保存した 直後も 嘘で 止めない）★", async ({
-  page,
-}) => {
-  await open(page, { meisai: [gyou("m1", "A社", "2026-11-02", 4500, true)] });
-  await page.locator('.nav-item[data-scr="input"]').click();
-  await page.locator("#inputCompany").selectOption("A社");
-  await page.locator("#entryBody .sugg-wrap .entry-inp").first().fill("駅");
-  await page.locator("#entryBody input.num").first().fill("4500");
-  await page.locator("#entryBody .date-input").first().fill("2026-11-02");
-  await page.locator("#entryBody .date-input").first().dispatchEvent("change");
-  await page.getByRole("button", { name: "保存する" }).click();
-  await page.locator("#entryBody .nijuu-betsu").click();
-  await page.getByRole("button", { name: "保存する" }).click();
-  await expect(toastNo(page)).toContainText("件を保存しました");
-  const b = await page.evaluate(
-    () =>
-      JSON.parse(localStorage.getItem("__fake_supa_db__")).tables.meisai.filter(
-        (r) => !(r.extra && r.extra.dk_source)
-      )[0].extra.nijuu_betsu
-  );
-  expect(b).toEqual({ ids: ["m1"], date: "2026-11-02", amount: 4500 });
-  expect(await dasu(page, "A社")).toBe(true);
 });
 
 test("★入金画面の「確認」も 同じ 見張り（開いた 後に 入った 行 → 開かない → もう一度で 開く）★", async ({
@@ -432,4 +387,110 @@ test("★すでに 0 の メーター行は「0円で 決める」に 印を 付
   });
   expect(await dasu(page, "B社")).toBe(false);
   await expect(page.locator("#hakkoObi")).toBeHidden();
+});
+
+const KASANARI_JI = /同じ 乗車|同じ乗車|別の乗車|別の 乗車/;
+async function obiNashi(page) {
+  await expect(page.locator("#hakkoObi")).toBeHidden();
+  await expect(page.locator("#hakkoObi .hakko-obi-betsu")).toHaveCount(0);
+  await expect(page.locator("#hakkoObi")).not.toContainText(KASANARI_JI);
+  await expect(toastNo(page)).not.toContainText(KASANARI_JI);
+}
+const kuraNaosu = (page, id, patch) =>
+  page.evaluate(
+    (a) => {
+      const db = JSON.parse(localStorage.getItem("__fake_supa_db__"));
+      const r = db.tables.meisai.find((x) => x.id === a.id);
+      Object.assign(r, a.patch);
+      localStorage.setItem("__fake_supa_db__", JSON.stringify(db));
+    },
+    { id, patch }
+  );
+
+test("★手の 行と メーターの 行が 同じ 日・額でも 帯を 出さず 1回目で 出る（2026-11-04 夜 外した）★", async ({
+  page,
+}) => {
+  await open(page, {
+    meisai: [gyou("t1", "A社", "2026-11-03", 4500), gyou("m1", "A社", "2026-11-02", 4500, true)],
+  });
+  expect(await dasu(page, "A社")).toBe(true);
+  await obiNashi(page);
+  expect(await daicho(page)).toBe(1);
+  const k = await kami(page);
+  expect([...new Set(k.flatMap((x) => x.ids))].sort()).toEqual(["m1", "t1"]);
+});
+
+test("★倉庫に 古い「別の 乗車」の 印が 残った 手の 行も 帯なし・1回目で 出る★", async ({
+  page,
+}) => {
+  const t = gyou("t1", "A社", "2026-11-02", 4500);
+  t.extra = { nijuu_betsu: { ids: ["m9"], date: "2026-10-01", amount: 1 } };
+  await open(page, { meisai: [t, gyou("m1", "A社", "2026-11-02", 4500, true)] });
+  expect(await dasu(page, "A社")).toBe(true);
+  await obiNashi(page);
+});
+
+test("★画面で 保存した 直後に 出しても 嘘で 止めない（メーターと 同じ 日・額・倉庫に 印は 書かない）★", async ({
+  page,
+}) => {
+  await open(page, { meisai: [gyou("m1", "A社", "2026-11-02", 4500, true)] });
+  await page.locator('.nav-item[data-scr="input"]').click();
+  await page.locator("#inputCompany").selectOption("A社");
+  await page.locator("#entryBody .sugg-wrap .entry-inp").first().fill("駅");
+  await page.locator("#entryBody input.num").first().fill("4500");
+  await page.locator("#entryBody .date-input").first().fill("2026-11-02");
+  await page.locator("#entryBody .date-input").first().dispatchEvent("change");
+  await page.getByRole("button", { name: "保存する" }).click();
+  await expect(toastNo(page)).toContainText("件を保存しました");
+  await expect(page.locator("#entryBody .nijuu-betsu")).toHaveCount(0);
+  const ex = await page.evaluate(
+    () =>
+      JSON.parse(localStorage.getItem("__fake_supa_db__")).tables.meisai.filter(
+        (r) => !(r.extra && r.extra.dk_source)
+      )[0].extra
+  );
+  expect(ex && ex.nijuu_betsu).toBeUndefined();
+  expect(await dasu(page, "A社")).toBe(true);
+  await obiNashi(page);
+});
+
+// ★読み直しの 窓の 境目★（2026-11-04 夜 重なりを 外したので 前後1日の 窓を その 月だけに 戻した・設計前の 対立役 注3）
+test("★窓：月末（11-30）の 行が 倉庫で 直る → 止まる★", async ({ page }) => {
+  await open(page, { meisai: [gyou("t1", "A社", "2026-11-30", 3000)] });
+  await kuraNaosu(page, "t1", { amount: 3500 });
+  expect(await dasu(page, "A社")).toBe(false);
+  await expect(toastNo(page)).toContainText("倉庫に この 紙の 新しい 明細");
+  expect(await dasu(page, "A社")).toBe(true);
+});
+
+test("★窓：11-30 の 行が 12-01 に 動く → 止まる（前の 形で 数える）★", async ({ page }) => {
+  await open(page, {
+    meisai: [gyou("t0", "A社", "2026-11-10", 1000), gyou("t1", "A社", "2026-11-30", 3000)],
+  });
+  await kuraNaosu(page, "t1", { date: "2026-12-01" });
+  expect(await dasu(page, "A社")).toBe(false);
+  expect(await dasu(page, "A社")).toBe(true);
+  const k = await kami(page);
+  expect([...new Set(k.flatMap((x) => x.ids))].sort()).toEqual(["t0"]);
+});
+
+test("★窓：次の 月の 1日（12-01）・前の 月の 末日（10-31）に 足されても 繰越の 無い 会社は 止めない★", async ({
+  page,
+}) => {
+  await open(page, { meisai: [gyou("t1", "A社", "2026-11-03", 3000)] });
+  await kuraNiTasu(page, gyou("m8", "A社", "2026-12-01", 7000, true));
+  await kuraNiTasu(page, gyou("m7", "A社", "2026-10-31", 7000, true));
+  expect(await dasu(page, "A社")).toBe(true);
+  await expect(page.locator("#hakkoObi")).toBeHidden();
+});
+
+test("★窓：繰越の 会社は 前の 月の 末日（10-31）に 足されたら 止める・次の 月の 1日 だけなら 止めない★", async ({
+  page,
+}) => {
+  await open(page, { carry: ["A社"], meisai: [gyou("t1", "A社", "2026-11-03", 3000)] });
+  await kuraNiTasu(page, gyou("m8", "A社", "2026-12-01", 7000, true));
+  expect(await dasu(page, "A社")).toBe(true);
+  await kuraNiTasu(page, gyou("m7", "A社", "2026-10-31", 7000, true));
+  expect(await dasu(page, "A社")).toBe(false);
+  expect(await dasu(page, "A社")).toBe(true);
 });

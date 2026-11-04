@@ -1,10 +1,10 @@
 // @vitest-environment node
 // ============================================================
-// ★請求書を 出す 前の 見張り★ 2026-11-04（lib/nijuu.js zureKazoeru・hakkoMae・kasanariKagi）
+// ★請求書を 出す 前の 見張り★ 2026-11-04（lib/nijuu.js zureKazoeru・hakkoMae）
 //   守ること：倉庫と 画面の 違いを 数える（足す・直す・消す・画面の 中の 同じ id の 2重）／
 //   鍵の 順だけ 違う 物は 違いに しない（jsonb は 鍵を 並べ替える）／この 紙の 材料に 触れる 物だけ 数える／
-//   手の 行 × メーターの 行の 重なり（同じ 会社・同じ 額・メーターの日 ≦ 手の日 ≦ ＋1・どちらかが その 月）／
-//   保存の 時の「別の 乗車」の 印は 値が 同じ 間だけ 効く／料金が 空の メーターの 行は 止める（0円は 止めない）
+//   料金が 空の メーターの 行は 止める（0円は 止めない）／
+//   ★手の 行 × メーターの 行の「同じ 乗車かも」は 見ない★（2026-11-04 夜 外した・司さん「いちいち 出すなや」）
 //   値は 全部 作り物
 // ============================================================
 import { describe, it, expect } from "vitest";
@@ -90,98 +90,29 @@ const meter = (id, 日付, 金額, extra) =>
 const te = (id, 日付, 金額, extra) =>
   Object.assign({ id, 会社名: "A社", 日付, 金額, 行き先: "駅" }, extra || {});
 
-describe("hakkoMae（重なり）", () => {
-  it("同じ日・次の日は 当たる／前の日・2日後・額違い・会社違いは 当たらない", () => {
+describe("hakkoMae（手と メーターの 重なりは 見ない）", () => {
+  it("同じ 会社・同じ日・同じ 額の 手と メーターでも 何も 返さない（返すのは mitei だけ）", () => {
     const r = N.hakkoMae(
       [
         meter("m1", "2026-11-02", 3000),
         te("t1", "2026-11-02", 3000),
         te("t2", "2026-11-03", 3000),
+        meter("m2", "2026-10-31", 3000),
         te("t3", "2026-11-01", 3000),
-        te("t4", "2026-11-04", 3000),
-        te("t5", "2026-11-02", 3100),
-        te("t6", "2026-11-02", 3000, { 会社名: "B社" }),
-      ],
-      "2026-11",
-      ["A社", "B社"]
-    );
-    expect(r.kasanari["A社"].map((k) => k.te.id)).toEqual(["t1", "t2"]);
-    expect(r.kasanari["B社"]).toBeUndefined();
-  });
-  it("手同士・メーター同士は 見ない", () => {
-    const r = N.hakkoMae(
-      [
-        te("t1", "2026-11-02", 3000),
-        te("t2", "2026-11-02", 3000),
-        meter("m1", "2026-11-02", 3000),
-        meter("m2", "2026-11-02", 3000),
       ],
       "2026-11",
       ["A社"]
     );
-    // 手 t1・t2 が それぞれ m1・m2 の 両方に 当たる＝2組×2（手同士・メーター同士の 組は 無い）
-    expect(r.kasanari["A社"].map((k) => k.te.id)).toEqual(["t1", "t2"]);
-    expect(r.kasanari["A社"].map((k) => k.meter.length)).toEqual([2, 2]);
-    r.kasanari["A社"].forEach((k) => {
-      expect(k.te.id.startsWith("t")).toBe(true);
-      k.meter.forEach((m) => expect(m.id.startsWith("m")).toBe(true));
-    });
+    expect(r).toEqual({ mitei: [] });
   });
-  it("月を またぐ 組も 出す（メーター 10-31・手 11-01）・どちらも 月の 外なら 出さない", () => {
-    const r = N.hakkoMae(
-      [meter("m1", "2026-10-31", 3000), te("t1", "2026-11-01", 3000)],
-      "2026-11",
-      ["A社"]
-    );
-    expect(r.kasanari["A社"].length).toBe(1);
-    const r2 = N.hakkoMae(
-      [meter("m1", "2026-10-30", 3000), te("t1", "2026-10-31", 3000)],
-      "2026-11",
-      ["A社"]
-    );
-    expect(r2.kasanari["A社"]).toBeUndefined();
-  });
-  it("紙に 載せない 会社は 見ない", () => {
-    const r = N.hakkoMae(
-      [meter("m1", "2026-11-02", 3000), te("t1", "2026-11-02", 3000)],
-      "2026-11",
-      ["B社"]
-    );
-    expect(r.kasanari).toEqual({});
-  });
-  it("「別の 乗車」の 印（nijuu_betsu）は 値が 同じ 間だけ 効く", () => {
-    const b = { ids: ["m1"], date: "2026-11-02", amount: 3000 };
+  it("倉庫に 古い「別の 乗車」の 印（nijuu_betsu）が 残った 手の 行も 何も 返さない", () => {
+    const b = { ids: ["m9"], date: "2026-10-01", amount: 1 };
     const r = N.hakkoMae(
       [meter("m1", "2026-11-02", 3000), te("t1", "2026-11-02", 3000, { nijuu_betsu: b })],
       "2026-11",
       ["A社"]
     );
-    expect(r.kasanari).toEqual({});
-    // 別の メーター行には 効かない
-    const r2 = N.hakkoMae(
-      [
-        meter("m1", "2026-11-02", 3000),
-        meter("m2", "2026-11-02", 3000),
-        te("t1", "2026-11-02", 3000, { nijuu_betsu: b }),
-      ],
-      "2026-11",
-      ["A社"]
-    );
-    expect(r2.kasanari["A社"][0].meter.map((m) => m.id)).toEqual(["m2"]);
-    // 日付を 直した 後は 効かない
-    const r3 = N.hakkoMae(
-      [meter("m1", "2026-11-02", 3000), te("t1", "2026-11-03", 3000, { nijuu_betsu: b })],
-      "2026-11",
-      ["A社"]
-    );
-    expect(r3.kasanari["A社"].length).toBe(1);
-    // 額を 直して 別の 額で 当たれば 効かない
-    const r4 = N.hakkoMae(
-      [meter("m1", "2026-11-02", 3500), te("t1", "2026-11-02", 3500, { nijuu_betsu: b })],
-      "2026-11",
-      ["A社"]
-    );
-    expect(r4.kasanari["A社"].length).toBe(1);
+    expect(r).toEqual({ mitei: [] });
   });
 });
 
@@ -201,24 +132,6 @@ describe("hakkoMae（料金が まだ 無い メーターの 行）", () => {
       ["A社"]
     );
     expect(r.mitei.map((x) => x.id)).toEqual(["m1", "m2", "m5"]);
-  });
-});
-
-describe("kasanariKagi（このまま 出す 印）", () => {
-  it("組が 同じ なら 同じ・組が 変われば 違う・並びに 依らない", () => {
-    const k1 = [
-      { te: { id: "t1" }, meter: [{ id: "m1" }] },
-      { te: { id: "t2" }, meter: [{ id: "m2" }] },
-    ];
-    const k2 = [
-      { te: { id: "t2" }, meter: [{ id: "m2" }] },
-      { te: { id: "t1" }, meter: [{ id: "m1" }] },
-    ];
-    expect(N.kasanariKagi("2026-11", "A社", k1)).toBe(N.kasanariKagi("2026-11", "A社", k2));
-    expect(N.kasanariKagi("2026-11", "A社", k1)).not.toBe(
-      N.kasanariKagi("2026-11", "A社", [{ te: { id: "t1" }, meter: [{ id: "m3" }] }])
-    );
-    expect(N.kasanariKagi("2026-11", "A社", k1)).not.toBe(N.kasanariKagi("2026-12", "A社", k1));
   });
 });
 
