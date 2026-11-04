@@ -9247,6 +9247,11 @@
             (MASTER[co] && MASTER[co].carryover ? "件　今月分 " : "件　請求額 ") +
             yen(iv.total) +
             "</div>" +
+            // ★繰越の 会社は 読める 時と 同じ 場所（#payAteNote）で「今回ご請求額は 出せません」と 言う★（額は 言わない）
+            (MASTER[co] && MASTER[co].carryover
+              ? '<div class="pay-sub" id="payAteNote" style="margin:-6px 0 10px;color:#555555;">' +
+                "繰越の会社：この月の請求書の 今回ご請求額は 入金を 読めないので 出せません（画面を 開き直してください）</div>"
+              : "") +
             '<div class="yomenai-obi" id="payEditFumei" style="padding:10px 0;color:#b42318;font-weight:700;font-size:13px">' +
             esc(
               "通信が 途切れて 入金 を 取って来られませんでした。入金の額・入金日・メモは 出せず、記録も できません（打ちかけの額も 残せません）。画面を 開き直してください。"

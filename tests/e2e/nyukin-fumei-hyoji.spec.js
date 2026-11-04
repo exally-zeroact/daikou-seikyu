@@ -167,7 +167,10 @@ async function fumeiNoKatachi(page, kensu) {
     // 繰越の 会社は「今月分」（今回ご請求額は 入金が 要る＝「請求額」と 書かない）
     if (co === "B社") {
       expect(body).toContain("今月分 ¥8,000");
-      expect(body).not.toContain("請求額");
+      expect(body).not.toContain("件　請求額");
+      await expect(page.locator("#payAteNote")).toContainText(
+        "今回ご請求額は 入金を 読めないので 出せません"
+      );
     } else expect(body).toContain("請求額 ¥10,000");
     await expect(page.locator("#pay_amt, #pay_date, #pay_note")).toHaveCount(0);
     await expect(page.locator("#modalBody button:not(.pay-kakunin)")).toHaveCount(0);
