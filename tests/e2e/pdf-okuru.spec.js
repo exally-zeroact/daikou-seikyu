@@ -239,6 +239,15 @@ test.describe("iPhone", () => {
     await expect(page.locator("#pdfOkuruObi"), "★窓の 上に 後から 帯が 出た★").toHaveCount(0);
   });
 
+  test("★作っている 間に 会社を 変えたら 前の 会社の 帯を 出さない★", async ({ page }) => {
+    await open(page, ["NotAllowedError:slow"]);
+    await page.locator("#btnInvPdf").click();
+    await expect.poll(() => shares(page).then((x) => x.length), { timeout: 120000 }).toBe(1);
+    await page.selectOption("#invCompany", ""); // 断られる 前に 全社へ
+    await expect(page.locator("#toast")).toContainText("送るのを 止めました", { timeout: 10000 });
+    await expect(page.locator("#pdfOkuruObi"), "★前の 会社の 帯が 後から 出た★").toHaveCount(0);
+  });
+
   test("★帯は 紙の 印刷に 載らない★", async ({ page }) => {
     await open(page, ["NotAllowedError"]);
     await page.getByRole("button", { name: /印刷 \/ 送る/ }).click();

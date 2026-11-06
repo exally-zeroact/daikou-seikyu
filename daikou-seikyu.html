@@ -6803,6 +6803,27 @@
           //   前は PDF を blob の URL で 開いて その 画面から 共有 → LINE に 開けない blob:https://… の URL も 届いた
           //   作る 間に「押した」扱いが 切れて 断られたら 帯「送る・印刷する」（司さん 実機 F・G で 確かめ済み）
           //   'none'（Android・PC・共有が 無い）だけ 下の 今までの 道
+          // ★押した 時と 紙が 違う（作っている 間に 月・会社を 変えた・窓を 開いた・画面や 集計へ 移った）＝送らない★
+          //   違う 会社の 画面に 前の 会社の 紙を 送らない（本番前の 対立役 注1 2回目・3回目）
+          function okuruKawatta() {
+            var bamen = document.getElementById("scr-billing");
+            var mado = document.getElementById("modalOv");
+            var seg = document.querySelector('#scr-billing .seg-panel[data-seg="invoice"]');
+            var m = document.getElementById("invMonth");
+            var c = document.getElementById("invCompany");
+            return (
+              (m && m.value !== r.month) ||
+              (c && c.value !== r.onlyCo) ||
+              (mado && mado.classList.contains("open")) ||
+              !(bamen && bamen.classList.contains("active")) ||
+              !(seg && seg.classList.contains("on"))
+            );
+          }
+          var tomeJi = "紙を 選び直したので 送るのを 止めました（もう一度 押してください）";
+          if (window.PdfOkuru && PdfOkuru.appleTouch(window.navigator) && okuruKawatta()) {
+            toast(tomeJi);
+            return;
+          }
           if (window.PdfOkuru) {
             var ok = await PdfOkuru.okuru(
               r.bytes,
@@ -6826,16 +6847,9 @@
             }
             if (ok.how === "need-tap") {
               // ★作っている 間に 窓を 開いた・画面や 集計へ 移った＝帯を 出さない★（帯 z100000 が 窓や 別の 画面に 乗る・本番前の 対立役 注1 2回目）
-              var bamen = document.getElementById("scr-billing");
-              var mado = document.getElementById("modalOv");
-              var seg = document.querySelector('#scr-billing .seg-panel[data-seg="invoice"]');
-              if (
-                (mado && mado.classList.contains("open")) ||
-                !(bamen && bamen.classList.contains("active")) ||
-                (seg && !seg.classList.contains("on"))
-              ) {
+              if (okuruKawatta()) {
                 PdfOkuru.kesu();
-                toast("画面を 移ったので 送るのを 止めました（もう一度 押してください）");
+                toast(tomeJi);
               }
               return; // 帯に 字も〓の 知らせも 出ている
             }
