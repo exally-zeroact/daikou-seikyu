@@ -85,6 +85,11 @@ function fakeShare(modes) {
     window.__shares.push({ keys, files, text: data.text });
     const m = modes[Math.min(window.__shares.length - 1, modes.length - 1)];
     if (m === "ok") return Promise.resolve();
+    // "…:slow"＝1.5秒 後に 断る（作っている 間に 窓を 開く 順の 試し）
+    if (/:slow$/.test(m))
+      return new Promise((_, ng) =>
+        setTimeout(() => ng(new DOMException("偽", m.replace(/:slow$/, ""))), 1500)
+      );
     return Promise.reject(new DOMException("偽", m));
   };
   const canShare = function (data) {
@@ -222,6 +227,16 @@ test.describe("iPhone", () => {
     await expect(obi).toBeVisible({ timeout: 120000 });
     await page.locator('.seg-btn[data-seg="report"]').click();
     await expect(obi, "★帯が 集計の 上に 残る★").toHaveCount(0);
+  });
+
+  test("★作っている 間に 窓を 開いたら 後から 帯を 出さない★", async ({ page }) => {
+    await open(page, ["NotAllowedError:slow"]);
+    await page.locator("#btnInvPdf").click();
+    await expect.poll(() => shares(page).then((x) => x.length), { timeout: 120000 }).toBe(1);
+    await page.locator("#btnInvExcel").click(); // 断られる 前に 窓を 開く
+    await expect(page.locator("#modalOv")).toHaveClass(/open/);
+    await expect(page.locator("#toast")).toContainText("送るのを 止めました", { timeout: 10000 });
+    await expect(page.locator("#pdfOkuruObi"), "★窓の 上に 後から 帯が 出た★").toHaveCount(0);
   });
 
   test("★帯は 紙の 印刷に 載らない★", async ({ page }) => {

@@ -6824,7 +6824,21 @@
               toast("送るのを やめました");
               return;
             }
-            if (ok.how === "need-tap") return; // 帯に 字も〓の 知らせも 出ている
+            if (ok.how === "need-tap") {
+              // ★作っている 間に 窓を 開いた・画面や 集計へ 移った＝帯を 出さない★（帯 z100000 が 窓や 別の 画面に 乗る・本番前の 対立役 注1 2回目）
+              var bamen = document.getElementById("scr-billing");
+              var mado = document.getElementById("modalOv");
+              var seg = document.querySelector('#scr-billing .seg-panel[data-seg="invoice"]');
+              if (
+                (mado && mado.classList.contains("open")) ||
+                !(bamen && bamen.classList.contains("active")) ||
+                (seg && !seg.classList.contains("on"))
+              ) {
+                PdfOkuru.kesu();
+                toast("画面を 移ったので 送るのを 止めました（もう一度 押してください）");
+              }
+              return; // 帯に 字も〓の 知らせも 出ている
+            }
           }
           // ★スマホは 保存（PDF の 画面が 開き 共有から 送る・プリント）／PC は 新しい 窓で 開く（印刷も 保存も そこから）★
           //   2026-10-29「印刷 / 送る」を 1つに した 時（PC で 保存だけに すると ダウンロード欄に 入るだけで 印刷の 画面が 出ない・対立役 止6）
