@@ -27,6 +27,7 @@ const HEAVY = [
   "**/excel-label-fits.spec.js",
   "**/kami-kasanari.spec.js",
   "**/henshu-nashi.spec.js",
+  "**/pdf-okuru.spec.js",
 ];
 
 export default defineConfig({

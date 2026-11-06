@@ -2465,6 +2465,14 @@
         opacity: 1;
         transform: translateX(-50%) translateY(0);
       }
+      /* ★「送る・印刷する」の 帯が 出ている 間は 知らせを 帯の 上へ★（帯の 下に 隠れて 読めない・対立役 注2 2026-11-06）
+         --pdf-obi-h は 帯を 出した 時に lib/pdf-okuru.js が 測って 入れる */
+      body:has(#pdfOkuruObi) .toast {
+        bottom: calc(
+          var(--nav-h, 56px) + env(safe-area-inset-bottom) + 16px + var(--pdf-obi-h, 72px)
+        );
+        z-index: 100001;
+      }
 
       /* ===== PRINT ===== */
 
@@ -2481,6 +2489,7 @@
         .seg,
         .filterbar,
         .toast,
+        #pdfOkuruObi,
         .no-print {
           display: none !important;
         }
@@ -3110,7 +3119,7 @@
       <div class="seg-panel on" data-seg="invoice">
         <div class="scr-sub">
           月・会社を選ぶと、会社マスタ＋自社情報＋明細から請求書を自動生成。「印刷 / 送る」で PDF を
-          開き、共有から 送る・プリントできます。
+          作り、送る・プリントできます。
         </div>
         <div class="filterbar">
           <select class="fselect" id="invMonth" onchange="generateInvoices()">
@@ -3254,6 +3263,8 @@
     <script src="lib/nyukin-kai.js"></script>
     <script src="lib/shitagaki.js"></script>
     <script src="lib/nijuu.js"></script>
+    <!-- ★PDF を 送る（iPhone・iPad は 共有に PDF と 字だけ＝blob の URL を 付けない）★ 2026-11-06 司さん B -->
+    <script src="lib/pdf-okuru.js"></script>
     <!-- 請求書のクリーンなベクターPDF出力（日本語フォント埋込・複数ページ／pdf-lib等は初回PDF時のみ遅延ロード） -->
     <!-- ★字体を 軽くする（使う字だけ 形を 残す）★（司さん 2026-09-05「全アプリ共通やろが」）
          ★invoice-pdf.js より 先に 読む★／★正本は Rakunally の lib/font-slim.js★ -->
@@ -6188,6 +6199,7 @@
       =================================================================== */
       function showScreen(name) {
         hakkoObiKesu(); // 出す 前の 見張りの 帯は 画面を 移ったら 消す（対立役 注4）
+        if (window.PdfOkuru) PdfOkuru.kesu(); // 「送る・印刷する」の 帯も 消す（古い 紙を 送らない）
         var titles = {
           input: "明細入力",
           list: "明細一覧",
@@ -6424,6 +6436,9 @@
       // immediate=true（画面入場時）は debounce を挟まず即ビルド＋即「作成中」表示＝待ち感ゼロ。
       // 引数なし（連続編集）は従来どおり 220ms でまとめる。
       function generateInvoices(immediate) {
+        // ★紙が 変わる（月・会社・様式・自社情報）＝前の 紙の「送る・印刷する」の 帯は 消す★
+        //   残すと 会社を 変えた 後に 前の 会社の PDF を 送る（対立役 注1 2026-11-06）
+        if (window.PdfOkuru) PdfOkuru.kesu();
         updateRegnoGate(); // ★紙を出す前に 登録番号を見る★
         if (_invGenTimer) clearTimeout(_invGenTimer);
         if (immediate) {
@@ -6764,7 +6779,7 @@
           //   警告が 無くなり 読む 所が 0＝書かない。番号は 上の issueInvoiceNo が 台帳（invoice_no）に 書く
           fname = "請求書_" + month + "_全社.pdf";
         }
-        return { bytes: bytes, fname: fname };
+        return { bytes: bytes, fname: fname, month: month, onlyCo: onlyCo };
       }
       // 請求書をクリーンなPDF（ブラウザのURL足跡なし・日本語埋込・複数ページ）で保存/共有。
       async function exportInvoicePDF(btn) {
@@ -6777,10 +6792,39 @@
           btn.disabled = true;
           btn.textContent = "PDF作成中…";
         }
+        if (window.PdfOkuru) PdfOkuru.kesu(); // 前の 紙の「送る・印刷する」の 帯を 残さない
         try {
           var r = await _buildInvoiceBytes();
           if (!r) return;
           var miss = InvoicePDF.lastMissing();
+          var chuiJi = miss.length ? "注意：この字は出せず〓表示→ " + miss.join(" ") : "";
+          // ★iPhone・iPad は 共有に PDF と 字だけ 渡す★ 2026-11-06 司さん B（lib/pdf-okuru.js）
+          //   前は PDF を blob の URL で 開いて その 画面から 共有 → LINE に 開けない blob:https://… の URL も 届いた
+          //   作る 間に「押した」扱いが 切れて 断られたら 帯「送る・印刷する」（司さん 実機 F・G で 確かめ済み）
+          //   'none'（Android・PC・共有が 無い）だけ 下の 今までの 道
+          if (window.PdfOkuru) {
+            var ok = await PdfOkuru.okuru(
+              r.bytes,
+              r.fname,
+              PdfOkuru.seikyuJi(r.month, r.onlyCo),
+              window,
+              {
+                chui: chuiJi,
+                hiraku: function () {
+                  InvoicePDF.save(r.bytes, r.fname);
+                },
+              }
+            );
+            if (ok.how === "share") {
+              toast(chuiJi ? "PDFを渡しました（" + chuiJi + "）" : "PDFを渡しました");
+              return;
+            }
+            if (ok.how === "cancel") {
+              toast("送るのを やめました");
+              return;
+            }
+            if (ok.how === "need-tap") return; // 帯に 字も〓の 知らせも 出ている
+          }
           // ★スマホは 保存（PDF の 画面が 開き 共有から 送る・プリント）／PC は 新しい 窓で 開く（印刷も 保存も そこから）★
           //   2026-10-29「印刷 / 送る」を 1つに した 時（PC で 保存だけに すると ダウンロード欄に 入るだけで 印刷の 画面が 出ない・対立役 止6）
           //   窓を 止められたら 保存に 落とす（前の「印刷」と 同じ 形）
