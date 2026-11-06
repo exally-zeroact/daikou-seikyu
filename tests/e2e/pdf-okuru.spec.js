@@ -248,6 +248,28 @@ test.describe("iPhone", () => {
     await expect(page.locator("#pdfOkuruObi"), "★前の 会社の 帯が 後から 出た★").toHaveCount(0);
   });
 
+  test("★共有へ 渡す 前に 会社を 変えたら 送らない（共有の 画面を 開かない）★", async ({
+    page,
+  }) => {
+    await open(page, ["ok"]);
+    // 紙を 組むのを 1.5秒 遅らせる＝作っている 間に 会社を 変える 順を 作る（字体は 先読み 済みで 遅らせられない）
+    const okurase = await page.evaluate(() => {
+      const moto = window.InvoicePDF && window.InvoicePDF.buildOne;
+      if (typeof moto !== "function") return false;
+      window.InvoicePDF.buildOne = async function () {
+        await new Promise((ok) => setTimeout(ok, 1500));
+        return moto.apply(this, arguments);
+      };
+      return true;
+    });
+    expect(okurase, "★遅らせが 入らない＝この 試験は 空振り★").toBe(true);
+    await page.locator("#btnInvPdf").click();
+    await page.selectOption("#invCompany", ""); // 共有の 前に 全社へ
+    await expect(page.locator("#toast")).toContainText("送るのを 止めました", { timeout: 60000 });
+    expect((await shares(page)).length, "★前の 会社の PDF で 共有を 開いた★").toBe(0);
+    await expect(page.locator("#pdfOkuruObi")).toHaveCount(0);
+  });
+
   test("★帯は 紙の 印刷に 載らない★", async ({ page }) => {
     await open(page, ["NotAllowedError"]);
     await page.getByRole("button", { name: /印刷 \/ 送る/ }).click();
