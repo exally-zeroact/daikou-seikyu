@@ -6232,6 +6232,7 @@
       }
       // タブ内サブ切替（請求＝請求書/集計）
       function showBillingSeg(seg) {
+        if (window.PdfOkuru) PdfOkuru.kesu(); // 請求書の 帯を 集計の 上に 残さない（本番前の 対立役 注1 2026-11-06）
         document.querySelectorAll("#scr-billing .seg-panel").forEach(function (p) {
           p.classList.toggle("on", p.dataset.seg === seg);
         });
@@ -12855,6 +12856,7 @@
       モーダル
       =================================================================== */
       function openModal() {
+        if (window.PdfOkuru) PdfOkuru.kesu(); // 帯（z 100000）が 窓（z 100）の 釦を 隠さない（本番前の 対立役 注1 2026-11-06）
         document.getElementById("modalOv").classList.add("open");
       }
       function closeModal() {

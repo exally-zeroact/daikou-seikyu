@@ -208,6 +208,22 @@ test.describe("iPhone", () => {
     ).toBeLessThanOrEqual(ob.y);
   });
 
+  test("★窓を 開く・集計へ 移ると 帯を 消す（窓の 釦を 隠さない）★", async ({ page }) => {
+    await open(page, ["NotAllowedError"]);
+    const pdfBtn = page.getByRole("button", { name: /印刷 \/ 送る/ });
+    const obi = page.locator("#pdfOkuruObi");
+    await pdfBtn.click();
+    await expect(obi).toBeVisible({ timeout: 120000 });
+    await page.locator("#btnInvExcel").click();
+    await expect(page.locator("#modalOv")).toHaveClass(/open/);
+    await expect(obi, "★帯が 窓の 上に 残る★").toHaveCount(0);
+    await page.evaluate(() => window.closeModal());
+    await pdfBtn.click();
+    await expect(obi).toBeVisible({ timeout: 120000 });
+    await page.locator('.seg-btn[data-seg="report"]').click();
+    await expect(obi, "★帯が 集計の 上に 残る★").toHaveCount(0);
+  });
+
   test("★帯は 紙の 印刷に 載らない★", async ({ page }) => {
     await open(page, ["NotAllowedError"]);
     await page.getByRole("button", { name: /印刷 \/ 送る/ }).click();
