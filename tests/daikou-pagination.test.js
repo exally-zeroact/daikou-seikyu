@@ -177,7 +177,8 @@ describe("fetchAllQ（成長テーブルの全件読み込み）", () => {
     }
     // 6本＝立ち上げの 5本＋消し込みの 書く 直前の 読み直し（その 会社の 入金・2026-11-03）
     //   （2026-11-04 夜 二重請求の 見張りの 読み直しを 外した＝7→6・司さん「いちいち 出すなや」）
-    expect(calls.length).toBe(6);
+    //   （2026-11-09 直しの 履歴の 読み＝daikome.dk_naoshi_rireki（⑦ 3押し目・表示だけ）を 足した＝6→7）
+    expect(calls.length).toBe(7);
     for (const c of calls) {
       const table = (c.match(/SB\.from\("([a-z_]+)"\)/) || [])[1];
       const orders = [...c.matchAll(/\.order\("([a-z_]+)"\)/g)].map((m) => m[1]);

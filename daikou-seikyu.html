@@ -2490,6 +2490,7 @@
         .filterbar,
         .toast,
         #pdfOkuruObi,
+        .naoshi-tadashi,
         .no-print {
           display: none !important;
         }
@@ -2530,6 +2531,54 @@
           size: A4 portrait;
           margin: 0;
         }
+      }
+      /* ★直しの 履歴（⑦ 3押し目・2026-11-09）★ 運転手が 直した 行の 赤（司さん 10-21） */
+      .naoshi-tadashi {
+        font-size: 12px;
+        color: #c0392b;
+        margin: 0 4px 6px;
+      }
+      .naoshi-tadashi.ng {
+        color: #8a8f98;
+      }
+      .naoshi-tadashi:empty {
+        display: none;
+      }
+      .list-item.li-aka .li-amt,
+      .list-item.li-aka .li-dest {
+        color: #c0392b;
+      }
+      .naoshi-fuda {
+        display: inline-block;
+        font-size: 11px;
+        line-height: 1.4;
+        padding: 0 6px;
+        margin-left: 6px;
+        border: 1px solid #8a8f98;
+        border-radius: 8px;
+        color: #8a8f98;
+        vertical-align: middle;
+      }
+      .li-aka .naoshi-fuda {
+        border-color: #c0392b;
+        color: #c0392b;
+      }
+      .naoshi-ichiran {
+        margin-top: 14px;
+        border-top: 1px solid #e3e6ea;
+        padding-top: 8px;
+        font-size: 12px;
+      }
+      .naoshi-midashi {
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .naoshi-gyou {
+        padding: 4px 0;
+        border-bottom: 1px dashed #e3e6ea;
+      }
+      .naoshi-gyou.aka {
+        color: #c0392b;
       }
     </style>
   </head>
@@ -2724,6 +2773,7 @@
         </select>
       </div>
       <div class="list-sum" id="listSum"></div>
+      <div class="naoshi-tadashi no-print" id="naoshiTadashi"></div>
       <div class="card">
         <div id="listBody"></div>
       </div>
@@ -3263,6 +3313,7 @@
     <script src="lib/nyukin-kai.js"></script>
     <script src="lib/shitagaki.js"></script>
     <script src="lib/nijuu.js"></script>
+    <script src="lib/naoshi-rireki.js"></script>
     <!-- ★PDF を 送る（iPhone・iPad は 共有に PDF と 字だけ＝blob の URL を 付けない）★ 2026-11-06 司さん B -->
     <script src="lib/pdf-okuru.js"></script>
     <!-- 請求書のクリーンなベクターPDF出力（日本語フォント埋込・複数ページ／pdf-lib等は初回PDF時のみ遅延ロード） -->
@@ -3666,6 +3717,7 @@
       var KURUMA_FUDA = []; // [{label, no}]（並び順）。空＝欄を出さない
       async function yomuKurumaFuda() {
         KURUMA_FUDA = [];
+        TANMATSU_NA = {};
         try {
           var r = await SB.from("dk_device_labels").select(
             "company_id, device_id, label, sort_order"
@@ -3680,6 +3732,7 @@
           r.data.forEach(function (x) {
             var lb = x && typeof x.label === "string" ? x.label.trim() : "";
             if (!lb) return;
+            if (x.device_id != null) TANMATSU_NA[String(x.device_id)] = lb; // 直しの 履歴の「誰」（⑦）
             kaisha[String(x.company_id)] = 1;
             var n = Number(x.sort_order);
             list.push({ label: lb, no: isFinite(n) && n > 0 ? n : null });
@@ -3696,7 +3749,129 @@
           });
         } catch (e) {
           KURUMA_FUDA = [];
+          TANMATSU_NA = {};
         }
+      }
+      /* ★直しの 履歴（⑦ 3押し目・2026-11-09）★ 設計＝sekkei_7_gamen_2026-11-09.md v3
+           ★表示だけ★＝お金・並び・出す 前の 見張りは 変えない（判じは lib/naoshi-rireki.js）。
+           読むのは U と D だけ（I は メーターの 1乗車ごとに 積もる＝読まない）・ログインを 待たせない（await しない）。
+           joutai：mada（まだ）／ok／nai（表・部屋が 無い＝本番の 倉庫は 未適用＝黙る）／ng（読めない＝小さく 一言） */
+      var TANMATSU_NA = {}; // device_id → 札（yomuKurumaFuda で 作る）
+      var NAOSHI = { joutai: "mada", rows: [], meisai: {}, gen: 0 };
+      function naoshiKara() {
+        NAOSHI.gen += 1; // 走っている 読みの 返りを 捨てる
+        NAOSHI.joutai = "mada";
+        NAOSHI.rows = [];
+        NAOSHI.meisai = {};
+      }
+      async function naoshiYomu() {
+        var NR = window.NaoshiRireki;
+        if (!NR) return;
+        var gen = (NAOSHI.gen += 1);
+        var kekka;
+        try {
+          if (!SB || typeof SB.schema !== "function") kekka = { joutai: "nai", rows: [] };
+          else {
+            var r = await fetchAllQ(function (a, b) {
+              return SB.schema("daikome")
+                .from("dk_naoshi_rireki")
+                .select("id,at,tbl,op,pk,dare_shu,dare,kawatta,mae,ato", { count: "exact" })
+                .in("tbl", [NR.TBL_MEISAI, NR.TBL_PAY])
+                .in("op", ["U", "D"])
+                .order("id")
+                .range(a, b);
+            });
+            if (r.error) kekka = { joutai: NR.hyouGaNai(r.error) ? "nai" : "ng", rows: [] };
+            else kekka = { joutai: "ok", rows: r.data || [] };
+          }
+        } catch (e) {
+          kekka = { joutai: "ng", rows: [] };
+        }
+        if (gen !== NAOSHI.gen) return; // 後から 呼んだ 読み・ログアウトが 勝つ
+        NAOSHI.joutai = kekka.joutai;
+        NAOSHI.rows = kekka.rows;
+        NAOSHI.meisai = NR.meisaiBetsu(kekka.rows);
+        try {
+          var a = document.querySelector(".screen.active");
+          if (a && a.id === "scr-list") renderList();
+          else if (a && a.id === "scr-payment") renderPayments();
+        } catch (e) {}
+      }
+      function naoshiTadashiNuru() {
+        var el = document.getElementById("naoshiTadashi");
+        if (!el) return;
+        el.classList.toggle("ng", NAOSHI.joutai === "ng");
+        el.textContent =
+          NAOSHI.joutai === "ok"
+            ? "運転手が修正したものは赤になります"
+            : NAOSHI.joutai === "ng"
+              ? "運転手の直しの印を確かめられませんでした（開き直すと読み直します）"
+              : "";
+      }
+      function naoshiNyukinBetsu() {
+        if (NAOSHI.joutai !== "ok" || !window.NaoshiRireki) return {};
+        var ima = [];
+        Object.keys(PAYMENTS || {}).forEach(function (k) {
+          var p = k.split("::");
+          var rec = PAYMENTS[k];
+          if (p.length === 3 && p[0] === String(CURRENT_ACCOUNT) && rec && rec._dbid != null)
+            ima.push({ id: rec._dbid, month: p[1], company: p[2] });
+        });
+        return NaoshiRireki.nyukinBetsu(NAOSHI.rows, ima);
+      }
+      function naoshiFudaHtml(list) {
+        if (NAOSHI.joutai !== "ok" || !window.NaoshiRireki) return "";
+        var n = NaoshiRireki.naoshiKazu(list);
+        return n > 0 ? '<span class="naoshi-fuda">直し ' + n + "</span>" : "";
+      }
+      function naoshiJikoku(at) {
+        var d = new Date(at);
+        if (!at || isNaN(d.getTime())) return String(at || "");
+        var z = function (n) {
+          return (n < 10 ? "0" : "") + n;
+        };
+        return (
+          d.getFullYear() +
+          "/" +
+          z(d.getMonth() + 1) +
+          "/" +
+          z(d.getDate()) +
+          " " +
+          z(d.getHours()) +
+          ":" +
+          z(d.getMinutes())
+        );
+      }
+      function naoshiIchiranHtml(list) {
+        if (NAOSHI.joutai !== "ok" || !window.NaoshiRireki || !list || !list.length) return "";
+        return (
+          '<div class="naoshi-ichiran"><div class="naoshi-midashi">直しの履歴</div>' +
+          list
+            .map(function (h) {
+              return (
+                '<div class="naoshi-gyou' +
+                (h.dare_shu === "device" ? " aka" : "") +
+                '"><div>' +
+                esc(naoshiJikoku(h.at)) +
+                "・" +
+                esc(NaoshiRireki.dareMoji(h, TANMATSU_NA)) +
+                "</div>" +
+                NaoshiRireki.naiyou(h)
+                  .map(function (x) {
+                    return (
+                      "<div>" +
+                      esc(x.nani) +
+                      (x.mae || x.ato ? "：" + esc(x.mae) + " → " + esc(x.ato) : "") +
+                      "</div>"
+                    );
+                  })
+                  .join("") +
+                "</div>"
+              );
+            })
+            .join("") +
+          "</div>"
+        );
       }
       // 車を付ける／外す（付けるのは dk_car・dk_car_no だけ＝dk_ref・dk_source は入れない
       //   ＝事務所へ金額を戻す道 MeisaiEngine.utils.shouldPushFare に乗せない）
@@ -3730,6 +3905,7 @@
       async function loadAllCloud() {
         YOMENAI = { issuer: true, invoices: true, invoice_no: true, payments: true };
         DB = [];
+        naoshiKara(); // 直しの 履歴（⑦）も 前の 人の 物を 残さない
         MASTER = {};
         PAYMENTS = {};
         ISSUER_SETTINGS = {};
@@ -3793,6 +3969,7 @@
           .select("config")
           .eq("user_id", CURRENT_ACCOUNT)
           .maybeSingle();
+        naoshiYomu(); // ★直しの 履歴（⑦）＝待たない・中で 全部 受ける（投げない）★
         // ★発行の控えを読む（番号の 空きの 数え・2026-11-01 から 繰越には 使わない＝今の 明細で 出す）★
         INVOICES = [];
         try {
@@ -7476,6 +7653,7 @@
             (yetShown !== yetAll ? (coF ? "（全社・全期間 " : "（全期間 ") + yetAll + "件）" : "") +
             "</span>";
         var obi = fumei ? nyukinFumeiObi("payFumeiObi") : "";
+        var _nb = naoshiNyukinBetsu(); // 直しの 履歴（⑦）
         if (!shown.length) {
           box.innerHTML = obi + '<div class="li-empty">該当する請求がありません</div>';
           updatePayBadge();
@@ -7556,6 +7734,7 @@
                 esc(x.iv.company) +
                 '</div><div class="pay-sub">' +
                 esc(sub) +
+                naoshiFudaHtml(_nb[x.iv.month + "::" + x.iv.company]) +
                 "</div>" +
                 "</div>" +
                 '<div class="pay-right"><div class="pay-amt">' +
@@ -7967,7 +8146,8 @@
           esc(co).replace(/'/g, "\\'") +
           "'," +
           iv.total +
-          ')">保存</button></div>';
+          ')">保存</button></div>' +
+          naoshiIchiranHtml(naoshiNyukinBetsu()[month + "::" + co]);
         openModal();
       }
       // これまでの 入金の 回を 1行に（例「6/10 ¥50,000・7/20 ¥80,000」）
@@ -11036,6 +11216,7 @@
         var kaeta = false;
         if (zm.zenbu) {
           DB = m.db;
+          naoshiYomu(); // 表示用（⑦）＝見張りの 判じには 使わない
           kaeta = true;
         }
         if (p.error) {
@@ -11310,6 +11491,7 @@
             '</span><span>合計 <span class="v">' +
             esc(yen(grand)) +
             "</span></span>";
+        naoshiTadashiNuru(); // 直しの 履歴（⑦）の 但し書き
         if (!rows.length) {
           box.innerHTML = '<div class="li-empty">明細がありません</div>';
           return;
@@ -11372,13 +11554,18 @@
                   }
                   // ★②会社名が主役・行き先は副★（前は逆だった＝探す物が一番 薄かった）
                   var co2 = r.会社名 + (r.備考 ? "・" + r.備考 : "");
+                  // ★直しの 履歴（⑦）★ 運転手が 最後に 直した 行は 赤（司さん 10-21）
+                  var _nl = NAOSHI.joutai === "ok" ? NAOSHI.meisai[String(r.id)] : null;
+                  var _aka = !!(_nl && window.NaoshiRireki && NaoshiRireki.akaKa(_nl));
                   return (
                     carHead +
                     '<div class="list-swipe">' +
                     '<div class="swipe-action"><button class="swipe-del" onclick="deleteRow(\'' +
                     r.id +
                     "')\">削除</button></div>" +
-                    '<div class="swipe-content"><div class="list-item" onclick="openEdit(\'' +
+                    '<div class="swipe-content"><div class="list-item' +
+                    (_aka ? " li-aka" : "") +
+                    '" onclick="openEdit(\'' +
                     r.id +
                     "')\">" +
                     '<div class="li-main"><div class="li-meta">' +
@@ -11389,6 +11576,7 @@
                     "</div></div>" +
                     '<div class="li-amt">' +
                     yen(r.金額 || 0) +
+                    naoshiFudaHtml(_nl) +
                     "</div></div></div></div>"
                   );
                 })
@@ -11473,6 +11661,7 @@
           /* ★中の言葉(id)は客に見せない★ 2026-08-21 */
           fields +
           zeroKimeHtml +
+          naoshiIchiranHtml(NAOSHI.meisai[String(r.id)]) +
           '<div style="display:flex;gap:8px;margin-top:14px;">' +
           '<button class="btn btn-danger btn-sm" style="flex:1;" onclick="deleteRow(\'' +
           r.id +
@@ -11545,6 +11734,7 @@
         closeModal();
         renderList();
         toast("保存しました");
+        naoshiYomu(); // 事務所の 直し＝赤が 消える（⑦）
         // ★事務所の売上へ 戻す★ 2026-09-03（司さん「一覧で金額とか修正したら事務所の売上とかも自動で修正されるように」）
         //   ★保存は もう 終わっている★＝ここで 何が 起きても 一覧の 保存は 通ったまま。
         await _jimushoHeModosu(r, _mae);
