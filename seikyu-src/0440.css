@@ -1,0 +1,9 @@
+      /* ★白地に なったので 太字は 読める 色に する★ */
+      .toast b {
+        color: #0a5fd0;
+        font-weight: 700;
+      }
+      .toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }

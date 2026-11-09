@@ -7,7 +7,8 @@ const js = require("@eslint/js");
 module.exports = [
   {
     // ★2026-08-07: hyperformula.full.min.js は Exally の物なので外した（**/*.min.js で足りる）★
-    ignores: ["node_modules/**", ".vercel/**", "**/*.min.js"],
+    // seikyu-src/ は html を 行で 切った 切れ端（2026-11-09 ④）＝検査は 繋いだ html で
+    ignores: ["seikyu-src/**", "node_modules/**", ".vercel/**", "**/*.min.js"],
   },
   js.configs.recommended,
   {

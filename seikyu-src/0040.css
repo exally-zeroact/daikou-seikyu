@@ -1,0 +1,383 @@
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html {
+        font-size: 14px;
+        -webkit-text-size-adjust: 100%;
+      }
+      body {
+        font-family: "Noto Sans JP", sans-serif;
+        background: #f2f7ff;
+        color: #333333;
+        min-height: 100vh;
+        padding-bottom: 72px;
+      }
+
+      /* ===== HEADER ===== */
+      /* 読み込み中／通信エラー */
+      .load-ov {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 280;
+        background: #f2f7ff;
+        align-items: center;
+        justify-content: center;
+      }
+      .load-ov.on {
+        display: flex;
+      }
+      .load-card {
+        text-align: center;
+        padding: 24px;
+      }
+      .load-spin {
+        width: 36px;
+        height: 36px;
+        margin: 0 auto 14px;
+        border: 3px solid #dbe7f7;
+        border-top-color: #0b57d0;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .load-msg {
+        font-size: 13px;
+        font-weight: 700;
+        color: #666666;
+        margin-bottom: 12px;
+        line-height: 1.6;
+      }
+      /* Excel自動連携カード */
+      .exl-card {
+        margin-top: 18px;
+        background: #f7f9fc;
+        border: 1.5px solid #dbe7f7;
+        border-radius: 14px;
+        padding: 14px;
+      }
+      .exl-title {
+        font-size: 14px;
+        font-weight: 800;
+        color: #333333;
+      }
+      .exl-sub {
+        font-size: 11.5px;
+        color: #666666;
+        margin: 4px 0 12px;
+        line-height: 1.6;
+      }
+      .exl-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 8px;
+      }
+      .exl-tag {
+        flex: 0 0 auto;
+        width: 38px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #0a5fd0;
+      }
+      .exl-url {
+        flex: 1;
+        min-width: 0;
+        font-size: 11px;
+        font-family: "DM Mono", monospace;
+        color: #333333;
+        border: 1.5px solid #dbe7f7;
+        border-radius: 8px;
+        padding: 7px 8px;
+        background: #ffffff;
+        -webkit-appearance: none;
+      }
+      .exl-copy {
+        flex: 0 0 auto;
+        width: auto;
+      }
+      .exl-help {
+        font-size: 11px;
+        color: #666666;
+        margin-top: 6px;
+        line-height: 1.7;
+      }
+      .exl-dl {
+        width: 100%;
+        border: 0;
+        border-radius: 12px;
+        background: #0a5fd0;
+        color: #fff;
+        font-size: 14px;
+        font-weight: 800;
+        padding: 14px 12px;
+        margin-top: 2px;
+        box-shadow: 0 2px 8px rgba(10, 95, 208, 0.28);
+      }
+      .exl-dl:disabled {
+        opacity: 0.6;
+      }
+      .exl-dl:active {
+        transform: translateY(1px);
+      }
+      /* Excel書き出しの選択モーダル */
+      .exl-pick-grp {
+        margin-bottom: 12px;
+      }
+      .exl-pick-h {
+        font-size: 12px;
+        font-weight: 800;
+        color: #333333;
+        margin: 0 0 4px;
+      }
+      .exl-pick {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        min-height: 40px;
+        padding: 0 10px 0 4px;
+        margin: 0 6px 4px 0;
+        font-size: 13px;
+        border: 1px solid #e3e8ee;
+        border-radius: 8px;
+      }
+      .exl-pick input {
+        width: 18px;
+        height: 18px;
+      }
+      .exl-pick input:disabled {
+        opacity: 0.35;
+      }
+      .exl-dlnote {
+        font-size: 11px;
+        color: #666666;
+        line-height: 1.7;
+        margin-top: 8px;
+      }
+      .exl-adv {
+        margin-top: 10px;
+      }
+      .exl-adv > summary {
+        font-size: 11.5px;
+        color: #555555;
+        cursor: pointer;
+        list-style: revert;
+      }
+      .exl-advbody {
+        font-size: 11px;
+        color: #666666;
+        line-height: 1.7;
+        margin-top: 8px;
+      }
+      .exl-advbody .exl-row {
+        margin-top: 8px;
+      }
+      .iqy-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+      }
+      .iqy-row .btn {
+        flex: 1;
+        min-width: 64px;
+      }
+      /* ===== Excel風 絵入りガイド ===== */
+      .xl-step {
+        display: flex;
+        gap: 9px;
+        margin: 14px 0 0;
+      }
+      .xl-num {
+        flex: 0 0 auto;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #217346;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 1px;
+      }
+      .xl-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .xl-cap {
+        font-size: 12px;
+        color: #666666;
+        font-weight: 700;
+        line-height: 1.5;
+        margin-bottom: 6px;
+      }
+      .xl-cap span {
+        color: #666666;
+        font-weight: 600;
+      }
+      /* 画面のスクショ風枠 */
+      .xl-shot {
+        border: 1px solid #cfd3d8;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(20, 36, 61, 0.08);
+        font-family: -apple-system, "Segoe UI", sans-serif;
+      }
+      /* Excelのリボン（上のタブ帯） */
+      .xl-ribbon {
+        display: flex;
+        gap: 2px;
+        background: #f3f4f5;
+        border-bottom: 1px solid #d8dbe0;
+        padding: 5px 6px 0;
+      }
+      .xl-rtab {
+        font-size: 10.5px;
+        color: #555;
+        padding: 5px 8px;
+        border-radius: 5px 5px 0 0;
+      }
+      .xl-rtab.on {
+        background: #fff;
+        color: #217346;
+        font-weight: 800;
+        box-shadow: 0 -1px 0 #217346 inset;
+        position: relative;
+      }
+      .xl-rtab.on::after {
+        content: "👆";
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        top: 100%;
+        font-size: 12px;
+        margin-top: 1px;
+      }
+      .xl-rbody {
+        padding: 9px 9px 11px;
+      }
+      /* リボン内のボタン */
+      .xl-rbtn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #0a5fd0;
+        background: #eef1f6;
+        border: 1px solid #cfd8e3;
+        border-radius: 6px;
+        padding: 6px 9px;
+      }
+      /* ドロップダウンの選択肢リスト */
+      .xl-menu {
+        margin-top: 7px;
+        border: 1px solid #d8dbe0;
+        border-radius: 6px;
+        overflow: hidden;
+        font-size: 11px;
+      }
+      .xl-mi {
+        padding: 7px 9px;
+        color: #444;
+        border-bottom: 1px solid #eef0f2;
+        background: #fff;
+      }
+      .xl-mi:last-child {
+        border-bottom: 0;
+      }
+      .xl-mi.on {
+        background: #e9eef5;
+        color: #173b6b;
+        font-weight: 800;
+      }
+      /* 「Webから」ダイアログ窓 */
+      .xl-dialog {
+        background: #fff;
+      }
+      .xl-dtitle {
+        font-size: 11px;
+        font-weight: 700;
+        color: #333;
+        background: #f3f4f5;
+        border-bottom: 1px solid #e0e3e6;
+        padding: 7px 10px;
+      }
+      .xl-dbody {
+        padding: 11px 10px 12px;
+      }
+      .xl-flabel {
+        font-size: 10.5px;
+        color: #666;
+        margin-bottom: 4px;
+      }
+      .xl-field {
+        border: 1.5px solid #217346;
+        border-radius: 6px;
+        background: #fbfdff;
+        padding: 7px 8px;
+        font-size: 10px;
+        font-family: "DM Mono", monospace;
+        color: #333333;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .xl-paste {
+        font-size: 10px;
+        color: #217346;
+        font-weight: 700;
+        margin-top: 5px;
+      }
+      .xl-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+        margin-top: 11px;
+      }
+      .xl-okbtn {
+        font-size: 11px;
+        font-weight: 800;
+        color: #fff;
+        background: #217346;
+        border-radius: 6px;
+        padding: 6px 16px;
+      }
+      /* プレビュー表 */
+      .xl-prev {
+        font-size: 9.5px;
+        border-collapse: collapse;
+        width: 100%;
+      }
+      .xl-prev th {
+        background: #217346;
+        color: #fff;
+        font-weight: 700;
+        padding: 4px 6px;
+        text-align: left;
+        white-space: nowrap;
+      }
+      .xl-prev td {
+        border: 1px solid #e6e9ec;
+        padding: 4px 6px;
+        color: #345;
+        white-space: nowrap;
+      }
+      .xl-down {
+        text-align: center;
+        color: #9baabd;
+        font-size: 15px;
+        line-height: 1;
+        margin: 5px 0 0;
+      }

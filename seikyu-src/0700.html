@@ -1,0 +1,66 @@
+        <!-- ★登録番号が無い／形が違う時は 出させない＋理由を出す★（適格請求書） -->
+        <div id="regnoWarn" class="regno-warn no-print" hidden></div>
+        <div id="invoiceOut" class="sheet-scale inv-out"></div>
+        <details class="scr-sub no-print" style="margin-top: 8px">
+          <summary style="cursor: pointer; font-weight: 700">
+            📖 ページが複数枚になったときは？
+          </summary>
+          <div style="margin-top: 6px">
+            同じ会社・同じ月で明細が1ページに収まらないときは、<b>明細を複数ページに分けて</b>出します。各明細ページの下には<b
+              >「このページの小計」＋「次ページへ続く →」</b
+            >を表示し、<b>最後のページに「ページ別の内訳一覧」と総合計（ご請求金額・合計）をまとめます</b>。取引先が混乱しないよう、途中ページには総額を出しません。<br />
+            ※最後のページに「ページ別の内訳」をまとめます。
+          </div>
+        </details>
+        <div class="scr-sub no-print" style="margin-top: 8px">
+          📋
+          <b>列の順番（日付・行き先・金額…）は「設定 → 会社マスタ」の『順番』で変えられます</b
+          >（取っ手⠿を長押しでドラッグ／「↩標準の順に戻す」ボタンあり）。
+        </div>
+        <div class="scr-sub no-print" style="margin-top: 4px">
+          ※このプレビューは<b>実際に保存・送るPDFそのもの</b>です。デザイン・書体・お支払期限は会社ごとに<b>「設定→会社マスタ」</b>で。明細だけのExcelは「一覧」タブ、まとめてExcelは上の<b
+            >「📊 Excelに書き出し」</b
+          >から。
+        </div>
+      </div>
+
+      <!-- 集計（月次集計・読み取り専用レポート） -->
+      <div class="seg-panel" data-seg="report">
+        <div class="scr-sub">
+          選んだ月の「どの会社にいくら請求／入金／残」を一覧で確認できます。
+        </div>
+        <div class="filterbar">
+          <select class="fselect" id="repMonth" onchange="renderReport()">
+            <option value="">― 月を選択 ―</option>
+          </select>
+        </div>
+        <div id="repSummary" class="pay-summary"></div>
+        <div id="repBody"></div>
+        <div class="invoice-actions" id="repActions" style="margin-top: 12px">
+          <button class="btn btn-ghost btn-sm" onclick="exportReport()">
+            📊 この月の集計だけExcelに（1回ぶん）
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 入金管理（独立・回収管理） ===== -->
+    <section class="screen" id="scr-payment">
+      <div class="scr-title">入金管理</div>
+      <div class="scr-sub">
+        請求(会社×月)ごとに 入金済 / 一部入金 / 未入金 と残額を管理します。タップで入金額を記録。
+      </div>
+      <div class="filterbar">
+        <select class="fselect" id="payMonth" onchange="renderPayments()">
+          <option value="">全期間</option>
+        </select>
+        <select class="fselect" id="payStatus" onchange="renderPayments()">
+          <option value="">全状態</option>
+          <option value="unpaid">未入金</option>
+          <option value="partial">一部入金</option>
+          <option value="paid">入金済</option>
+        </select>
+        <select class="fselect" id="payCompany" onchange="renderPayments()">
+          <option value="">全社</option>
+        </select>
+      </div>

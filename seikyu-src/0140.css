@@ -1,0 +1,111 @@
+      /* ★よく行く所（押すと入る）★ 2026-08-21 */
+      .dest-often {
+        margin-top: 6px;
+        font-size: 11px;
+        color: #555555;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+      }
+      .dest-chip {
+        border: 1.5px solid #cfe0ff;
+        background: #f2f7ff;
+        color: #0a5fd0;
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 12px;
+        font-weight: 700;
+        font-family: "Noto Sans JP", sans-serif;
+        cursor: pointer;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .pay-modose {
+        margin: 0 0 10px;
+        padding: 10px 12px;
+        border: 2px solid #c0392b;
+        border-radius: 8px;
+        background: #fff5f4;
+        color: #7a1f17;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .pay-modose-hd {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        justify-content: space-between;
+      }
+      .pay-pill.kieta,
+      .pay-pill.fumei {
+        background: #eeeeee;
+        color: #555555;
+      }
+      /* 事務所の 売上へ 戻せなかった 行の 知らせ 2026-10-14 */
+      .dkfix-obi {
+        position: relative;
+        border: 1.5px solid #e8a39b;
+        background: #fdf1f0;
+        color: #333333;
+        border-radius: 10px;
+        padding: 10px 34px 10px 12px;
+        margin: 8px 0;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      .dkfix-obi.dkfix-shirase {
+        border-color: #cfe0ff;
+        background: #f2f7ff;
+      }
+      .dkfix-na {
+        font-weight: 700;
+        margin-bottom: 2px;
+      }
+      .dkfix-okuru {
+        margin-top: 6px;
+      }
+      .dkfix-x {
+        position: absolute;
+        top: 4px;
+        right: 6px;
+        border: none;
+        background: none;
+        font-size: 18px;
+        color: #555555;
+        cursor: pointer;
+      }
+      .add-line {
+        width: 100%;
+        margin-top: 8px;
+        padding: 9px;
+        background: #f2f7ff;
+        border: 1.5px dashed #cfe0ff;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 700;
+        color: #0a5fd0;
+        cursor: pointer;
+        font-family: "Noto Sans JP", sans-serif;
+      }
+      .add-line:hover {
+        background: #e2eaf4;
+      }
+
+      /* ===== LIST ===== */
+      .list-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        /* ★1件を1行に近づける（潰さない）★ 2026-08-21
+           日付を「日ごとの見出し」へ移したぶん、上下の余白を 11px→8px に詰めた。
+           実測は下の見張り（tests/e2e/list-a2.spec.js）が毎回 数える */
+        padding: 7px 4px;
+        border-bottom: 1px solid #eaeff5;
+        cursor: pointer;
+      }
+      .list-item:last-child {
+        border-bottom: none;
+      }

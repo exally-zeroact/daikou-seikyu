@@ -1,0 +1,235 @@
+      /* ★AI の 下書き（③）★ 2026-11-03 */
+      .ai-sg {
+        margin-bottom: 10px;
+      }
+      .ai-sg-btns {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+      .ai-sg-bun {
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 14px;
+        padding: 8px;
+        border: 1.5px solid #e2eaf4;
+        border-radius: 8px;
+        margin-bottom: 6px;
+      }
+      .ai-sg-chui {
+        font-size: 11px;
+        color: #555555;
+        margin-bottom: 4px;
+      }
+      .ai-sg-matsu {
+        font-size: 13px;
+        color: #333333;
+        margin: 6px 0;
+      }
+      .ai-sg-obi {
+        font-size: 12px;
+        color: #c0392b;
+        border: 1.5px solid #c0392b;
+        border-radius: 8px;
+        padding: 6px 8px;
+        margin: 6px 0;
+        background: #ffffff;
+      }
+      .entry-line.ai-row {
+        border-color: #0a5fd0;
+      }
+      .ai-row-mei {
+        font-size: 11px;
+        color: #0a5fd0;
+        font-weight: 700;
+        margin-left: 6px;
+      }
+      .ai-row-toshi {
+        font-size: 11px;
+        color: #c0392b;
+        font-weight: 700;
+        margin-left: 6px;
+      }
+      /* 請求書を 出す 前の 見張りの 帯（下の ナビの 上に 出す） */
+      .hakko-obi {
+        position: fixed;
+        left: 8px;
+        right: 8px;
+        bottom: calc(var(--nav-h, 64px) + 8px);
+        z-index: 900;
+        max-height: 50vh;
+        overflow-y: auto;
+        font-size: 13px;
+        color: #c0392b;
+        border: 1.5px solid #c0392b;
+        border-radius: 8px;
+        padding: 10px 12px;
+        background: #ffffff;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+      }
+      .hakko-obi[hidden] {
+        display: none;
+      }
+      .hakko-obi-hd {
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+      .hakko-obi-sec ul {
+        margin: 4px 0 6px;
+        padding-left: 18px;
+        color: #333333;
+      }
+      .hakko-obi-x {
+        margin: 4px 6px 0 0;
+        font-size: 13px;
+        padding: 4px 10px;
+        border: 1px solid #c0392b;
+        border-radius: 6px;
+        background: #ffffff;
+        color: #c0392b;
+        cursor: pointer;
+      }
+      .hakko-obi-x {
+        border-color: #999999;
+        color: #333333;
+      }
+      .ai-kakunin {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        color: #333333;
+        margin-top: 8px;
+      }
+      .ef.ef-yomenai .entry-inp,
+      .ef.ef-yomenai .date-wrap {
+        border-color: #c0392b;
+        outline: 1.5px solid #c0392b;
+      }
+      .ef-wake {
+        font-size: 10px;
+        color: #c0392b;
+      }
+      .ai-kouho {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 3px;
+      }
+      .ai-kouho button {
+        font-size: 11px;
+        padding: 3px 6px;
+        border: 1px solid #0a5fd0;
+        border-radius: 6px;
+        background: #ffffff;
+        color: #0a5fd0;
+        cursor: pointer;
+      }
+      .entry-line-hd {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+      .entry-line-no {
+        font-size: 10px;
+        font-weight: 700;
+        color: #555555;
+        letter-spacing: 0.5px;
+      }
+      .ef-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .ef {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 0;
+      }
+      .ef-wide {
+        flex: 1 1 100%;
+      }
+      .ef-narrow {
+        flex: 1 1 92px;
+      }
+      .ef-lb {
+        font-size: 10px;
+        font-weight: 700;
+        color: #555555;
+        padding-left: 2px;
+      }
+      .entry-inp {
+        width: 100%;
+        padding: 9px 10px;
+        border: 1.5px solid #e2eaf4;
+        border-radius: 9px;
+        font-size: 16px;
+        font-family: "Noto Sans JP", sans-serif;
+        color: #333333;
+        outline: none;
+        background: #ffffff;
+      }
+      .entry-inp:focus {
+        border-color: #007aff;
+      }
+      .entry-inp.num {
+        font-family: "DM Mono", monospace;
+      }
+      /* 日付：カレンダーで選んで、表示は M/D（6/15） */
+      .date-wrap {
+        position: relative;
+      }
+      .date-show {
+        display: block;
+        width: 100%;
+        padding: 9px 10px;
+        border: 1.5px solid #e2eaf4;
+        border-radius: 9px;
+        font-size: 16px;
+        font-family: "DM Mono", monospace;
+        /* ★A1の決まり：数字・日付は右（ここだけ中央だった）★ 2026-08-21 */
+        text-align: right;
+        color: #333333;
+        background: #ffffff;
+        pointer-events: none;
+      }
+      .date-show.empty {
+        color: #8a94a6;
+      }
+      .date-wrap:focus-within .date-show {
+        border-color: #007aff;
+      }
+      .date-input {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        border: none;
+        padding: 0;
+        margin: 0;
+        background: transparent;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+      .entry-del {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: #f2f7ff;
+        border: none;
+        color: #5a6b82;
+        font-size: 14px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .entry-del:hover {
+        background: #fdf1f0;
+        color: #c0392b;
+      }

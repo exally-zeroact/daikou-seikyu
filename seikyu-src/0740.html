@@ -1,0 +1,24 @@
+    <!-- ★請求書を 出す 前の 見張りの 帯★ 2026-11-04（重なり・料金が 空の メーター行） -->
+    <div id="hakkoObi" class="hakko-obi" role="alert" hidden></div>
+    <div class="modal-ov" id="modalOv" onclick="if (event.target === this) closeModal();">
+      <div class="modal">
+        <div class="modal-hd">
+          <span class="modal-title" id="modalTitle">編集</span>
+          <button class="modal-x" onclick="closeModal()">閉じる</button>
+        </div>
+        <div id="modalBody"></div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- 本物の .xlsx 生成（警告なし・複数シート対応） -->
+    <!-- スタイル対応のSheetJS派生(罫線/太字/整列でPDFっぽい請求書を作る)。APIは同じ -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    <!-- 定義駆動 帳票エンジン（移植可能な共通モジュール／DOM非依存） -->
+    <script src="meisai-engine.js"></script>
+    <script src="lib/keshikomi.js"></script>
+    <script src="lib/nyukin-kai.js"></script>
+    <script src="lib/shitagaki.js"></script>
+    <script src="lib/nijuu.js"></script>
+    <script src="lib/naoshi-rireki.js"></script>

@@ -1,0 +1,129 @@
+      /* ★箱が 白地に なったので ボタンは ★白→青地★に する（白の ままでは 消える）★ */
+      .toast-undo-btn {
+        flex: 0 0 auto;
+        background: #0a5fd0;
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        padding: 7px 12px;
+        font-family: inherit;
+        font-size: 12px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      /* ===== 月次集計テーブル ===== */
+      .rep-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      .rep-table th {
+        font-size: 10px;
+        font-weight: 700;
+        color: #555555;
+        padding: 6px 4px;
+        border-bottom: 1.5px solid #dbe7f7;
+      }
+      .rep-table td {
+        padding: 9px 4px;
+        border-bottom: 1px solid #eaeff5;
+        vertical-align: middle;
+      }
+      .rep-co {
+        font-size: 12px;
+        font-weight: 700;
+        color: #333333;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .rep-co .pay-pill {
+        font-size: 9px;
+        padding: 2px 7px;
+      }
+      .rep-n {
+        font-family: "DM Mono", monospace;
+        color: #333333;
+        white-space: nowrap;
+      }
+      .rep-rem {
+        color: #c0392b;
+      }
+      .rep-table tfoot td {
+        border-top: 1.5px solid #dbe7f7;
+        border-bottom: none;
+        font-weight: 700;
+        color: #333333;
+        padding-top: 10px;
+      }
+
+      /* ===== セグメント切替（タブ内サブ切替） ===== */
+      .seg {
+        display: flex;
+        gap: 0;
+        background: #f2f7ff;
+        border: 1.5px solid #dbe7f7;
+        border-radius: 12px;
+        padding: 3px;
+        margin: 0 0 14px;
+      }
+      .seg-btn {
+        flex: 1;
+        border: none;
+        background: none;
+        border-radius: 9px;
+        padding: 10px 8px;
+        font-family: "Noto Sans JP", sans-serif;
+        font-size: 13px;
+        font-weight: 700;
+        color: #555555;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .seg-btn.on {
+        background: #0b57d0;
+        color: #ffffff;
+        box-shadow: 0 2px 6px rgba(0, 122, 255, 0.28);
+      }
+      .seg-panel {
+        display: none;
+      }
+      .seg-panel.on {
+        display: block;
+      }
+
+      /* ===== 請求書テンプレート ギャラリー ===== */
+      .tpl-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-top: 4px;
+      }
+      .tpl-card {
+        position: relative;
+        border: 1.5px solid #cfe0ff;
+        border-radius: 14px;
+        overflow: hidden;
+        background: #fff;
+        padding: 0;
+        text-align: left;
+        cursor: pointer;
+        font: inherit;
+        transition:
+          border-color 0.12s,
+          box-shadow 0.12s;
+      }
+      .tpl-card.on {
+        border-color: #007aff;
+        box-shadow: 0 0 0 1.5px #007aff inset;
+      }
+      .tpl-thumb {
+        width: 100%;
+        aspect-ratio: 1 / 1.414;
+        background: #f2f7ff;
+        display: block;
+        border-bottom: 1px solid #e3eaf2;
+        object-fit: contain;
+      }

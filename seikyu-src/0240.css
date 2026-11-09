@@ -1,0 +1,19 @@
+      /* ★入金の 画面だけ★ 期間・状態・会社の 3つを 横1列に（2026-11-01 司さん）。
+         期間・状態は 中身の 幅（月の 字「2026年10月」が 切れない）・残りを 全部 会社に
+         （会社の 名前が 一番 長い）。矢印の 位置を 右へ 寄せて 余白を 詰める。他の 画面の .filterbar は 変えない。 */
+      #scr-payment .filterbar .fselect {
+        flex: 0 0 auto;
+        width: auto;
+        min-width: 0;
+        padding-left: 8px;
+        padding-right: 24px; /* 矢印（12px）の 分＝字と 重ねない */
+        background-position: right 7px center;
+      }
+      /* 会社の 名前は 長い（株式会社〜）＝枠に 入らない分は「…」で 省く（選ぶ 一覧には 全部 出る） */
+      #scr-payment .filterbar #payCompany {
+        flex: 1 1 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+

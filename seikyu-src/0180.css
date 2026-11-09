@@ -1,0 +1,25 @@
+      /* ★車の見出し★ 2026-08-25（司さん「上から車ごとに分けて」）
+         日の見出しより一段 弱く＝日 > 車 > 明細 の順に見える。字は薄い黒。 */
+      .li-car {
+        padding: 6px 2px 4px;
+        margin-top: 2px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #555555;
+        border-bottom: 1px solid #eaeff5;
+      }
+      .li-day .s {
+        font-family: "DM Mono", monospace;
+        font-weight: 500;
+        color: #555555;
+      }
+      .li-date {
+        font-family: "DM Mono", monospace;
+        font-size: 12px;
+        color: #666666;
+        min-width: 42px;
+      }
+      .li-main {
+        flex: 1;
+        min-width: 0;
+      }

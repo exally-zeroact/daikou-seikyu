@@ -1,0 +1,139 @@
+      /* ★入金モーダルの 頭：会社名と「確認」を 1行に（2026-10-01）
+         ボタンは ★右寄せ★（親指で 押しやすい側）。*/
+      .pay-head-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .pay-head-row .pay-co {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+      .pay-kakunin {
+        flex: 0 0 auto;
+        white-space: nowrap;
+      }
+      /* ===== 入金管理 ===== */
+      .pay-summary {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .pay-sum-cell {
+        flex: 1;
+        background: #f7f9fc;
+        border: 1.5px solid #e2eaf4;
+        border-radius: 12px;
+        padding: 9px 8px;
+        text-align: center;
+      }
+      .pay-sum-lb {
+        font-size: 10px;
+        font-weight: 700;
+        color: #555555;
+      }
+      .pay-sum-val {
+        font-family: "DM Mono", monospace;
+        font-size: 14px;
+        font-weight: 500;
+        color: #333333;
+        margin-top: 2px;
+      }
+      .pay-sum-cell.rem .pay-sum-val {
+        color: #c0392b;
+      }
+      .pay-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 11px 4px;
+        border-bottom: 1px solid #eaeff5;
+        cursor: pointer;
+      }
+      .pay-item:last-child {
+        border-bottom: none;
+      }
+      .pay-main {
+        flex: 1;
+        min-width: 0;
+      }
+      .pay-co {
+        font-size: 13px;
+        font-weight: 700;
+        color: #333333;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .pay-sub {
+        font-size: 10px;
+        color: #555555;
+        margin-top: 2px;
+        font-family: "DM Mono", monospace;
+      }
+      .pay-right {
+        white-space: nowrap;
+      }
+      .pay-amt {
+        font-family: "DM Mono", monospace;
+        font-size: 13px;
+        font-weight: 500;
+        color: #333333;
+      }
+      .pay-rem {
+        font-family: "DM Mono", monospace;
+        font-size: 10px;
+        margin-top: 2px;
+        color: #c0392b;
+      }
+      .pay-pill {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 3px 9px;
+        border-radius: 12px;
+        white-space: nowrap;
+      }
+      .pay-pill.unpaid {
+        background: #fdf1f0;
+        color: #c0392b;
+        border: 1.5px solid #f3c9c4;
+      }
+      .pay-pill.partial {
+        background: #fff7e8;
+        color: #b5790a;
+        border: 1.5px solid #f3e0b6;
+      }
+      .pay-pill.paid {
+        background: #f2f7ff;
+        color: #0a5fd0;
+        border: 1.5px solid #cfe0ff;
+      }
+      .pay-quick {
+        display: flex;
+        flex-wrap: wrap; /* 全額/残額/半額/未入金 が折返せるように */
+        gap: 8px;
+        margin: 10px 0 4px;
+      }
+      .pay-quick .btn {
+        flex: 1 1 calc(50% - 4px); /* 2列で折返し */
+      }
+      /* 入金行の「全入金」ワンタップ（当たり44px・誤爆防止に行タップと分離） */
+      .pay-full-btn {
+        flex: 0 0 auto;
+        min-width: 56px;
+        min-height: 44px;
+        margin-left: 8px;
+        border: 1px solid #0a5fd0;
+        background: #fff;
+        color: #0a5fd0;
+        border-radius: 10px;
+        font-family: inherit;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .pay-full-btn:active {
+        background: #eaf1fa;
+      }
+      /* 取り消しボタン付きトースト（通常トーストと別） */

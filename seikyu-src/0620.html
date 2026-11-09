@@ -1,0 +1,146 @@
+        <!-- ★写真と声 → AI の 下書き（③）★ 2026-11-03＝許した 利用者 かつ 鍵が 在る 時だけ 出る（口 ?tou=1）。保存は 人が 確かめた 後 -->
+        <div id="aiSg" class="ai-sg" style="display: none">
+          <div class="ai-sg-btns">
+            <button
+              type="button"
+              class="btn btn-ghost"
+              id="aiSgShashin"
+              onclick="aiSgShashinHiraku()"
+            >
+              写真から下書き
+            </button>
+            <button type="button" class="btn btn-ghost" id="aiSgKoe" onclick="aiSgKoeHiraku()">
+              声・文から下書き
+            </button>
+          </div>
+          <input
+            type="file"
+            id="aiSgFile"
+            accept="image/*"
+            capture="environment"
+            style="display: none"
+            onchange="aiSgFileErabu(this)"
+          />
+          <div id="aiSgKoePanel" class="ai-sg-koe" style="display: none">
+            <textarea
+              id="aiSgBun"
+              class="ai-sg-bun"
+              rows="3"
+              maxlength="4000"
+              placeholder="例：11月3日 駅まで 3,000円 2人"
+            ></textarea>
+            <div class="ai-sg-btns">
+              <button
+                type="button"
+                class="btn btn-ghost"
+                id="aiSgMic"
+                style="display: none"
+                onclick="aiSgMic()"
+              >
+                マイクで話す
+              </button>
+              <button
+                type="button"
+                class="btn btn-primary"
+                id="aiSgKoeOkuru"
+                onclick="aiSgKoeOkuru()"
+              >
+                下書きを作る
+              </button>
+            </div>
+            <div class="ai-sg-chui" id="aiSgMicNashi" style="display: none">
+              この端末では、キーボードのマイクで話してください。
+            </div>
+          </div>
+          <div class="ai-sg-chui">
+            写真と文は読み取りのために AI（Anthropic）へ送ります。保存はしません。
+          </div>
+          <div id="aiSgMatsu" class="ai-sg-matsu" style="display: none">
+            読んでいます…
+            <button type="button" class="btn btn-ghost" onclick="aiSgYameru()">やめる</button>
+          </div>
+          <div id="aiSgObi" class="ai-sg-obi" style="display: none"></div>
+          <div id="aiSgModel" class="ai-sg-chui" style="display: none"></div>
+        </div>
+        <div id="entryBody"></div>
+        <button class="add-line" onclick="addEntryRow()">＋ 行を追加</button>
+        <div style="margin-top: 12px">
+          <button class="btn btn-primary" onclick="saveEntries()">保存する</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 一覧 / 修正 ===== -->
+    <section class="screen" id="scr-list">
+      <div class="scr-title">明細一覧 / 修正</div>
+      <div class="scr-sub">タップで1件ずつ 直せます・消せます。</div>
+      <!-- 事務所（ダイコメ）の 売上へ 戻せなかった 行の 知らせ 2026-10-14（1行ずつ・× で 閉じる・読み込み直しても 残る） -->
+      <div id="dkFixObi"></div>
+      <div class="filterbar">
+        <select class="fselect" id="listCompany" onchange="renderList()">
+          <option value="">全社</option>
+        </select>
+        <select class="fselect" id="listMonth" onchange="renderList()">
+          <option value="">全期間</option>
+        </select>
+      </div>
+      <div class="list-sum" id="listSum"></div>
+      <div class="naoshi-tadashi no-print" id="naoshiTadashi"></div>
+      <div class="card">
+        <div id="listBody"></div>
+      </div>
+    </section>
+
+    <!-- ===== 設定（会社マスタ / 自社情報）＝初回設定もの ===== -->
+    <section class="screen" id="scr-settings">
+      <div class="scr-title">設定</div>
+      <div class="seg">
+        <button class="seg-btn on" data-seg="master" onclick="showSettingsSeg('master')">
+          会社マスタ
+        </button>
+        <button class="seg-btn" data-seg="issuer" onclick="showSettingsSeg('issuer')">
+          自社情報
+        </button>
+        <button class="seg-btn" data-seg="template" onclick="showSettingsSeg('template')">
+          テンプレート
+        </button>
+        <button class="seg-btn" data-seg="yomu" onclick="showSettingsSeg('yomu')">
+          外から読む
+        </button>
+      </div>
+
+      <!-- 会社マスタ -->
+      <div class="seg-panel on" data-seg="master">
+        <div class="scr-sub">
+          会社ごとに「どの項目を・どの順で」出すかを定義。項目名は手打ちしません（DB列をチェック→長押しドラッグで並べ替え）。列の幅は自動。
+        </div>
+        <div id="masterBody"></div>
+        <button class="btn btn-ghost" onclick="openAddCompany()" style="margin-top: 4px">
+          ＋ 会社を追加
+        </button>
+      </div>
+
+      <!-- 自社情報 -->
+      <div class="seg-panel" data-seg="issuer">
+        <div class="scr-sub">
+          請求書の発行者・振込先・判子。ここで一度設定すれば、毎月の請求書に自動で入ります（変更も即反映）。
+        </div>
+        <div class="card">
+          <div class="card-label">発行者（1行＝請求書の1行）</div>
+          <div class="frow">
+            <textarea
+              class="finput"
+              id="iss_issuer"
+              rows="6"
+              style="resize: vertical; line-height: 1.8"
+              oninput="setIssuer('issuer', this.value)"
+              onchange="toast('発行者を保存しました（請求書に反映）')"
+            ></textarea>
+            <div style="font-size: 10px; color: #555555; margin-top: 6px; line-height: 1.6">
+              例：屋号／事業名／〒／住所／TEL。<b>事業名が無ければ、その行を消すだけ。</b>代表者名・FAX・メールなど足すのも自由。1行目が少し大きく出ます。<br />
+              <b>登録番号は下の欄</b>で入れます（自由入力の行に書かなくて大丈夫です）。<br />
+              <b>文字揃えはテンプレで決まります</b
+              >（前に「編集」タブで変えた揃えは、そのまま残ります）。
+            </div>
+          </div>
+        </div>

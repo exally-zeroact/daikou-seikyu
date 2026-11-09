@@ -1,0 +1,41 @@
+      /* ★ログインの見出し（🚗 ダイコメ）は読む字＝薄い黒★ 2026-08-21
+         部品 exally-login.js は他アプリと共通（正本は1つ）なので、
+         ★部品は触らず 呼ぶ側のCSSで上書きする★（body を付けて 部品より強くする）。
+         押せる物・選ばれている物（ボタン・入力の枠）は今までどおり青のまま。 */
+      body .login-logo {
+        color: #333333;
+      }
+
+      /* ===== ★列の揃えは ここだけで決める★（指示役 2026-08-18 A1） =====
+         見出し＝中央 ／ 数字・日付＝右 ／ 言葉＝左 ／ 1文字＝中央 ／ ラベル＝左・値＝右
+         ★これは「列（横に並ぶ物）」の決まり★。カード（縦に積む物・pay-summary等）は中央のまま。
+         ★ここ以外で 列の text-align を書かない★
+         見張り: tests/e2e/screen-align.spec.js（描き終わった画面を 幅375/390/412 で測る） */
+      /* ①見出し用 */
+      .rep-table th,
+      .al-head {
+        text-align: center;
+      }
+      /* ②中身用（役割で決まる：右＝数字と日付／左＝言葉／中央＝1文字） */
+      .li-date,
+      .li-amt,
+      .pay-right,
+      .rep-n,
+      .fnum,
+      .entry-inp.num,
+      .dnd-w,
+      .al-num {
+        text-align: right;
+      }
+      .li-dest,
+      .li-meta,
+      .pay-co,
+      .pay-sub,
+      .rep-co,
+      .dnd-name,
+      .al-word {
+        text-align: left;
+      }
+      .al-one {
+        text-align: center;
+      }

@@ -1,0 +1,61 @@
+
+      /* ===== LIST SCOPE (期間表示) ===== */
+      .list-scope {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: -4px 2px 12px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #333333;
+      }
+      .scope-clear {
+        background: #f2f7ff;
+        border: 1.5px solid #cfe0ff;
+        color: #0a5fd0;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 16px;
+        cursor: pointer;
+        font-family: "Noto Sans JP", sans-serif;
+      }
+
+      /* ===== ALIGN TOGGLE (自社情報) ===== */
+      .align-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .align-lbl {
+        font-size: 11px;
+        font-weight: 700;
+        color: #555555;
+        margin-right: 2px;
+      }
+      .align-btn {
+        padding: 5px 12px;
+        border: 1.5px solid #dbe7f7;
+        border-radius: 8px;
+        background: #ffffff;
+        font-size: 12px;
+        font-weight: 700;
+        color: #5a6b82;
+        cursor: pointer;
+        font-family: "Noto Sans JP", sans-serif;
+      }
+      .align-btn.on {
+        border-color: #007aff;
+        background: #f2f7ff;
+        color: #0a5fd0;
+      }
+
+      /* ===== ENTRY LINES (input screen) ===== */
+      .entry-line {
+        border: 1.5px solid #e2eaf4;
+        border-radius: 12px;
+        padding: 10px 10px 11px;
+        margin-bottom: 10px;
+        background: #fbfcfe;
+      }

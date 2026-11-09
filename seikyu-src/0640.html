@@ -1,0 +1,80 @@
+        <!-- ★登録番号は専用の欄★ 自由入力の1行だと 消しても気づけず、要件を満たさない紙が出ていた -->
+        <div class="card">
+          <div class="card-label">登録番号（インボイス）</div>
+          <div class="frow">
+            <input
+              class="finput"
+              id="iss_regno"
+              type="text"
+              inputmode="latin"
+              placeholder="T1234567890123"
+              oninput="setIssuer('regno', this.value.trim())"
+              onchange="toast('登録番号を保存しました（請求書に反映）')"
+            />
+            <div id="regnoHint" style="font-size: 10px; margin-top: 6px; line-height: 1.6"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-label">振込先（1行＝1行・「お振込先」の見出しは自動）</div>
+          <div class="frow">
+            <textarea
+              class="finput"
+              id="iss_bank"
+              rows="3"
+              style="resize: vertical; line-height: 1.8"
+              oninput="setIssuer('bank', this.value)"
+              onchange="toast('振込先を保存しました（請求書に反映）')"
+            ></textarea>
+            <div class="align-row">
+              <span class="align-lbl">文字揃え</span>
+              <button
+                class="align-btn"
+                data-grp="bankAlign"
+                data-a="left"
+                onclick="setAlign('bankAlign', 'left')"
+              >
+                左
+              </button>
+              <button
+                class="align-btn"
+                data-grp="bankAlign"
+                data-a="center"
+                onclick="setAlign('bankAlign', 'center')"
+              >
+                中央
+              </button>
+              <button
+                class="align-btn"
+                data-grp="bankAlign"
+                data-a="right"
+                onclick="setAlign('bankAlign', 'right')"
+              >
+                右
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-label">請求書番号・日付の表記</div>
+          <label
+            style="
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              font-size: 13px;
+              color: #0a5fd0;
+              cursor: pointer;
+            "
+          >
+            <input
+              type="checkbox"
+              id="iss_showNo"
+              style="width: 18px; height: 18px; accent-color: #007aff"
+              onchange="
+                setIssuer('showInvoiceNo', this.checked);
+                generateInvoices();
+                toast(this.checked ? '請求書番号を表示にしました' : '請求書番号を非表示にしました');
+              "
+            />
+            請求書番号を表示する（例：2026-06-02／会社ごとに自動採番）
+          </label>

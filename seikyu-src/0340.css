@@ -1,0 +1,302 @@
+      /* ★取っ手は「押せる物」＝色は付けてよいが 読める濃さにする★ 2026-08-21 */
+      .master-co-caret {
+        color: #666666;
+      }
+      .dnd-grip {
+        cursor: grab;
+        color: #666666;
+        font-size: 16px;
+        touch-action: none;
+        user-select: none;
+      }
+      .dnd-grip:active {
+        cursor: grabbing;
+      }
+      /* 並べ替え行の名前＝全項目プレーンなテキスト（編集欄は廃止）。全行同じ高さ。 */
+      .dnd-name {
+        flex: 1;
+        min-width: 0;
+        box-sizing: border-box;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        font-size: 13px;
+        font-weight: 700;
+        color: #333333;
+        padding: 0 6px;
+      }
+      .dnd-del {
+        flex: 0 0 auto;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        border: 1.5px solid #f3c9c4;
+        background: #fdf1f0;
+        color: #c0392b;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .addcustom {
+        display: flex;
+        gap: 8px;
+        margin: 8px 0 2px;
+      }
+      .addcustom-inp {
+        flex: 1;
+        min-width: 0;
+        font-size: 16px;
+        padding: 8px 10px;
+      }
+      .addcustom-btn {
+        flex: 0 0 auto;
+        width: auto;
+      }
+      .dnd-w {
+        width: 64px;
+        padding: 6px 8px;
+        border: 1.5px solid #e2eaf4;
+        border-radius: 8px;
+        font-family: "DM Mono", monospace;
+        font-size: 16px;
+        color: #333333;
+        outline: none;
+      }
+      .dnd-w:focus {
+        border-color: #007aff;
+      }
+      .dnd-wu {
+        font-size: 10px;
+        color: #666666;
+      }
+      .toggle-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 10px;
+        font-size: 12px;
+        color: #555555;
+        font-weight: 700;
+      }
+      .toggle-row input {
+        width: 16px;
+        height: 16px;
+        accent-color: #007aff;
+      }
+
+      /* ===== INVOICE GEN ===== */
+      .inv-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: flex-end;
+        margin-bottom: 12px;
+      }
+      .inv-toolbar .frow {
+        flex: 1;
+        min-width: 120px;
+        margin-bottom: 0;
+      }
+      #invoiceOut {
+        margin-top: 4px;
+      }
+      .sheet-scale {
+        overflow: hidden;
+        padding-bottom: 8px;
+      }
+      /* WYSIWYGプレビュー：実PDFを描いた canvas（1ページ=1枚）。
+         .sheet.sheet-pdf＝二重クラスで基本 .sheet の padding/min-height/border を確実に上書き */
+      .sheet.sheet-pdf {
+        width: 720px;
+        min-height: 0;
+        padding: 0;
+        border: none;
+        overflow: hidden;
+        background: #fff;
+      }
+      .inv-pdf-canvas {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+      .sheet-scale.inv-loading {
+        position: relative;
+        min-height: 150px; /* 空のまま読み込み中でも「作成中」バッジが見える高さを確保（白画面でバグに見えない） */
+      }
+      /* 既存プレビューを薄く覆って「更新中」を示す背景 */
+      .sheet-scale.inv-loading::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.55);
+        z-index: 5;
+      }
+      /* 「プレビュー作成中…」は縦長プレビューの上部に固定して必ず見える濃いバッジで出す */
+      .sheet-scale.inv-loading::after {
+        content: "⏳ プレビュー作成中…";
+        position: absolute;
+        top: 14px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 9px 18px;
+        background: #0a5fd0;
+        color: #fff;
+        font-weight: 700;
+        font-size: 13.5px;
+        border-radius: 999px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.28);
+        white-space: nowrap;
+        z-index: 6;
+      }
+      /* 720pxのA4シートをスマホ幅に縮小して全体を見せる */
+      .invScaleInner {
+        width: 720px;
+        transform-origin: top left;
+      }
+      /* ===== 塊(ブロック)の当たり判定オーバーレイ ===== */
+      /* canvas を内包する .sheet を基準に絶対配置。既定は透明＋操作を邪魔しない。 */
+      .sheet.sheet-pdf {
+        position: relative;
+      }
+      .sh-right {
+        text-align: right;
+        flex-shrink: 0;
+      }
+      .sh-no {
+        font-size: 11px;
+        margin-bottom: 8px;
+      }
+
+      /* ===== A4 INVOICE SHEET (print-faithful) ===== */
+      .sheet {
+        width: 720px;
+        min-height: 1018px;
+        background: #ffffff;
+        margin: 0 auto 18px;
+        padding: 34px 38px;
+        border: 1px solid #dbe7f7;
+        box-shadow: 0 4px 16px rgba(10, 95, 208, 0.1); /* = #0A5FD0 */
+        color: #1a1a1a;
+        font-size: 12px;
+      }
+      .sh-title {
+        text-align: center;
+        font-size: 26px;
+        font-weight: 700;
+        letter-spacing: 10px;
+        margin: 2px 0 14px;
+        padding-left: 10px;
+      }
+      /* テンプレA：タイトル左寄せ＋請求日も左、ロゴは右上（フレックスで内容右端に揃える＝印刷でもズレない） */
+      .sh-headA {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+      .sh-title-l {
+        text-align: left;
+        padding-left: 0;
+        margin-bottom: 2px;
+      }
+      .sh-date-l {
+        font-size: 12px;
+        margin: 0 0 10px;
+      }
+      .sh-date-l .sh-no-inl {
+        margin-left: 16px;
+        color: #444444;
+      }
+      .sh-logo {
+        display: block;
+        flex: 0 0 auto;
+        margin-left: 16px;
+        max-height: 26mm;
+        object-fit: contain;
+      }
+      .sh-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+      .sh-left {
+        flex: 1;
+        padding-right: 14px;
+      }
+      .sh-date {
+        font-size: 12px;
+        margin-bottom: 8px;
+      }
+      /* 請求日・No.：最上部の右端 */
+      .sh-meta {
+        text-align: right;
+        font-size: 12px;
+        line-height: 1.85;
+      }
+      .sh-client {
+        font-size: 18px;
+        font-weight: 700;
+        display: inline-block;
+        margin-bottom: 8px;
+      }
+      .sh-client .ochu {
+        font-size: 15px;
+        font-weight: 700;
+        margin-left: 18px;
+      }
+      /* あいさつ文＋ご請求金額を宛名から少し下げ、右の発行者ブロックと釣り合わせる */
+      .sh-leadwrap {
+        margin-top: 30px;
+      }
+      .sh-lead {
+        font-size: 12px;
+        line-height: 1.9;
+        margin-bottom: 2px;
+      }
+      .sh-grand {
+        font-size: 15px;
+        font-weight: 700;
+        border-bottom: 1.5px solid #000000;
+        padding-bottom: 4px;
+        padding-right: 36px;
+        margin: 10px 0 2px;
+        display: inline-flex;
+        gap: 18px;
+        align-items: baseline;
+      }
+      .sh-grand .lbl {
+        white-space: nowrap;
+      }
+      .sh-grand .val {
+        font-family: "DM Mono", monospace;
+      }
+      .sh-issuer {
+        font-size: 11px;
+        line-height: 1.65;
+        text-align: left;
+        white-space: nowrap;
+        position: relative;
+        min-width: 172px;
+      }
+      .sh-issuer .big {
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .sh-hanko {
+        position: absolute;
+        right: 4px;
+        top: 0;
+        width: 56px;
+        height: 56px;
+        border: 2px solid #c0392b;
+        border-radius: 6px;
+        color: #c0392b;
+        font-size: 8px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        line-height: 1.2;
+        transform: rotate(-4deg);
+        opacity: 0.9;
+      }

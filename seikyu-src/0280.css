@@ -1,0 +1,33 @@
+      /* ★★見張りが 私の 見落としを 捕まえました（2026-09-10）★★
+           手で 探した 時 `.toast` しか 見て おらず ★この 取り消しの 知らせを 落として いました★
+           ⇒★見張りを 建てたから 見つかった★（人の 目より 先に 機械が 数えた）
+         ★色を 選び直して いません★＝★塗る 広さを 変えただけ★ */
+      .toast-undo {
+        position: fixed;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        bottom: calc(var(--nav-h, 56px) + env(safe-area-inset-bottom) + 12px);
+        z-index: 80;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        max-width: 92%;
+        background: #ffffff;
+        color: #333333;
+        border: 1px solid #d6e4f7;
+        border-left: 5px solid #0a5fd0;
+        padding: 10px 12px 10px 16px;
+        border-radius: 12px;
+        box-shadow: 0 8px 28px rgba(10, 40, 90, 0.22);
+        font-size: 13px;
+        opacity: 0;
+        pointer-events: none;
+        transition:
+          opacity 0.18s,
+          transform 0.18s;
+      }
+      .toast-undo.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+        pointer-events: auto;
+      }

@@ -1,0 +1,35 @@
+      <!-- ★入金の 消し込み★ 2026-11-03（司さん「CSV→候補→人が押す」） -->
+      <button
+        class="btn btn-ghost btn-sm"
+        id="ksOpenBtn"
+        style="width: auto; margin: 0 0 8px"
+        onclick="ksOpen()"
+      >
+        🏦 銀行の明細（CSV）から入金を記録
+      </button>
+      <div id="paySummary" class="pay-summary"></div>
+      <div class="list-sum" id="payCount"></div>
+      <div id="payBody"></div>
+    </section>
+
+    <!-- ===== BOTTOM NAV ===== -->
+    <nav class="bottom-nav">
+      <button class="nav-item" data-scr="settings" onclick="showScreen('settings')">
+        <span class="nav-ic">⚙️</span><span class="nav-lb">設定</span>
+      </button>
+      <button class="nav-item" data-scr="payment" onclick="showScreen('payment')">
+        <span class="nav-ic">💰</span><span class="nav-lb">入金</span>
+        <span class="nav-badge" id="payBadge"></span>
+      </button>
+      <button class="nav-item active" data-scr="input" onclick="showScreen('input')">
+        <span class="nav-ic">✍️</span><span class="nav-lb">入力</span>
+      </button>
+      <button class="nav-item" data-scr="list" onclick="showScreen('list')">
+        <span class="nav-ic">📋</span><span class="nav-lb">一覧</span>
+      </button>
+      <button class="nav-item" data-scr="billing" onclick="showScreen('billing')">
+        <span class="nav-ic">🧾</span><span class="nav-lb">請求/集計</span>
+      </button>
+    </nav>
+
+    <!-- ===== MODAL (edit / add company) ===== -->

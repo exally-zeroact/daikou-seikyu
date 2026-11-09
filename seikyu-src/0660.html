@@ -1,0 +1,268 @@
+          <!-- ★番号を刷り始める日の注意★（2026-08-11 司さん確認：今まで紙に刷っていない） -->
+          <div
+            style="
+              font-size: 11px;
+              color: #555555;
+              margin-top: 8px;
+              line-height: 1.7;
+              border-left: 3px solid #dbe7f7;
+              padding-left: 10px;
+            "
+          >
+            <b>今まで請求書番号は紙に刷っていません。</b>
+            ここを<b>表示</b>にした日から、番号がお客さんに渡り始めます。<br />
+            <b>それ以前の番号は 誰にも渡っていません</b
+            >（渡した紙と食い違う心配はありません）。<br />
+            表示にした後は、<b>一度出した番号は変わりません</b>（出した時に控えと一緒に記録します）。
+          </div>
+          <div class="align-row" style="margin-top: 12px">
+            <span class="align-lbl">日付の表記</span>
+            <button
+              class="align-btn"
+              data-grp="dateEra"
+              data-a="seireki"
+              onclick="setDateEra('seireki')"
+            >
+              西暦
+            </button>
+            <button
+              class="align-btn"
+              data-grp="dateEra"
+              data-a="reiwa"
+              onclick="setDateEra('reiwa')"
+            >
+              令和
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-label">電子判子（任意）</div>
+          <div style="display: flex; align-items: center; gap: 14px">
+            <div
+              id="hankoPreview"
+              style="
+                width: 72px;
+                height: 72px;
+                border: 1.5px dashed #cfe0ff;
+                border-radius: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #666666;
+                font-size: 11px;
+                text-align: center;
+                overflow: hidden;
+                flex-shrink: 0;
+              "
+            >
+              なし
+            </div>
+            <div style="flex: 1">
+              <button
+                class="btn btn-ghost btn-sm"
+                onclick="document.getElementById('hankoFile').click()"
+              >
+                📷 判子画像をアップロード
+              </button>
+              <button class="btn btn-danger btn-sm" style="margin-top: 6px" onclick="clearHanko()">
+                ✕ 判子を消す
+              </button>
+              <input
+                type="file"
+                id="hankoFile"
+                accept="image/*"
+                style="display: none"
+                onchange="loadHanko(event)"
+              />
+            </div>
+          </div>
+          <div class="align-row">
+            <span class="align-lbl">背景の白抜き</span>
+            <button class="align-btn" data-grp="hankoBg" data-a="auto" onclick="setHankoBg('auto')">
+              自動
+            </button>
+            <button class="align-btn" data-grp="hankoBg" data-a="on" onclick="setHankoBg('on')">
+              する
+            </button>
+            <button class="align-btn" data-grp="hankoBg" data-a="off" onclick="setHankoBg('off')">
+              しない
+            </button>
+          </div>
+          <div class="frow" style="margin-top: 10px">
+            <div class="flabel">判子の大きさ（本物のmm・角印なら21前後）</div>
+            <input
+              class="finput fnum"
+              id="iss_hankoSize"
+              inputmode="numeric"
+              style="max-width: 120px"
+              oninput="setHankoSize(this.value)"
+            />
+          </div>
+          <div class="scr-sub" style="margin-top: 8px">
+            一度入れたら保存され、毎回の請求書に自動で入ります。白い紙の判子写真でも背景を自動で透過（透過済み画像はそのまま）。
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-label">会社ロゴ（任意）</div>
+          <div style="display: flex; align-items: center; gap: 14px">
+            <div
+              id="logoPreview"
+              style="
+                width: 96px;
+                height: 72px;
+                border: 1.5px dashed #cfe0ff;
+                border-radius: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #666666;
+                font-size: 11px;
+                text-align: center;
+                overflow: hidden;
+                flex-shrink: 0;
+              "
+            >
+              なし
+            </div>
+            <div style="flex: 1">
+              <button
+                class="btn btn-ghost btn-sm"
+                onclick="document.getElementById('logoFile').click()"
+              >
+                📷 ロゴ画像をアップロード
+              </button>
+              <button class="btn btn-danger btn-sm" style="margin-top: 6px" onclick="clearLogo()">
+                ✕ ロゴを消す
+              </button>
+              <input
+                type="file"
+                id="logoFile"
+                accept="image/*"
+                style="display: none"
+                onchange="loadLogo(event)"
+              />
+            </div>
+          </div>
+          <div class="align-row">
+            <span class="align-lbl">背景の白抜き</span>
+            <button class="align-btn" data-grp="logoBg" data-a="auto" onclick="setLogoBg('auto')">
+              自動
+            </button>
+            <button class="align-btn" data-grp="logoBg" data-a="on" onclick="setLogoBg('on')">
+              する
+            </button>
+            <button class="align-btn" data-grp="logoBg" data-a="off" onclick="setLogoBg('off')">
+              しない
+            </button>
+          </div>
+          <div class="frow" style="margin-top: 10px">
+            <div class="flabel">ロゴの大きさ（mm・10〜46／基本40）</div>
+            <input
+              class="finput fnum"
+              id="iss_logoSize"
+              inputmode="numeric"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              min="10"
+              max="46"
+              style="max-width: 120px"
+              oninput="setLogoSize(this.value)"
+              onchange="this.value = setLogoSize(this.value)"
+            />
+          </div>
+          <div class="scr-sub" style="margin-top: 8px">
+            請求書の右上に入ります。白背景のロゴでも自動で透過（透過済みPNGはそのまま）。大きさはmmで調整できます（専門家推奨32〜35mm）。
+          </div>
+        </div>
+      </div>
+      <!-- /自社情報パネル -->
+
+      <!-- テンプレート選択 -->
+      <div class="seg-panel" data-seg="template">
+        <div class="scr-sub">
+          請求書の見た目（<b>デザイン</b>＋<b>種類</b>）を選べます。ここで選んだものが<b>毎月の既定</b>になります（会社名・振込先・ロゴ・判子はそのまま使われます）。請求タブで「その回だけ」変えることもできます。
+        </div>
+        <div id="designSeg" class="design-seg"></div>
+        <div id="tplGallery" class="tpl-grid"></div>
+        <div id="tplLogoHint" class="tpl-hint" style="display: none">
+          このテンプレートはロゴを使います。<b>「自社情報」でロゴを登録</b>すると右上に入ります（未登録なら自動でロゴなしで出ます）。
+        </div>
+      </div>
+      <!-- /テンプレート -->
+
+      <!-- 外から読むだけの口（2026-11-03） -->
+      <div class="seg-panel" data-seg="yomu">
+        <div class="scr-sub">
+          会計ソフトや AI
+          が、鍵を使って<b>明細・請求・入金・会社を読むだけ</b>できます（書き換えはできません）。鍵を知っている人は誰でも読めるので、渡す相手を選んでください。URL
+          に鍵を入れると記録に残ることがあります＝心配な時は作り直してください。
+        </div>
+        <div class="card">
+          <div class="card-label">鍵</div>
+          <div class="scr-sub" id="yomuKagiJotai">鍵を確かめています…</div>
+          <div id="yomuKagiMieru" style="display: none">
+            <div class="scr-sub">新しい鍵（この画面を離れると、もう全部は見えません）</div>
+            <input class="finput" id="yomuKagi" readonly />
+            <button class="btn btn-ghost btn-sm" onclick="yomuCopy('yomuKagi')">鍵をコピー</button>
+          </div>
+          <div class="iqy-row">
+            <button class="btn btn-sm" id="yomuDasuBtn" onclick="yomuKagiDasu(this)">
+              鍵を出す
+            </button>
+            <button
+              class="btn btn-ghost btn-sm"
+              id="yomuTomeruBtn"
+              style="display: none"
+              onclick="yomuKagiTomeru(this)"
+            >
+              鍵を止める
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-label">読み方（会計ソフト・AI に渡す説明）</div>
+          <textarea
+            class="finput"
+            id="yomuRei"
+            rows="7"
+            readonly
+            style="resize: vertical"
+          ></textarea>
+          <button class="btn btn-ghost btn-sm" onclick="yomuCopy('yomuRei')">説明をコピー</button>
+        </div>
+      </div>
+      <!-- /外から読む -->
+
+      <div style="margin-top: 22px; border-top: 1px solid #eaeff5; padding-top: 14px">
+        <div class="scr-sub" id="acctLine" style="margin-bottom: 8px"></div>
+        <button class="btn btn-ghost btn-sm" onclick="doLogout()">ログアウト</button>
+      </div>
+    </section>
+
+    <!-- ===== 請求（請求書 / 集計）＝月末の締め作業 ===== -->
+    <section class="screen" id="scr-billing">
+      <div class="scr-title">請求</div>
+      <div class="seg">
+        <button class="seg-btn on" data-seg="invoice" onclick="showBillingSeg('invoice')">
+          請求書
+        </button>
+        <button class="seg-btn" data-seg="report" onclick="showBillingSeg('report')">集計</button>
+      </div>
+
+      <!-- 請求書 -->
+      <div class="seg-panel on" data-seg="invoice">
+        <div class="scr-sub">
+          月・会社を選ぶと、会社マスタ＋自社情報＋明細から請求書を自動生成。「印刷 / 送る」で PDF を
+          作り、送る・プリントできます。
+        </div>
+        <div class="filterbar">
+          <select class="fselect" id="invMonth" onchange="generateInvoices()">
+            <option value="">― 月を選択 ―</option>
+          </select>
+          <select class="fselect" id="invCompany" onchange="generateInvoices()">
+            <option value="">全社</option>
+          </select>
+        </div>
+        <div class="invoice-actions no-print">

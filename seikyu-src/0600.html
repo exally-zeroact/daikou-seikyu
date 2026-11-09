@@ -1,0 +1,22 @@
+      <!-- ★2026-08-21 A3-⑤ 記入ガイドは1行。詳しくは畳む（開いた時に3行 読ませない）★ -->
+      <div class="scr-sub">
+        会社を選ぶと、その会社の項目だけ出ます。
+        <details style="display: inline">
+          <summary style="display: inline; cursor: pointer">詳しく</summary>
+          <div style="margin-top: 4px">
+            まとめて入力して保存します。保存した時点でクラウドに入り、PCのExcelは開くと最新になります。
+          </div>
+        </details>
+      </div>
+
+      <div class="card">
+        <div class="frow">
+          <div class="flabel">会社名（プルダウン選択）</div>
+          <select class="fselect" id="inputCompany" onchange="onInputCompany()">
+            <option value="">― 会社を選択 ―</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card" id="entryCard" style="display: none">
+        <div class="card-label" id="entryCardLabel">明細</div>

@@ -1,0 +1,284 @@
+      /* ★見本＝実際の紙をそのまま縮める★（作り物の線画をやめた 2026-08-18 司さん）
+         「他のアプリは実際の見せとんのに なんでこれだけ意味わからんやり方なんど」 */
+      .tpl-thumb-real {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        background: #ffffff;
+      }
+      .tpl-thumb-real canvas {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+      }
+      .tpl-thumb-msg {
+        font-size: 11px;
+        color: #555555;
+        text-align: center;
+        padding: 0 8px;
+        line-height: 1.5;
+      }
+      .tpl-meta {
+        padding: 9px 11px 11px;
+      }
+      .tpl-name {
+        font-weight: 700;
+        font-size: 13px;
+        color: #333333;
+      }
+      .tpl-desc {
+        font-size: 11px;
+        color: #555555;
+        margin-top: 2px;
+        line-height: 1.35;
+      }
+      .tpl-badge {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: #0b57d0;
+        color: #fff;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        box-shadow: 0 1px 4px rgba(0, 122, 255, 0.45);
+      }
+      .tpl-card.on .tpl-badge {
+        display: flex;
+      }
+      .invoice-actions .btn:disabled {
+        opacity: 0.45;
+        filter: grayscale(1);
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+      .regno-warn {
+        margin-top: 10px;
+        padding: 10px 12px;
+        background: #fff4f4;
+        border: 1px solid #f0c2c2;
+        border-left: 4px solid #c0392b;
+        border-radius: 10px;
+        color: #8a2b22;
+        font-size: 12.5px;
+        line-height: 1.7;
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+      .regno-warn b {
+        color: #c0392b;
+      }
+      .tpl-hint {
+        margin-top: 12px;
+        padding: 10px 12px;
+        background: #f2f7ff;
+        border: 1px solid #cfe0ff;
+        border-radius: 12px;
+        font-size: 12px;
+        color: #555555;
+        line-height: 1.5;
+      }
+
+      /* ===== ナビのバッジ（未入金件数） ===== */
+      .nav-item {
+        position: relative;
+      }
+      .nav-badge {
+        display: none;
+        position: absolute;
+        top: 4px;
+        right: 50%;
+        margin-right: -20px;
+        min-width: 16px;
+        height: 16px;
+        padding: 0 4px;
+        border-radius: 8px;
+        background: #e11d48;
+        color: #ffffff;
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 16px;
+        text-align: center;
+        font-family: "DM Mono", monospace;
+      }
+      .nav-badge.on {
+        display: block;
+      }
+
+      /* ===== MASTER ===== */
+      .master-co {
+        position: relative;
+        border: 1px solid #dbe7f7;
+        border-radius: 12px;
+        margin-bottom: 10px;
+        overflow: hidden;
+      }
+      /* スワイプ削除（iOSメール式） */
+      .swipe-action {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 86px;
+        background: #c0392b;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .swipe-del {
+        width: 100%;
+        height: 100%;
+        background: none;
+        border: none;
+        color: #ffffff;
+        font-family: "Noto Sans JP", sans-serif;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .swipe-content {
+        position: relative;
+        background: #ffffff;
+        transition: transform 0.2s ease;
+        touch-action: pan-y;
+      }
+      .swipe-content.swiping {
+        transition: none;
+      }
+      /* 一覧の明細をスワイプ削除できるよう包む土台（会社マスタと同じ仕組み） */
+      .list-swipe {
+        position: relative;
+        overflow: hidden;
+        border-bottom: 1px solid #eaeff5;
+      }
+      .list-swipe:last-child {
+        border-bottom: none;
+      }
+      .list-swipe .list-item {
+        border-bottom: none;
+      }
+
+      /* ===== 行き先サジェスト（自前ドロップダウン・iOSでも確実に出る/絞れる） ===== */
+      .sugg-wrap {
+        position: relative;
+      }
+      .sugg-box {
+        display: none;
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 100%;
+        margin-top: 2px;
+        background: #ffffff;
+        border: 1.5px solid #cfe0ff;
+        border-radius: 10px;
+        box-shadow: 0 8px 20px rgba(20, 36, 61, 0.14);
+        max-height: 210px;
+        overflow-y: auto;
+        z-index: 50;
+        -webkit-overflow-scrolling: touch;
+      }
+      .sugg-box.on {
+        display: block;
+      }
+      .sugg-item {
+        padding: 11px 12px;
+        font-size: 13px;
+        color: #0a5fd0;
+        border-bottom: 1px solid #f2f7ff;
+        cursor: pointer;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .sugg-item:last-child {
+        border-bottom: none;
+      }
+      .sugg-item:active {
+        background: #f2f7ff;
+      }
+      .master-co-hd {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 11px 12px;
+        background: #f2f7ff;
+        cursor: pointer;
+      }
+      .master-co-name {
+        font-size: 14px;
+        font-weight: 700;
+        color: #333333;
+        flex: 1;
+      }
+      .master-co-cols {
+        font-size: 10px;
+        color: #555555;
+        font-family: "DM Mono", monospace;
+      }
+      .master-co-body {
+        display: none;
+        padding: 12px;
+        border-top: 1px solid #dbe7f7;
+      }
+      .master-co-body.open {
+        display: block;
+      }
+      .chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 6px;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 11px;
+        border-radius: 20px;
+        border: 1.5px solid #dbe7f7;
+        background: #ffffff;
+        font-size: 12px;
+        font-weight: 700;
+        color: #5a6b82;
+        cursor: pointer;
+        user-select: none;
+      }
+      .chip.on {
+        border-color: #007aff;
+        background: #f2f7ff;
+        color: #0a5fd0;
+      }
+      .dnd-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin: 8px 0;
+      }
+      .dnd-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border: 1.5px solid #dbe7f7;
+        border-radius: 10px;
+        background: #ffffff;
+        /* Exally給料明細(.drag-tr)と同じ滑らかな遷移 */
+        transition:
+          opacity 0.15s,
+          transform 0.15s,
+          background 0.15s,
+          border-color 0.15s;
+      }
+      /* つかんで動かしている項目＝Exally給料明細(.drag-over)と同じ控えめ表現：
+         ミント背景＋緑の上線だけ。枠で囲わない・持ち上げない・影なし。 */
+      .dnd-item.dragging {
+        background: #f2f7ff;
+        border-top: 2px solid #007aff;
+      }

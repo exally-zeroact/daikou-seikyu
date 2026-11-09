@@ -11,3 +11,7 @@ scripts/ci-yuka.sh
 # 2026-11-03 倉庫の 守りの 試験（khaw に 当てる・手で 回す）＝配信しない
 scripts/sql-shiken.mjs
 .husky/
+# 2026-11-09 ④ seikyu-src/ は daikou-seikyu.html を 行で 切った 写し・道具は 門だけ＝配信しない（配るのは 1枚の html）
+seikyu-src/
+scripts/seikyu-tsunagu.mjs
+scripts/gamen-tsunagu.mjs

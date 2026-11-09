@@ -1,0 +1,370 @@
+
+      .app-header {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: #ffffff;
+        border-bottom: 1px solid #dbe7f7;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        box-shadow: 0 1px 4px rgba(20, 36, 61, 0.06);
+      }
+      .app-logo {
+        /* ★事務所(dashboard.html)の .logo と同じ見え方に揃える★ (2026-08-09)
+           太字の日本語なので DM Mono は当てない（英字用の書体で、絵文字と釣り合わない）。 */
+        font-size: 20px;
+        font-weight: 800;
+        color: #333333; /* 事務所の --blue-d */
+      }
+      .app-logo-ja {
+        font-size: 10px;
+        font-weight: 700;
+        color: #666666;
+        margin-left: -2px;
+      }
+      .app-title {
+        margin-left: auto;
+        font-size: 12px;
+        font-weight: 700;
+        color: #666666;
+      }
+
+      /* ===== SCREEN ===== */
+      .screen {
+        display: none;
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 14px 12px;
+      }
+      .screen.active {
+        display: block;
+      }
+      .scr-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #333333;
+        margin-bottom: 4px;
+      }
+      .scr-sub {
+        font-size: 11px;
+        color: #666666;
+        margin-bottom: 14px;
+        line-height: 1.6;
+      }
+
+      /* ===== CARD ===== */
+      .card {
+        background: #ffffff;
+        border: 1px solid #dbe7f7;
+        border-radius: 16px;
+        box-shadow: 0 1px 4px rgba(20, 36, 61, 0.06);
+        padding: 14px;
+        margin-bottom: 12px;
+      }
+      .card-label {
+        font-size: 10px;
+        font-weight: 700;
+        color: #555555;
+        letter-spacing: 1.2px;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+      }
+
+      /* ===== FIELDS ===== */
+      .frow {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        margin-bottom: 10px;
+      }
+      .frow:last-child {
+        margin-bottom: 0;
+      }
+      .flabel {
+        font-size: 11px;
+        font-weight: 700;
+        color: #555555;
+      }
+      .finput,
+      .fselect {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1.5px solid #dbe7f7;
+        border-radius: 10px;
+        font-size: 16px;
+        font-family: "Noto Sans JP", sans-serif;
+        color: #333333;
+        outline: none;
+        background: #ffffff;
+        transition: border-color 0.15s;
+      }
+      .finput:focus,
+      .fselect:focus {
+        border-color: #007aff;
+      }
+      .finput::placeholder {
+        color: #8a94a6;
+      }
+      .fnum {
+        font-family: "DM Mono", monospace;
+      }
+      .fselect {
+        appearance: none;
+        -webkit-appearance: none;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' stroke='%23007AFF' stroke-width='1.6' fill='none' stroke-linecap='round'/></svg>");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        padding-right: 30px;
+      }
+
+      /* ===== BUTTONS ===== */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border: none;
+        border-radius: 12px;
+        font-family: "Noto Sans JP", sans-serif;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .btn-primary {
+        background: #0b57d0;
+        color: #ffffff;
+        padding: 13px 16px;
+        font-size: 14px;
+        width: 100%;
+        box-shadow: 0 3px 12px rgba(0, 122, 255, 0.32);
+      }
+      .btn-primary:hover {
+        background: #35557f;
+      }
+      .btn-ghost {
+        background: #f2f7ff;
+        color: #0a5fd0;
+        border: 1.5px solid #cfe0ff;
+        padding: 11px 14px;
+        font-size: 13px;
+        width: 100%;
+      }
+      .btn-ghost:hover {
+        background: #e2eaf4;
+      }
+      .btn-sm {
+        padding: 7px 12px;
+        font-size: 12px;
+        width: auto;
+      }
+      .btn-danger {
+        background: #fdf1f0;
+        color: #c0392b;
+        border: 1.5px solid #f3c9c4;
+      }
+      .btn-danger:hover {
+        background: #fbe3e0;
+      }
+
+      .li-nodate {
+        color: #c0392b;
+        font-weight: 700;
+        min-width: 64px;
+      }
+      .invoice-actions {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .invoice-actions .btn {
+        flex: 1;
+      }
+      /* ===== 請求タブ：テンプレ＆書体 切替バー ===== */
+      .inv-toolbar2 {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 18px;
+        align-items: center;
+        margin: 2px 0 12px;
+      }
+      .itb-group {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .itb-lbl {
+        font-size: 11px;
+        color: #555555;
+        font-weight: 700;
+        white-space: nowrap; /* 「お支払期限」等のラベルを縦折れさせない */
+      }
+      .itb-btn,
+      .itb-font {
+        font-size: 12px;
+        padding: 5px 10px; /* チップと同じ縦幅に統一（行の高さを揃える） */
+        border: 1px solid #cfe0ff;
+        border-radius: 8px;
+        background: #fff;
+        color: #0a5fd0;
+        cursor: pointer;
+        font-family: inherit;
+        white-space: nowrap;
+      }
+      .itb-btn.on {
+        background: #007aff;
+        border-color: #007aff;
+        color: #fff;
+        font-weight: 700;
+      }
+      /* デザイン/種類セレクタ（請求タブ） */
+      .itb-seg,
+      .itb-chips {
+        display: inline-flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .itb-chip {
+        font-size: 12px;
+        padding: 5px 10px;
+        border: 1px solid #cfe0ff;
+        border-radius: 14px;
+        background: #fff;
+        color: #0a5fd0;
+        cursor: pointer;
+        font-family: inherit;
+        white-space: nowrap; /* 「西暦」「令和」等が縦書きに折り返さないように */
+      }
+      .itb-chip.on {
+        background: #0a5fd0;
+        border-color: #0a5fd0;
+        color: #fff;
+        font-weight: 700;
+      }
+      /* よくあるオンオフ・トグルスイッチ */
+      .itb-switch {
+        position: relative;
+        width: 44px;
+        height: 24px;
+        flex: none;
+        padding: 0;
+        border: 1px solid #cfe0ff;
+        border-radius: 12px;
+        background: #e6ecf4;
+        cursor: pointer;
+        transition:
+          background 0.15s,
+          border-color 0.15s;
+      }
+      .itb-switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+        transition: left 0.15s;
+      }
+      .itb-switch.on {
+        background: #007aff;
+        border-color: #007aff;
+      }
+      .itb-switch.on::after {
+        left: 24px;
+      }
+      /* お支払期限の日付欄をチップと同じ高さに（行を太く見せない） */
+      .itb-date {
+        width: auto;
+        min-width: 132px;
+        padding: 4px 8px;
+        font-size: 12.5px;
+        border-radius: 9px;
+        border: 1px solid #cfe0ff;
+      }
+      .inv-override {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 12px;
+        margin: 0 0 10px;
+        padding: 8px 12px;
+        background: #fff8e1;
+        border: 1px solid #f0d98a;
+        border-radius: 8px;
+        font-size: 12px;
+        color: #8a6d00;
+      }
+      /* 設定タブ：デザイン切替セグメント */
+      .design-seg {
+        display: flex;
+        gap: 8px;
+        margin: 4px 0 12px;
+      }
+      .dseg-btn {
+        flex: 1;
+        padding: 10px 12px;
+        border: 1.5px solid #cfe0ff;
+        border-radius: 10px;
+        background: #fff;
+        color: #0a5fd0;
+        font-weight: 700;
+        font-size: 14px;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .dseg-btn.on {
+        background: #007aff;
+        border-color: #007aff;
+        color: #fff;
+      }
+      .itb-font {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 150px;
+        justify-content: space-between;
+        background: #f2f7ff;
+      }
+      .itb-caret {
+        color: #5a6b82;
+      }
+      .itb-fontpop {
+        position: absolute;
+        top: 38px;
+        left: 34px;
+        z-index: 50;
+        width: 230px;
+        background: #fff;
+        border: 1px solid #cfe0ff;
+        border-radius: 10px;
+        box-shadow: 0 6px 20px rgba(20, 36, 61, 0.16);
+        padding: 8px;
+      }
+      .itb-fontsearch {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 7px 9px;
+        border: 1px solid #cfe0ff;
+        border-radius: 7px;
+        font-size: 12.5px;
+        margin-bottom: 6px;
+        font-family: inherit;
+      }
+      .itb-fopt {
+        padding: 8px 9px;
+        border-radius: 7px;
+        font-size: 13px;
+        color: #0a5fd0;
+        cursor: pointer;
+      }
+      .itb-fopt:hover {
+        background: #f2f7ff;
+      }
+      .itb-fopt.on {
+        background: #cfe0ff;
+        font-weight: 700;
+      }

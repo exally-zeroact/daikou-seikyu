@@ -1,0 +1,67 @@
+      /* ★「送る・印刷する」の 帯が 出ている 間は 知らせを 帯の 上へ★（帯の 下に 隠れて 読めない・対立役 注2 2026-11-06）
+         --pdf-obi-h は 帯を 出した 時に lib/pdf-okuru.js が 測って 入れる */
+      body:has(#pdfOkuruObi) .toast {
+        bottom: calc(
+          var(--nav-h, 56px) + env(safe-area-inset-bottom) + 16px + var(--pdf-obi-h, 72px)
+        );
+        z-index: 100001;
+      }
+
+      /* ===== PRINT ===== */
+
+      @media print {
+        body {
+          background: #ffffff;
+          padding: 0;
+        }
+        .app-header,
+        .bottom-nav,
+        .inv-toolbar,
+        .scr-title,
+        .scr-sub,
+        .seg,
+        .filterbar,
+        .toast,
+        #pdfOkuruObi,
+        .naoshi-tadashi,
+        .no-print {
+          display: none !important;
+        }
+        .screen {
+          padding: 0;
+          max-width: none;
+        }
+        .sheet-scale {
+          overflow: visible;
+          height: auto !important;
+        }
+        /* 印刷時は縮小を解除して実寸A4で出す */
+        .invScaleInner {
+          transform: none !important;
+          width: auto !important;
+        }
+        .sheet {
+          box-shadow: none;
+          border: none;
+          margin: 0;
+          width: auto;
+          min-height: auto;
+          padding: 0;
+          page-break-after: always;
+        }
+        .sheet:last-child {
+          page-break-after: auto;
+        }
+        /* PDF canvas は1ページ＝1枚。実寸でページいっぱいに（PDF自身が余白を持つ） */
+        .sheet-pdf {
+          width: 100% !important;
+        }
+        .inv-pdf-canvas {
+          width: 100% !important;
+          height: auto !important;
+        }
+        @page {
+          size: A4 portrait;
+          margin: 0;
+        }
+      }

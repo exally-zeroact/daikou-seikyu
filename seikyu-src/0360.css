@@ -1,0 +1,180 @@
+
+      .sh-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+        table-layout: fixed;
+        border: 1px solid #000000; /* 外枠 */
+      }
+      .sh-table th,
+      .sh-table td {
+        font-size: 11px;
+        padding: 3px 6px;
+        line-height: 1.5;
+      }
+      /* ヘッダーは縦線あり（枠で仕切る） */
+      .sh-table th {
+        border: 1px solid #000000;
+        background: #f2f7ff;
+        text-align: center;
+        font-weight: 700;
+      }
+      /* 本文は横線だけ（列の縦線なし）。左右は外枠で囲む */
+      .sh-table td {
+        border-top: 1px solid #000000;
+        border-bottom: 1px solid #000000;
+      }
+      /* 金額・備考の列だけ縦線を入れる */
+      .sh-table td.vl {
+        border-left: 1px solid #000000;
+      }
+      .sh-table td.c {
+        text-align: center;
+      }
+      .sh-table td.r {
+        text-align: right;
+        font-family: "DM Mono", monospace;
+        white-space: nowrap;
+      }
+      .sh-table td.dest {
+        text-align: center;
+      }
+      .sh-table tr.tot td {
+        background: #f2f7ff;
+        text-align: center;
+        font-weight: 700;
+      }
+      .sh-table tr.tot td.r {
+        background: #ffffff;
+        font-weight: 700;
+      }
+      .sh-foot {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-top: 8px;
+      }
+      .sh-bank {
+        font-size: 11px;
+        line-height: 1.7;
+      }
+      /* 右下の合計枠（小計/消費税/合計）＋役職集計を縦に積む。両方同じ列幅で縦ラインを揃える */
+      .sh-foot-right {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-end;
+      }
+      .sh-totalbox,
+      .sh-summary {
+        border-collapse: collapse;
+        width: 210px;
+        table-layout: fixed;
+      }
+      /* ENEOS式：枠で囲まず、ラベル＋金額だけ。列幅は両塊で共通 */
+      .sh-totalbox td,
+      .sh-summary td {
+        font-size: 12px;
+        padding: 3px 12px;
+      }
+      .sh-totalbox td.k,
+      .sh-summary td.k {
+        width: 110px;
+        text-align: left;
+        font-weight: 700;
+      }
+      .sh-totalbox td.v,
+      .sh-summary td.v {
+        font-family: "DM Mono", monospace;
+        font-weight: 700;
+        text-align: right;
+      }
+      /* 役職集計が下に続く時だけ、合計行の下に区切り線 */
+      .sh-totalbox td.ul {
+        border-bottom: 1px solid #000000;
+      }
+
+      /* ===== BOTTOM NAV ===== */
+      .bottom-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 60;
+        background: #ffffff;
+        border-top: 1px solid #dbe7f7;
+        display: flex;
+        justify-content: space-around;
+        box-shadow: 0 -2px 8px rgba(20, 36, 61, 0.05);
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+      .nav-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding: 8px 2px 7px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-family: "Noto Sans JP", sans-serif;
+        color: #555555;
+      }
+      .nav-item.active {
+        color: #0a5fd0;
+      }
+      .nav-ic {
+        font-size: 18px;
+        line-height: 1;
+      }
+      .nav-lb {
+        font-size: 10px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      /* ===== MODAL ===== */
+      .modal-ov {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        background: rgba(20, 36, 61, 0.45);
+        align-items: flex-end;
+        justify-content: center;
+      }
+      .modal-ov.open {
+        display: flex;
+      }
+      .modal {
+        background: #ffffff;
+        width: 100%;
+        max-width: 520px;
+        border-radius: 18px 18px 0 0;
+        max-height: 88vh;
+        overflow-y: auto;
+        padding: 18px 16px 28px;
+      }
+      .modal-hd {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+      }
+      .modal-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: #333333;
+      }
+      .modal-x {
+        background: none;
+        border: 1.5px solid #dbe7f7;
+        color: #5a6b82;
+        border-radius: 18px;
+        padding: 4px 12px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: "Noto Sans JP", sans-serif;
+      }

@@ -1,0 +1,48 @@
+      /* ★直しの 履歴（⑦ 3押し目・2026-11-09）★ 運転手が 直した 行の 赤（司さん 10-21） */
+      .naoshi-tadashi {
+        font-size: 12px;
+        color: #c0392b;
+        margin: 0 4px 6px;
+      }
+      .naoshi-tadashi.ng {
+        color: #8a8f98;
+      }
+      .naoshi-tadashi:empty {
+        display: none;
+      }
+      .list-item.li-aka .li-amt,
+      .list-item.li-aka .li-dest {
+        color: #c0392b;
+      }
+      .naoshi-fuda {
+        display: inline-block;
+        font-size: 11px;
+        line-height: 1.4;
+        padding: 0 6px;
+        margin-left: 6px;
+        border: 1px solid #8a8f98;
+        border-radius: 8px;
+        color: #8a8f98;
+        vertical-align: middle;
+      }
+      .li-aka .naoshi-fuda {
+        border-color: #c0392b;
+        color: #c0392b;
+      }
+      .naoshi-ichiran {
+        margin-top: 14px;
+        border-top: 1px solid #e3e6ea;
+        padding-top: 8px;
+        font-size: 12px;
+      }
+      .naoshi-midashi {
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .naoshi-gyou {
+        padding: 4px 0;
+        border-bottom: 1px dashed #e3e6ea;
+      }
+      .naoshi-gyou.aka {
+        color: #c0392b;
+      }

@@ -9,3 +9,5 @@ book.html
 
 # ★CLAUDE.md は全repoで バイト一致を保つ文書。整形で行が動くとsha256が変わるため除外★
 CLAUDE.md
+# ★2026-11-09 ④ seikyu-src/ は daikou-seikyu.html を 行で 切った 切れ端＝1枚では 文書に ならない。整形は 繋いだ html で する。
+seikyu-src/

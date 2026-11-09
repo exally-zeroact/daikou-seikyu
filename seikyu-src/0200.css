@@ -1,0 +1,11 @@
+      /* ★行き先＝副（読ませる字・薄い黒）★ */
+      .li-dest {
+        font-size: 12px;
+        line-height: 1.25;
+        font-weight: 400;
+        color: #555555;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-top: 1px;
+      }

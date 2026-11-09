@@ -1,1 +1,7 @@
-npx lint-staged
+# ★請求書の 画面（daikou-seikyu.html）と 塊・節ごとの 写し（seikyu-src/）を 揃える★ 2026-11-09 ④（手本＝Daikou-app 件3）
+#   --mae＝写しを 直した 時に 繋いで html を 書く（両方 直して ずれる・stage していない 直しが 在る 時は 止める）
+#   --ato＝lint-staged が html を 直した 後・html だけ 直した 時に 割り直して 写しを 書く
+node scripts/seikyu-tsunagu.mjs --mae
+# ★字の 長さで 分けて 渡す★（Windows の 8191字。lint-staged 17 は 既定だと 分けない・手本 件3 で 踏んだ）
+npx lint-staged --max-arg-length 4000
+node scripts/seikyu-tsunagu.mjs --ato
