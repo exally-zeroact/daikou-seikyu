@@ -5,6 +5,8 @@
 //   ①手で 数えた 例と 1円も 違わない（繰越あり＝古い 月から・払い過ぎ・0円の 月・マイナスの 月／繰越なし）
 //   ②画面の 数が 変わらない：直す 前の seikyuList・payStatusOf（fixtures/nyukin-ate-mae.json＝3066ca4 の html の 字）と
 //     今の html の seikyuList・payStatusOf を、作り物の 明細・入金 N 通りで 動かして 全部 一致
+//   ③口の minyukin＝画面の summarize と 同じ 行・同じ 並び・同じ 額（全期間で 当ててから 月・会社で 絞る）
+//   ④同じ (月, 会社) の 入金が 2行＝502（黙って 片方を 捨てない）
 //   値は 全部 作り物。
 // ============================================================
 import { describe, it, expect } from "vitest";
@@ -16,6 +18,7 @@ const require = createRequire(import.meta.url);
 const NA = require("../lib/nyukin-ate.js");
 const ME = require("../meisai-engine.js");
 const NK = require("../lib/nyukin-kai.js");
+const YK = require("../lib/yomu-kuchi.js");
 const MAE = require("./fixtures/nyukin-ate-mae.json");
 const ROOT = path.resolve(
   path.dirname(new URL(import.meta.url).pathname.replace(/^\/(\w:)/, "$1")),
@@ -211,5 +214,67 @@ describe("② 画面の 数が 変わらない（直す 前の html の 字 と 
       gyosu += a.length;
     }
     expect(gyosu).toBeGreaterThan(1000); // 空の 比べで 緑に しない
+  });
+});
+
+describe("③ 口の minyukin＝画面の summarize と 同じ", () => {
+  const kuchi = (moto, kara, made, kaisha) => {
+    const t = YK.tsukuru(moto, "minyukin", kara || "", made || "", kaisha || null);
+    expect(t.error).toBeUndefined();
+    return t.gyo.map((g) => {
+      const o = Object.fromEntries(t.midashi.map((k, i) => [k, g[i]]));
+      delete o.繰越を使う;
+      return o;
+    });
+  };
+  it("作り物 200 通りで 全行・全列・並びが 一致（直す 前の 画面と）", () => {
+    let kurikoshi = 0;
+    for (let tane = 1; tane <= 200; tane++) {
+      const moto = tsukuri(tane);
+      const s = summarizeGyo(gamen(MAE, gamenNoKata(moto)));
+      expect(kuchi(moto)).toEqual(s);
+      // 月で 絞る＝全期間で 当ててから 絞る（先に 絞ると 繰越の 当てが 変わる）
+      expect(kuchi(moto, "2026-03", "2026-04")).toEqual(
+        s.filter((x) => x.月 >= "2026-03" && x.月 <= "2026-04")
+      );
+      expect(kuchi(moto, "", "", "乙")).toEqual(s.filter((x) => x.会社名 === "乙"));
+      if (moto.kaisha.some((c) => c.carryover)) kurikoshi++;
+    }
+    expect(kurikoshi).toBeGreaterThan(100); // 繰越の 道を 通った
+  });
+  it("共有の 作り物：外税の会社（繰越・後から 作った 方が 勝つ）の 当て", () => {
+    const { MOTO } = require("./fixtures/yomu-moto.js");
+    const s = summarizeGyo(gamen(MAE, gamenNoKata(MOTO)));
+    expect(kuchi(MOTO)).toEqual(s);
+    const soto = kuchi(MOTO).find((x) => x.会社名 === "外税の会社");
+    const g = ME.invoiceTotals([{ 金額: 3333 }, { 金額: 1001 }], { taxMode: "外税" }).goukei;
+    expect(soto).toMatchObject({ 月: "2026-10", "今月分（税込）": g, 入金: 3000, 残額: g - 3000 });
+  });
+  it("並び＝月の 新しい 順→会社（画面と 同じ）・繰越を使う の 列", () => {
+    const t = YK.tsukuru(tsukuri(7), "minyukin", "", "");
+    const mi = t.midashi;
+    expect(mi).toEqual([
+      "月",
+      "会社名",
+      "件数",
+      "今月分（税込）",
+      "入金",
+      "記録した入金",
+      "残額",
+      "状態",
+      "繰越を使う",
+    ]);
+    for (let i = 1; i < t.gyo.length; i++) {
+      const [a, b] = [t.gyo[i - 1], t.gyo[i]];
+      expect(a[0] > b[0] || (a[0] === b[0] && a[1].localeCompare(b[1]) < 0)).toBe(true);
+    }
+  });
+  it("④ 同じ (月, 会社) の 入金が 2行＝502・知らない 会社＝400", () => {
+    const moto = tsukuri(3);
+    moto.nyukin.push(Object.assign({}, moto.nyukin[0], { id: "dup" }));
+    const t = YK.tsukuru(moto, "minyukin", "", "");
+    expect(t.status).toBe(502);
+    expect(t.error).toContain("2行");
+    expect(YK.tsukuru(tsukuri(3), "minyukin", "", "", "無い会社").status).toBe(400);
   });
 });

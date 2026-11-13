@@ -1,6 +1,6 @@
 // ============================================================
 // ★外から読むだけの口（①）★ 2026-11-03（司さん 11-02「外へ数を出す口＝読むだけ」）
-//   GET /api/yomu?hyo=meisai|seikyu|nyukin|kaisha[&kara=YYYY-MM][&made=YYYY-MM][&kaisha=会社名][&kata=json|csv]
+//   GET /api/yomu?hyo=meisai|seikyu|nyukin|kaisha|minyukin[&kara=YYYY-MM][&made=YYYY-MM][&kaisha=会社名][&kata=json|csv]
 //     2026-11-13 ⑥：明細は kara/made に YYYY-MM-DD も・kaisha（完全一致・無い名前は 400＋在る名前）
 //     倉庫を 読む 所は lib/yomu-kura.js（MCP の口 api/mcp.js と 共有）
 //   鍵＝Authorization: Bearer <鍵>（正）／?token=<鍵>（見出しを付けられない道具・Excel 用。URL の鍵は記録に残る）

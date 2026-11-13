@@ -5,7 +5,7 @@
 //   ・鍵は Authorization: Bearer だけ（?token は 受けない）・鍵なし/違う 401（倉庫を 呼ばない）
 //   ・繋ぐ 時に kagi_aru が true の 時だけ 通す（false 401・読めない 502）
 //   ・額は ①（api/yomu.js）と 1マスも 違わない（同じ 倉庫の 答えから 両方を 比べる）
-//   ・書く tool 0本・未入金は 出さないと 説明に 書く
+//   ・書く tool 0本・未入金・残額は minyukin で 答える（seikyu − nyukin で 引かない）と 説明に 書く（件B 11-13）
 //   ・大きすぎる 答えは 切らずに isError（24,000 バイト）・会社名が 無い 時は 0行に しない
 //   ・壊れた JSON は -32700（Vercel の req.body が 投げる 形も）・失敗を 成功に しない
 //   ・答えに 鍵の 字が 出ない
@@ -163,7 +163,7 @@ describe("api/mcp.js 話し方（JSON-RPC）", () => {
 });
 
 describe("api/mcp.js tools", () => {
-  it("tools/list＝1本・読むだけ・未入金は 出さないと 書く・書く 道 0", async () => {
+  it("tools/list＝1本・読むだけ・未入金は minyukin と 書く・書く 道 0", async () => {
     const o = await post(rpc(1, "tools/list"));
     const t = o.json.result.tools;
     expect(t.length).toBe(1);
@@ -172,20 +172,28 @@ describe("api/mcp.js tools", () => {
     expect(t[0].annotations.destructiveHint).toBe(false);
     expect(t[0].description).toContain("未入金");
     expect(t[0].description).toContain("入金タブ");
-    expect(t[0].inputSchema.properties.hyo.enum).toEqual(["meisai", "seikyu", "nyukin", "kaisha"]);
+    expect(t[0].inputSchema.properties.hyo.enum).toEqual([
+      "meisai",
+      "seikyu",
+      "nyukin",
+      "kaisha",
+      "minyukin",
+    ]);
+    expect(t[0].description).toContain("minyukin");
+    expect(t[0].description).toContain("引き算で答えないで");
     expect(calls.length).toBe(0);
   });
   it("知らない tool＝-32602・hyo 無し/違う＝isError・字でない 引数＝isError", async () => {
     const x = await post(rpc(1, "tools/call", { name: "kaku", arguments: {} }));
     expect(x.json.error.code).toBe(-32602);
-    for (const args of [{}, { hyo: "minyukin" }, { hyo: "seikyu", kara: 202610 }, undefined]) {
+    for (const args of [{}, { hyo: "mikaishu" }, { hyo: "seikyu", kara: 202610 }, undefined]) {
       const o = await yobu(args);
       expect(o.status).toBe(200);
       expect(o.json.result.isError).toBe(true);
     }
   });
-  it("★額は ①と 1マスも 違わない★（4つの 表・同じ 倉庫の 答えから）", async () => {
-    for (const hyo of ["meisai", "seikyu", "nyukin", "kaisha"]) {
+  it("★額は ①と 1マスも 違わない★（5つの 表・同じ 倉庫の 答えから）", async () => {
+    for (const hyo of ["meisai", "seikyu", "nyukin", "kaisha", "minyukin"]) {
       const m = naka(await yobu({ hyo }));
       const res = fakeRes();
       await yomu({ method: "GET", headers: AUTH, query: { hyo } }, res);

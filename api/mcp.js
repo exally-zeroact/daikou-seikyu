@@ -9,7 +9,8 @@
 //   ★額は ①と 同じ★：倉庫＝lib/yomu-kura.js・表＝lib/yomu-kuchi.js の tsukuru（写しを 作らない）。
 //   ★黙って 切らない★：答えの 字が 24,000 バイトを 越えたら 切らずに isError で「絞って」（Claude Code は
 //     既定 25,000 トークンで 切る・トークン数 ≤ バイト数＝上の 限り）。
-//   ★未入金・残額は 出さない★（画面の 入金タブの 当て方は まだ lib に 無い＝件B）。tool の 説明で 明言する。
+//   ★未入金・残額は minyukin だけで 出す★ 2026-11-13 ⑥件B：画面の 入金タブ・集計と 同じ 当て方（lib/nyukin-ate.js）。
+//     seikyu − nyukin の 引き算で 答えない 様に tool の 説明で 明言する。
 // ============================================================
 "use strict";
 const YomuKuchi = require("../lib/yomu-kuchi.js");
@@ -19,9 +20,10 @@ const BAN = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"]; // 話せ�
 const MON_BYTES = 24000;
 
 const MINYUKIN_CHUI =
-  "★未入金・残額・繰越の後の請求額は、この口では出しません★。seikyu の今月分から nyukin の入金額を引いた値は、" +
-  "繰越を使う会社や月をまたぐ入金では、請求書アプリの入金タブの未入金・残額と違います。" +
-  "未入金・残額を訊かれたら、引き算で答えずに「請求書アプリの入金タブを見てください」と伝えてください。";
+  "★未入金・残額・入金の状態は minyukin で答えてください★（請求書アプリの入金タブ・Excel の「集計」と同じ当て方）。" +
+  "seikyu の今月分から nyukin の入金額を引いた値は、繰越を使う会社や月をまたぐ入金では入金タブの残額と違うので、" +
+  "引き算で答えないでください。繰越を使う会社の minyukin の残額は月ごとに当てた額で、" +
+  "紙の請求書の「繰越金額」（入金日で数える）とは別です。明細が0件の月に記録した入金は minyukin に出ません（nyukin で見えます）。";
 
 const TOOL = {
   name: "yomu_hyo",
@@ -30,6 +32,7 @@ const TOOL = {
     "代行請求書アプリ（ダイコメ請求書）の表を読むだけ（書く道はありません）。額は画面と同じ式で出します。" +
     "表（hyo）：meisai＝" +
     "明細。seikyu＝月×会社の請求（今月分は税込）。nyukin＝記録した入金（1回1行）。kaisha＝会社。" +
+    "minyukin＝月×会社の入金の状態（今月分・当てた入金・残額・未入金/一部入金/入金済）。" +
     "kara/made は YYYY-MM（明細だけ YYYY-MM-DD も）。kaisha は会社名の完全一致（違えば在る名前が返ります）。" +
     "答えが大きすぎる時は切らずにエラーで返すので、月・日・会社で絞って訊き直してください。" +
     MINYUKIN_CHUI,
@@ -39,7 +42,8 @@ const TOOL = {
       hyo: {
         type: "string",
         enum: YomuKuchi.HYO.slice(),
-        description: "表の名前（meisai＝明細／seikyu＝請求／nyukin＝入金／kaisha＝会社）",
+        description:
+          "表の名前（meisai＝明細／seikyu＝請求／nyukin＝入金／kaisha＝会社／minyukin＝未入金・残額）",
       },
       kara: { type: "string", description: "この月（明細は日も）から。YYYY-MM か YYYY-MM-DD" },
       made: { type: "string", description: "この月（明細は日も）まで。YYYY-MM か YYYY-MM-DD" },
