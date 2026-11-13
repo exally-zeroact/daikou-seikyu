@@ -21,24 +21,9 @@
             paidKiroku: kiroku,
           });
         });
-        // 繰越を使う 会社＝古い 月から 順に 当てる
-        var byCo = {};
-        all.forEach(function (x) {
-          if (MASTER[x.company] && MASTER[x.company].carryover)
-            (byCo[x.company] = byCo[x.company] || []).push(x);
-        });
-        Object.keys(byCo).forEach(function (co) {
-          var list = byCo[co].sort(function (a, b) {
-            return a.month.localeCompare(b.month);
-          });
-          var pool = list.reduce(function (t, x) {
-            return t + x.paidKiroku;
-          }, 0);
-          list.forEach(function (x, i) {
-            var a = i === list.length - 1 ? pool : Math.min(Math.max(x.total, 0), pool);
-            x.paid = a;
-            pool -= a;
-          });
+        // 繰越を使う 会社＝古い 月から 順に 当てる。★本体は lib/nyukin-ate.js★（外から読む口の 未入金の表と 同じ 物・2026-11-13）
+        NyukinAte.ateru(all, function (co) {
+          return !!(MASTER[co] && MASTER[co].carryover);
         });
         if (opt && opt.kieta) {
           all = all.concat(kietaTsuki(all)).sort(function (a, b) {

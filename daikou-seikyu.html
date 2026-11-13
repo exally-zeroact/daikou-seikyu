@@ -3311,6 +3311,7 @@
     <script src="meisai-engine.js"></script>
     <script src="lib/keshikomi.js"></script>
     <script src="lib/nyukin-kai.js"></script>
+    <script src="lib/nyukin-ate.js"></script>
     <script src="lib/shitagaki.js"></script>
     <script src="lib/nijuu.js"></script>
     <script src="lib/naoshi-rireki.js"></script>
@@ -7371,12 +7372,9 @@
           }
         }
       }
+      // ★本体は lib/nyukin-ate.js★（外から読む口の 未入金の表と 同じ 物・2026-11-13）
       function payStatusOf(total, paid) {
-        // ★請求 0円の 月は 払う 物が 無い＝入金済★（10-02 夜：繰越で 当てても「未入金」の まま 残った）
-        if (total <= 0 && paid >= 0) return "paid";
-        if (paid <= 0) return "unpaid";
-        if (paid >= total) return "paid";
-        return "partial";
+        return NyukinAte.jotai(total, paid);
       }
       var PAY_LABEL = { unpaid: "未入金", partial: "一部入金", paid: "入金済" };
       function refreshPayMonthSelect() {
@@ -7493,24 +7491,9 @@
             paidKiroku: kiroku,
           });
         });
-        // 繰越を使う 会社＝古い 月から 順に 当てる
-        var byCo = {};
-        all.forEach(function (x) {
-          if (MASTER[x.company] && MASTER[x.company].carryover)
-            (byCo[x.company] = byCo[x.company] || []).push(x);
-        });
-        Object.keys(byCo).forEach(function (co) {
-          var list = byCo[co].sort(function (a, b) {
-            return a.month.localeCompare(b.month);
-          });
-          var pool = list.reduce(function (t, x) {
-            return t + x.paidKiroku;
-          }, 0);
-          list.forEach(function (x, i) {
-            var a = i === list.length - 1 ? pool : Math.min(Math.max(x.total, 0), pool);
-            x.paid = a;
-            pool -= a;
-          });
+        // 繰越を使う 会社＝古い 月から 順に 当てる。★本体は lib/nyukin-ate.js★（外から読む口の 未入金の表と 同じ 物・2026-11-13）
+        NyukinAte.ateru(all, function (co) {
+          return !!(MASTER[co] && MASTER[co].carryover);
         });
         if (opt && opt.kieta) {
           all = all.concat(kietaTsuki(all)).sort(function (a, b) {

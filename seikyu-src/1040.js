@@ -160,12 +160,9 @@
           }
         }
       }
+      // ★本体は lib/nyukin-ate.js★（外から読む口の 未入金の表と 同じ 物・2026-11-13）
       function payStatusOf(total, paid) {
-        // ★請求 0円の 月は 払う 物が 無い＝入金済★（10-02 夜：繰越で 当てても「未入金」の まま 残った）
-        if (total <= 0 && paid >= 0) return "paid";
-        if (paid <= 0) return "unpaid";
-        if (paid >= total) return "paid";
-        return "partial";
+        return NyukinAte.jotai(total, paid);
       }
       var PAY_LABEL = { unpaid: "未入金", partial: "一部入金", paid: "入金済" };
       function refreshPayMonthSelect() {
