@@ -38,7 +38,8 @@ describe("設定画面の 読み方（yomuRei）", () => {
 
   it("口の 表の 名が 全部 出る（HYO と 同じ 数）", () => {
     expect(YK.HYO.length).toBe(5);
-    for (const h of YK.HYO) expect(t).toContain(h + "（");
+    // 「minyukin（」が「nyukin（」を含むので、前の区切り（＝ か ／）まで見る（本番前 taiketsu 任意1）
+    for (const h of YK.HYO) expect(t).toMatch(new RegExp("[＝／]" + h + "（"));
   });
 
   it("未入金・残額は minyukin で 読み、引き算しない", () => {
