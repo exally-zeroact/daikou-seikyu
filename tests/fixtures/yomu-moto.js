@@ -1,0 +1,112 @@
+"use strict";
+// 読むだけの口（①・⑥ MCP）の 試験の 作り物の 倉庫の 答え（値は 全部 作り物＝客の 物ではない）
+// tests/yomu-kuchi.test.js と tests/mcp-kuchi.test.js が 共有（同じ 倉庫の 答えから 両方の 口を 比べる）
+const MOTO = {
+  meisai: [
+    {
+      id: "1",
+      company: "外税の会社",
+      date: "2026-10-01",
+      destination: "駅",
+      amount: 3333,
+      note: "=1+1",
+      distance: 5.5,
+      people: 2,
+      name: "山",
+    },
+    {
+      id: "2",
+      company: "外税の会社",
+      date: "2026-10-15",
+      destination: "",
+      amount: 1001,
+      note: null,
+      distance: null,
+      people: null,
+      name: null,
+    },
+    {
+      id: "3",
+      company: "内税の会社",
+      date: "2026-10-02",
+      destination: "空港",
+      amount: 11000,
+      note: "",
+      distance: 30,
+      people: 1,
+      name: "",
+    },
+    {
+      id: "4",
+      company: "内税の会社",
+      date: "2026-09-30",
+      destination: "",
+      amount: 5500,
+      note: "",
+      distance: null,
+      people: null,
+      name: "",
+    },
+    {
+      id: "5",
+      company: "会社の無い明細",
+      date: "2026-10-03",
+      destination: "",
+      amount: 777,
+      note: "",
+      distance: null,
+      people: null,
+      name: "",
+    },
+    {
+      id: "6",
+      company: "内税の会社",
+      date: null,
+      destination: "日付なし",
+      amount: 999,
+      note: "",
+      distance: null,
+      people: null,
+      name: "",
+    },
+  ],
+  kaisha: [
+    { name: "外税の会社", taxMode: null, carryover: false },
+    { name: "外税の会社", taxMode: "外税", carryover: true }, // 後から 作った 方が 勝つ
+    { name: "内税の会社", taxMode: null, carryover: false },
+  ],
+  nyukin: [
+    {
+      id: "p1",
+      month: "2026-10",
+      company: "外税の会社",
+      paid: 3000,
+      paid_date: "2026-10-31",
+      memo: "-まとめ",
+      created_at: "2026-10-31T00:00:00Z",
+      entries: [
+        { gaku: 1000, hi: "2026-10-20" },
+        { gaku: 1500, hi: "2026-10-31", tesuryo: 440 },
+      ],
+    },
+    {
+      id: "p2",
+      month: "2026-09",
+      company: "内税の会社",
+      paid: 5500,
+      paid_date: null,
+      memo: null,
+      created_at: "2026-09-25T00:00:00Z",
+      entries: null,
+    },
+  ],
+  bango: [
+    {
+      month: "2026-10",
+      company: "外税の会社",
+      invoice_no: "No.2026-10-001",
+      decided_at: "2026-11-01T00:00:00Z",
+    },
+  ],
+};
+module.exports = { MOTO };

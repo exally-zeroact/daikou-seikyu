@@ -22,114 +22,7 @@ const ME = require("../meisai-engine.js");
 const NK = require("../lib/nyukin-kai.js");
 
 const KAGI = "11111111-2222-4333-8444-555555555555";
-const MOTO = {
-  meisai: [
-    {
-      id: "1",
-      company: "外税の会社",
-      date: "2026-10-01",
-      destination: "駅",
-      amount: 3333,
-      note: "=1+1",
-      distance: 5.5,
-      people: 2,
-      name: "山",
-    },
-    {
-      id: "2",
-      company: "外税の会社",
-      date: "2026-10-15",
-      destination: "",
-      amount: 1001,
-      note: null,
-      distance: null,
-      people: null,
-      name: null,
-    },
-    {
-      id: "3",
-      company: "内税の会社",
-      date: "2026-10-02",
-      destination: "空港",
-      amount: 11000,
-      note: "",
-      distance: 30,
-      people: 1,
-      name: "",
-    },
-    {
-      id: "4",
-      company: "内税の会社",
-      date: "2026-09-30",
-      destination: "",
-      amount: 5500,
-      note: "",
-      distance: null,
-      people: null,
-      name: "",
-    },
-    {
-      id: "5",
-      company: "会社の無い明細",
-      date: "2026-10-03",
-      destination: "",
-      amount: 777,
-      note: "",
-      distance: null,
-      people: null,
-      name: "",
-    },
-    {
-      id: "6",
-      company: "内税の会社",
-      date: null,
-      destination: "日付なし",
-      amount: 999,
-      note: "",
-      distance: null,
-      people: null,
-      name: "",
-    },
-  ],
-  kaisha: [
-    { name: "外税の会社", taxMode: null, carryover: false },
-    { name: "外税の会社", taxMode: "外税", carryover: true }, // 後から 作った 方が 勝つ
-    { name: "内税の会社", taxMode: null, carryover: false },
-  ],
-  nyukin: [
-    {
-      id: "p1",
-      month: "2026-10",
-      company: "外税の会社",
-      paid: 3000,
-      paid_date: "2026-10-31",
-      memo: "-まとめ",
-      created_at: "2026-10-31T00:00:00Z",
-      entries: [
-        { gaku: 1000, hi: "2026-10-20" },
-        { gaku: 1500, hi: "2026-10-31", tesuryo: 440 },
-      ],
-    },
-    {
-      id: "p2",
-      month: "2026-09",
-      company: "内税の会社",
-      paid: 5500,
-      paid_date: null,
-      memo: null,
-      created_at: "2026-09-25T00:00:00Z",
-      entries: null,
-    },
-  ],
-  bango: [
-    {
-      month: "2026-10",
-      company: "外税の会社",
-      invoice_no: "No.2026-10-001",
-      decided_at: "2026-11-01T00:00:00Z",
-    },
-  ],
-};
+const { MOTO } = require("./fixtures/yomu-moto.js");
 
 describe("lib/yomu-kuchi.js 請求＝画面と 同じ 式", () => {
   it("今月分（税込）が invoiceTotals（会社の taxMode）と 1円も 違わない", () => {
@@ -161,6 +54,42 @@ describe("lib/yomu-kuchi.js 請求＝画面と 同じ 式", () => {
   it("明細：日付の 無い 行は 絞らない 時だけ 出る", () => {
     expect(YK.tsukuru(MOTO, "meisai", "", "").gyo.length).toBe(6);
     expect(YK.tsukuru(MOTO, "meisai", "2026-09", "2026-10").gyo.length).toBe(5);
+  });
+});
+
+// ★⑥（2026-11-13）会社の 絞り・明細の 日の 範囲★（設計 sekkei_6 v1.2 S1・N2）
+//   会社名が どこにも 無い 時に 黙って 0行（＝「0件・0円」）を 返さない＝400 で 在る 名前を 並べる
+describe("lib/yomu-kuchi.js 会社の 絞り・明細の 日", () => {
+  it("kaisha で 会社を 絞る（4つの 表 全部）", () => {
+    const s = YK.tsukuru(MOTO, "seikyu", "", "", "外税の会社");
+    expect(s.gyo.length).toBe(1);
+    expect(s.gyo[0][1]).toBe("外税の会社");
+    expect(YK.tsukuru(MOTO, "meisai", "", "", "内税の会社").gyo.length).toBe(3);
+    expect(YK.tsukuru(MOTO, "nyukin", "", "", "内税の会社").gyo.length).toBe(1);
+    expect(YK.tsukuru(MOTO, "kaisha", "", "", "内税の会社").gyo).toEqual([
+      ["内税の会社", "内税", "いいえ"],
+    ]);
+    // 明細だけに 在る 名前も 在る 名前（会社の 表に 無くても）
+    expect(YK.tsukuru(MOTO, "meisai", "", "", "会社の無い明細").gyo.length).toBe(1);
+  });
+  it("どこにも 無い 名前＝400・在る 名前を 並べる（0行で 返さない）", () => {
+    const t = YK.tsukuru(MOTO, "seikyu", "", "", "外税");
+    expect(t.status).toBe(400);
+    expect(t.gyo).toBeUndefined();
+    expect(t.error).toContain("外税の会社");
+    expect(t.error).toContain("内税の会社");
+    expect(t.error).toContain("会社の無い明細");
+    // 在る 名前で 月に 行が 無い＝0行は 正しい（名前は 在る）
+    const z = YK.tsukuru(MOTO, "seikyu", "2026-01", "2026-01", "外税の会社");
+    expect(z.status).toBeUndefined();
+    expect(z.gyo.length).toBe(0);
+  });
+  it("明細は YYYY-MM-DD でも 絞れる・月の 表に 日は 400", () => {
+    expect(YK.tsukuru(MOTO, "meisai", "2026-10-02", "2026-10-03").gyo.length).toBe(2);
+    expect(YK.tsukuru(MOTO, "meisai", "2026-10", "2026-10-01").gyo.length).toBe(1);
+    expect(YK.tsukuru(MOTO, "meisai", "2026-10-32", "").status).toBe(400);
+    expect(YK.tsukuru(MOTO, "seikyu", "2026-10-01", "").status).toBe(400);
+    expect(YK.tsukuru(MOTO, "nyukin", "", "2026-10-31").status).toBe(400);
   });
 });
 
@@ -292,6 +221,18 @@ describe("api/yomu.js", () => {
     expect((await call({ hyo: "x", token: KAGI })).status).toBe(400);
     expect((await call({ hyo: "meisai", token: KAGI, kata: "xml" })).status).toBe(400);
     expect((await call({ hyo: "meisai", token: KAGI, kara: "2026-13" })).status).toBe(400);
+  });
+  it("⑥ ?kaisha= で 絞る・無い 名前は 400・2回 付けたら 400", async () => {
+    const o = await call({ hyo: "seikyu", token: KAGI, kaisha: "外税の会社" });
+    expect(o.status).toBe(200);
+    expect(JSON.parse(o.body).kensu).toBe(1);
+    const n = await call({ hyo: "seikyu", token: KAGI, kaisha: "外税" });
+    expect(n.status).toBe(400);
+    expect(JSON.parse(n.body).error).toContain("外税の会社");
+    const csv = await call({ hyo: "meisai", token: KAGI, kaisha: "無い", kata: "csv" });
+    expect(csv.status).toBe(400);
+    const w = await call({ hyo: "seikyu", token: KAGI, kaisha: ["外税の会社", "内税の会社"] });
+    expect(w.status).toBe(400);
   });
 });
 

@@ -1,6 +1,8 @@
 // ============================================================
 // ★外から読むだけの口（①）★ 2026-11-03（司さん 11-02「外へ数を出す口＝読むだけ」）
-//   GET /api/yomu?hyo=meisai|seikyu|nyukin|kaisha[&kara=YYYY-MM][&made=YYYY-MM][&kata=json|csv]
+//   GET /api/yomu?hyo=meisai|seikyu|nyukin|kaisha[&kara=YYYY-MM][&made=YYYY-MM][&kaisha=会社名][&kata=json|csv]
+//     2026-11-13 ⑥：明細は kara/made に YYYY-MM-DD も・kaisha（完全一致・無い名前は 400＋在る名前）
+//     倉庫を 読む 所は lib/yomu-kura.js（MCP の口 api/mcp.js と 共有）
 //   鍵＝Authorization: Bearer <鍵>（正）／?token=<鍵>（見出しを付けられない道具・Excel 用。URL の鍵は記録に残る）
 //   ★書く道は無い★ GET 以外は 405。
 //   ★額は 画面と 同じ 関数★（lib/yomu-kuchi.js → meisai-engine.js・lib/nyukin-kai.js）。倉庫は 生の 行を 返す だけ
@@ -9,11 +11,7 @@
 // ============================================================
 const YomuKuchi = require("../lib/yomu-kuchi.js");
 
-const SUPABASE_URL = "https://tnfwipbgfgjaymlszeid.supabase.co";
-const SUPABASE_ANON =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZndpcGJnZmdqYXltbHN6ZWlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1Nzk4MzQsImV4cCI6MjA5NzE1NTgzNH0.zhKPLSlW4zxsdjsXNvqDHvtP3wBqp-EKaxbjqLGW_ek";
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const { UUID_RE, yomuMoto } = require("../lib/yomu-kura.js");
 const OOKISA_MAX = 4 * 1024 * 1024; // Vercel の 答えの 上限 4.5MB の 手前＝黙って 切らせない
 
 function kagiYomu(req, q) {
@@ -52,32 +50,18 @@ module.exports = async (req, res) => {
     const kagi = kagiYomu(req, q);
     if (!kagi) return dasu(res, 401, "json", { error: "鍵がありません（形が違います）" });
 
-    const r = await fetch(SUPABASE_URL + "/rest/v1/rpc/yomu_moto", {
-      method: "POST",
-      headers: {
-        apikey: SUPABASE_ANON,
-        Authorization: "Bearer " + SUPABASE_ANON,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ token: kagi }),
-    });
-    let body = null;
-    try {
-      body = await r.json();
-    } catch (_) {
-      body = null;
-    }
-    // ★状態の 番号で 判じない★ 鍵なしは 倉庫の 本文の code 28000（PostgREST は 403 で 返す 見立て）
-    if (body && typeof body === "object" && !Array.isArray(body) && body.code === "28000")
-      return dasu(res, 401, "json", { error: "鍵が違うか、止められています" });
-    if (!r.ok || !body || typeof body !== "object" || Array.isArray(body) || !body.meisai)
-      return dasu(res, 502, "json", { error: "倉庫を読めませんでした（" + r.status + "）" });
+    // 倉庫を 読む 所は lib/yomu-kura.js の 1本（MCP の口と 共有）
+    const k = await yomuMoto(kagi);
+    if (k.status !== 200) return dasu(res, k.status, "json", { error: k.error });
+    const body = k.moto;
 
     const t = YomuKuchi.tsukuru(
       body,
       hyo,
       q.kara ? String(q.kara) : "",
-      q.made ? String(q.made) : ""
+      q.made ? String(q.made) : "",
+      // ★配列（?kaisha= を 2回）は そのまま 渡して 400＝String で "a,b" に して 0行に しない★
+      q.kaisha == null || q.kaisha === "" ? null : q.kaisha
     );
     if (t.error) return dasu(res, t.status || 400, "json", { error: t.error });
 
@@ -91,6 +75,7 @@ module.exports = async (req, res) => {
       kensu: gyo.length,
       kara: q.kara || null,
       made: q.made || null,
+      kaisha: q.kaisha || null,
       tsukutta: new Date().toISOString(),
       setsumei: t.setsumei,
       gyo: gyo,

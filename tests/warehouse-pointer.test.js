@@ -42,6 +42,20 @@ const API_FILES = fs
   .map((f) => "api/" + f);
 const FILES = ["daikou-seikyu.html"].concat(API_FILES);
 
+// ★api が require する lib/ の 中身も その api の 字として 読む★ 2026-11-13 ⑥
+//   倉庫を 読む 所を lib/yomu-kura.js に 出して ①（yomu.js）と MCP（mcp.js）で 共有した＝api の 字だけ 見ると
+//   向き先が 読めない。★lib を 本番へ 向けても 赤に なる 様に★ require を 1段 辿る（向き先が 無ければ 今まで通り 赤）。
+function readFollow(f) {
+  let t = read(f);
+  if (!f.startsWith("api/")) return t;
+  const re = /require\(\s*["']\.\.\/lib\/([\w.-]+\.js)["']\s*\)/g;
+  const libs = [];
+  let m;
+  while ((m = re.exec(t))) libs.push(m[1]);
+  libs.forEach((l) => (t += "\n" + read("lib/" + l)));
+  return t;
+}
+
 function refsIn(text) {
   const out = [];
   // https://xxxx.supabase.co
@@ -69,7 +83,7 @@ function refsIn(text) {
 describe("★代行請求アプリが、司さんの本番の倉庫を見ていること★", () => {
   FILES.forEach(function (f) {
     it(f + " が本番の倉庫を見ている", () => {
-      const found = refsIn(read(f));
+      const found = refsIn(readFollow(f));
       expect(found.length, "★倉庫の向き先が1つも読み取れない★").toBeGreaterThan(0);
       const wrong = found.filter((x) => x.ref !== PROD_REF);
       expect(
@@ -82,7 +96,7 @@ describe("★代行請求アプリが、司さんの本番の倉庫を見てい�
 
   it("★画面とサーバ側が同じ倉庫を見ている★（片方だけ切り替えない）", () => {
     const refs = FILES.map(function (f) {
-      const r = refsIn(read(f));
+      const r = refsIn(readFollow(f));
       return { f: f, ref: r.length ? r[0].ref : null };
     });
     const uniq = refs.map((r) => r.ref).filter((v, i, a) => a.indexOf(v) === i);
@@ -94,7 +108,7 @@ describe("★代行請求アプリが、司さんの本番の倉庫を見てい�
 
   it("★鍵と倉庫が食い違っていない★（URLだけ変えて鍵が古い、を防ぐ）", () => {
     FILES.forEach(function (f) {
-      const found = refsIn(read(f));
+      const found = refsIn(readFollow(f));
       const urls = found.filter((x) => x.where === "URL").map((x) => x.ref);
       const keys = found.filter((x) => x.where !== "URL").map((x) => x.ref);
       keys.forEach(function (k) {

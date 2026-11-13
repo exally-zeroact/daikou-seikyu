@@ -4,5 +4,6 @@
     { "source": "/", "destination": "/daikou-seikyu.html", "permanent": false },
     { "source": "/index.html", "destination": "/daikou-seikyu.html", "permanent": false }
   ],
+  "rewrites": [{ "source": "/mcp", "destination": "/api/mcp" }],
   "functions": { "api/shitagaki.js": { "includeFiles": "prompt/**" } }
 }
