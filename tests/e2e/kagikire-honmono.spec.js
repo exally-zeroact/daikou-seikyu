@@ -10,10 +10,17 @@ import { readFileSync } from "node:fs";
 //     ＝ここは CDN の supabase-js を 手元の UMD（node_modules・2.111.0。送り口 fetchWithAuth は CDN の
 //     2.112.4 と 同じ＝対立役が 読み比べた）へ 差し替え、supabase.co は 全部 ここで 返す（外へ 0本）。
 //   倉庫の 返りは テスト倉庫で 測った 本物の 形：公開鍵の PATCH/DELETE＝誤り無しの 0行・POST＝42501。
-const URL_KURA = "https://khawdrnvssdenumbiwfg.supabase.co";
-const KAGI_NA = "sb-khawdrnvssdenumbiwfg-auth-token";
-const ANON =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtoYXdkcm52c3NkZW51bWJpd2ZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwMTQ2NzEsImV4cCI6MjEwMDU5MDY3MX0.VoI2cLXCiZp48qOJEDXL1thxKnIHJ5t1Cl6iVsfYHFY";
+// ★向き先（テスト線は khaw・本番は tnfw）は 決め打ちせず daikou-seikyu.html から 読む★
+//   （11-14 本番前 taiketsu 止め1＝決め打ちで 本番の枝だけ 13本 赤だった）
+const HTML = readFileSync("daikou-seikyu.html", "utf8");
+function htmlNoAtai(na) {
+  const m = HTML.match(new RegExp("var " + na + String.raw`\s*=\s*"([^"]+)"`));
+  if (!m) throw new Error("daikou-seikyu.html に var " + na + " が 無い");
+  return m[1];
+}
+const URL_KURA = htmlNoAtai("SUPABASE_URL");
+const KAGI_NA = "sb-" + new URL(URL_KURA).hostname.split(".")[0] + "-auth-token";
+const ANON = htmlNoAtai("SUPABASE_ANON");
 const A = "11111111-1111-4111-8111-111111111111";
 const B = "22222222-2222-4222-8222-222222222222";
 const CO = "テスト商事カギキレ";
