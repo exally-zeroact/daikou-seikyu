@@ -9,6 +9,11 @@
         t.innerHTML = "";
       }
       function toastUndo(msg, onUndo) {
+        sakkiNiOku(msg);
+        if (KAGI_KIRE) {
+          kireTasu(msg); // 取り消すは 出さない（押しても 倉庫へ 届かない）
+          return;
+        }
         var t = document.getElementById("toastUndo");
         if (!t) {
           t = document.createElement("div");
@@ -246,13 +251,4 @@
           oshiteru: false,
         };
         ksKaku();
-      }
-      // ★見出し・列を 変えると 入金の 行の 並びが 変わる＝行ごとの 覚え（記録した・取り消し）を 捨てる★
-      //   （前の 行 i の 印が 別の 入金に 付かない様に。記録した 入金は 倉庫の 回の 見分けで「記録済み／かも」に 出る）
-      //   押している 間は 変えさせない
-      function ksGyouKesu() {
-        KS.kiroku = {};
-        KS.kaita = {};
-        KS.undo = {};
-        toastUndoKesu();
       }

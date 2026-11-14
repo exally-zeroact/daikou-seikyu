@@ -38,7 +38,11 @@ function seed(arg) {
     "__fake_supa_db__",
     JSON.stringify({
       users: { "h@x.com": { id: uid, email: "h@x.com", password: "himitsu123" } },
-      session: { user: { id: uid, email: "h@x.com" }, access_token: "jwt-e2e" },
+      session: {
+        user: { id: uid, email: "h@x.com" },
+        access_token:
+          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1X2htIiwicm9sZSI6ImF1dGhlbnRpY2F0ZWQifQ.e2e",
+      },
       tables: {
         meisai: arg.meisai || [],
         companies: ["A社", "B社"].map((co, i) => ({

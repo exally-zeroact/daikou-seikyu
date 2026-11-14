@@ -15,7 +15,11 @@ function seed(meter) {
     "__fake_supa_db__",
     JSON.stringify({
       users: { "n@x.com": { id: "u_nj", email: "n@x.com", password: "himitsu123" } },
-      session: { user: { id: "u_nj", email: "n@x.com" }, access_token: "jwt-e2e" },
+      session: {
+        user: { id: "u_nj", email: "n@x.com" },
+        access_token:
+          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1X25qIiwicm9sZSI6ImF1dGhlbnRpY2F0ZWQifQ.e2e",
+      },
       tables: {
         meisai: meter || [],
         companies: [

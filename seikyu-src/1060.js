@@ -1,3 +1,99 @@
+      // ★本体は lib/nyukin-ate.js★（外から読む口の 未入金の表と 同じ 物・2026-11-13）
+      function payStatusOf(total, paid) {
+        return NyukinAte.jotai(total, paid);
+      }
+      var PAY_LABEL = { unpaid: "未入金", partial: "一部入金", paid: "入金済" };
+      function refreshPayMonthSelect() {
+        var sel = document.getElementById("payMonth");
+        if (!sel) return;
+        var keep = sel.value;
+        var present = {};
+        DB.forEach(function (r) {
+          if (r.account_id === CURRENT_ACCOUNT && r.日付) present[r.日付.slice(0, 7)] = true;
+        });
+        kietaTsuki(seikyuList(null)).forEach(function (x) {
+          present[x.month] = true; // 明細が 0件に なった 月も 選べる（入金の 画面 だけ）
+        });
+        var months = Object.keys(present).sort().reverse();
+        sel.innerHTML =
+          '<option value="">全期間</option>' +
+          months
+            .map(function (m) {
+              var p = m.split("-");
+              return (
+                '<option value="' + m + '">' + Number(p[0]) + "年" + Number(p[1]) + "月</option>"
+              );
+            })
+            .join("");
+        if (months.indexOf(keep) >= 0 || keep === "") sel.value = keep;
+      }
+      /* ★入金の 画面の 会社の 絞り（2026-11-01 司さん「期間・状態・会社を 横1列に」）★
+              並び＝請求書の 会社（#invCompany）と 同じ InvoicePDF.billableCompanies（マスタ順→孤児）。
+              ★漢字は localeCompare で 読み順に ならない★ので 並べ直さない。
+              明細も マスタも 無く 入金の 記録だけ 残る 会社は 後ろに 足す（同じ sort()）。
+              ★作り直してから value を 読む★（消えた 会社を 選んだ ままに しない＝全社へ 戻す）。 */
+      var PAY_CO_SHURUI =
+        /^(株式会社|株式會社|有限会社|合同会社|合資会社|合名会社|一般社団法人|一般財団法人|[(（]株[)）]|[(（]有[)）]|[(（]同[)）]|㈱|㈲)\s*|\s*(株式会社|株式會社|有限会社|合同会社|合資会社|合名会社|一般社団法人|一般財団法人|[(（]株[)）]|[(（]有[)）]|[(（]同[)）]|㈱|㈲)$/g;
+      function payCoMijika(n) {
+        return String(n || "")
+          .replace(PAY_CO_SHURUI, "")
+          .trim();
+      }
+      function refreshPayCompanySelect(list) {
+        var sel = document.getElementById("payCompany");
+        if (!sel) return;
+        var keep = sel.value;
+        var names = InvoicePDF.billableCompanies(MASTER, DB, CURRENT_ACCOUNT);
+        var seen = {};
+        names.forEach(function (n) {
+          seen[n] = 1;
+        });
+        var extra = [];
+        (list || []).forEach(function (iv) {
+          if (iv.company && !seen[iv.company]) {
+            seen[iv.company] = 1;
+            extra.push(iv.company);
+          }
+        });
+        extra.sort();
+        names = names.concat(extra);
+        // ★見せる 字だけ 会社の 種類（株式会社 等）を 外す★（taiketsu 注1：狭い 画面で「株式会…」と
+        //   しか 出ず どの 会社か 見分けられない）。value と title は 元の 名前の まま。
+        //   外すと 他の 会社と 同じ 字に なる／空に なる 時は 外さない。
+        var mijika = names.map(payCoMijika);
+        var kazu = {};
+        mijika.forEach(function (m) {
+          kazu[m] = (kazu[m] || 0) + 1;
+        });
+        sel.innerHTML =
+          '<option value="">全社</option>' +
+          names
+            .map(function (n, i) {
+              // 「全社」（先頭の 選択肢）と 同じ 字に なる 時も 外さない
+              var ji = mijika[i] && mijika[i] !== "全社" && kazu[mijika[i]] === 1 ? mijika[i] : n;
+              return (
+                '<option value="' + esc(n) + '" title="' + esc(n) + '">' + esc(ji) + "</option>"
+              );
+            })
+            .join("");
+        sel.value = names.indexOf(keep) >= 0 ? keep : "";
+      }
+      /* ★★入金で 使う「請求額」は 請求書の 合計と 同じ 関数で 出す★★ 2026-10-02
+              ★前★ MeisaiEngine.listInvoices の total ＝ ★明細の 金額を 足した だけ★（税抜）
+                請求書の 合計は invoiceTotals ＝ 外税なら ★税抜 ＋ 消費税★
+                ⇒ ★外税の 会社だけ 入金画面が 消費税の 分 少なく 出た★
+                  （手元で 本物の 画面を 動かして 実測：入金 15,400 ／ 請求書 16,940）
+              ★今★ 入金の 3か所（一覧・入金を記録・まとめ/Excel の 入金）は ★全部 ここ★ から 読む。
+                zeinuki に 元の 税抜を 残す。
+            ★★入金も ここで 決める（paid）★★ 2026-10-02 司さん「バグがあるなら直せ」
+              ★前★ 入金は ★記録した 月の 行★に そのまま 付けていた。
+                「繰越を使う」会社が 前の月の 残り＋今月ぶんを ★まとめて★ 払うと
+                ⇒ 前の月は ★未入金の まま★／今月は ★請求より 多い 入金★ に 見え、
+                  未入金の バッジも 前の月を 数え続けた（合計と 繰越の 額は 合っていた）。
+              ★今★「繰越を使う」会社だけ、記録した 入金を その会社の 全部の 月で 足し、
+                ★古い 月から 順に 請求額 いっぱいまで 当てる★。余りは 一番 新しい 月に 乗せる。
+                ★記録した 入金（PAYMENTS）は 1円も 書き換えない★＝見え方だけ。
+                繰越を 使わない 会社は 今まで通り（記録した 月の 額）。 */
       // opt.kieta＝入金の 画面 だけ：明細が 0件に なった 会社×月も 出す（下の kietaTsuki）。
       //   合計・残額・バッジ・月次集計・Excel は これを 渡さない＝前と 同じ 数の まま
       function seikyuList(month, opt) {

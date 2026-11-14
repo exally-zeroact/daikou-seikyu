@@ -30,7 +30,11 @@ function seed() {
     "__fake_supa_db__",
     JSON.stringify({
       users: { "n@x.com": { id: uid, email: "n@x.com", password: "himitsu123" } },
-      session: { user: { id: uid, email: "n@x.com" }, access_token: "jwt-e2e" },
+      session: {
+        user: { id: uid, email: "n@x.com" },
+        access_token:
+          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1X25mIiwicm9sZSI6ImF1dGhlbnRpY2F0ZWQifQ.e2e",
+      },
       tables: {
         // A社＝繰越なし（11月 10,000・入金 3,000）／B社＝繰越（11月 8,000・入金 8,000＝入金済）
         meisai: [g("a1", "A社", "2026-11-03", 10000), g("b1", "B社", "2026-11-03", 8000)],

@@ -54,6 +54,13 @@
         location.reload();
       }
       function onLoggedIn(user) {
+        // ★違う人が 入った（切れた 後の 箱で B）＝開き直す★（A の 打ちかけ・画面を B へ 残さない）
+        if (LOGGED_IN_ID && user.id !== LOGGED_IN_ID) {
+          location.reload();
+          return;
+        }
+        LOGGED_IN_ID = user.id;
+        KAGI_KIRE = false;
         CURRENT_ACCOUNT = user.id; // 各業者＝ログインユーザー
         ensureLogin().hide();
         var al = document.getElementById("acctLine");
@@ -163,6 +170,15 @@
         var session = sess && sess.data ? sess.data.session : null;
         if (session && session.user) {
           onLoggedIn(session.user); // 既にログイン済み＝自動で入る
+          try {
+            if (sessionStorage.getItem("kagiChigau")) {
+              sessionStorage.removeItem("kagiChigau");
+              toast(
+                "別の画面で違う人が入ったので開き直しました（直前の操作は保存されていません）",
+                6000
+              );
+            }
+          } catch (e) {}
         } else {
           ensureLogin().show(); // 初回＝ログイン画面
         }

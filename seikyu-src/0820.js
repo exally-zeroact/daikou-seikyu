@@ -15,8 +15,35 @@
       var SUPABASE_ANON =
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZndpcGJnZmdqYXltbHN6ZWlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1Nzk4MzQsImV4cCI6MjA5NzE1NTgzNH0.zhKPLSlW4zxsdjsXNvqDHvtP3wBqp-EKaxbjqLGW_ek";
       // テストは偽のクラウドを差し込む（本物に通信せず配線だけ確かめる）
+      // ★2026-11-14 件⑥ 倉庫へ 出る 手前の 口（lib/kagi-fetch.js）★
+      //   鍵が 切れると supabase-js は 公開鍵で 倉庫へ 出る＝倉庫は 更新・削除を 0行の 200 で 返し
+      //   画面は「保存しました」と 言うのに 何も 入らない（テスト倉庫で 測った）。送る 鍵そのものを
+      //   口で 見て、入った人の 鍵の 時だけ 通す。止めたら 板（kagiKireta）で 言う。
+      if (!window.__EXALLY_FAKE_SB__ && !window.KagiFetch)
+        throw new Error("lib/kagi-fetch.js が 読めていません（口が 無いまま 倉庫へ 出さない）");
       var SB =
-        window.__EXALLY_FAKE_SB__ || window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+        window.__EXALLY_FAKE_SB__ ||
+        window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+          global: {
+            fetch: window.KagiFetch.tsukuru({
+              url: SUPABASE_URL,
+              anon: SUPABASE_ANON,
+              hito: function () {
+                return LOGGED_IN_ID;
+              },
+              kireta: function () {
+                kagiKireta();
+              },
+              chigau: function () {
+                kagiChigatta();
+              },
+              tootta: function () {
+                T_TOOTTA = performance.now();
+              },
+              fetch: window.fetch.bind(window),
+            }),
+          },
+        });
 
       /* ===================================================================
       定数・固定情報

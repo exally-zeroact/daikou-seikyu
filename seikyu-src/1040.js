@@ -1,3 +1,124 @@
+      // ===== 請求タブ：テンプレ＆書体をその場で切替（リアルタイム反映） =====
+      // 請求タブ：デザイン/種類の切替＝★保存する（既定として永続）★。
+      //   以前は「この回だけ(INV_OVERRIDE)」で保存されず、更新/再読込のたびに既定へ戻っていた
+      //   （例：エレガント・ロゴなしにしてもロゴありに戻る）。アプリ哲学＝値は保存して全反映、に統一。
+      function setInvoiceDesign(design) {
+        if (!DESIGN_VARIANTS[design]) return;
+        INV_OVERRIDE = null;
+        setIssuer("pdfDesign", design); // 保存
+        syncInvoiceToolbar();
+        generateInvoices();
+        toast(DESIGN_LABELS[design] + " にしました");
+      }
+      function setInvoiceVariant(key) {
+        var d = currentIssuer().pdfDesign === "classic" ? "classic" : "elegant";
+        var v = designVariants(d).filter(function (x) {
+          return x.key === key;
+        })[0];
+        if (!v) return;
+        INV_OVERRIDE = null;
+        setIssuer(d === "classic" ? "classicVariant" : "elegantVariant", key); // 保存
+        syncInvoiceToolbar();
+        generateInvoices();
+        toast(v.label + " にしました");
+      }
+      // 「既定にする」＝今の見た目(一時上書き or 既定)をアカウント既定として保存。
+      function makeInvoiceDefault() {
+        var dv = resolveDesignVariant();
+        setIssuer("pdfDesign", dv.design);
+        setIssuer(dv.design === "classic" ? "classicVariant" : "elegantVariant", dv.variant.key);
+        INV_OVERRIDE = null; // 既定になったので一時上書き解除
+        syncInvoiceToolbar();
+        toast(DESIGN_LABELS[dv.design] + "・" + dv.variant.label + " を既定にしました");
+      }
+      function syncInvoiceToolbar() {
+        var dv = resolveDesignVariant();
+        // デザイン seg
+        var seg = document.getElementById("invDesignSeg");
+        if (seg)
+          seg.innerHTML = Object.keys(DESIGN_LABELS)
+            .map(function (d) {
+              return (
+                '<button type="button" class="itb-btn' +
+                (d === dv.design ? " on" : "") +
+                '" onclick="setInvoiceDesign(\'' +
+                d +
+                "')\">" +
+                DESIGN_LABELS[d] +
+                "</button>"
+              );
+            })
+            .join("");
+        // 種類 chips（選んだデザインの種類だけ）
+        var chips = document.getElementById("invVariantChips");
+        if (chips)
+          chips.innerHTML = designVariants(dv.design)
+            .map(function (v) {
+              return (
+                '<button type="button" class="itb-chip' +
+                (v.key === dv.variant.key ? " on" : "") +
+                '" onclick="setInvoiceVariant(\'' +
+                v.key +
+                "')\">" +
+                v.label +
+                "</button>"
+              );
+            })
+            .join("");
+        // 一時上書き中の表示＋「既定にする」
+        var note = document.getElementById("invOverrideNote");
+        if (note) note.style.display = INV_OVERRIDE ? "flex" : "none";
+        var fn = currentIssuer().pdfFont || "BIZ UDPゴシック";
+        var nm = document.getElementById("invFontName");
+        if (nm) nm.textContent = fn;
+        applyPreviewFont(fn, false); // 初期はDLしない（既ロードなら反映）
+        // お支払期限（ON/OFF＋日付＋和暦/西暦）の同期
+        var s = currentIssuer();
+        var dueOn = !!s.showPaymentDue;
+        var sw = document.getElementById("invDueSwitch"),
+          ctrls = document.getElementById("invDueControls");
+        if (sw) {
+          sw.classList.toggle("on", dueOn);
+          sw.setAttribute("aria-checked", dueOn ? "true" : "false");
+        }
+        if (ctrls) ctrls.style.display = dueOn ? "inline-flex" : "none";
+        var dd = document.getElementById("invDueDate");
+        if (dd && document.activeElement !== dd) dd.value = s.paymentDue || "";
+        document
+          .querySelectorAll('#scr-billing .itb-chip[data-grp="dueEra"]')
+          .forEach(function (b) {
+            b.classList.toggle("on", b.dataset.a === (s.paymentDueEra || "seireki"));
+          });
+      }
+      // 請求タブ：お支払期限 ON/OFF（トグルスイッチ）。ONで日付入力が出る。
+      function toggleInvoiceDue() {
+        var on = !currentIssuer().showPaymentDue;
+        setIssuer("showPaymentDue", on);
+        syncInvoiceToolbar();
+        generateInvoices();
+        toast(on ? "お支払期限：あり" : "お支払期限：なし");
+      }
+      // 請求タブ：お支払期限の日付（毎回設定）。
+      function setInvoiceDue(v) {
+        setIssuer("paymentDue", v || "");
+        syncInvoiceToolbar();
+        generateInvoices();
+        toast(v ? "お支払期限を設定しました" : "お支払期限を空欄にしました");
+      }
+      function toggleFontList() {
+        var pop = document.getElementById("invFontPop");
+        if (!pop) return;
+        var show = pop.style.display === "none";
+        pop.style.display = show ? "block" : "none";
+        if (show) {
+          renderFontList("");
+          var s = document.getElementById("invFontSearch");
+          if (s) {
+            s.value = "";
+            s.focus();
+          }
+        }
+      }
       function renderFontList(q) {
         if (typeof InvoicePDF === "undefined") return;
         q = (q || "").trim();
@@ -160,99 +281,3 @@
           }
         }
       }
-      // ★本体は lib/nyukin-ate.js★（外から読む口の 未入金の表と 同じ 物・2026-11-13）
-      function payStatusOf(total, paid) {
-        return NyukinAte.jotai(total, paid);
-      }
-      var PAY_LABEL = { unpaid: "未入金", partial: "一部入金", paid: "入金済" };
-      function refreshPayMonthSelect() {
-        var sel = document.getElementById("payMonth");
-        if (!sel) return;
-        var keep = sel.value;
-        var present = {};
-        DB.forEach(function (r) {
-          if (r.account_id === CURRENT_ACCOUNT && r.日付) present[r.日付.slice(0, 7)] = true;
-        });
-        kietaTsuki(seikyuList(null)).forEach(function (x) {
-          present[x.month] = true; // 明細が 0件に なった 月も 選べる（入金の 画面 だけ）
-        });
-        var months = Object.keys(present).sort().reverse();
-        sel.innerHTML =
-          '<option value="">全期間</option>' +
-          months
-            .map(function (m) {
-              var p = m.split("-");
-              return (
-                '<option value="' + m + '">' + Number(p[0]) + "年" + Number(p[1]) + "月</option>"
-              );
-            })
-            .join("");
-        if (months.indexOf(keep) >= 0 || keep === "") sel.value = keep;
-      }
-      /* ★入金の 画面の 会社の 絞り（2026-11-01 司さん「期間・状態・会社を 横1列に」）★
-              並び＝請求書の 会社（#invCompany）と 同じ InvoicePDF.billableCompanies（マスタ順→孤児）。
-              ★漢字は localeCompare で 読み順に ならない★ので 並べ直さない。
-              明細も マスタも 無く 入金の 記録だけ 残る 会社は 後ろに 足す（同じ sort()）。
-              ★作り直してから value を 読む★（消えた 会社を 選んだ ままに しない＝全社へ 戻す）。 */
-      var PAY_CO_SHURUI =
-        /^(株式会社|株式會社|有限会社|合同会社|合資会社|合名会社|一般社団法人|一般財団法人|[(（]株[)）]|[(（]有[)）]|[(（]同[)）]|㈱|㈲)\s*|\s*(株式会社|株式會社|有限会社|合同会社|合資会社|合名会社|一般社団法人|一般財団法人|[(（]株[)）]|[(（]有[)）]|[(（]同[)）]|㈱|㈲)$/g;
-      function payCoMijika(n) {
-        return String(n || "")
-          .replace(PAY_CO_SHURUI, "")
-          .trim();
-      }
-      function refreshPayCompanySelect(list) {
-        var sel = document.getElementById("payCompany");
-        if (!sel) return;
-        var keep = sel.value;
-        var names = InvoicePDF.billableCompanies(MASTER, DB, CURRENT_ACCOUNT);
-        var seen = {};
-        names.forEach(function (n) {
-          seen[n] = 1;
-        });
-        var extra = [];
-        (list || []).forEach(function (iv) {
-          if (iv.company && !seen[iv.company]) {
-            seen[iv.company] = 1;
-            extra.push(iv.company);
-          }
-        });
-        extra.sort();
-        names = names.concat(extra);
-        // ★見せる 字だけ 会社の 種類（株式会社 等）を 外す★（taiketsu 注1：狭い 画面で「株式会…」と
-        //   しか 出ず どの 会社か 見分けられない）。value と title は 元の 名前の まま。
-        //   外すと 他の 会社と 同じ 字に なる／空に なる 時は 外さない。
-        var mijika = names.map(payCoMijika);
-        var kazu = {};
-        mijika.forEach(function (m) {
-          kazu[m] = (kazu[m] || 0) + 1;
-        });
-        sel.innerHTML =
-          '<option value="">全社</option>' +
-          names
-            .map(function (n, i) {
-              // 「全社」（先頭の 選択肢）と 同じ 字に なる 時も 外さない
-              var ji = mijika[i] && mijika[i] !== "全社" && kazu[mijika[i]] === 1 ? mijika[i] : n;
-              return (
-                '<option value="' + esc(n) + '" title="' + esc(n) + '">' + esc(ji) + "</option>"
-              );
-            })
-            .join("");
-        sel.value = names.indexOf(keep) >= 0 ? keep : "";
-      }
-      /* ★★入金で 使う「請求額」は 請求書の 合計と 同じ 関数で 出す★★ 2026-10-02
-              ★前★ MeisaiEngine.listInvoices の total ＝ ★明細の 金額を 足した だけ★（税抜）
-                請求書の 合計は invoiceTotals ＝ 外税なら ★税抜 ＋ 消費税★
-                ⇒ ★外税の 会社だけ 入金画面が 消費税の 分 少なく 出た★
-                  （手元で 本物の 画面を 動かして 実測：入金 15,400 ／ 請求書 16,940）
-              ★今★ 入金の 3か所（一覧・入金を記録・まとめ/Excel の 入金）は ★全部 ここ★ から 読む。
-                zeinuki に 元の 税抜を 残す。
-            ★★入金も ここで 決める（paid）★★ 2026-10-02 司さん「バグがあるなら直せ」
-              ★前★ 入金は ★記録した 月の 行★に そのまま 付けていた。
-                「繰越を使う」会社が 前の月の 残り＋今月ぶんを ★まとめて★ 払うと
-                ⇒ 前の月は ★未入金の まま★／今月は ★請求より 多い 入金★ に 見え、
-                  未入金の バッジも 前の月を 数え続けた（合計と 繰越の 額は 合っていた）。
-              ★今★「繰越を使う」会社だけ、記録した 入金を その会社の 全部の 月で 足し、
-                ★古い 月から 順に 請求額 いっぱいまで 当てる★。余りは 一番 新しい 月に 乗せる。
-                ★記録した 入金（PAYMENTS）は 1円も 書き換えない★＝見え方だけ。
-                繰越を 使わない 会社は 今まで通り（記録した 月の 額）。 */

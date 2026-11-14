@@ -120,7 +120,7 @@
         AI_SG.touMiru = (async function () {
           try {
             var tok = await aiSgTokun();
-            if (!tok) return;
+            if (!tok || !kagiMon(tok)) return;
             var r = await fetch("/api/shitagaki?tou=1", {
               method: "GET",
               headers: { Authorization: "Bearer " + tok },

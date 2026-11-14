@@ -1,0 +1,44 @@
+      /* ★鍵切れの 板★（ログインの 箱 z400 の 上・欄は 箱の padding-top で 板の 下へ） */
+      #kireShirase {
+        position: fixed;
+        left: 8px;
+        right: 8px;
+        top: 8px;
+        z-index: 410;
+        max-height: 35vh;
+        overflow: auto;
+        background: #fff4f2;
+        border: 2px solid #e0483d;
+        border-radius: 12px;
+        padding: 10px 14px;
+        font-size: 13px;
+        color: #333333;
+        white-space: pre-line;
+        box-shadow: 0 4px 16px rgba(20, 36, 61, 0.18);
+      }
+      #kireShirase .kire-hd {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        font-weight: 700;
+      }
+      #kireShirase .kire-ji {
+        flex: 1;
+      }
+      #kireShirase .kire-tojiru {
+        flex: none;
+        font-size: 12px;
+        padding: 4px 10px;
+        border: 1px solid #e0483d;
+        background: #ffffff;
+        color: #e0483d;
+        border-radius: 8px;
+      }
+      #kireShirase .kire-list {
+        margin: 6px 0 0;
+        padding-left: 18px;
+      }
+      .toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }

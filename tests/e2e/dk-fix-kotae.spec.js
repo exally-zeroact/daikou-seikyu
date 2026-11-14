@@ -39,7 +39,15 @@ async function hiraku(page, kotae) {
   // m0 を ダイコメから 来た 行に・ログインに 鍵（access_token）を 付ける
   await page.addInitScript(() => {
     const db = JSON.parse(localStorage.getItem("__fake_supa_db__") || "{}");
-    if (db.session) db.session.access_token = "tok";
+    // 本物の 鍵と 同じ 形（入った人の id を sub に 持つ JWT）＝口と 門が 本物どおりに 通す
+    const b64u = (o) =>
+      btoa(JSON.stringify(o)).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
+    if (db.session)
+      db.session.access_token =
+        b64u({ alg: "HS256", typ: "JWT" }) +
+        "." +
+        b64u({ sub: db.session.user.id, role: "authenticated" }) +
+        ".e2e";
     const m = db.tables && db.tables.meisai;
     if (m && m[0]) m[0].extra = { dk_source: "daikome", dk_ref: "dev1:1700000000000:1" };
     localStorage.setItem("__fake_supa_db__", JSON.stringify(db));

@@ -34,7 +34,10 @@
         try {
           var ses = await SB.auth.getSession(); // 鍵は 毎回 取り直す（古い 鍵を 掴まない）
           var tok = ses && ses.data && ses.data.session && ses.data.session.access_token;
-          if (!tok) return _dkFixKotae(ato, { kind: "login" });
+          if (!tok || !kagiMon(tok)) {
+            if (!tok && LOGGED_IN_ID) kagiKireta();
+            return _dkFixKotae(ato, { kind: "login" });
+          }
           var ctl = typeof AbortController === "function" ? new AbortController() : null;
           var tm = setTimeout(function () {
             if (ctl) ctl.abort();

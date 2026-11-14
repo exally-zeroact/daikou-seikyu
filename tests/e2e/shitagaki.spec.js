@@ -15,7 +15,11 @@ function seed() {
     "__fake_supa_db__",
     JSON.stringify({
       users: { "s@x.com": { id: uid, email: "s@x.com", password: "himitsu123" } },
-      session: { user: { id: uid, email: "s@x.com" }, access_token: "jwt-e2e" },
+      session: {
+        user: { id: uid, email: "s@x.com" },
+        access_token:
+          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1X3NnIiwicm9sZSI6ImF1dGhlbnRpY2F0ZWQifQ.e2e",
+      },
       tables: {
         meisai: [],
         companies: ["作り物商事", "見本運輸"].map((n, i) => ({
@@ -88,7 +92,9 @@ test("釦は ?tou=1 が true の 時だけ（false・口が 無い 時は 出な
   await expect(page.locator("#entryCard")).toBeVisible();
   await page.waitForTimeout(500);
   await expect(page.locator("#aiSg")).toBeHidden();
-  expect(log.tou).toEqual(["Bearer jwt-e2e"]);
+  expect(log.tou).toEqual([
+    "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1X3NnIiwicm9sZSI6ImF1dGhlbnRpY2F0ZWQifQ.e2e",
+  ]);
 });
 
 test("口が 無い（404）でも 釦は 出ない・画面は 今まで 通り", async ({ page }) => {
@@ -136,7 +142,9 @@ test("★下書きは 倉庫へ 書かない・確かめるまで 保存しな�
   await expect(page.locator("#entryBody .entry-line.ai-row")).toHaveCount(2);
   // 送った 形
   const p = log.post[0];
-  expect(p.auth).toBe("Bearer jwt-e2e");
+  expect(p.auth).toBe(
+    "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1X3NnIiwicm9sZSI6ImF1dGhlbnRpY2F0ZWQifQ.e2e"
+  );
   expect(p.b).toMatchObject({
     shurui: "koe",
     kaisha: CO,

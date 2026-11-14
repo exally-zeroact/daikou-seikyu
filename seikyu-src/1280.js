@@ -17,7 +17,8 @@
         var kotae = null;
         try {
           var tok = await aiSgTokun();
-          if (!tok) {
+          if (!tok || !kagiMon(tok)) {
+            if (!tok && LOGGED_IN_ID) kagiKireta();
             aiSgObi("ログインし直してください");
             return;
           }

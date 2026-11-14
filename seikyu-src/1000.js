@@ -1,3 +1,133 @@
+      function updatePayBadge() {
+        var el = document.getElementById("payBadge");
+        if (!el) return;
+        if (nyukinFumei()) {
+          el.textContent = "?";
+          el.classList.add("on");
+          el.title = "入金を 読めません";
+          el.setAttribute("aria-label", "入金を 読めません");
+          return;
+        }
+        el.removeAttribute("title");
+        el.removeAttribute("aria-label");
+        var n = summarize(null, "").rows.filter(function (x) {
+          return x.st !== "paid";
+        }).length;
+        el.textContent = n > 99 ? "99+" : String(n);
+        el.classList.toggle("on", n > 0);
+      }
+
+      /* ===================================================================
+      請求書プレビュー（定義から自動生成・エンジンで描画）
+      =================================================================== */
+      function refreshInvoiceSelects() {
+        var ms = document.getElementById("invMonth");
+        var keepM = ms.value;
+        var present = {};
+        DB.forEach(function (r) {
+          if (r.account_id === CURRENT_ACCOUNT && r.日付) present[r.日付.slice(0, 7)] = true;
+        });
+        var months = Object.keys(present).sort().reverse();
+        ms.innerHTML =
+          '<option value="">― 月を選択 ―</option>' +
+          months
+            .map(function (m) {
+              var p = m.split("-");
+              return (
+                '<option value="' + m + '">' + Number(p[0]) + "年" + Number(p[1]) + "月</option>"
+              );
+            })
+            .join("");
+        if (months.indexOf(keepM) >= 0) ms.value = keepM;
+        else if (months.length) ms.value = months[0]; // 既定＝最新月
+        var cs = document.getElementById("invCompany");
+        var keepC = cs.value;
+        // ★会社マスタの会社に加え、マスタから消えても明細が残る孤児会社も選べる＝請求漏れ防止。
+        //   InvoicePDF.billableCompanies と同じ並び（マスタ順→孤児名前順）で全社PDFと一致させる。
+        var names = InvoicePDF.billableCompanies(MASTER, DB, CURRENT_ACCOUNT);
+        cs.innerHTML =
+          '<option value="">全社</option>' +
+          names
+            .map(function (n) {
+              return '<option value="' + esc(n) + '">' + esc(n) + "</option>";
+            })
+            .join("");
+        if (names.indexOf(keepC) >= 0 || keepC === "") cs.value = keepC;
+      }
+      // ===== 請求タブ プレビュー＝実PDFをそのまま描画（WYSIWYG・選んだデザインがそのまま見える） =====
+      // pdf.js は vendor から遅延ロード（CDN不使用＝オフラインOK）。
+      var _pdfjsReady = null;
+      function ensurePdfjs() {
+        if (_pdfjsReady) return _pdfjsReady;
+        _pdfjsReady = new Promise(function (res, rej) {
+          if (window.pdfjsLib) return res(window.pdfjsLib);
+          var s = document.createElement("script");
+          s.src = "vendor/pdf.min.js";
+          s.onload = function () {
+            res(window.pdfjsLib);
+          };
+          s.onerror = function () {
+            rej(new Error("pdf.js読込失敗"));
+          };
+          document.head.appendChild(s);
+        }).then(function (lib) {
+          lib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";
+          return lib;
+        });
+        return _pdfjsReady;
+      }
+      var _invSeq = 0;
+      var _invGenTimer = null;
+      // immediate=true（画面入場時）は debounce を挟まず即ビルド＋即「作成中」表示＝待ち感ゼロ。
+      // 引数なし（連続編集）は従来どおり 220ms でまとめる。
+      function generateInvoices(immediate) {
+        // ★紙が 変わる（月・会社・様式・自社情報）＝前の 紙の「送る・印刷する」の 帯は 消す★
+        //   残すと 会社を 変えた 後に 前の 会社の PDF を 送る（対立役 注1 2026-11-06）
+        if (window.PdfOkuru) PdfOkuru.kesu();
+        updateRegnoGate(); // ★紙を出す前に 登録番号を見る★
+        if (_invGenTimer) clearTimeout(_invGenTimer);
+        if (immediate) {
+          var out = activeInvOut();
+          if (out) out.classList.add("inv-loading"); // 空白白画面でなく即「作成中」を出す
+          _invGenTimer = setTimeout(_doGenerateInvoices, 0);
+        } else {
+          _invGenTimer = setTimeout(_doGenerateInvoices, 220); // 0.6sのPDF生成を連続変更でまとめる
+        }
+      }
+      // ★ビルド結果キャッシュ：同じ内容なら約0.7秒の再ビルド(フォント埋込)を飛ばす（解像度は不変）。
+      var _invCache = { sig: null, bytes: null };
+      function _issFp(iss) {
+        return JSON.stringify({
+          d: iss.pdfDesign,
+          h: iss.headerStyle,
+          lm: iss.logoMode,
+          t: iss.templateId,
+          la: iss.lineAlign,
+          ba: iss.bankAlign,
+          ai: iss.alignIssuer,
+          li: iss.lineIssuer,
+          pg: iss.posGrand,
+          pl: iss.posLead,
+          pdu: iss.posDue,
+          de: iss.dateEra,
+          sn: iss.showInvoiceNo,
+          pd: iss.paymentDue,
+          hs: iss.hankoSizeMm,
+          ls: iss.logoSizeMm,
+          fsz: iss.fontScale,
+          bfs: iss.blkFs ? JSON.stringify(iss.blkFs) : "",
+          f: iss.pdfFont,
+          lines: iss.lines,
+          bank: iss.bank,
+          lg: iss.logo ? iss.logo.length + iss.logo.slice(0, 24) : "",
+          hk: iss.hanko ? iss.hanko.length + iss.hanko.slice(0, 24) : "",
+          // ★繰越と 内税／外税も 鍵に 入れる★ 2026-11-02（本番前の 対立役 注A）
+          //   前は 入れて いなかった＝入金を 記録した・前の 月を 直した・内税／外税を 切り替えた 後も
+          //   明細が 同じなら 鍵が 同じ＝プレビューは 古い 上の 御請求金額 の まま（PDF を 作り直すと 正しい 額）
+          tx: iss.taxMode,
+          cy: iss.carry ? JSON.stringify(iss.carry) : "",
+        });
+      }
       function _coFp(m) {
         if (!m) return "";
         return JSON.stringify({
@@ -168,131 +298,4 @@
         } finally {
           if (seq === _invSeq) out.classList.remove("inv-loading");
         }
-      }
-      // PDF bytes を pdf.js で 1ページ=1枚の canvas に描画（.sheet 包み＝印刷もページ送り維持）。
-      async function renderInvoicePreviewPDF(bytes, seq) {
-        var out = activeInvOut();
-        var pdfjs = await ensurePdfjs();
-        if (seq !== _invSeq) return;
-        // pdf.js は渡した配列を detach するのでコピーを渡す
-        var pdf = await pdfjs.getDocument({ data: bytes.slice(0) }).promise;
-        if (seq !== _invSeq) return;
-        var inner = document.createElement("div");
-        inner.className = "invScaleInner";
-        for (var p = 1; p <= pdf.numPages; p++) {
-          var pg = await pdf.getPage(p);
-          var vp = pg.getViewport({ scale: 2 }); // 高解像度＝印刷でもくっきり
-          var cv = document.createElement("canvas");
-          cv.width = vp.width;
-          cv.height = vp.height;
-          cv.className = "inv-pdf-canvas";
-          var sheet = document.createElement("div");
-          sheet.className = "sheet sheet-pdf";
-          sheet.dataset.page = p; // 何ページ目か（ページ切替で表示制御）
-          sheet.appendChild(cv);
-          inner.appendChild(sheet);
-          await pg.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise;
-          if (seq !== _invSeq) return;
-        }
-        out.innerHTML = "";
-        out.appendChild(inner);
-        fitInvoice();
-      }
-      // 請求書PDFのbytes生成（保存/印刷で共有）。該当なし等は toast して null を返す。
-      async function _buildInvoiceBytes() {
-        if (yomenaiTomeru(SEIKYU_KEYS, "請求書の 作成")) return null;
-        var _jng = jishaNg(currentIssuer());
-        if (_jng) {
-          toast(_jng);
-          return null;
-        }
-        var _m0 = document.getElementById("invMonth").value;
-        var _c0 = document.getElementById("invCompany").value;
-        if (_m0 && kurikoshiTomeru(_c0 ? [_c0] : tsukiNoKaisha(_m0), "請求書の 作成")) return null;
-        var month = document.getElementById("invMonth").value;
-        if (!month) {
-          toast("月を選んでください");
-          return null;
-        }
-        var onlyCo = document.getElementById("invCompany").value;
-        // ★出す 前の 見張り★ 2026-11-04（番号を 台帳に 書く 前・「該当なし」の 前＝倉庫に だけ 在る 会社も 拾う）
-        if (!(await yomiNaoshiMon(month, onlyCo, "請求書の 作成"))) return null;
-        if (kurikoshiTomeru(onlyCo ? [onlyCo] : tsukiNoKaisha(month), "請求書の 作成")) return null;
-        if (!hakkoMon(month, onlyCo ? [onlyCo] : tsukiNoKaisha(month))) return null;
-        var iss = issuerForEngine();
-        var bytes, fname;
-        if (onlyCo) {
-          var rows = DB.filter(function (r) {
-            return (
-              r.account_id === CURRENT_ACCOUNT && r.会社名 === onlyCo && inMonth(r.日付, month)
-            );
-          }).sort(function (a, b) {
-            return (
-              (a.日付 || "").localeCompare(b.日付 || "") || (a.id || "").localeCompare(b.id || "")
-            );
-          });
-          if (!rows.length) {
-            toast("該当する明細がありません");
-            return null;
-          }
-          // ★番号は1回だけ決めて 紙と控えの両方に同じ物を使う★
-          //   別々に取ると「紙の番号と控えの番号が違う」が起きる（実際に一度そう書いてしまった）
-          var _no;
-          try {
-            _no = await issueInvoiceNo(month, onlyCo); // ★決めるのはここ1回だけ★（倉庫の 台帳に 書けた 番号）
-          } catch (e) {
-            toast(bangouNgBun(e));
-            return null;
-          }
-          bytes = await InvoicePDF.buildOne(
-            MASTER,
-            onlyCo,
-            rows,
-            month,
-            issuerForEngine(onlyCo, month), // ★繰越は 1回 読んだ 月で（番号を 待つ 間に #invMonth が 変わっても ずれない・注1 2026-11-02）
-            _no
-          );
-          await writeInvoiceCopies([
-            makeInvoiceCopy(month, onlyCo, rows, issuerForEngine(onlyCo, month), _no),
-          ]);
-          fname = "請求書_" + month + "_" + onlyCo + ".pdf";
-        } else {
-          // ★全社も 描く 前に 全部の 会社の 番号を 台帳に 書く★（1社でも 書けなければ 作らない）
-          var _nos = {};
-          var _tcos = tsukiNoKaisha(month);
-          if (!_tcos.length) {
-            toast("該当する明細がありません");
-            return null;
-          }
-          try {
-            for (var _ti = 0; _ti < _tcos.length; _ti++)
-              _nos[_tcos[_ti]] = await issueInvoiceNo(month, _tcos[_ti]);
-          } catch (e) {
-            toast(bangouNgBun(e));
-            return null;
-          }
-          bytes = await InvoicePDF.buildMonth(
-            MASTER,
-            DB,
-            month,
-            CURRENT_ACCOUNT,
-            iss,
-            function (co) {
-              return issuerForEngine(co, month); // ★全社も 1回 読んだ 月の 繰越（注1）
-            },
-            function (co) {
-              if (!_nos[co]) throw new Error("請求番号が 決まっていない 会社: " + co);
-              return _nos[co];
-            }
-          );
-          if (!bytes) {
-            toast("該当する明細がありません");
-            return null;
-          }
-          // ★全社まとめは 控えを 書かない★ 2026-11-01（司さん「出した後に明細が変わりました」の 警告は 全部 消す）
-          //   10-14〜11-01 は 警告の 材料に 印 zensha 付きで 写しを 残していた（繰越・番号には 使わない 物）。
-          //   警告が 無くなり 読む 所が 0＝書かない。番号は 上の issueInvoiceNo が 台帳（invoice_no）に 書く
-          fname = "請求書_" + month + "_全社.pdf";
-        }
-        return { bytes: bytes, fname: fname, month: month, onlyCo: onlyCo };
       }

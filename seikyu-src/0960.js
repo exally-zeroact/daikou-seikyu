@@ -205,6 +205,11 @@
         return "令和" + (y - 2018) + "年" + m + "月1日";
       }
       function toast(msg, ms) {
+        sakkiNiOku(msg);
+        if (KAGI_KIRE) {
+          kireTasu(msg);
+          return;
+        }
         var t = document.getElementById("toast");
         t.textContent = msg;
         t.classList.add("show");
@@ -223,38 +228,32 @@
       }
 
       /* ===================================================================
-      画面切替
-      =================================================================== */
-      function showScreen(name) {
-        hakkoObiKesu(); // 出す 前の 見張りの 帯は 画面を 移ったら 消す（対立役 注4）
-        if (window.PdfOkuru) PdfOkuru.kesu(); // 「送る・印刷する」の 帯も 消す（古い 紙を 送らない）
-        var titles = {
-          input: "明細入力",
-          list: "明細一覧",
-          billing: "請求 / 集計",
-          payment: "入金管理",
-          settings: "設定",
-        };
-        document.querySelectorAll(".screen").forEach(function (s) {
-          s.classList.remove("active");
-        });
-        document.getElementById("scr-" + name).classList.add("active");
-        document.querySelectorAll(".nav-item").forEach(function (b) {
-          b.classList.toggle("active", b.dataset.scr === name);
-        });
-        document.getElementById("appTitle").textContent = titles[name] || "代行請求";
-        // ★2026-08-21 A2-③ 画面を切り替えたら 頭を出す★（前の画面のスクロール位置が残り、
-        //   一番上の説明文が途中から見えていた）
-        try {
-          window.scrollTo(0, 0);
-        } catch (e) {}
-        if (name === "input") preselectInputCompany();
-        if (name === "list") renderList();
-        if (name === "billing") showBillingSeg("invoice"); // 既定＝請求書
-        if (name === "payment") renderPayments();
-        if (name === "settings") {
-          showSettingsSeg("master"); // 既定＝会社マスタ
-        }
-        updatePayBadge();
-        window.scrollTo(0, 0);
+         ★鍵切れの 板★ 2026-11-14 件⑥（設計 6.2版・紙 sekkei_seikyu_kagikire_2026-11-14.md）
+         ・口（lib/kagi-fetch.js）が 1本でも 止めたら、その 後に 画面が 出す 知らせは ★字を 分けず 全部★
+           #toast に 出さず 板に 並べる（「保存しました」も＝入っていない）。失敗の 字は 1つも 捨てない。
+         ・気づくのは 鍵の 更新が 返った 時（auth-js は 最長 約30秒 やり直す）＝最後に 倉庫へ 通した 時
+           （T_TOOTTA）より 後に 出た 字は 入ったと 確かめられない→ 板の 頭に 移す。
+         ・間違いは「入った 物を 入っていないと 言う」向きだけ（害の 無い 向き）。
+         ・同じ人で 入り直すと 読み直す（startApp）。板は 閉じるまで 残す（途中で 止まった 字を 後で 読める）。
+         ・違う人の 鍵（別タブ・箱で 違う人が 入る）＝開き直す。
+         =================================================================== */
+      var LOGGED_IN_ID = null; // 入った人（CURRENT_ACCOUNT の 初め "acct_local" には 頼らない）
+      var KAGI_KIRE = false;
+      var T_TOOTTA = 0; // 最後に 入った人の 鍵で 倉庫へ 通した 時（performance.now）
+      var SAKKI = []; // 出した 知らせ {ji, t}（50件まで）
+      function sakkiNiOku(msg) {
+        SAKKI.push({ ji: String(msg), t: performance.now() });
+        if (SAKKI.length > 50) SAKKI.shift();
+      }
+      function kireIta() {
+        var b = document.getElementById("kireShirase");
+        if (b) return b;
+        b = document.createElement("div");
+        b.id = "kireShirase";
+        b.setAttribute("role", "alert");
+        b.innerHTML =
+          '<div class="kire-hd"><span class="kire-ji"></span><button type="button" class="kire-tojiru">閉じる</button></div><ul class="kire-list"></ul>';
+        b.querySelector(".kire-tojiru").onclick = kireTojiru;
+        document.body.appendChild(b);
+        return b;
       }

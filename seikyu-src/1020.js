@@ -1,3 +1,130 @@
+      // PDF bytes を pdf.js で 1ページ=1枚の canvas に描画（.sheet 包み＝印刷もページ送り維持）。
+      async function renderInvoicePreviewPDF(bytes, seq) {
+        var out = activeInvOut();
+        var pdfjs = await ensurePdfjs();
+        if (seq !== _invSeq) return;
+        // pdf.js は渡した配列を detach するのでコピーを渡す
+        var pdf = await pdfjs.getDocument({ data: bytes.slice(0) }).promise;
+        if (seq !== _invSeq) return;
+        var inner = document.createElement("div");
+        inner.className = "invScaleInner";
+        for (var p = 1; p <= pdf.numPages; p++) {
+          var pg = await pdf.getPage(p);
+          var vp = pg.getViewport({ scale: 2 }); // 高解像度＝印刷でもくっきり
+          var cv = document.createElement("canvas");
+          cv.width = vp.width;
+          cv.height = vp.height;
+          cv.className = "inv-pdf-canvas";
+          var sheet = document.createElement("div");
+          sheet.className = "sheet sheet-pdf";
+          sheet.dataset.page = p; // 何ページ目か（ページ切替で表示制御）
+          sheet.appendChild(cv);
+          inner.appendChild(sheet);
+          await pg.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise;
+          if (seq !== _invSeq) return;
+        }
+        out.innerHTML = "";
+        out.appendChild(inner);
+        fitInvoice();
+      }
+      // 請求書PDFのbytes生成（保存/印刷で共有）。該当なし等は toast して null を返す。
+      async function _buildInvoiceBytes() {
+        if (yomenaiTomeru(SEIKYU_KEYS, "請求書の 作成")) return null;
+        var _jng = jishaNg(currentIssuer());
+        if (_jng) {
+          toast(_jng);
+          return null;
+        }
+        var _m0 = document.getElementById("invMonth").value;
+        var _c0 = document.getElementById("invCompany").value;
+        if (_m0 && kurikoshiTomeru(_c0 ? [_c0] : tsukiNoKaisha(_m0), "請求書の 作成")) return null;
+        var month = document.getElementById("invMonth").value;
+        if (!month) {
+          toast("月を選んでください");
+          return null;
+        }
+        var onlyCo = document.getElementById("invCompany").value;
+        // ★出す 前の 見張り★ 2026-11-04（番号を 台帳に 書く 前・「該当なし」の 前＝倉庫に だけ 在る 会社も 拾う）
+        if (!(await yomiNaoshiMon(month, onlyCo, "請求書の 作成"))) return null;
+        if (kurikoshiTomeru(onlyCo ? [onlyCo] : tsukiNoKaisha(month), "請求書の 作成")) return null;
+        if (!hakkoMon(month, onlyCo ? [onlyCo] : tsukiNoKaisha(month))) return null;
+        var iss = issuerForEngine();
+        var bytes, fname;
+        if (onlyCo) {
+          var rows = DB.filter(function (r) {
+            return (
+              r.account_id === CURRENT_ACCOUNT && r.会社名 === onlyCo && inMonth(r.日付, month)
+            );
+          }).sort(function (a, b) {
+            return (
+              (a.日付 || "").localeCompare(b.日付 || "") || (a.id || "").localeCompare(b.id || "")
+            );
+          });
+          if (!rows.length) {
+            toast("該当する明細がありません");
+            return null;
+          }
+          // ★番号は1回だけ決めて 紙と控えの両方に同じ物を使う★
+          //   別々に取ると「紙の番号と控えの番号が違う」が起きる（実際に一度そう書いてしまった）
+          var _no;
+          try {
+            _no = await issueInvoiceNo(month, onlyCo); // ★決めるのはここ1回だけ★（倉庫の 台帳に 書けた 番号）
+          } catch (e) {
+            toast(bangouNgBun(e));
+            return null;
+          }
+          bytes = await InvoicePDF.buildOne(
+            MASTER,
+            onlyCo,
+            rows,
+            month,
+            issuerForEngine(onlyCo, month), // ★繰越は 1回 読んだ 月で（番号を 待つ 間に #invMonth が 変わっても ずれない・注1 2026-11-02）
+            _no
+          );
+          await writeInvoiceCopies([
+            makeInvoiceCopy(month, onlyCo, rows, issuerForEngine(onlyCo, month), _no),
+          ]);
+          fname = "請求書_" + month + "_" + onlyCo + ".pdf";
+        } else {
+          // ★全社も 描く 前に 全部の 会社の 番号を 台帳に 書く★（1社でも 書けなければ 作らない）
+          var _nos = {};
+          var _tcos = tsukiNoKaisha(month);
+          if (!_tcos.length) {
+            toast("該当する明細がありません");
+            return null;
+          }
+          try {
+            for (var _ti = 0; _ti < _tcos.length; _ti++)
+              _nos[_tcos[_ti]] = await issueInvoiceNo(month, _tcos[_ti]);
+          } catch (e) {
+            toast(bangouNgBun(e));
+            return null;
+          }
+          bytes = await InvoicePDF.buildMonth(
+            MASTER,
+            DB,
+            month,
+            CURRENT_ACCOUNT,
+            iss,
+            function (co) {
+              return issuerForEngine(co, month); // ★全社も 1回 読んだ 月の 繰越（注1）
+            },
+            function (co) {
+              if (!_nos[co]) throw new Error("請求番号が 決まっていない 会社: " + co);
+              return _nos[co];
+            }
+          );
+          if (!bytes) {
+            toast("該当する明細がありません");
+            return null;
+          }
+          // ★全社まとめは 控えを 書かない★ 2026-11-01（司さん「出した後に明細が変わりました」の 警告は 全部 消す）
+          //   10-14〜11-01 は 警告の 材料に 印 zensha 付きで 写しを 残していた（繰越・番号には 使わない 物）。
+          //   警告が 無くなり 読む 所が 0＝書かない。番号は 上の issueInvoiceNo が 台帳（invoice_no）に 書く
+          fname = "請求書_" + month + "_全社.pdf";
+        }
+        return { bytes: bytes, fname: fname, month: month, onlyCo: onlyCo };
+      }
       // 請求書をクリーンなPDF（ブラウザのURL足跡なし・日本語埋込・複数ページ）で保存/共有。
       async function exportInvoicePDF(btn) {
         if (typeof InvoicePDF === "undefined") {
@@ -127,124 +254,3 @@
         });
       }
 
-      // ===== 請求タブ：テンプレ＆書体をその場で切替（リアルタイム反映） =====
-      // 請求タブ：デザイン/種類の切替＝★保存する（既定として永続）★。
-      //   以前は「この回だけ(INV_OVERRIDE)」で保存されず、更新/再読込のたびに既定へ戻っていた
-      //   （例：エレガント・ロゴなしにしてもロゴありに戻る）。アプリ哲学＝値は保存して全反映、に統一。
-      function setInvoiceDesign(design) {
-        if (!DESIGN_VARIANTS[design]) return;
-        INV_OVERRIDE = null;
-        setIssuer("pdfDesign", design); // 保存
-        syncInvoiceToolbar();
-        generateInvoices();
-        toast(DESIGN_LABELS[design] + " にしました");
-      }
-      function setInvoiceVariant(key) {
-        var d = currentIssuer().pdfDesign === "classic" ? "classic" : "elegant";
-        var v = designVariants(d).filter(function (x) {
-          return x.key === key;
-        })[0];
-        if (!v) return;
-        INV_OVERRIDE = null;
-        setIssuer(d === "classic" ? "classicVariant" : "elegantVariant", key); // 保存
-        syncInvoiceToolbar();
-        generateInvoices();
-        toast(v.label + " にしました");
-      }
-      // 「既定にする」＝今の見た目(一時上書き or 既定)をアカウント既定として保存。
-      function makeInvoiceDefault() {
-        var dv = resolveDesignVariant();
-        setIssuer("pdfDesign", dv.design);
-        setIssuer(dv.design === "classic" ? "classicVariant" : "elegantVariant", dv.variant.key);
-        INV_OVERRIDE = null; // 既定になったので一時上書き解除
-        syncInvoiceToolbar();
-        toast(DESIGN_LABELS[dv.design] + "・" + dv.variant.label + " を既定にしました");
-      }
-      function syncInvoiceToolbar() {
-        var dv = resolveDesignVariant();
-        // デザイン seg
-        var seg = document.getElementById("invDesignSeg");
-        if (seg)
-          seg.innerHTML = Object.keys(DESIGN_LABELS)
-            .map(function (d) {
-              return (
-                '<button type="button" class="itb-btn' +
-                (d === dv.design ? " on" : "") +
-                '" onclick="setInvoiceDesign(\'' +
-                d +
-                "')\">" +
-                DESIGN_LABELS[d] +
-                "</button>"
-              );
-            })
-            .join("");
-        // 種類 chips（選んだデザインの種類だけ）
-        var chips = document.getElementById("invVariantChips");
-        if (chips)
-          chips.innerHTML = designVariants(dv.design)
-            .map(function (v) {
-              return (
-                '<button type="button" class="itb-chip' +
-                (v.key === dv.variant.key ? " on" : "") +
-                '" onclick="setInvoiceVariant(\'' +
-                v.key +
-                "')\">" +
-                v.label +
-                "</button>"
-              );
-            })
-            .join("");
-        // 一時上書き中の表示＋「既定にする」
-        var note = document.getElementById("invOverrideNote");
-        if (note) note.style.display = INV_OVERRIDE ? "flex" : "none";
-        var fn = currentIssuer().pdfFont || "BIZ UDPゴシック";
-        var nm = document.getElementById("invFontName");
-        if (nm) nm.textContent = fn;
-        applyPreviewFont(fn, false); // 初期はDLしない（既ロードなら反映）
-        // お支払期限（ON/OFF＋日付＋和暦/西暦）の同期
-        var s = currentIssuer();
-        var dueOn = !!s.showPaymentDue;
-        var sw = document.getElementById("invDueSwitch"),
-          ctrls = document.getElementById("invDueControls");
-        if (sw) {
-          sw.classList.toggle("on", dueOn);
-          sw.setAttribute("aria-checked", dueOn ? "true" : "false");
-        }
-        if (ctrls) ctrls.style.display = dueOn ? "inline-flex" : "none";
-        var dd = document.getElementById("invDueDate");
-        if (dd && document.activeElement !== dd) dd.value = s.paymentDue || "";
-        document
-          .querySelectorAll('#scr-billing .itb-chip[data-grp="dueEra"]')
-          .forEach(function (b) {
-            b.classList.toggle("on", b.dataset.a === (s.paymentDueEra || "seireki"));
-          });
-      }
-      // 請求タブ：お支払期限 ON/OFF（トグルスイッチ）。ONで日付入力が出る。
-      function toggleInvoiceDue() {
-        var on = !currentIssuer().showPaymentDue;
-        setIssuer("showPaymentDue", on);
-        syncInvoiceToolbar();
-        generateInvoices();
-        toast(on ? "お支払期限：あり" : "お支払期限：なし");
-      }
-      // 請求タブ：お支払期限の日付（毎回設定）。
-      function setInvoiceDue(v) {
-        setIssuer("paymentDue", v || "");
-        syncInvoiceToolbar();
-        generateInvoices();
-        toast(v ? "お支払期限を設定しました" : "お支払期限を空欄にしました");
-      }
-      function toggleFontList() {
-        var pop = document.getElementById("invFontPop");
-        if (!pop) return;
-        var show = pop.style.display === "none";
-        pop.style.display = show ? "block" : "none";
-        if (show) {
-          renderFontList("");
-          var s = document.getElementById("invFontSearch");
-          if (s) {
-            s.value = "";
-            s.focus();
-          }
-        }
-      }

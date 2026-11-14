@@ -2461,6 +2461,46 @@
         color: #0a5fd0;
         font-weight: 700;
       }
+      /* ★鍵切れの 板★（ログインの 箱 z400 の 上・欄は 箱の padding-top で 板の 下へ） */
+      #kireShirase {
+        position: fixed;
+        left: 8px;
+        right: 8px;
+        top: 8px;
+        z-index: 410;
+        max-height: 35vh;
+        overflow: auto;
+        background: #fff4f2;
+        border: 2px solid #e0483d;
+        border-radius: 12px;
+        padding: 10px 14px;
+        font-size: 13px;
+        color: #333333;
+        white-space: pre-line;
+        box-shadow: 0 4px 16px rgba(20, 36, 61, 0.18);
+      }
+      #kireShirase .kire-hd {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        font-weight: 700;
+      }
+      #kireShirase .kire-ji {
+        flex: 1;
+      }
+      #kireShirase .kire-tojiru {
+        flex: none;
+        font-size: 12px;
+        padding: 4px 10px;
+        border: 1px solid #e0483d;
+        background: #ffffff;
+        color: #e0483d;
+        border-radius: 8px;
+      }
+      #kireShirase .kire-list {
+        margin: 6px 0 0;
+        padding-left: 18px;
+      }
       .toast.show {
         opacity: 1;
         transform: translateX(-50%) translateY(0);
@@ -3315,6 +3355,8 @@
     <script src="lib/shitagaki.js"></script>
     <script src="lib/nijuu.js"></script>
     <script src="lib/naoshi-rireki.js"></script>
+    <!-- ★倉庫へ 出る 手前の 口（鍵切れ・違う人の 鍵で 書かない）★ 2026-11-14 件⑥ -->
+    <script src="lib/kagi-fetch.js"></script>
     <!-- ★PDF を 送る（iPhone・iPad は 共有に PDF と 字だけ＝blob の URL を 付けない）★ 2026-11-06 司さん B -->
     <script src="lib/pdf-okuru.js"></script>
     <!-- 請求書のクリーンなベクターPDF出力（日本語フォント埋込・複数ページ／pdf-lib等は初回PDF時のみ遅延ロード） -->
@@ -3355,8 +3397,35 @@
       var SUPABASE_ANON =
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZndpcGJnZmdqYXltbHN6ZWlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1Nzk4MzQsImV4cCI6MjA5NzE1NTgzNH0.zhKPLSlW4zxsdjsXNvqDHvtP3wBqp-EKaxbjqLGW_ek";
       // テストは偽のクラウドを差し込む（本物に通信せず配線だけ確かめる）
+      // ★2026-11-14 件⑥ 倉庫へ 出る 手前の 口（lib/kagi-fetch.js）★
+      //   鍵が 切れると supabase-js は 公開鍵で 倉庫へ 出る＝倉庫は 更新・削除を 0行の 200 で 返し
+      //   画面は「保存しました」と 言うのに 何も 入らない（テスト倉庫で 測った）。送る 鍵そのものを
+      //   口で 見て、入った人の 鍵の 時だけ 通す。止めたら 板（kagiKireta）で 言う。
+      if (!window.__EXALLY_FAKE_SB__ && !window.KagiFetch)
+        throw new Error("lib/kagi-fetch.js が 読めていません（口が 無いまま 倉庫へ 出さない）");
       var SB =
-        window.__EXALLY_FAKE_SB__ || window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+        window.__EXALLY_FAKE_SB__ ||
+        window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+          global: {
+            fetch: window.KagiFetch.tsukuru({
+              url: SUPABASE_URL,
+              anon: SUPABASE_ANON,
+              hito: function () {
+                return LOGGED_IN_ID;
+              },
+              kireta: function () {
+                kagiKireta();
+              },
+              chigau: function () {
+                kagiChigatta();
+              },
+              tootta: function () {
+                T_TOOTTA = performance.now();
+              },
+              fetch: window.fetch.bind(window),
+            }),
+          },
+        });
 
       /* ===================================================================
       定数・固定情報
@@ -6356,6 +6425,11 @@
         return "令和" + (y - 2018) + "年" + m + "月1日";
       }
       function toast(msg, ms) {
+        sakkiNiOku(msg);
+        if (KAGI_KIRE) {
+          kireTasu(msg);
+          return;
+        }
         var t = document.getElementById("toast");
         t.textContent = msg;
         t.classList.add("show");
@@ -6371,6 +6445,129 @@
         _toastDebT = setTimeout(function () {
           toast(msg);
         }, 450);
+      }
+
+      /* ===================================================================
+         ★鍵切れの 板★ 2026-11-14 件⑥（設計 6.2版・紙 sekkei_seikyu_kagikire_2026-11-14.md）
+         ・口（lib/kagi-fetch.js）が 1本でも 止めたら、その 後に 画面が 出す 知らせは ★字を 分けず 全部★
+           #toast に 出さず 板に 並べる（「保存しました」も＝入っていない）。失敗の 字は 1つも 捨てない。
+         ・気づくのは 鍵の 更新が 返った 時（auth-js は 最長 約30秒 やり直す）＝最後に 倉庫へ 通した 時
+           （T_TOOTTA）より 後に 出た 字は 入ったと 確かめられない→ 板の 頭に 移す。
+         ・間違いは「入った 物を 入っていないと 言う」向きだけ（害の 無い 向き）。
+         ・同じ人で 入り直すと 読み直す（startApp）。板は 閉じるまで 残す（途中で 止まった 字を 後で 読める）。
+         ・違う人の 鍵（別タブ・箱で 違う人が 入る）＝開き直す。
+         =================================================================== */
+      var LOGGED_IN_ID = null; // 入った人（CURRENT_ACCOUNT の 初め "acct_local" には 頼らない）
+      var KAGI_KIRE = false;
+      var T_TOOTTA = 0; // 最後に 入った人の 鍵で 倉庫へ 通した 時（performance.now）
+      var SAKKI = []; // 出した 知らせ {ji, t}（50件まで）
+      function sakkiNiOku(msg) {
+        SAKKI.push({ ji: String(msg), t: performance.now() });
+        if (SAKKI.length > 50) SAKKI.shift();
+      }
+      function kireIta() {
+        var b = document.getElementById("kireShirase");
+        if (b) return b;
+        b = document.createElement("div");
+        b.id = "kireShirase";
+        b.setAttribute("role", "alert");
+        b.innerHTML =
+          '<div class="kire-hd"><span class="kire-ji"></span><button type="button" class="kire-tojiru">閉じる</button></div><ul class="kire-list"></ul>';
+        b.querySelector(".kire-tojiru").onclick = kireTojiru;
+        document.body.appendChild(b);
+        return b;
+      }
+      function kireIchi() {
+        // 板の 上は テスト線の 帯の 下・ログインの 箱は 板の 下から（欄を 覆わない）
+        var b = document.getElementById("kireShirase");
+        var ov = LOGIN && LOGIN.el;
+        if (!b) {
+          if (ov) {
+            ov.style.paddingTop = "";
+            ov.style.alignItems = "";
+          }
+          return;
+        }
+        // 枠（exally-login.js）は 真ん中寄せ＝上を 空けると 箱の 頭が 送っても 戻らない 所へ はみ出す（360x640 で 82px・ロゴが 板の 下）→ 板の 間は 上詰め
+        if (ov) ov.style.alignItems = "flex-start";
+        var band = document.getElementById("testBand");
+        var top = band && band.offsetParent !== null ? band.getBoundingClientRect().bottom : 0;
+        b.style.top = Math.max(0, Math.round(top)) + 8 + "px";
+        if (ov) ov.style.paddingTop = Math.ceil(b.getBoundingClientRect().bottom) + 8 + "px";
+      }
+      window.addEventListener("resize", kireIchi);
+      function kireTasu(msg, mae) {
+        var b = kireIta();
+        var ul = b.querySelector(".kire-list");
+        var last = ul.lastElementChild;
+        msg = String(msg);
+        if (last && last.dataset.ji === msg) {
+          var n = Number(last.dataset.n || 1) + 1;
+          last.dataset.n = n;
+          last.textContent = (last.dataset.mae ? "切れる直前：" : "") + msg + "（×" + n + "）";
+        } else {
+          var li = document.createElement("li");
+          li.dataset.ji = msg;
+          if (mae) li.dataset.mae = "1";
+          li.textContent = (mae ? "切れる直前：" : "") + msg;
+          ul.appendChild(li);
+        }
+        kireIchi();
+      }
+      function kagiKireta() {
+        if (KAGI_KIRE) return;
+        KAGI_KIRE = true;
+        var d = new Date();
+        var old = document.getElementById("kireShirase");
+        if (old) old.remove();
+        var b = kireIta();
+        b.querySelector(".kire-ji").textContent =
+          "ログインが切れました（" +
+          d.getHours() +
+          ":" +
+          String(d.getMinutes()).padStart(2, "0") +
+          "）。この後の保存・削除は倉庫に届いていないかもしれません。もう一度ログインすると画面を倉庫の中身で読み直します。入れ直す前に、読み直した一覧で在るかを確かめてください。下は切れた後に画面が出した知らせです。";
+        // 最後に 倉庫へ 通した 時より 後に 出た 字（出た 順）
+        var kara = T_TOOTTA - 2000;
+        SAKKI.filter(function (x) {
+          return x.t >= kara;
+        }).forEach(function (x) {
+          kireTasu(x.ji, true);
+        });
+        // toastDebounced の 待ちは 消さない（450ms 後に 旗の 道で 板へ 並ぶ＝字を 捨てない）
+        var t = document.getElementById("toast");
+        if (t) {
+          clearTimeout(t._tm);
+          t.classList.remove("show");
+        }
+        toastUndoKesu();
+        var obi = document.getElementById("hakkoObi");
+        if (obi && obi.textContent.trim()) {
+          kireTasu(obi.textContent.replace(/\s+/g, " ").trim(), true);
+          hakkoObiKesu();
+        }
+        ensureLogin().show();
+        kireIchi();
+      }
+      function kireTojiru() {
+        var b = document.getElementById("kireShirase");
+        if (b) b.remove();
+        kireIchi();
+      }
+      function kagiChigatta() {
+        try {
+          sessionStorage.setItem("kagiChigau", "1");
+        } catch (e) {}
+        location.reload();
+      }
+      // 直に fetch する 所（口を 通らない）の 門＝入った人の 鍵の 時だけ true
+      function kagiMon(tok) {
+        if (!LOGGED_IN_ID) return !!tok;
+        var sub = tok ? window.KagiFetch.kagiNoSub(tok) : null;
+        if (sub === LOGGED_IN_ID) return true;
+        if (sub) kagiChigatta();
+        else kagiKireta();
+        return false;
       }
 
       /* ===================================================================
@@ -8398,6 +8595,11 @@
         t.innerHTML = "";
       }
       function toastUndo(msg, onUndo) {
+        sakkiNiOku(msg);
+        if (KAGI_KIRE) {
+          kireTasu(msg); // 取り消すは 出さない（押しても 倉庫へ 届かない）
+          return;
+        }
         var t = document.getElementById("toastUndo");
         if (!t) {
           t = document.createElement("div");
@@ -10465,7 +10667,7 @@
         AI_SG.touMiru = (async function () {
           try {
             var tok = await aiSgTokun();
-            if (!tok) return;
+            if (!tok || !kagiMon(tok)) return;
             var r = await fetch("/api/shitagaki?tou=1", {
               method: "GET",
               headers: { Authorization: "Bearer " + tok },
@@ -10619,7 +10821,8 @@
         var kotae = null;
         try {
           var tok = await aiSgTokun();
-          if (!tok) {
+          if (!tok || !kagiMon(tok)) {
+            if (!tok && LOGGED_IN_ID) kagiKireta();
             aiSgObi("ログインし直してください");
             return;
           }
@@ -11759,7 +11962,10 @@
         try {
           var ses = await SB.auth.getSession(); // 鍵は 毎回 取り直す（古い 鍵を 掴まない）
           var tok = ses && ses.data && ses.data.session && ses.data.session.access_token;
-          if (!tok) return _dkFixKotae(ato, { kind: "login" });
+          if (!tok || !kagiMon(tok)) {
+            if (!tok && LOGGED_IN_ID) kagiKireta();
+            return _dkFixKotae(ato, { kind: "login" });
+          }
           var ctl = typeof AbortController === "function" ? new AbortController() : null;
           var tm = setTimeout(function () {
             if (ctl) ctl.abort();
@@ -13397,6 +13603,13 @@
         location.reload();
       }
       function onLoggedIn(user) {
+        // ★違う人が 入った（切れた 後の 箱で B）＝開き直す★（A の 打ちかけ・画面を B へ 残さない）
+        if (LOGGED_IN_ID && user.id !== LOGGED_IN_ID) {
+          location.reload();
+          return;
+        }
+        LOGGED_IN_ID = user.id;
+        KAGI_KIRE = false;
         CURRENT_ACCOUNT = user.id; // 各業者＝ログインユーザー
         ensureLogin().hide();
         var al = document.getElementById("acctLine");
@@ -13506,6 +13719,15 @@
         var session = sess && sess.data ? sess.data.session : null;
         if (session && session.user) {
           onLoggedIn(session.user); // 既にログイン済み＝自動で入る
+          try {
+            if (sessionStorage.getItem("kagiChigau")) {
+              sessionStorage.removeItem("kagiChigau");
+              toast(
+                "別の画面で違う人が入ったので開き直しました（直前の操作は保存されていません）",
+                6000
+              );
+            }
+          } catch (e) {}
         } else {
           ensureLogin().show(); // 初回＝ログイン画面
         }

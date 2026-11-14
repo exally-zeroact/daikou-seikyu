@@ -1,3 +1,132 @@
+      function kireIchi() {
+        // 板の 上は テスト線の 帯の 下・ログインの 箱は 板の 下から（欄を 覆わない）
+        var b = document.getElementById("kireShirase");
+        var ov = LOGIN && LOGIN.el;
+        if (!b) {
+          if (ov) {
+            ov.style.paddingTop = "";
+            ov.style.alignItems = "";
+          }
+          return;
+        }
+        // 枠（exally-login.js）は 真ん中寄せ＝上を 空けると 箱の 頭が 送っても 戻らない 所へ はみ出す（360x640 で 82px・ロゴが 板の 下）→ 板の 間は 上詰め
+        if (ov) ov.style.alignItems = "flex-start";
+        var band = document.getElementById("testBand");
+        var top = band && band.offsetParent !== null ? band.getBoundingClientRect().bottom : 0;
+        b.style.top = Math.max(0, Math.round(top)) + 8 + "px";
+        if (ov) ov.style.paddingTop = Math.ceil(b.getBoundingClientRect().bottom) + 8 + "px";
+      }
+      window.addEventListener("resize", kireIchi);
+      function kireTasu(msg, mae) {
+        var b = kireIta();
+        var ul = b.querySelector(".kire-list");
+        var last = ul.lastElementChild;
+        msg = String(msg);
+        if (last && last.dataset.ji === msg) {
+          var n = Number(last.dataset.n || 1) + 1;
+          last.dataset.n = n;
+          last.textContent = (last.dataset.mae ? "切れる直前：" : "") + msg + "（×" + n + "）";
+        } else {
+          var li = document.createElement("li");
+          li.dataset.ji = msg;
+          if (mae) li.dataset.mae = "1";
+          li.textContent = (mae ? "切れる直前：" : "") + msg;
+          ul.appendChild(li);
+        }
+        kireIchi();
+      }
+      function kagiKireta() {
+        if (KAGI_KIRE) return;
+        KAGI_KIRE = true;
+        var d = new Date();
+        var old = document.getElementById("kireShirase");
+        if (old) old.remove();
+        var b = kireIta();
+        b.querySelector(".kire-ji").textContent =
+          "ログインが切れました（" +
+          d.getHours() +
+          ":" +
+          String(d.getMinutes()).padStart(2, "0") +
+          "）。この後の保存・削除は倉庫に届いていないかもしれません。もう一度ログインすると画面を倉庫の中身で読み直します。入れ直す前に、読み直した一覧で在るかを確かめてください。下は切れた後に画面が出した知らせです。";
+        // 最後に 倉庫へ 通した 時より 後に 出た 字（出た 順）
+        var kara = T_TOOTTA - 2000;
+        SAKKI.filter(function (x) {
+          return x.t >= kara;
+        }).forEach(function (x) {
+          kireTasu(x.ji, true);
+        });
+        // toastDebounced の 待ちは 消さない（450ms 後に 旗の 道で 板へ 並ぶ＝字を 捨てない）
+        var t = document.getElementById("toast");
+        if (t) {
+          clearTimeout(t._tm);
+          t.classList.remove("show");
+        }
+        toastUndoKesu();
+        var obi = document.getElementById("hakkoObi");
+        if (obi && obi.textContent.trim()) {
+          kireTasu(obi.textContent.replace(/\s+/g, " ").trim(), true);
+          hakkoObiKesu();
+        }
+        ensureLogin().show();
+        kireIchi();
+      }
+      function kireTojiru() {
+        var b = document.getElementById("kireShirase");
+        if (b) b.remove();
+        kireIchi();
+      }
+      function kagiChigatta() {
+        try {
+          sessionStorage.setItem("kagiChigau", "1");
+        } catch (e) {}
+        location.reload();
+      }
+      // 直に fetch する 所（口を 通らない）の 門＝入った人の 鍵の 時だけ true
+      function kagiMon(tok) {
+        if (!LOGGED_IN_ID) return !!tok;
+        var sub = tok ? window.KagiFetch.kagiNoSub(tok) : null;
+        if (sub === LOGGED_IN_ID) return true;
+        if (sub) kagiChigatta();
+        else kagiKireta();
+        return false;
+      }
+
+      /* ===================================================================
+      画面切替
+      =================================================================== */
+      function showScreen(name) {
+        hakkoObiKesu(); // 出す 前の 見張りの 帯は 画面を 移ったら 消す（対立役 注4）
+        if (window.PdfOkuru) PdfOkuru.kesu(); // 「送る・印刷する」の 帯も 消す（古い 紙を 送らない）
+        var titles = {
+          input: "明細入力",
+          list: "明細一覧",
+          billing: "請求 / 集計",
+          payment: "入金管理",
+          settings: "設定",
+        };
+        document.querySelectorAll(".screen").forEach(function (s) {
+          s.classList.remove("active");
+        });
+        document.getElementById("scr-" + name).classList.add("active");
+        document.querySelectorAll(".nav-item").forEach(function (b) {
+          b.classList.toggle("active", b.dataset.scr === name);
+        });
+        document.getElementById("appTitle").textContent = titles[name] || "代行請求";
+        // ★2026-08-21 A2-③ 画面を切り替えたら 頭を出す★（前の画面のスクロール位置が残り、
+        //   一番上の説明文が途中から見えていた）
+        try {
+          window.scrollTo(0, 0);
+        } catch (e) {}
+        if (name === "input") preselectInputCompany();
+        if (name === "list") renderList();
+        if (name === "billing") showBillingSeg("invoice"); // 既定＝請求書
+        if (name === "payment") renderPayments();
+        if (name === "settings") {
+          showSettingsSeg("master"); // 既定＝会社マスタ
+        }
+        updatePayBadge();
+        window.scrollTo(0, 0);
+      }
       // タブ内サブ切替（請求＝請求書/集計）
       function showBillingSeg(seg) {
         if (window.PdfOkuru) PdfOkuru.kesu(); // 請求書の 帯を 集計の 上に 残さない（本番前の 対立役 注1 2026-11-06）
@@ -121,134 +250,4 @@
           esc(NYUKIN_FUMEI_JI) +
           "</div>"
         );
-      }
-      function updatePayBadge() {
-        var el = document.getElementById("payBadge");
-        if (!el) return;
-        if (nyukinFumei()) {
-          el.textContent = "?";
-          el.classList.add("on");
-          el.title = "入金を 読めません";
-          el.setAttribute("aria-label", "入金を 読めません");
-          return;
-        }
-        el.removeAttribute("title");
-        el.removeAttribute("aria-label");
-        var n = summarize(null, "").rows.filter(function (x) {
-          return x.st !== "paid";
-        }).length;
-        el.textContent = n > 99 ? "99+" : String(n);
-        el.classList.toggle("on", n > 0);
-      }
-
-      /* ===================================================================
-      請求書プレビュー（定義から自動生成・エンジンで描画）
-      =================================================================== */
-      function refreshInvoiceSelects() {
-        var ms = document.getElementById("invMonth");
-        var keepM = ms.value;
-        var present = {};
-        DB.forEach(function (r) {
-          if (r.account_id === CURRENT_ACCOUNT && r.日付) present[r.日付.slice(0, 7)] = true;
-        });
-        var months = Object.keys(present).sort().reverse();
-        ms.innerHTML =
-          '<option value="">― 月を選択 ―</option>' +
-          months
-            .map(function (m) {
-              var p = m.split("-");
-              return (
-                '<option value="' + m + '">' + Number(p[0]) + "年" + Number(p[1]) + "月</option>"
-              );
-            })
-            .join("");
-        if (months.indexOf(keepM) >= 0) ms.value = keepM;
-        else if (months.length) ms.value = months[0]; // 既定＝最新月
-        var cs = document.getElementById("invCompany");
-        var keepC = cs.value;
-        // ★会社マスタの会社に加え、マスタから消えても明細が残る孤児会社も選べる＝請求漏れ防止。
-        //   InvoicePDF.billableCompanies と同じ並び（マスタ順→孤児名前順）で全社PDFと一致させる。
-        var names = InvoicePDF.billableCompanies(MASTER, DB, CURRENT_ACCOUNT);
-        cs.innerHTML =
-          '<option value="">全社</option>' +
-          names
-            .map(function (n) {
-              return '<option value="' + esc(n) + '">' + esc(n) + "</option>";
-            })
-            .join("");
-        if (names.indexOf(keepC) >= 0 || keepC === "") cs.value = keepC;
-      }
-      // ===== 請求タブ プレビュー＝実PDFをそのまま描画（WYSIWYG・選んだデザインがそのまま見える） =====
-      // pdf.js は vendor から遅延ロード（CDN不使用＝オフラインOK）。
-      var _pdfjsReady = null;
-      function ensurePdfjs() {
-        if (_pdfjsReady) return _pdfjsReady;
-        _pdfjsReady = new Promise(function (res, rej) {
-          if (window.pdfjsLib) return res(window.pdfjsLib);
-          var s = document.createElement("script");
-          s.src = "vendor/pdf.min.js";
-          s.onload = function () {
-            res(window.pdfjsLib);
-          };
-          s.onerror = function () {
-            rej(new Error("pdf.js読込失敗"));
-          };
-          document.head.appendChild(s);
-        }).then(function (lib) {
-          lib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";
-          return lib;
-        });
-        return _pdfjsReady;
-      }
-      var _invSeq = 0;
-      var _invGenTimer = null;
-      // immediate=true（画面入場時）は debounce を挟まず即ビルド＋即「作成中」表示＝待ち感ゼロ。
-      // 引数なし（連続編集）は従来どおり 220ms でまとめる。
-      function generateInvoices(immediate) {
-        // ★紙が 変わる（月・会社・様式・自社情報）＝前の 紙の「送る・印刷する」の 帯は 消す★
-        //   残すと 会社を 変えた 後に 前の 会社の PDF を 送る（対立役 注1 2026-11-06）
-        if (window.PdfOkuru) PdfOkuru.kesu();
-        updateRegnoGate(); // ★紙を出す前に 登録番号を見る★
-        if (_invGenTimer) clearTimeout(_invGenTimer);
-        if (immediate) {
-          var out = activeInvOut();
-          if (out) out.classList.add("inv-loading"); // 空白白画面でなく即「作成中」を出す
-          _invGenTimer = setTimeout(_doGenerateInvoices, 0);
-        } else {
-          _invGenTimer = setTimeout(_doGenerateInvoices, 220); // 0.6sのPDF生成を連続変更でまとめる
-        }
-      }
-      // ★ビルド結果キャッシュ：同じ内容なら約0.7秒の再ビルド(フォント埋込)を飛ばす（解像度は不変）。
-      var _invCache = { sig: null, bytes: null };
-      function _issFp(iss) {
-        return JSON.stringify({
-          d: iss.pdfDesign,
-          h: iss.headerStyle,
-          lm: iss.logoMode,
-          t: iss.templateId,
-          la: iss.lineAlign,
-          ba: iss.bankAlign,
-          ai: iss.alignIssuer,
-          li: iss.lineIssuer,
-          pg: iss.posGrand,
-          pl: iss.posLead,
-          pdu: iss.posDue,
-          de: iss.dateEra,
-          sn: iss.showInvoiceNo,
-          pd: iss.paymentDue,
-          hs: iss.hankoSizeMm,
-          ls: iss.logoSizeMm,
-          fsz: iss.fontScale,
-          bfs: iss.blkFs ? JSON.stringify(iss.blkFs) : "",
-          f: iss.pdfFont,
-          lines: iss.lines,
-          bank: iss.bank,
-          lg: iss.logo ? iss.logo.length + iss.logo.slice(0, 24) : "",
-          hk: iss.hanko ? iss.hanko.length + iss.hanko.slice(0, 24) : "",
-          // ★繰越と 内税／外税も 鍵に 入れる★ 2026-11-02（本番前の 対立役 注A）
-          //   前は 入れて いなかった＝入金を 記録した・前の 月を 直した・内税／外税を 切り替えた 後も
-          //   明細が 同じなら 鍵が 同じ＝プレビューは 古い 上の 御請求金額 の まま（PDF を 作り直すと 正しい 額）
-          tx: iss.taxMode,
-          cy: iss.carry ? JSON.stringify(iss.carry) : "",
-        });
       }
