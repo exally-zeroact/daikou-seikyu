@@ -384,3 +384,34 @@ for (const [na, body] of [
     }
   );
 }
+
+// ── seikyu_reset_failed でも 売上の 手打ちを 外していたら 件数を 言う 2026-11-15 件⑧（本番前 対立役 止め1）──
+//   dk-fix-fare⑤は ⑥より 前＝⑥が 落ちた 時も 給料の 画面の 売上の 手打ちは もう 外れている（返事に uriage_hazushita が 載る）
+for (const n of [0, 2]) {
+  test(
+    "seikyu_reset_failed＋売上を外した数 " + n + "件＝件数も 言う（0 は 言わない）",
+    async ({ page }) => {
+      await hiraku(page, [
+        {
+          status: 500,
+          body: {
+            ok: false,
+            reason: "seikyu_reset_failed",
+            updated: 1,
+            shift_total: 9000,
+            uriage_hazushita: n,
+          },
+        },
+      ]);
+      await kingakuNaosu(page, 3500);
+      await expect(obi(page)).toHaveCount(1);
+      await expect(obi(page)).toContainText("請求書の 額を 外せませんでした");
+      if (n > 0)
+        await expect(obi(page)).toContainText(
+          "事務所が 給料の 画面で 直していた 売上を、この 直しで 外しました（" + n + "件）"
+        );
+      else await expect(obi(page)).not.toContainText("給料の 画面で 直していた 売上");
+      await expect(obi(page).locator("[data-dkfix-okuru]")).toHaveCount(0);
+    }
+  );
+}
