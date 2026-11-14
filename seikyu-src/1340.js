@@ -248,6 +248,30 @@
           "')\">保存</button></div>";
         openModal();
       }
+      // ★件⑧b 2026-11-14★ 保存が 通らなかった 時に 手元の 行を 開いた 時の 姿へ 戻す（同じ 物を 指したまま 中身だけ）
+      function _motoNiModosu(r, moto) {
+        Object.keys(r).forEach(function (k) {
+          if (!(k in moto)) delete r[k];
+        });
+        Object.assign(r, moto);
+      }
+      // ★件⑧b★ 明細 1行を 倉庫から 読み直して 手元（DB）を 差し替える。消えていたら 手元からも 外す。
+      //   読めなければ false（手元は 開いた 時の 姿の まま）
+      async function _meisaiIchigyouYomu(id) {
+        var y = await SB.from("meisai").select("*").eq("id", id).maybeSingle();
+        if (y.error) return false;
+        var i = -1;
+        for (var j = 0; j < DB.length; j++)
+          if (DB[j].id === id) {
+            i = j;
+            break;
+          }
+        if (!y.data || y.data.deleted_at) {
+          if (i >= 0) DB.splice(i, 1);
+        } else if (i >= 0) DB[i] = meisaiFromDb(y.data);
+        else DB.push(meisaiFromDb(y.data));
+        return true;
+      }
       async function saveEdit(id) {
         var r = DB.filter(function (x) {
           return x.id === id;
@@ -272,6 +296,8 @@
           }
         }
         var maeKingaku = r.金額; // 0円と 決めた 印は 客が 額を 0 に 変えた 時 だけ 付ける（本番前の 対立役 注1）
+        // ★書けなかった 時に 手元を 戻す 控え★ 2026-11-14 件⑧b（下で r を 書き換える＝前は 保存が 落ちても 一覧に 打った 額が 出た）
+        var _moto = Object.assign({}, r);
         keys.forEach(function (k) {
           var el = document.getElementById("ed_" + k);
           if (!el) return;
@@ -303,9 +329,34 @@
         // ★メーターの 行で 料金が 空なら 空（null）の まま 書く★ 2026-11-04（本番前の 対立役 止1）
         //   meisaiToDb は 空の 額を 0 に する＝備考だけ 直すと 料金未定の 乗車が 0円で 請求された
         if ((r.dk_source || r.dk_ref) && (r.金額 === "" || r.金額 == null)) upd.amount = null;
-        var u = await SB.from("meisai").update(upd).eq("id", id);
+        // ★ダイコメから 来た 行は「開いた 時の 額の まま」の 時だけ 書く★ 2026-11-14 件⑧b
+        //   司さん「お互い修正したら反映されるようにしろ」＝事務所の 入力でも この 行の 額を 直せる（public.dk_meisai_naosu）。
+        //   開いた ままの この 画面が 古い 額で 上書きすると、入力の 直しが 黙って 消える（売上は 入力の 額の まま＝食い違う）。
+        //   額の 持ち方は 上の 書き方と 同じ（メーターの 行の 空＝null）。手で 入れた 行は 入力から 直せない＝今まで 通り。
+        var dkGyou = !!(_mae.dk_source || _mae.dk_ref);
+        var q = SB.from("meisai").update(upd).eq("id", id);
+        if (dkGyou) {
+          if (maeKingaku === "" || maeKingaku == null) q = q.is("amount", null);
+          else q = q.eq("amount", Number(maeKingaku));
+          q = q.select("id");
+        }
+        var u = await q;
         if (u.error) {
+          _motoNiModosu(r, _moto);
           cloudErr("明細更新", u.error);
+          return;
+        }
+        if (dkGyou && (!Array.isArray(u.data) || u.data.length === 0)) {
+          // 0行＝別の 画面（事務所の 入力・別の 端末）で 額が 変わっていた。★打った 内容は 書かない★・その 行を 読み直す
+          _motoNiModosu(r, _moto);
+          var yometa = await _meisaiIchigyouYomu(id);
+          closeModal();
+          renderList();
+          toast(
+            yometa
+              ? "別の画面で直されていました。打った内容は保存していません。読み直しました"
+              : "別の画面で直されていました。打った内容は保存していません。読み直せなかったので、画面を開き直してください"
+          );
           return;
         }
         closeModal();
