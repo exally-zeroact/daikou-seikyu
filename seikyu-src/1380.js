@@ -1,3 +1,12 @@
+      function _dkFixNa(ato) {
+        return [
+          ato.日付 || "",
+          ato.会社名 || "",
+          ato.金額 === "" || ato.金額 == null ? "" : "¥" + Number(ato.金額).toLocaleString(),
+        ]
+          .filter(Boolean)
+          .join(" ");
+      }
       function _dkFixObi() {
         var box = document.getElementById("dkFixObi");
         if (!box) return;

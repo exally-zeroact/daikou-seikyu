@@ -151,6 +151,79 @@ for (const n of [1, 2]) {
   );
 }
 
+// ── (3) 入力の 画面の 請求書の 額を 外した 時も 知らせる 2026-11-15 件⑧（司さん：請求書アプリにも 出す・0＝なしも 外して 字で 分ける）──
+for (const [na, body, aru, nai] of [
+  [
+    "請求書だけ（2件・0 無し）",
+    { seikyu_hazushita: 2, seikyu_zero_hazushita: 0 },
+    ["入力の 画面で 打っていた 請求書の 額を、この 直しで 外しました（2件）", "現金が 変わります"],
+    ["請求書なし（0）", "給料の 画面で 直していた 売上"],
+  ],
+  [
+    "請求書（3件・うち 0 が 1件）",
+    { seikyu_hazushita: 3, seikyu_zero_hazushita: 1 },
+    ["外しました（3件・うち 請求書なし（0）と 打っていた 1件）"],
+    ["給料の 画面で 直していた 売上"],
+  ],
+  [
+    "全部 0（2件・うち 2件）",
+    { seikyu_hazushita: 2, seikyu_zero_hazushita: 2 },
+    ["外しました（2件・うち 請求書なし（0）と 打っていた 2件）"],
+    [],
+  ],
+  [
+    "売上と 請求書の 両方",
+    { uriage_hazushita: 1, seikyu_hazushita: 1, seikyu_zero_hazushita: 0 },
+    ["売上を、この 直しで 外しました（1件）", "請求書の 額を、この 直しで 外しました（1件）"],
+    ["請求書なし（0）"],
+  ],
+  [
+    "古い 関数（うちの 数が 無い）",
+    { seikyu_hazushita: 1 },
+    ["請求書の 額を、この 直しで 外しました（1件）"],
+    ["請求書なし（0）"],
+  ],
+]) {
+  test("入力の 請求書の 額を 外した：" + na + "＝帯に 残す・送り直しは 無い", async ({ page }) => {
+    await hiraku(page, [
+      {
+        status: 200,
+        body: Object.assign({ ok: true, updated: 1, shift_total: 9000, uriage_hazushita: 0 }, body),
+      },
+    ]);
+    await kingakuNaosu(page, 2300);
+    await expect(obi(page)).toHaveCount(1);
+    await expect(obi(page)).toHaveClass(/dkfix-shirase/);
+    for (const x of aru) await expect(obi(page)).toContainText(x);
+    for (const x of nai) await expect(obi(page)).not.toContainText(x);
+    await expect(obi(page)).not.toContainText("揃っていません");
+    await expect(obi(page).locator("[data-dkfix-okuru]")).toHaveCount(0);
+    // 読み込み直しても 残る（黙って 消えない）
+    await page.reload({ waitUntil: "load" });
+    await page.waitForTimeout(1500);
+    await nav(page, "list");
+    await expect(obi(page)).toContainText("請求書の 額を、この 直しで 外しました");
+  });
+}
+
+test("請求書の 額を 外していない（seikyu_hazushita=0）＝知らせない", async ({ page }) => {
+  await hiraku(page, [
+    {
+      status: 200,
+      body: {
+        ok: true,
+        updated: 1,
+        shift_total: 9000,
+        uriage_hazushita: 0,
+        seikyu_hazushita: 0,
+        seikyu_zero_hazushita: 0,
+      },
+    },
+  ]);
+  await kingakuNaosu(page, 2250);
+  await expect(obi(page)).toHaveCount(0);
+});
+
 test("外していない（uriage_hazushita=0）＝知らせない", async ({ page }) => {
   await hiraku(page, [
     { status: 200, body: { ok: true, updated: 1, shift_total: 9000, uriage_hazushita: 0 } },
@@ -280,3 +353,34 @@ test("送っている 最中に 行を 消したら 返事が 来ても 帯を �
   await page.waitForTimeout(2500);
   await expect(obi(page)).toHaveCount(0);
 });
+
+// ── 入力の 画面の 請求書の 額を 外せなかった（seikyu_reset_failed）2026-11-15 件⑧（対立役 止め2）──
+//   売上までは 直っている＝「売上が 揃っていない」とは 言わず、請求書の 欄と 現金を 見に 行かせる
+for (const [na, body] of [
+  ["車×日の 回を 読めない", { at: "kuruma_hi" }],
+  ["外す 書き込みが 落ちた", {}],
+]) {
+  test(
+    "seikyu_reset_failed（" + na + "）＝請求書の 欄を 確かめる 字・送り直しは 出さない",
+    async ({ page }) => {
+      await hiraku(page, [
+        {
+          status: 500,
+          body: Object.assign(
+            { ok: false, reason: "seikyu_reset_failed", updated: 1, shift_total: 9000 },
+            body
+          ),
+        },
+      ]);
+      await kingakuNaosu(page, 3500);
+      await expect(obi(page)).toHaveCount(1);
+      await expect(obi(page)).not.toHaveClass(/dkfix-shirase/);
+      await expect(obi(page)).toContainText("請求書の 額を 外せませんでした");
+      await expect(obi(page)).toContainText("運転手から 受け取る 現金が この 直しと 合いません");
+      await expect(obi(page)).toContainText("ダイコメの「入力」で 請求書の 欄を 確かめてください");
+      await expect(obi(page).locator("[data-dkfix-okuru]")).toHaveCount(0);
+      const t = await obi(page).textContent();
+      expect(t, "中の 言葉が 客の 字に 出た").not.toMatch(/[a-z]+_[a-z]+/);
+    }
+  );
+}

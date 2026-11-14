@@ -84,7 +84,8 @@
       // ★受け口★ 結果を 1つの 形に 読む。成功は res.ok かつ j.ok===true の 時だけ（知らない 形は 全部 揃っていない 側）
       function _dkFixYomu(k) {
         var SOROWANAI = "請求書と 事務所の 売上が 揃っていません。";
-        var KAKUNIN = "事務所の 売上を ダイコメの 給料の「時数を入れる」で 確かめてください。";
+        var KAKUNIN =
+          "事務所の 売上を ダイコメの 給料の「時数を入れる」で、請求書の 欄を ダイコメの「入力」で 確かめてください。";
         if (k.kind === "buhin")
           return {
             dame: true,
@@ -116,7 +117,14 @@
         var r = j && typeof j.reason === "string" ? j.reason : "";
         if (k.httpOk && j && j.ok === true) {
           if (Number(j.updated) > 0)
-            return { dame: false, seikou: true, hazushita: Number(j.uriage_hazushita) || 0 };
+            return {
+              dame: false,
+              seikou: true,
+              hazushita: Number(j.uriage_hazushita) || 0,
+              // ★入力の 画面の 請求書の 額を 外した 数（うち 0＝請求書 なし）★ 2026-11-15 件⑧ 司さん「請求書アプリにも 出す・0 も 外して 字で 分ける」
+              seikyu: Number(j.seikyu_hazushita) || 0,
+              seikyuZero: Number(j.seikyu_zero_hazushita) || 0,
+            };
           if (r === "not_daikome" || r === "no_amount") return { dame: false }; // 戻す 先が 無い 行（何も 触らない）
           if (r === "no_shift" || r === "no_trip" || r === "bad_ref")
             return {
@@ -133,6 +141,17 @@
           };
         }
         // 失敗
+        // ★入力の 画面の 請求書の 額を 外せなかった★ 2026-11-15 件⑧（対立役 止め2：今までは「分からない 返事」に 落ち、売上だけ 見に 行かせていた）
+        //   dk-fix-fare⑥は ③④⑤の 後＝代行の 金額・業務の 合計・売上の 手打ちは もう 直っている。請求書の 欄だけ 前の 額。
+        if (r === "seikyu_reset_failed")
+          return {
+            dame: true,
+            okuru: false,
+            ji:
+              "代行の 金額・業務の 合計・事務所の 売上は 事務所に 戻りましたが、事務所が 入力の 画面で 打っていた 請求書の 額を 外せませんでした" +
+              "（入力の 画面の 請求書の 欄は 前の 額の ままで、運転手から 受け取る 現金が この 直しと 合いません）。" +
+              "ダイコメの「入力」で 請求書の 欄を 確かめてください。",
+          };
         if (r === "uriage_reset_failed")
           return {
             dame: true,
@@ -218,13 +237,28 @@
           // ★事務所が 給料の 画面で 直していた 売上を この 直しで 外した 時は 知らせる★ 2026-10-14（指示役）
           //   外す 事 その物は 司さんの 決め（後から 直した 方が 勝つ）の 通り＝変えない。知らせる だけ。
           //   件数は dk-fix-fare の 返事（uriage_hazushita）の まま
+          //   ★入力の 画面の 請求書の 額を 外した 時も 知らせる★ 2026-11-15 件⑧（司さん：黙って 現金を 変えない・0＝なしは 字で 分ける）
+          var shiraseJi = [];
           if (y.hazushita > 0)
+            shiraseJi.push(
+              "事務所が 給料の 画面で 直していた 売上を、この 直しで 外しました（" +
+                y.hazushita +
+                "件）。事務所の 売上は この 直しを 入れた 合計に なりました。"
+            );
+          if (y.seikyu > 0)
+            shiraseJi.push(
+              "事務所が 入力の 画面で 打っていた 請求書の 額を、この 直しで 外しました（" +
+                y.seikyu +
+                "件" +
+                (y.seikyuZero > 0
+                  ? "・うち 請求書なし（0）と 打っていた " + y.seikyuZero + "件"
+                  : "") +
+                "）。入力の 画面の 請求書の 欄は この 直しの 額に なり、運転手から 受け取る 現金が 変わります。"
+            );
+          if (shiraseJi.length)
             m[ato.id] = {
               shirase: true,
-              ji:
-                "事務所が 給料の 画面で 直していた 売上を、この 直しで 外しました（" +
-                y.hazushita +
-                "件）。事務所の 売上は この 直しを 入れた 合計に なりました。",
+              ji: shiraseJi.join(""),
               na: _dkFixNa(ato),
               at: new Date().toISOString(),
             };
@@ -244,13 +278,4 @@
         if (window.console && console.warn)
           console.warn("[dk-fix-fare]", ato.id, k && k.status, k && k.j && k.j.reason, y.ji);
         return y;
-      }
-      function _dkFixNa(ato) {
-        return [
-          ato.日付 || "",
-          ato.会社名 || "",
-          ato.金額 === "" || ato.金額 == null ? "" : "¥" + Number(ato.金額).toLocaleString(),
-        ]
-          .filter(Boolean)
-          .join(" ");
       }
