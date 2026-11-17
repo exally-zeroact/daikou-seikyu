@@ -268,6 +268,7 @@
           }
         if (!y.data || y.data.deleted_at) {
           if (i >= 0) DB.splice(i, 1);
+          return "kieta"; // 消えていた（真の まま＝呼び元は「読めた」と同じに 扱える・字だけ 分ける）
         } else if (i >= 0) DB[i] = meisaiFromDb(y.data);
         else DB.push(meisaiFromDb(y.data));
         return true;
@@ -352,11 +353,16 @@
           var yometa = await _meisaiIchigyouYomu(id);
           closeModal();
           renderList();
+          // ★8秒★ 1.7秒だと 読む前に 消える（打った内容を 書いていない 知らせ）
           toast(
-            yometa
-              ? "別の画面で直されていました。打った内容は保存していません。読み直しました"
-              : "別の画面で直されていました。打った内容は保存していません。読み直せなかったので、画面を開き直してください"
+            yometa === "kieta"
+              ? "別の画面で消されていました。打った内容は保存していません。一覧から外しました"
+              : yometa
+                ? "別の画面で直されていました。打った内容は保存していません。読み直しました"
+                : "別の画面で直されていました。打った内容は保存していません。読み直せなかったので、画面を開き直してください",
+            8000
           );
+          if (yometa) naoshiYomu(); // 別の画面の直しの 履歴（赤）も 読み直す（待たない・投げない）
           return;
         }
         closeModal();

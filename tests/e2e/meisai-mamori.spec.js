@@ -140,3 +140,76 @@ test("書けなかった（通信）＝手元の 行は 開いた 時の 額の 
   expect(await temotoNoGaku(page)).toBe(1200);
   expect(await kuraNoGaku(page)).toBe(1200);
 });
+
+// ============================================================
+// ★0行の 知らせ（2026-11-17・本番前 taiketsu の任意3）★
+//   ①8秒 出る（1.7秒だと 読む前に 消える＝text は 残るので class show で 見る）
+//   ②読み直せた時は 直しの 履歴（赤）も 読み直す（NAOSHI.gen が 増える）
+//   ③「直された」「消された」「読めなかった」を 字で 分ける
+// ============================================================
+const naoshiGen = (page) => page.evaluate(() => NAOSHI.gen);
+
+test("0行の 知らせ・読み直せた＝3秒 後も 出ている・直しの 履歴も 読み直す", async ({ page }) => {
+  await hiraku(page, DK);
+  await hiraite(page);
+  await betsuNoGamen(page, 7777);
+  const g0 = await naoshiGen(page);
+  await hozon(page, 1500);
+  await expect(page.locator("#toast")).toContainText("読み直しました");
+  await page.waitForTimeout(2500);
+  await expect(page.locator("#toast")).toHaveClass(/show/);
+  expect(await naoshiGen(page)).toBeGreaterThan(g0);
+});
+
+test("0行の 知らせ・別の 画面で 消されていた＝消されたと 言う・一覧から 外す", async ({ page }) => {
+  await hiraku(page, DK);
+  await hiraite(page);
+  await betsuNoGamen(page, 7777);
+  await page.evaluate(() => {
+    const db = JSON.parse(localStorage.getItem("__fake_supa_db__"));
+    db.tables.meisai[0].deleted_at = new Date().toISOString();
+    localStorage.setItem("__fake_supa_db__", JSON.stringify(db));
+  });
+  await hozon(page, 1500);
+  await expect(page.locator("#toast")).toContainText("別の画面で消されていました");
+  await expect(page.locator("#toast")).not.toContainText("直されていました");
+  expect(await page.evaluate(() => DB.some((x) => x.id === "m0"))).toBe(false);
+});
+
+test("0行の 知らせ・読み直せなかった＝開き直しを 言う・直しの 履歴は 読まない", async ({
+  page,
+}) => {
+  await hiraku(page, DK);
+  await hiraite(page);
+  await betsuNoGamen(page, 7777);
+  await page.evaluate(() => {
+    const from0 = SB.from.bind(SB);
+    SB.from = (t) => {
+      const q = from0(t);
+      if (t !== "meisai") return q;
+      return new Proxy(q, {
+        get(o, k) {
+          if (k !== "select") return typeof o[k] === "function" ? o[k].bind(o) : o[k];
+          return (...a) => {
+            const s = o.select(...a);
+            return new Proxy(s, {
+              get(so, sk) {
+                if (sk === "eq")
+                  return (...b) => {
+                    const e = so.eq(...b);
+                    e.maybeSingle = async () => ({ data: null, error: { message: "x" } });
+                    return e;
+                  };
+                return typeof so[sk] === "function" ? so[sk].bind(so) : so[sk];
+              },
+            });
+          };
+        },
+      });
+    };
+  });
+  const g0 = await naoshiGen(page);
+  await hozon(page, 1500);
+  await expect(page.locator("#toast")).toContainText("読み直せなかったので");
+  expect(await naoshiGen(page)).toBe(g0);
+});
