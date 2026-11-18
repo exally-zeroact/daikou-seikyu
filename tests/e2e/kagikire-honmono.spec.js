@@ -207,7 +207,11 @@ async function bNiKaeru(page, s) {
 }
 async function meisaiNaosu(page) {
   await page.evaluate(() => {
+    // 2026-11-18 欄ごとの 最後勝ち＝変えた 欄が 無いと 書かない。この 試験の 会社は 欄 0（items []）＝行き先を 出して 1欄 変える
+    MASTER[DB.filter((x) => x.id === "m1")[0].会社名].items = ["日付", "行き先", "金額"];
     openEdit("m1");
+    const el = document.getElementById("ed_行き先");
+    el.value = el.value + "直";
   });
   await page.evaluate(() => saveEdit("m1"));
 }

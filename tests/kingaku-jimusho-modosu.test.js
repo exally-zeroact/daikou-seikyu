@@ -96,7 +96,9 @@ describe("★一覧で 金額を 直したら 事務所へ 戻す★", () => {
     expect(HTML, "★戻す関数(dk-fix-fare)を 呼んでいません★").toMatch(/dk-fix-fare/);
     // ★★呼び出しの 1行が 在るか★★
     //   これが 無いと ★呼ぶ所を 消しても 緑のまま★だった（2026-09-03・わざと壊して 気づいた）
-    expect(HTML, "★保存の後に 呼ぶ 1行が ありません★").toMatch(/await _jimushoHeModosu\(r, _mae\)/);
+    expect(HTML, "★保存の後に 呼ぶ 1行が ありません★").toMatch(
+      /await _jimushoHeModosu\(ato, _mae\)/
+    );
   });
 
   it("★⑦ 戻すのに 失敗しても 保存は 止めない（画面を 白くしない）★", () => {

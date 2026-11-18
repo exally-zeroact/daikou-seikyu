@@ -119,6 +119,14 @@
           else if (r.金額 !== 0) delete r.ryokin_0_kimeta;
         }
         var nanimoKaete = !Object.keys(kaeta).length && !carKaeta && !zeroKaeta;
+        // ★読む 前に 鍵の 門★（読みは 口の 門を 通らない＝別の 人・切れた 鍵で 読むと 0行を「消された」と 取り違える）
+        //   別の 人の 鍵＝開き直す・切れた＝ログインの 板（kagiMon が 出す）。何も 書かない
+        var ses0 = await SB.auth.getSession();
+        var tok0 = ses0 && ses0.data && ses0.data.session && ses0.data.session.access_token;
+        if (!kagiMon(tok0)) {
+          _motoNiModosu(r, _moto);
+          return;
+        }
         // ★書く 直前に 倉庫の 今の 行を 1回 読む★（消されていたか・別の 画面の 額・extra の 今）
         var y = await SB.from("meisai").select("*").eq("id", id).maybeSingle();
         if (y.error) {
