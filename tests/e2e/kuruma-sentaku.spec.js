@@ -41,6 +41,20 @@ async function open(page, opts) {
   await page.setViewportSize({ width: 390, height: 850 });
   await page.addInitScript({ path: "tests/e2e/fake-supabase.js" });
   await page.addInitScript(seed);
+  // 本物の 鍵と 同じく access_token（sub＝入った人）を 持たせる＝保存の 鍵の 門（kagiMon）を 通す
+  //   （偽の 倉庫の 鍵は user だけ＝門が「切れた」と 見て 何も 書かない・11-19 全網で 赤）
+  await page.addInitScript(() => {
+    const db = JSON.parse(localStorage.getItem("__fake_supa_db__") || "{}");
+    const b64u = (o) =>
+      btoa(JSON.stringify(o)).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
+    if (db.session)
+      db.session.access_token =
+        b64u({ alg: "HS256", typ: "JWT" }) +
+        "." +
+        b64u({ sub: db.session.user.id, role: "authenticated" }) +
+        ".e2e";
+    localStorage.setItem("__fake_supa_db__", JSON.stringify(db));
+  });
   if (o.daikome)
     await page.addInitScript(() => {
       // 事務所から来た行（m0）＝同期が入れる形（dk_source・dk_ref・dk_car・dk_car_no）
