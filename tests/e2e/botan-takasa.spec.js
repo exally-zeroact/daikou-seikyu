@@ -127,7 +127,7 @@ async function kazoeru(page, basho, ne = "body") {
           .replace(/\s+/g, " ")
           .slice(0, 14);
         const nigyou = !waku && !isLabel ? gyou(e) > 1 : false;
-        const maru = MARU.some((c) => cls.split(/s+/).includes(c));
+        const maru = MARU.some((c) => cls.split(/\s+/).includes(c));
         // ② 見える箱の 内側（4辺の真ん中から2px・真ん中）を押すと 自分（か 中の物）に当たるか
         //    ★角は 丸め（border-radius）で 箱の外になる＝角は押さない★
         const cx = b.left + b.width / 2;
