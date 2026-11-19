@@ -109,7 +109,8 @@
       ".login-btn{width:100%;box-sizing:border-box;font-family:inherit;font-size:14px;",
       "font-weight:700;padding:8px 16px;line-height:1.4;min-height:38px;position:relative;",
       "border-radius:14px;cursor:pointer;border:1px solid transparent;}",
-      '.login-btn::after{content:"";position:absolute;left:0;right:0;top:-3px;bottom:-3px;}',
+      /* 押す所は 真ん中から 縦44px（top:-3px は 枠線の内が基準で 42px しか無かった） */
+      '.login-btn::after{content:"";position:absolute;left:0;right:0;top:50%;height:44px;min-height:100%;transform:translateY(-50%);}',
       ".login-btn-main{background:" + c.accentDark + ";color:#ffffff;}",
       ".login-btn-sub{background:" +
         c.bg +

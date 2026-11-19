@@ -364,7 +364,8 @@ test.describe("ログイン画面の高さ", () => {
         const e = document.querySelector(sel);
         const h = e.getBoundingClientRect().height;
         const a = getComputedStyle(e, "::after");
-        const oshi = a.content === "none" ? h : h - parseFloat(a.top) - parseFloat(a.bottom);
+        // ★広げの高さは ::after の計算された高さで読む（h−top−bottom は 枠線の分を 見ず 42 を 44 と読んだ）★
+        const oshi = a.content === "none" ? h : Math.max(h, parseFloat(a.height));
         return {
           sel,
           fs: parseFloat(getComputedStyle(e).fontSize),
