@@ -63,14 +63,16 @@
       }
       async function saveEdit(id) {
         if (_saveEditChu[id]) return;
-        _saveEditChu[id] = true;
+        // ★門は 印つき★＝自分の 印の 時だけ 外す（1回目の 送りの 終わりが 2回目の 門を 消さない・11-19 叩き直し 任意1）
+        var shirushi = {};
+        _saveEditChu[id] = shirushi;
         try {
-          await _saveEditHontai(id);
+          await _saveEditHontai(id, shirushi);
         } finally {
-          delete _saveEditChu[id];
+          if (_saveEditChu[id] === shirushi) delete _saveEditChu[id];
         }
       }
-      async function _saveEditHontai(id) {
+      async function _saveEditHontai(id, shirushi) {
         var r = DB.filter(function (x) {
           return x.id === id;
         })[0];
@@ -262,7 +264,7 @@
         naoshiYomu(); // 事務所の 直し＝赤が 消える（⑦）
         // ★保存の 門は ここで 外す★（倉庫へ 書いて 手元も 揃った＝この 先の 事務所へ 送る 間〔最長 20秒〕に
         //   もう一度 直した 保存を 止めない。送り直しは _dkFixMata が 受ける・11-19 全網 dk-fix-kotae で 赤）
-        delete _saveEditChu[id];
+        if (_saveEditChu[id] === shirushi) delete _saveEditChu[id];
         // ★事務所の売上へ 戻す★ 2026-09-03（司さん「一覧で金額とか修正したら事務所の売上とかも自動で修正されるように」）
         //   ★客が 額を 変えた 時 だけ★（別の 画面の 額を 読んだ だけで 送ると、事務所の 直しを 送り返す）
         //   ★保存は もう 終わっている★＝ここで 何が 起きても 一覧の 保存は 通ったまま。

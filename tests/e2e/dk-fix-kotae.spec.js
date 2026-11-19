@@ -415,3 +415,60 @@ for (const n of [0, 2]) {
     }
   );
 }
+
+// ★11-19 叩き直し 任意1★ 1回目の 送りの 終わり（finally）が 2回目の 保存の 門を 消さない
+//   1回目＝送り 3秒・2回目＝倉庫へ 書くのが 4秒 遅い＝2回目の 途中で 1回目が 終わる→ そこで 3回目を 押す
+//   前は 1回目の finally が 2回目の 門を 消し、3回目が 並んで 走った（倉庫へ 書く 回数 3）
+test("1回目の 送りが 終わっても 2回目の 保存中の 門は 残る＝3回目は 走らない", async ({ page }) => {
+  await hiraku(page, async (r) => {
+    await new Promise((ok) => setTimeout(ok, 3000));
+    return r.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, updated: 1, shift_total: 1, uriage_hazushita: 0 }),
+    });
+  });
+  await nav(page, "list");
+  await page.evaluate(() => {
+    window.__KAKU__ = 0;
+    const from0 = SB.from.bind(SB);
+    SB.from = (t) => {
+      const q = from0(t);
+      if (t !== "meisai") return q;
+      const up0 = q.update.bind(q);
+      q.update = (v) => {
+        window.__KAKU__++;
+        const n = window.__KAKU__;
+        const c = up0(v);
+        if (n !== 2) return c;
+        // 2回目だけ 倉庫へ 書くのを 4秒 遅らせる
+        const eq0 = c.eq.bind(c);
+        c.eq = (...a) => {
+          const c2 = eq0(...a);
+          const sel0 = c2.select.bind(c2);
+          c2.select = (...b) => new Promise((ok) => setTimeout(ok, 4000)).then(() => sel0(...b));
+          return c2;
+        };
+        return c;
+      };
+      return q;
+    };
+  });
+  // 1回目（送りが 3秒）
+  await page.evaluate(() => openEdit("m0"));
+  await page.waitForTimeout(300);
+  await page.fill("#ed_金額", "3100");
+  await page.locator("#modalBody button", { hasText: "保存" }).click();
+  await page.waitForTimeout(500);
+  // 2回目（倉庫へ 書くのが 4秒）
+  await page.evaluate(() => openEdit("m0"));
+  await page.waitForTimeout(300);
+  await page.fill("#ed_金額", "3200");
+  await page.locator("#modalBody button", { hasText: "保存" }).click();
+  // 1回目の 送りが 終わる（約3秒）の 後・2回目が 書き終わる 前に 3回目
+  await page.waitForTimeout(2800);
+  await page.evaluate(() => saveEdit("m0"));
+  await page.waitForTimeout(5000);
+  expect(await page.evaluate(() => window.__KAKU__), "★3回目が 並んで 走った★").toBe(2);
+  expect(await page.evaluate(() => DB.filter((x) => x.id === "m0").length)).toBe(1);
+});
