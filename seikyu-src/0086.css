@@ -1,0 +1,319 @@
+      /* ★押す所 44px は 見えない ::after で 縦に広げる★（見える箱は 字に合わせる・2026-11-19） */
+      .btn,
+      .seg-btn,
+      .pay-full-btn,
+      .modal-x,
+      .dseg-btn,
+      .add-line,
+      .align-btn,
+      .dest-chip,
+      .hakko-obi-x,
+      .chip {
+        position: relative;
+      }
+      .btn::after,
+      .seg-btn::after,
+      .pay-full-btn::after,
+      .modal-x::after,
+      .dseg-btn::after,
+      .add-line::after,
+      .align-btn::after,
+      .dest-chip::after,
+      .hakko-obi-x::after,
+      .chip::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: -6px;
+        bottom: -6px;
+      }
+      .btn-primary::after {
+        top: -3px;
+        bottom: -3px;
+      }
+      .btn-ghost::after,
+      .dseg-btn::after,
+      .add-line::after,
+      .hakko-obi-x::after {
+        top: -4px;
+        bottom: -4px;
+      }
+      .btn-ghost.btn-sm::after,
+      .btn-primary.btn-sm::after {
+        top: -6px;
+        bottom: -6px;
+      }
+      .btn-danger {
+        background: #fdf1f0;
+        color: #c0392b;
+        border: 1.5px solid #f3c9c4;
+      }
+      .btn-danger:hover {
+        background: #fbe3e0;
+      }
+
+      .li-nodate {
+        color: #c0392b;
+        font-weight: 700;
+        min-width: 64px;
+      }
+      .invoice-actions {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .invoice-actions .btn {
+        flex: 1;
+      }
+      /* ===== 請求タブ：テンプレ＆書体 切替バー ===== */
+      .inv-toolbar2 {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 18px;
+        align-items: center;
+        margin: 2px 0 12px;
+      }
+      .itb-group {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .itb-lbl {
+        font-size: 11px;
+        color: #555555;
+        font-weight: 700;
+        white-space: nowrap; /* 「お支払期限」等のラベルを縦折れさせない */
+      }
+      .itb-btn,
+      .itb-font {
+        font-size: 12px;
+        padding: 5px 10px; /* チップと同じ縦幅に統一（行の高さを揃える） */
+        border: 1px solid #cfe0ff;
+        border-radius: 8px;
+        background: #fff;
+        color: #0a5fd0;
+        cursor: pointer;
+        font-family: inherit;
+        white-space: nowrap;
+      }
+      .itb-btn.on {
+        background: #007aff;
+        border-color: #007aff;
+        color: #fff;
+        font-weight: 700;
+      }
+      /* デザイン/種類セレクタ（請求タブ） */
+      .itb-seg,
+      .itb-chips {
+        display: inline-flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .itb-chip {
+        font-size: 12px;
+        padding: 5px 10px;
+        border: 1px solid #cfe0ff;
+        border-radius: 14px;
+        background: #fff;
+        color: #0a5fd0;
+        cursor: pointer;
+        font-family: inherit;
+        white-space: nowrap; /* 「西暦」「令和」等が縦書きに折り返さないように */
+      }
+      .itb-chip.on {
+        background: #0a5fd0;
+        border-color: #0a5fd0;
+        color: #fff;
+        font-weight: 700;
+      }
+      /* よくあるオンオフ・トグルスイッチ */
+      .itb-switch {
+        position: relative;
+        width: 44px;
+        height: 24px;
+        flex: none;
+        padding: 0;
+        border: 1px solid #cfe0ff;
+        border-radius: 12px;
+        background: #e6ecf4;
+        cursor: pointer;
+        transition:
+          background 0.15s,
+          border-color 0.15s;
+      }
+      .itb-switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+        transition: left 0.15s;
+      }
+      .itb-switch.on {
+        background: #007aff;
+        border-color: #007aff;
+      }
+      .itb-switch.on::after {
+        left: 24px;
+      }
+      /* お支払期限の日付欄をチップと同じ高さに（行を太く見せない） */
+      .itb-date {
+        width: auto;
+        min-width: 132px;
+        padding: 4px 8px;
+        font-size: 12.5px;
+        border-radius: 9px;
+        border: 1px solid #cfe0ff;
+      }
+      .inv-override {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 12px;
+        margin: 0 0 10px;
+        padding: 8px 12px;
+        background: #fff8e1;
+        border: 1px solid #f0d98a;
+        border-radius: 8px;
+        font-size: 12px;
+        color: #8a6d00;
+      }
+      /* 設定タブ：デザイン切替セグメント */
+      .design-seg {
+        display: flex;
+        gap: 8px;
+        margin: 4px 0 12px;
+      }
+      .dseg-btn {
+        flex: 1;
+        padding: 6px 12px;
+        min-height: 36px; /* 14px の字→36（比2.57） */
+        line-height: 1.4;
+        border: 1.5px solid #cfe0ff;
+        border-radius: 10px;
+        background: #fff;
+        color: #0a5fd0;
+        font-weight: 700;
+        font-size: 14px;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .dseg-btn.on {
+        background: #007aff;
+        border-color: #007aff;
+        color: #fff;
+      }
+      .itb-font {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 150px;
+        justify-content: space-between;
+        background: #f2f7ff;
+      }
+      .itb-caret {
+        color: #5a6b82;
+      }
+      .itb-fontpop {
+        position: absolute;
+        top: 38px;
+        left: 34px;
+        z-index: 50;
+        width: 230px;
+        background: #fff;
+        border: 1px solid #cfe0ff;
+        border-radius: 10px;
+        box-shadow: 0 6px 20px rgba(20, 36, 61, 0.16);
+        padding: 8px;
+      }
+      .itb-fontsearch {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 7px 9px;
+        border: 1px solid #cfe0ff;
+        border-radius: 7px;
+        font-size: 12.5px;
+        margin-bottom: 6px;
+        font-family: inherit;
+      }
+      .itb-fopt {
+        padding: 8px 9px;
+        border-radius: 7px;
+        font-size: 13px;
+        color: #0a5fd0;
+        cursor: pointer;
+      }
+      .itb-fopt:hover {
+        background: #f2f7ff;
+      }
+      .itb-fopt.on {
+        background: #cfe0ff;
+        font-weight: 700;
+      }
+
+      /* ===== LIST SCOPE (期間表示) ===== */
+      .list-scope {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: -4px 2px 12px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #333333;
+      }
+      .scope-clear {
+        background: #f2f7ff;
+        border: 1.5px solid #cfe0ff;
+        color: #0a5fd0;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 16px;
+        cursor: pointer;
+        font-family: "Noto Sans JP", sans-serif;
+      }
+
+      /* ===== ALIGN TOGGLE (自社情報) ===== */
+      .align-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .align-lbl {
+        font-size: 11px;
+        font-weight: 700;
+        color: #555555;
+        margin-right: 2px;
+      }
+      .align-btn {
+        padding: 5px 12px;
+        min-height: 32px; /* 12px の字→32 */
+        border: 1.5px solid #dbe7f7;
+        border-radius: 8px;
+        background: #ffffff;
+        font-size: 12px;
+        font-weight: 700;
+        color: #5a6b82;
+        cursor: pointer;
+        font-family: "Noto Sans JP", sans-serif;
+      }
+      .align-btn.on {
+        border-color: #007aff;
+        background: #f2f7ff;
+        color: #0a5fd0;
+      }
+
+      /* ===== ENTRY LINES (input screen) ===== */
+      .entry-line {
+        border: 1.5px solid #e2eaf4;
+        border-radius: 12px;
+        padding: 10px 10px 11px;
+        margin-bottom: 10px;
+        background: #fbfcfe;
+      }

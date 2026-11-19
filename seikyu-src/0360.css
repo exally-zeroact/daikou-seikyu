@@ -173,6 +173,7 @@
         color: #5a6b82;
         border-radius: 18px;
         padding: 4px 12px;
+        min-height: 32px; /* 12px の字→32（比2.67） */
         font-size: 12px;
         font-weight: 700;
         cursor: pointer;

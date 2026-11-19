@@ -241,6 +241,7 @@
         align-items: center;
         gap: 5px;
         padding: 6px 11px;
+        min-height: 32px; /* 12px の字→32 */
         border-radius: 20px;
         border: 1.5px solid #dbe7f7;
         background: #ffffff;

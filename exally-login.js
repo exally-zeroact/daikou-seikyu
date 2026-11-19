@@ -83,7 +83,9 @@
       ".login-mark{max-width:190px;height:auto;display:block;margin:0 auto;}",
       ".login-title{font-size:15px;font-weight:700;color:" + c.title + ";margin:10px 0 2px;}",
       ".login-sub{font-size:12px;color:" + c.muted + ";margin-bottom:16px;}",
-      ".login-inp{width:100%;box-sizing:border-box;font-size:16px;padding:13px 14px;",
+      // ★見える高さは 字に合わせる★（2026-11-19 司さん「どのアプリでも何回もゆうてる」）
+      //   16px の字の枠→44px（比2.75）・14px の字のボタン→38px（比2.71）。押す所 44px は 見えない ::after で縦に広げる
+      ".login-inp{width:100%;box-sizing:border-box;font-size:16px;height:44px;padding:0 14px;",
       "border:1px solid " +
         c.line +
         ";border-radius:12px;background:" +
@@ -105,7 +107,9 @@
       "background:none;border:none;padding:4px 6px;text-decoration:underline;cursor:pointer;",
       "font-family:inherit;}",
       ".login-btn{width:100%;box-sizing:border-box;font-family:inherit;font-size:14px;",
-      "font-weight:700;padding:14px 16px;border-radius:14px;cursor:pointer;border:1px solid transparent;}",
+      "font-weight:700;padding:8px 16px;line-height:1.4;min-height:38px;position:relative;",
+      "border-radius:14px;cursor:pointer;border:1px solid transparent;}",
+      '.login-btn::after{content:"";position:absolute;left:0;right:0;top:-3px;bottom:-3px;}',
       ".login-btn-main{background:" + c.accentDark + ";color:#ffffff;}",
       ".login-btn-sub{background:" +
         c.bg +

@@ -118,11 +118,15 @@
       .pay-quick .btn {
         flex: 1 1 calc(50% - 4px); /* 2列で折返し */
       }
+      /* 「全入金（記録 ¥…）」は 長いので 1行丸ごと（折れて 隣まで 背が伸びない） */
+      .pay-quick #payNokori {
+        flex-basis: 100%;
+      }
       /* 入金行の「全入金」ワンタップ（当たり44px・誤爆防止に行タップと分離） */
       .pay-full-btn {
         flex: 0 0 auto;
         min-width: 56px;
-        min-height: 44px;
+        min-height: 32px; /* 12px の字→32（比2.67）・押す所は ::after */
         margin-left: 8px;
         border: 1px solid #0a5fd0;
         background: #fff;

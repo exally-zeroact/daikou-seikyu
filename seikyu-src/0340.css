@@ -39,6 +39,7 @@
       }
       .addcustom {
         display: flex;
+        align-items: center; /* ＋追加 は 字に合わせた 32px のまま（隣の 44px の枠に 伸ばされない） */
         gap: 8px;
         margin: 8px 0 2px;
       }

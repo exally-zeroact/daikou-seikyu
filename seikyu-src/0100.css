@@ -84,6 +84,7 @@
         margin: 4px 6px 0 0;
         font-size: 13px;
         padding: 4px 10px;
+        min-height: 36px; /* 13px の字→36（比2.77） */
         border: 1px solid #c0392b;
         border-radius: 6px;
         background: #ffffff;

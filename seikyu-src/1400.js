@@ -70,7 +70,7 @@
         return (
           "" +
           '<div class="card-label">会社名（編集）</div>' +
-          '<div style="display:flex;gap:8px;margin-bottom:6px;">' +
+          '<div style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">' +
           '<input class="finput" style="flex:1;" value="' +
           esc(co) +
           '" ' +
