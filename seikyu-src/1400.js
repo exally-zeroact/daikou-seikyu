@@ -140,7 +140,7 @@
           esc(co) +
           "',this.value)\"></div>" +
           '<div class="frow"><div class="flabel">振込手数料（先方が差し引いて払った時）</div>' +
-          '<div class="align-row">' +
+          '<div class="align-row align-tate">' +
           '<button type="button" class="align-btn' +
           (m.tesuryoFutan === "kochira" ? "" : " on") +
           '" onclick="setMasterField(\'' +

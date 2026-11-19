@@ -4,7 +4,9 @@
 //   ① 全画面・窓の 押せる物と 入力枠を 数えて 外れ 0
 //   ② 見える箱の 内側を 押すと 自分に 当たる（::after の 広げが 隣・上の label を 奪わない）
 //   外す物（字の高さの決まりの外）＝下の帯 nav-item（絵文字＋字の2段）・行の高さいっぱいの消し swipe-del・
-//     丸い × entry-del／dnd-del／dkfix-x・切り替えの丸 itb-switch・textarea・字が2行に折れた物（320px の seg 等）。
+//     切り替えの丸 itb-switch（今は描く先が無い）・textarea・見本のカード tpl-card・320px で 2行に折れた物（375／390 の 2行は 外れ）。
+//     丸い × entry-del／dnd-del／dkfix-x は 高さの決まりの外（見える丸 26px）＝押す所 44px 角を ③ で 数える。
+//   ③ 広げた押す所（::after）の 内側を押しても 自分に当たる（下の物に 取られない・隣と 重ならない）
 //   ★CI は chromium だけ★＝ここは iPhone SE（375）／13（390）／320 の幅を chromium で 当てる。
 //     WebKit（実 iPhone の Safari）は 手元の測り（commit しない zz-hakaru）で 数えた。
 import { test, expect } from "@playwright/test";
@@ -81,12 +83,13 @@ function seed() {
 
 const OSU =
   'button, .btn, .chip, .itb-chip, .dest-chip, [role="button"], input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="color"]):not([type="range"]), select, label';
-const SOTO = ["nav-item", "swipe-del", "entry-del", "dnd-del", "dkfix-x", "itb-switch"];
+const SOTO = ["nav-item", "swipe-del", "itb-switch"];
+const MARU = ["entry-del", "dnd-del", "dkfix-x"]; // 丸い ×＝高さの決まりの外・押す所は 44px 角
 
 // 画面の中の 押せる物を 数える（高さ÷字・2行か・見える箱の内側を押して 自分に当たるか）
 async function kazoeru(page, basho, ne = "body") {
   return page.evaluate(
-    ([basho, OSU, SOTO, ne]) => {
+    ([basho, OSU, SOTO, MARU, ne]) => {
       const out = [];
       const mieru = (e) => {
         const b = e.getBoundingClientRect();
@@ -124,6 +127,7 @@ async function kazoeru(page, basho, ne = "body") {
           .replace(/\s+/g, " ")
           .slice(0, 14);
         const nigyou = !waku && !isLabel ? gyou(e) > 1 : false;
+        const maru = MARU.some((c) => cls.split(/s+/).includes(c));
         // ② 見える箱の 内側（4辺の真ん中から2px・真ん中）を押すと 自分（か 中の物）に当たるか
         //    ★角は 丸め（border-radius）で 箱の外になる＝角は押さない★
         const cx = b.left + b.width / 2;
@@ -148,8 +152,37 @@ async function kazoeru(page, basho, ne = "body") {
             (h.className || h.tagName) + "「" + (h.textContent || "").trim().slice(0, 10) + "」";
           break;
         }
+        // ③ 広げた押す所の 内側（::after の 上下の端から1px・丸い × は 44px 角の 4辺から1px）を押すと 自分に当たるか
+        let hirogari = null;
+        let ue = 0;
+        let shita = 0;
+        let yoko = 0;
+        //    ★CSS の値から 推さない★＝見える箱の 真ん中から 縦 44px（丸い × は 44px 角）の 内側を 直に押す
+        if (!waku && !isLabel) {
+          ue = shita = Math.max(0, (44 - b.height) / 2);
+          if (maru) yoko = Math.max(0, (44 - b.width) / 2);
+        }
+        if (ue || shita || yoko) {
+          const hp = [
+            [cx, b.top - ue + 1],
+            [cx, b.bottom + shita - 1],
+          ];
+          if (yoko) hp.push([b.left - yoko + 1, cy], [b.right + yoko - 1, cy]);
+          for (const [x, y] of hp) {
+            if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) continue;
+            const h = document.elementFromPoint(x, y);
+            if (!h || h === e || e.contains(h)) continue;
+            if (h.closest(".bottom-nav, nav, .toast, .undo-toast, header")) continue;
+            hirogari =
+              (h.className || h.tagName) + "「" + (h.textContent || "").trim().slice(0, 10) + "」";
+            break;
+          }
+        }
         out.push({
           basho,
+          vw: innerWidth,
+          maru,
+          hirogari,
           tag: e.tagName,
           cls: cls.slice(0, 40),
           kiji,
@@ -164,13 +197,17 @@ async function kazoeru(page, basho, ne = "body") {
       }
       return out;
     },
-    [basho, OSU, SOTO, ne]
+    [basho, OSU, SOTO, MARU, ne]
   );
 }
 
 // 高さの決まり（12〜13px は 32〜37 も合格・主ボタン 16px は 48 まで）
 function hazure(r) {
-  if (r.isLabel || r.nigyou) return false;
+  if (r.isLabel || r.maru) return false;
+  // 見本の カード（tpl-card）は 中に 絵の在る 箱＝字の高さの決まりの外（押す所の 試験は する）
+  if (/\btpl-card\b/.test(r.cls)) return false;
+  // 2行に折れて よいのは 320px の幅だけ（逃がし）。375／390 で 2行は 外れ
+  if (r.nigyou) return r.vw > 320;
   if (!r.fs) return false;
   if (r.fs <= 12.5 && r.h >= 31.5 && r.h <= 34.5) return false;
   if (r.fs > 12.5 && r.fs <= 13.5 && r.h >= 31.5 && r.h <= 37.5) return false;
@@ -268,6 +305,12 @@ for (const [na, w, h] of [
         .filter((r) => r.ubawareta)
         .map((r) => `${r.basho} ${r.cls || r.tag}「${r.kiji}」を押すと ${r.ubawareta}`);
       expect(ubai, "見える箱の内側が 他に取られる").toEqual([]);
+      const hiro = rows
+        .filter((r) => r.hirogari)
+        .map((r) => `${r.basho} ${r.cls || r.tag}「${r.kiji}」の 広げを押すと ${r.hirogari}`);
+      expect(hiro, "広げた押す所が 他に取られる").toEqual([]);
+      // 丸い × も 数えている（分母）
+      expect(rows.filter((r) => r.maru).length, "丸い × が 1つも 測れていない").toBeGreaterThan(0);
     });
   });
 }
@@ -289,7 +332,8 @@ test.describe("押す所の広げ", () => {
         );
         if (!e) continue;
         const a = getComputedStyle(e, "::after");
-        const h = e.getBoundingClientRect().height - parseFloat(a.top) - parseFloat(a.bottom);
+        // 広げの 本当の高さ（top/bottom の値から 引くと 枠線の分 ずれて 42 を 44 と 読んだ）
+        const h = parseFloat(a.height);
         out.push({ sel, h: Math.round(h), pos: getComputedStyle(e).position, content: a.content });
       }
       return out;

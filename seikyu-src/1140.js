@@ -426,7 +426,7 @@
                 esc(k.co) +
                 " の振込名義として覚える</label>";
             h +=
-              '<button class="btn btn-primary btn-sm ks-oshi" style="width:auto;margin-top:4px;" ' +
+              '<button class="btn btn-primary btn-sm ks-oshi" style="width:auto;margin-top:8px;margin-bottom:6px;" ' +
               (KS.oshiteru ? "disabled " : "") +
               'onclick="ksOshita(' +
               i +

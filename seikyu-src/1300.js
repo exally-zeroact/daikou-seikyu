@@ -27,9 +27,9 @@
                 j +
                 ')" title="' +
                 esc(d) +
-                '">' +
+                '"><span class="dest-chip-ji">' +
                 esc(destChipLabel(d)) +
-                "</button>"
+                "</span></button>"
               );
             })
             .join("") +

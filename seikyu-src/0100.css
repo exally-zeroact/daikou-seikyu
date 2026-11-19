@@ -230,7 +230,3 @@
         justify-content: center;
         flex-shrink: 0;
       }
-      .entry-del:hover {
-        background: #fdf1f0;
-        color: #c0392b;
-      }

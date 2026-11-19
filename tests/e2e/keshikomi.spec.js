@@ -411,3 +411,55 @@ test("★同じ日・同じ額の別の会社の振込＝もう1行の記録を�
   await expect(gyou(page, 1).locator(".ks-kamo")).toHaveCount(0);
   await expect(gyou(page, 1).locator(".ks-oshi").first()).toHaveText("記録する");
 });
+
+// ★押す所の広げ（::after）が 上の「振込名義として覚える」label を 奪わない★ 2026-11-19 ボタンの高さの件（taiketsu-naoshi 止め）
+test.describe("消し込みの押す所", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+  test("★記録するボタンの広げの内側は自分・上の label の内側は label に当たる★", async ({
+    page,
+  }) => {
+    await hiraku(page);
+    // 名義が 覚えに無い 振込（額で 候補が出る）＝「振込名義として覚える」の label が ボタンの上に出る
+    await csvYomu(
+      page,
+      "日付,摘要,お引出金額,お預り金額,残高\n2026/11/02,ﾌﾘｺﾐ ﾀﾅｶﾀﾛｳ,,20000,1\n" +
+        CSV.split("\n").slice(1).join("\n")
+    );
+    await expect(page.locator(".ks-oshi").first()).toBeVisible();
+    const r = await page.evaluate(() => {
+      const out = { oshi: 0, label: 0, dame: [] };
+      const ataru = (e, x, y) => {
+        const h = document.elementFromPoint(x, y);
+        return !!h && (h === e || e.contains(h) || (e.control && e.control === h));
+      };
+      for (const e of document.querySelectorAll(".ks-oshi")) {
+        e.scrollIntoView({ block: "center" });
+        const b = e.getBoundingClientRect();
+        if (!b.height) continue;
+        // ★CSS の値から 推さない★＝見える箱の 真ん中から 縦 44px の 端を 直に押す
+        const ue = Math.max(0, (44 - b.height) / 2);
+        const shita = ue;
+        const cx = b.left + b.width / 2;
+        out.oshi++;
+        if (!ataru(e, cx, b.top - ue + 1)) out.dame.push("ks-oshi 上の広げ");
+        if (!ataru(e, cx, b.bottom + shita - 1)) {
+          const h = document.elementFromPoint(cx, b.bottom + shita - 1);
+          out.dame.push("ks-oshi 下の広げ→" + (h && (h.className || h.tagName)));
+        }
+        // すぐ上の label（在る時）
+        const l = e.previousElementSibling;
+        if (l && l.tagName === "LABEL") {
+          const lb = l.getBoundingClientRect();
+          out.label++;
+          if (!ataru(l, lb.left + 20, lb.bottom - 1)) out.dame.push("label の下の端が取られる");
+          if (b.top - ue < lb.bottom)
+            out.dame.push("広げが label に重なる " + (lb.bottom - (b.top - ue)) + "px");
+        }
+      }
+      return out;
+    });
+    expect(r.oshi).toBeGreaterThan(0);
+    expect(r.label, "label の在る場面を 測れていない").toBeGreaterThan(0);
+    expect(r.dame).toEqual([]);
+  });
+});

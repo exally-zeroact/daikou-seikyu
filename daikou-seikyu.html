@@ -591,28 +591,15 @@
       .dest-chip::after,
       .hakko-obi-x::after,
       .chip::after {
+        /* 真ん中から 縦 44px（枠線の太さに 左右されない・箱が 44 より高い時は 箱の高さ） */
         content: "";
         position: absolute;
         left: 0;
         right: 0;
-        top: -6px;
-        bottom: -6px;
-      }
-      .btn-primary::after {
-        top: -3px;
-        bottom: -3px;
-      }
-      .btn-ghost::after,
-      .dseg-btn::after,
-      .add-line::after,
-      .hakko-obi-x::after {
-        top: -4px;
-        bottom: -4px;
-      }
-      .btn-ghost.btn-sm::after,
-      .btn-primary.btn-sm::after {
-        top: -6px;
-        bottom: -6px;
+        top: 50%;
+        height: 44px;
+        min-height: 100%;
+        transform: translateY(-50%);
       }
       .btn-danger {
         background: #fdf1f0;
@@ -854,6 +841,13 @@
         align-items: center;
         gap: 6px;
         margin-top: 8px;
+      }
+      /* 字の長い 2択（振込手数料）は 縦に並べて 1行ずつ（横だと 2行に折れて 46px・2026-11-19）。
+         間 12px＝上下の ::after 6px ずつが 重ならない */
+      .align-row.align-tate {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
       }
       .align-lbl {
         font-size: 11px;
@@ -1119,6 +1113,22 @@
         justify-content: center;
         flex-shrink: 0;
       }
+      /* ★丸い × は 見える丸 26px のまま・押す所 44px 角を 見えない ::after で（2026-11-19）★ */
+      .entry-del,
+      .dnd-del {
+        position: relative;
+      }
+      .entry-del::after,
+      .dnd-del::after,
+      .dkfix-x::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 44px;
+        height: 44px;
+        transform: translate(-50%, -50%);
+      }
       .entry-del:hover {
         background: #fdf1f0;
         color: #c0392b;
@@ -1132,7 +1142,7 @@
         color: #555555;
         display: flex;
         flex-wrap: wrap;
-        gap: 6px;
+        gap: 12px 6px; /* 行の間 12px＝押す所が 重ならない */
         align-items: center;
       }
       .dest-chip {
@@ -1147,9 +1157,15 @@
         font-family: "Noto Sans JP", sans-serif;
         cursor: pointer;
         max-width: 100%;
+        white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+      }
+      /* 字の 切り詰めは 中の span で（箱に overflow:hidden を 付けると 押す所の ::after まで 切れる・2026-11-19） */
+      .dest-chip-ji {
         overflow: hidden;
         text-overflow: ellipsis;
-        white-space: nowrap;
+        min-width: 0;
       }
       .pay-modose {
         margin: 0 0 10px;
@@ -1478,7 +1494,7 @@
       .pay-quick {
         display: flex;
         flex-wrap: wrap; /* 全額/残額/半額/未入金 が折返せるように */
-        gap: 8px;
+        gap: 12px 8px; /* 行の間 12px＝押す所が 重ならない */
         margin: 10px 0 4px;
       }
       .pay-quick .btn {
@@ -1906,7 +1922,7 @@
       .chip-row {
         display: flex;
         flex-wrap: wrap;
-        gap: 6px;
+        gap: 12px 6px; /* 行の間 12px＝押す所が 重ならない */
         margin-bottom: 6px;
       }
       .chip {
@@ -3094,7 +3110,11 @@
               >
                 📷 判子画像をアップロード
               </button>
-              <button class="btn btn-danger btn-sm" style="margin-top: 6px" onclick="clearHanko()">
+              <button
+                class="btn btn-danger btn-sm"
+                style="margin-top: 12px; margin-bottom: 4px"
+                onclick="clearHanko()"
+              >
                 ✕ 判子を消す
               </button>
               <input
@@ -3161,7 +3181,11 @@
               >
                 📷 ロゴ画像をアップロード
               </button>
-              <button class="btn btn-danger btn-sm" style="margin-top: 6px" onclick="clearLogo()">
+              <button
+                class="btn btn-danger btn-sm"
+                style="margin-top: 12px; margin-bottom: 4px"
+                onclick="clearLogo()"
+              >
                 ✕ ロゴを消す
               </button>
               <input
@@ -9342,7 +9366,7 @@
                 esc(k.co) +
                 " の振込名義として覚える</label>";
             h +=
-              '<button class="btn btn-primary btn-sm ks-oshi" style="width:auto;margin-top:4px;" ' +
+              '<button class="btn btn-primary btn-sm ks-oshi" style="width:auto;margin-top:8px;margin-bottom:6px;" ' +
               (KS.oshiteru ? "disabled " : "") +
               'onclick="ksOshita(' +
               i +
@@ -11205,9 +11229,9 @@
                 j +
                 ')" title="' +
                 esc(d) +
-                '">' +
+                '"><span class="dest-chip-ji">' +
                 esc(destChipLabel(d)) +
-                "</button>"
+                "</span></button>"
               );
             })
             .join("") +
@@ -12922,7 +12946,7 @@
           esc(co) +
           "',this.value)\"></div>" +
           '<div class="frow"><div class="flabel">振込手数料（先方が差し引いて払った時）</div>' +
-          '<div class="align-row">' +
+          '<div class="align-row align-tate">' +
           '<button type="button" class="align-btn' +
           (m.tesuryoFutan === "kochira" ? "" : " on") +
           '" onclick="setMasterField(\'' +

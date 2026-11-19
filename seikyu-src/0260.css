@@ -112,7 +112,7 @@
       .pay-quick {
         display: flex;
         flex-wrap: wrap; /* 全額/残額/半額/未入金 が折返せるように */
-        gap: 8px;
+        gap: 12px 8px; /* 行の間 12px＝押す所が 重ならない */
         margin: 10px 0 4px;
       }
       .pay-quick .btn {

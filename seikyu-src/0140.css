@@ -5,7 +5,7 @@
         color: #555555;
         display: flex;
         flex-wrap: wrap;
-        gap: 6px;
+        gap: 12px 6px; /* 行の間 12px＝押す所が 重ならない */
         align-items: center;
       }
       .dest-chip {
@@ -20,9 +20,15 @@
         font-family: "Noto Sans JP", sans-serif;
         cursor: pointer;
         max-width: 100%;
+        white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+      }
+      /* 字の 切り詰めは 中の span で（箱に overflow:hidden を 付けると 押す所の ::after まで 切れる・2026-11-19） */
+      .dest-chip-ji {
         overflow: hidden;
         text-overflow: ellipsis;
-        white-space: nowrap;
+        min-width: 0;
       }
       .pay-modose {
         margin: 0 0 10px;

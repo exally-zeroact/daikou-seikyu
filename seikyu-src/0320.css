@@ -233,7 +233,7 @@
       .chip-row {
         display: flex;
         flex-wrap: wrap;
-        gap: 6px;
+        gap: 12px 6px; /* 行の間 12px＝押す所が 重ならない */
         margin-bottom: 6px;
       }
       .chip {

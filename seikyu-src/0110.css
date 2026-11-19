@@ -1,0 +1,20 @@
+      /* ★丸い × は 見える丸 26px のまま・押す所 44px 角を 見えない ::after で（2026-11-19）★ */
+      .entry-del,
+      .dnd-del {
+        position: relative;
+      }
+      .entry-del::after,
+      .dnd-del::after,
+      .dkfix-x::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 44px;
+        height: 44px;
+        transform: translate(-50%, -50%);
+      }
+      .entry-del:hover {
+        background: #fdf1f0;
+        color: #c0392b;
+      }

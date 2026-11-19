@@ -21,28 +21,15 @@
       .dest-chip::after,
       .hakko-obi-x::after,
       .chip::after {
+        /* 真ん中から 縦 44px（枠線の太さに 左右されない・箱が 44 より高い時は 箱の高さ） */
         content: "";
         position: absolute;
         left: 0;
         right: 0;
-        top: -6px;
-        bottom: -6px;
-      }
-      .btn-primary::after {
-        top: -3px;
-        bottom: -3px;
-      }
-      .btn-ghost::after,
-      .dseg-btn::after,
-      .add-line::after,
-      .hakko-obi-x::after {
-        top: -4px;
-        bottom: -4px;
-      }
-      .btn-ghost.btn-sm::after,
-      .btn-primary.btn-sm::after {
-        top: -6px;
-        bottom: -6px;
+        top: 50%;
+        height: 44px;
+        min-height: 100%;
+        transform: translateY(-50%);
       }
       .btn-danger {
         background: #fdf1f0;
@@ -284,6 +271,13 @@
         align-items: center;
         gap: 6px;
         margin-top: 8px;
+      }
+      /* 字の長い 2択（振込手数料）は 縦に並べて 1行ずつ（横だと 2行に折れて 46px・2026-11-19）。
+         間 12px＝上下の ::after 6px ずつが 重ならない */
+      .align-row.align-tate {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
       }
       .align-lbl {
         font-size: 11px;
