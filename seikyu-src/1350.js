@@ -55,7 +55,22 @@
         else DB.push(meisaiFromDb(y.data));
         return true;
       }
+      // ★保存は 1行 1本ずつ★（2回 押すと 2本 走り、一覧に 同じ 行が 2本 出た・11-19 本番前 対立役 止2）
+      var _saveEditChu = {};
+      function _dbIdx(id) {
+        for (var i = 0; i < DB.length; i++) if (DB[i] && DB[i].id === id) return i;
+        return -1;
+      }
       async function saveEdit(id) {
+        if (_saveEditChu[id]) return;
+        _saveEditChu[id] = true;
+        try {
+          await _saveEditHontai(id);
+        } finally {
+          delete _saveEditChu[id];
+        }
+      }
+      async function _saveEditHontai(id) {
         var r = DB.filter(function (x) {
           return x.id === id;
         })[0];
@@ -162,7 +177,7 @@
         var betsuGaku = _n(kura.amount) !== _n(_mae.金額);
         if (nanimoKaete) {
           // 変えた 欄が 無い＝書かない。手元は 倉庫の 今の 行に 揃える
-          var iN = DB.indexOf(r);
+          var iN = _dbIdx(id);
           if (iN >= 0) DB[iN] = meisaiFromDb(kura);
           closeModal();
           renderList();
@@ -224,7 +239,8 @@
           return;
         }
         var ato = meisaiFromDb(u.data[0]);
-        var iA = DB.indexOf(r);
+        // ★id で 探し直す★（r は 前の 保存で 差し替わって いる 事が ある＝DB.push で 同じ 行が 2本 に なった・11-19 本番前 対立役 止2）
+        var iA = _dbIdx(id);
         if (iA >= 0) DB[iA] = ato;
         else DB.push(ato);
         var shirase = [];
@@ -247,8 +263,14 @@
         // ★事務所の売上へ 戻す★ 2026-09-03（司さん「一覧で金額とか修正したら事務所の売上とかも自動で修正されるように」）
         //   ★客が 額を 変えた 時 だけ★（別の 画面の 額を 読んだ だけで 送ると、事務所の 直しを 送り返す）
         //   ★保存は もう 終わっている★＝ここで 何が 起きても 一覧の 保存は 通ったまま。
+        //   ★比べるのは 倉庫の 今の 額★（手元の 古い 額と 比べると、料金未定→0 や 古い 額と 同じ 額を 打った 時に
+        //    別の 画面が 入れた 額が 事務所に 残る＝11-19 本番前 対立役 止1）
         if (kaeta.金額) {
-          await _jimushoHeModosu(ato, _mae);
+          await _jimushoHeModosu(ato, {
+            金額: kura.amount == null ? null : kura.amount,
+            dk_source: _mae.dk_source,
+            dk_ref: _mae.dk_ref,
+          });
           // 戻した 知らせ（1.7秒）で 上の 知らせが 消えない ように 出し直す
           if (shiraseJi) toast(shiraseJi, 8000);
         }

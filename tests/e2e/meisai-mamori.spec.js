@@ -323,3 +323,46 @@ test("書く 前に 読めなかった＝書かない・手元は 開いた 時�
   expect(await kuraNoGaku(page)).toBe(7777);
   expect(await temotoNoGaku(page)).toBe(1200);
 });
+
+// ★11-19 本番前 対立役 止1★ 事務所へ 戻すかは「倉庫の 今の 額」と 比べる（手元の 古い 額と 比べない）
+//   手元が 料金未定（空）で 別の 画面が 3300 を 入れた 後に 客が 0 と 打つ＝請求は 0・事務所は 3300 の まま に なっていた
+test("料金未定（空）の 間に 別の 画面で 3300・客が 0 と 打つ＝倉庫 0・事務所へ 戻す", async ({
+  page,
+}) => {
+  const yobi = await hiraku(page, DK, null);
+  await hiraite(page);
+  await betsuNoGamen(page, 3300);
+  await hozon(page, 0);
+  expect(await kuraNoGaku(page)).toBe(0);
+  expect(yobi.filter((u) => /dk-fix-fare$/.test(u)).length, "★事務所へ 戻していない★").toBe(1);
+});
+
+test("手元が 古い 1500・別の 画面で 7777・客が 01500 と 打つ＝倉庫 1500・事務所へ 戻す", async ({
+  page,
+}) => {
+  const yobi = await hiraku(page, DK, 1500);
+  await hiraite(page);
+  await betsuNoGamen(page, 7777);
+  await hozon(page, "01500");
+  expect(await kuraNoGaku(page)).toBe(1500);
+  expect(yobi.filter((u) => /dk-fix-fare$/.test(u)).length, "★事務所へ 戻していない★").toBe(1);
+});
+
+// ★11-19 本番前 対立役 止2★ 保存を 2回 押しても 一覧の 行は 1本
+test("保存を 2回 続けて 押す＝手元の 行は 1本・事務所へ 戻すのも 1回", async ({ page }) => {
+  const yobi = await hiraku(page, DK);
+  await hiraite(page);
+  await page.fill("#ed_金額", "1800");
+  await page.evaluate(() => {
+    const el = [...document.querySelectorAll("#modalBody button")].find((x) =>
+      /保存/.test(x.textContent)
+    );
+    el.click();
+    el.click();
+  });
+  await page.waitForTimeout(1500);
+  const n = await page.evaluate(() => DB.filter((x) => x.id === "m0").length);
+  expect(n, "★同じ 行が 2本 ある★").toBe(1);
+  expect(await kuraNoGaku(page)).toBe(1800);
+  expect(yobi.filter((u) => /dk-fix-fare$/.test(u)).length).toBe(1);
+});

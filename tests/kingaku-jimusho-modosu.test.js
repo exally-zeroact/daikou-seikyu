@@ -97,7 +97,7 @@ describe("★一覧で 金額を 直したら 事務所へ 戻す★", () => {
     // ★★呼び出しの 1行が 在るか★★
     //   これが 無いと ★呼ぶ所を 消しても 緑のまま★だった（2026-09-03・わざと壊して 気づいた）
     expect(HTML, "★保存の後に 呼ぶ 1行が ありません★").toMatch(
-      /await _jimushoHeModosu\(ato, _mae\)/
+      /await _jimushoHeModosu\(ato, \{\s*金額: kura\.amount/
     );
   });
 
